@@ -1,0 +1,10 @@
+{
+  "name": "@ai-chat-platform/ai-manager",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "dependencies": {
+    "@ai-chat-platform/types": "workspace:*"
+  }
+}
