@@ -21,7 +21,8 @@
     "react-dom": "^19.2.0",
     "zod": "^4.4.3",
     "@ai-chat-platform/ai-manager": "workspace:*",
-    "@ai-chat-platform/groq": "workspace:*"
+    "@ai-chat-platform/groq": "workspace:*",
+    "@ai-chat-platform/chat-engine": "workspace:*"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
