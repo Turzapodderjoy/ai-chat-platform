@@ -1,2 +1,2 @@
 export * from "./manager";
-export * from "./providers";
+export * from "./types";

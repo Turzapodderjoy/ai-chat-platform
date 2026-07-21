@@ -1,0 +1,11 @@
+{
+  "name": "@ai-chat-platform/groq",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "dependencies": {
+    "groq-sdk": "^0.31.0",
+    "@ai-chat-platform/ai-manager": "workspace:*"
+  }
+}

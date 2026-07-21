@@ -1,4 +1,4 @@
-import { AIProvider } from "@ai-chat-platform/types";
+import type { AIProvider } from "./types";
 
 export class AIManager {
   private providers: AIProvider[] = [];
@@ -7,7 +7,31 @@ export class AIManager {
     this.providers.push(provider);
   }
 
-  getProviders() {
-    return this.providers;
+  async chat(message: string) {
+    if (this.providers.length === 0) {
+      throw new Error("No AI providers registered.");
+    }
+
+    let lastError: unknown = null;
+
+    for (const provider of this.providers) {
+      try {
+        const healthy = await provider.health();
+
+        if (!healthy) continue;
+
+        const response = await provider.chat(message);
+
+        return {
+          provider: provider.name,
+          response,
+        };
+      } catch (error) {
+        console.log(`${provider.name} failed`);
+        lastError = error;
+      }
+    }
+
+    throw lastError ?? new Error("No provider available.");
   }
 }
