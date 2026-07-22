@@ -1,0 +1,10 @@
+{
+  "name": "@ai-chat-platform/vector-store",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "dependencies": {
+    "@lancedb/lancedb": "^0.31.0"
+  }
+}

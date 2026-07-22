@@ -29,7 +29,8 @@
     "@ai-chat-platform/config": "workspace:*",
     "@ai-chat-platform/document-loader": "workspace:*",
     "@ai-chat-platform/chunker": "workspace:*",
-    "@ai-chat-platform/ingestion": "workspace:*"
+    "@ai-chat-platform/ingestion": "workspace:*",
+    "@ai-chat-platform/embedding-manager": "workspace:*"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
