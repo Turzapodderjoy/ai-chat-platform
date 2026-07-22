@@ -3,5 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "main": "./src/index.ts"
+  "main": "./src/index.ts",
+  "dependencies": {
+    "pdf-parse": "^1.1.1",
+    "mammoth": "^1.10.0"
+  }
 }

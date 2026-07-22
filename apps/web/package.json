@@ -26,7 +26,10 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "zod": "^4.4.3",
-    "@ai-chat-platform/config": "workspace:*"
+    "@ai-chat-platform/config": "workspace:*",
+    "@ai-chat-platform/document-loader": "workspace:*",
+    "@ai-chat-platform/chunker": "workspace:*",
+    "@ai-chat-platform/ingestion": "workspace:*"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

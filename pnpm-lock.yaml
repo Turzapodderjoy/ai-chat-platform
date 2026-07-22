@@ -26,12 +26,21 @@ importers:
       '@ai-chat-platform/chat-engine':
         specifier: workspace:*
         version: link:../../packages/chat-engine
+      '@ai-chat-platform/chunker':
+        specifier: workspace:*
+        version: link:../../packages/chunker
       '@ai-chat-platform/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@ai-chat-platform/document-loader':
+        specifier: workspace:*
+        version: link:../../packages/document-loader
       '@ai-chat-platform/groq':
         specifier: workspace:*
         version: link:../../packages/groq
+      '@ai-chat-platform/ingestion':
+        specifier: workspace:*
+        version: link:../../packages/ingestion
       '@ai-chat-platform/knowledge-base':
         specifier: workspace:*
         version: link:../../packages/knowledge-base
@@ -99,9 +108,18 @@ importers:
         specifier: workspace:*
         version: link:../ai-manager
 
+  packages/chunker: {}
+
   packages/config: {}
 
-  packages/document-loader: {}
+  packages/document-loader:
+    dependencies:
+      mammoth:
+        specifier: ^1.10.0
+        version: 1.12.0
+      pdf-parse:
+        specifier: ^1.1.1
+        version: 1.1.4
 
   packages/eslint-config:
     devDependencies:
@@ -147,6 +165,15 @@ importers:
       groq-sdk:
         specifier: ^0.31.0
         version: 0.31.0
+
+  packages/ingestion:
+    dependencies:
+      '@ai-chat-platform/chunker':
+        specifier: workspace:*
+        version: link:../chunker
+      '@ai-chat-platform/document-loader':
+        specifier: workspace:*
+        version: link:../document-loader
 
   packages/knowledge-base: {}
 
@@ -1441,6 +1468,9 @@ packages:
     engines: {node: '>=10.5.0'}
     deprecated: Use your platform's native DOMException instead
 
+  node-ensure@0.0.0:
+    resolution: {integrity: sha512-DRI60hzo2oKN1ma0ckc6nQWlHU69RH6xN0sjQTjMpChPfTYvKZdcQFfdYK2RWbJcKyUizSIy/l8OTGxMAM1QDw==}
+
   node-fetch@2.7.0:
     resolution: {integrity: sha512-c4FRfUm/dbcWZ7U+1Wq0AwCyFL+3nt2bEw05wfxSz+DWpWsitgmSgYmy2dQdWyKC1694ELPqMs/YzUSNozLt8A==}
     engines: {node: 4.x || >=6.0.0}
@@ -1526,6 +1556,10 @@ packages:
 
   path-parse@1.0.7:
     resolution: {integrity: sha512-LDJzPVEEEPR+y48z93A0Ed0yXb8pAByGWo/k5YYdYgpY2/2EsOsksJrq7lOHxryrVOn1ejG6oAp8ahvOIQD8sw==}
+
+  pdf-parse@1.1.4:
+    resolution: {integrity: sha512-XRIRcLgk6ZnUbsHsYXExMw+krrPE81hJ6FQPLdBNhhBefqIQKXu/WeTgNBGSwPrfU0v+UCEwn7AoAUOsVKHFvQ==}
+    engines: {node: '>=6.8.1'}
 
   pdf-parse@2.4.5:
     resolution: {integrity: sha512-mHU89HGh7v+4u2ubfnevJ03lmPgQ5WU4CxAVmTSh/sxVTEDYd1er/dKS/A6vg77NX47KTEoihq8jZBLr8Cxuwg==}
@@ -3244,6 +3278,8 @@ snapshots:
 
   node-domexception@1.0.0: {}
 
+  node-ensure@0.0.0: {}
+
   node-fetch@2.7.0:
     dependencies:
       whatwg-url: 5.0.0
@@ -3333,6 +3369,10 @@ snapshots:
   path-key@3.1.1: {}
 
   path-parse@1.0.7: {}
+
+  pdf-parse@1.1.4:
+    dependencies:
+      node-ensure: 0.0.0
 
   pdf-parse@2.4.5:
     dependencies:

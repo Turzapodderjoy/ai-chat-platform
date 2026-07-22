@@ -1,0 +1,11 @@
+{
+  "name": "@ai-chat-platform/ingestion",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "dependencies": {
+    "@ai-chat-platform/chunker": "workspace:*",
+    "@ai-chat-platform/document-loader": "workspace:*"
+  }
+}
