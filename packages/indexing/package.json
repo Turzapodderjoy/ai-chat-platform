@@ -1,0 +1,13 @@
+{
+  "name": "@ai-chat-platform/indexing",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "dependencies": {
+    "@ai-chat-platform/chunker": "workspace:*",
+    "@ai-chat-platform/document-loader": "workspace:*",
+    "@ai-chat-platform/embedding-manager": "workspace:*",
+    "@ai-chat-platform/vector-store": "workspace:*"
+  }
+}

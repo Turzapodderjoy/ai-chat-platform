@@ -30,7 +30,10 @@
     "@ai-chat-platform/document-loader": "workspace:*",
     "@ai-chat-platform/chunker": "workspace:*",
     "@ai-chat-platform/ingestion": "workspace:*",
-    "@ai-chat-platform/embedding-manager": "workspace:*"
+    "@ai-chat-platform/embedding-manager": "workspace:*",
+    "@ai-chat-platform/vector-store": "workspace:*",
+    "@ai-chat-platform/indexing": "workspace:*",
+    "@lancedb/lancedb": "^0.13.0"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

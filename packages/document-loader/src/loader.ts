@@ -1,35 +1,48 @@
 import path from "path";
-
-import { loadTxt } from "./txt-loader";
-import { loadPdf } from "./pdf-loader";
-import { loadDocx } from "./docx-loader";
+import fs from "fs/promises";
+import pdfParse from "pdf-parse";
+import mammoth from "mammoth";
 
 export class DocumentLoader {
+  /**
+   * Reads a file from disk by path and extracts raw text
+   */
+  async load(filepath: string): Promise<string> {
+    const ext = path.extname(filepath).toLowerCase();
+    const buffer = await fs.readFile(filepath);
 
-  async load(filepath: string) {
-
-    const extension = path
-      .extname(filepath)
-      .toLowerCase();
-
-    switch (extension) {
-
-      case ".txt":
-        return loadTxt(filepath);
-
-      case ".pdf":
-        return loadPdf(filepath);
-
-      case ".docx":
-        return loadDocx(filepath);
-
-      default:
-        throw new Error(
-          `Unsupported file type: ${extension}`
-        );
-
+    if (ext === ".pdf") {
+      const parsed = await pdfParse(buffer);
+      return parsed.text;
     }
 
+    if (ext === ".docx") {
+      const result = await mammoth.extractRawText({ buffer });
+      return result.value;
+    }
+
+    // Default fallback for plain text files (.txt, .md, .json, csv, etc.)
+    return buffer.toString("utf-8");
   }
 
+  /**
+   * Alias method so loadFromFile never throws an undefined error
+   */
+  async loadFromFile(file: File): Promise<string> {
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const ext = path.extname(file.name).toLowerCase();
+
+    if (ext === ".pdf") {
+      const parsed = await pdfParse(buffer);
+      return parsed.text;
+    }
+
+    if (ext === ".docx") {
+      const result = await mammoth.extractRawText({ buffer });
+      return result.value;
+    }
+
+    return buffer.toString("utf-8");
+  }
 }
