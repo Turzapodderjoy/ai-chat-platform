@@ -4,9 +4,6 @@ import path from "path";
 
 import { UPLOAD_DIR } from "@ai-chat-platform/config";
 import { DocumentLoader } from "@ai-chat-platform/document-loader";
-import { Chunker } from "@ai-chat-platform/chunker";
-import { EmbeddingManager, JinaProvider } from "@ai-chat-platform/embedding-manager";
-import { VectorStoreManager, LanceDBProvider } from "@ai-chat-platform/vector-store";
 import { IndexingService } from "@ai-chat-platform/indexing";
 
 export async function POST(req: NextRequest) {
@@ -21,40 +18,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Save upload to disk
+    // Save uploaded file
     await fs.mkdir(UPLOAD_DIR, { recursive: true });
+
     const filename = `${Date.now()}-${file.name}`;
     const filepath = path.join(UPLOAD_DIR, filename);
     const bytes = await file.arrayBuffer();
+
     await fs.writeFile(filepath, Buffer.from(bytes));
 
-    // 2. Extract plain text using DocumentLoader
+    // Load document
     const loader = new DocumentLoader();
     const rawText = await loader.load(filepath);
 
-    // 3. Setup RAG pipeline components
-    const chunker = new Chunker();
-
-    const jinaProvider = new JinaProvider(process.env.JINA_API_KEY || "");
-    const embeddingManager = new EmbeddingManager(jinaProvider);
-
-    const lancedbProvider = new LanceDBProvider();
-    await lancedbProvider.initialize();
-    const vectorStore = new VectorStoreManager(lancedbProvider);
-
-    // 4. Run Indexing Service
-    const indexingService = new IndexingService(
-      chunker,
-      embeddingManager,
-      vectorStore
-    );
+    // Initialize pipeline internally via IndexingService
+    const indexingService = new IndexingService();
+    await indexingService.initialize();
 
     const result = await indexingService.index({
       filename: file.name,
       text: rawText,
     });
 
-    // 5. Success
     return NextResponse.json({
       success: true,
       file: {
@@ -68,9 +53,9 @@ export async function POST(req: NextRequest) {
       vectors: result.vectors,
       preview: rawText.substring(0, 300),
     });
-
   } catch (error) {
     console.error("Upload Route Error:", error);
+
     return NextResponse.json(
       {
         success: false,

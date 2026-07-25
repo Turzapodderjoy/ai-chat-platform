@@ -1,39 +1,25 @@
 import { AIManager } from "@ai-chat-platform/ai-manager";
 import { KnowledgeBase } from "@ai-chat-platform/knowledge-base";
-
-import { ChatSession } from "./session";
-import { PromptBuilder } from "./prompt-builder";
+import { PromptEngine } from "@ai-chat-platform/prompt-engine";
 
 export class ChatEngine {
   constructor(
     private readonly ai: AIManager,
     private readonly kb: KnowledgeBase,
-    private readonly promptBuilder = new PromptBuilder()
+    private readonly prompt: PromptEngine
   ) {}
 
-  async send(session: ChatSession, message: string) {
-    session.conversation.add({
-      id: crypto.randomUUID(),
-      role: "user",
-      content: message,
-      createdAt: new Date(),
-    });
+  async chat(userMessage: string) {
+    const context = this.kb.search(userMessage);
 
-    const context = this.kb.search(message);
+    const finalPrompt =
+      this.prompt.buildPrompt(
+        context,
+        userMessage
+      );
 
-    const prompt = this.promptBuilder.build(
-      session.conversation.history(),
-      context
-    );
-
-    const result = await this.ai.chat(prompt);
-
-    session.conversation.add({
-      id: crypto.randomUUID(),
-      role: "assistant",
-      content: result.response,
-      createdAt: new Date(),
-    });
+    const result =
+      await this.ai.chat(finalPrompt);
 
     return result;
   }

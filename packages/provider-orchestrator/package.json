@@ -1,0 +1,12 @@
+{
+  "name": "@ai-chat-platform/provider-orchestrator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ai-chat-platform/types": "workspace:*"
+  }
+}

@@ -1,32 +1,45 @@
-import Groq from "groq-sdk";
-import type { AIProvider } from "@ai-chat-platform/ai-manager";
+﻿import Groq from "groq-sdk";
+import { DEFAULT_MODEL } from "./models";
+import type { AIProvider, AIRequest, AIResponse } from "@ai-chat-platform/types";
 
 export class GroqProvider implements AIProvider {
-  name = "Groq";
+  readonly name = "groq";
 
-  private client: Groq;
+  async generate(request: AIRequest, apiKey?: string): Promise<AIResponse> {
+    if (!apiKey) {
+      return {
+        success: false,
+        provider: this.name,
+        message: "",
+        error: "No API key provided",
+      };
+    }
 
-  constructor() {
-    this.client = new Groq({
-      apiKey: process.env.GROQ_API_KEY,
-    });
+    try {
+      const client = new Groq({ apiKey });
+
+      const response = await client.chat.completions.create({
+        model: DEFAULT_MODEL,
+        messages: [{ role: "user", content: request.message }],
+      });
+
+      return {
+        success: true,
+        provider: this.name,
+        message: response.choices[0]?.message?.content ?? "",
+        tokens: response.usage?.total_tokens ?? 0,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        provider: this.name,
+        message: "",
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   async health(): Promise<boolean> {
     return true;
-  }
-
-  async chat(message: string): Promise<string> {
-    const completion = await this.client.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        {
-          role: "user",
-          content: message,
-        },
-      ],
-    });
-
-    return completion.choices[0].message.content ?? "";
   }
 }

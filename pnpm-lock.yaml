@@ -119,13 +119,26 @@ importers:
         specifier: 5.9.2
         version: 5.9.2
 
-  packages/ai-manager: {}
+  packages/ai-manager:
+    dependencies:
+      '@ai-chat-platform/provider-orchestrator':
+        specifier: workspace:*
+        version: link:../provider-orchestrator
+      '@ai-chat-platform/types':
+        specifier: workspace:*
+        version: link:../types
 
   packages/chat-engine:
     dependencies:
       '@ai-chat-platform/ai-manager':
         specifier: workspace:*
         version: link:../ai-manager
+      '@ai-chat-platform/knowledge-base':
+        specifier: workspace:*
+        version: link:../knowledge-base
+      '@ai-chat-platform/prompt-engine':
+        specifier: workspace:*
+        version: link:../prompt-engine
 
   packages/chunker: {}
 
@@ -194,9 +207,12 @@ importers:
 
   packages/groq:
     dependencies:
-      '@ai-chat-platform/ai-manager':
+      '@ai-chat-platform/provider-orchestrator':
         specifier: workspace:*
-        version: link:../ai-manager
+        version: link:../provider-orchestrator
+      '@ai-chat-platform/types':
+        specifier: workspace:^
+        version: link:../types
       groq-sdk:
         specifier: ^0.31.0
         version: 0.31.0
@@ -226,6 +242,14 @@ importers:
         version: link:../document-loader
 
   packages/knowledge-base: {}
+
+  packages/prompt-engine: {}
+
+  packages/provider-orchestrator:
+    dependencies:
+      '@ai-chat-platform/types':
+        specifier: workspace:*
+        version: link:../types
 
   packages/types: {}
 

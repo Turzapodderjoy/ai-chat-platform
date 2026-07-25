@@ -1,5 +1,6 @@
 import path from "path";
 import fs from "fs/promises";
+// @ts-expect-error - pdf-parse lacks a default export definition in some TS environments
 import pdfParse from "pdf-parse";
 import mammoth from "mammoth";
 

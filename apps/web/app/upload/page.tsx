@@ -7,7 +7,6 @@ export default function UploadPage() {
 
   async function upload(file: File) {
     const form = new FormData();
-
     form.append("file", file);
 
     const res = await fetch("/api/upload", {
@@ -16,7 +15,6 @@ export default function UploadPage() {
     });
 
     const data = await res.json();
-
     setMessage(JSON.stringify(data, null, 2));
   }
 
@@ -27,9 +25,10 @@ export default function UploadPage() {
       <input
         type="file"
         onChange={(e) => {
-          if (!e.target.files?.length) return;
+          const file = e.target.files?.[0];
+          if (!file) return;
 
-          upload(e.target.files[0]);
+          upload(file);
         }}
       />
 

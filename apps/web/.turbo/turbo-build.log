@@ -1,0 +1,24 @@
+[6n[?9001h[?1004h[m]0;C:\Windows\system32\cmd.exe[?25h[?25l
+> web@0.1.0 build E:\Startup\ai-chat-platform\apps\web
+> next build[5;1H[?25h[38;2;173;127;168m[1m▲ Next.js 16.2.0[m (Turbopack)
+[?25l- Environments: .env.local[8;1H[?25h[37m[1m [m Creating an optimized production build ...
+[32m[1m✓[m Compiled successfully in 13.0s
+[37m[1m [m Running TypeScript  [36m.[?25l[m[K[69C[37m[1m [m Running TypeScript  [36m..[m[K[69C[37m[1m [m Running TypeScript  [36m...[m[K[69C[37m[1m [m Running TypeScript  [36m.[m[K[69C[37m[1m [m Running TypeScript  [36m..[m[K[69C[37m[1m [m Running TypeScript  [36m...[m[K[69C[37m[1m [m Running TypeScript  [36m.[m[K[69C[37m[1m [m Running TypeScript  [36m..[m[K[69C[37m[1m [m Running TypeScript  [36m...[m[K[69C[37m[1m [m Running TypeScript  [36m.[m[K[69C[37m[1m [m Running TypeScript  [36m..[m[K[69C[37m[1m [m Running TypeScript  [36m...[m[K[69C[37m[1m [m Running TypeScript  [36m.[m[K[69C[37m[1m [m Running TypeScript  [36m..[m[K[69C[37m[1m [m Running TypeScript  [36m...[m[K[69C[37m[1m [m Running TypeScript  [36m.[m[K[69C[37m[1m [m Running TypeScript  [36m..[m[K[69C[37m[1m [m Running TypeScript  [36m...[m[K[69C[37m[1m [m Running TypeScript  [36m.[m[K[69C[37m[1m [m Running TypeScript  [36m..[m[K[69C[32m[1m✓[m Finished TypeScript in 4.1s[K[?25h
+[37m[1m [m Collecting page data using 7 workers  [36m.[?25l[m[K[69C[37m[1m [m Collecting page data using 7 workers  [36m..[m[K[69C[37m[1m [m Collecting page data using 7 workers  [36m...[m[K[69C[37m[1m [m Collecting page data using 7 workers  [36m.[m[K[69C[37m[1m [m Collecting page data using 7 workers  [36m..[m[K[69C[37m[1m [m Collecting page data using 7 workers  [36m...[m[K[69C[37m[1m [m Collecting page data using 7 workers  [36m.[m[K[69C[37m[1m [m Collecting page data using 7 workers  [36m..[m[K[69C[37m[1m [m Collecting page data using 7 workers  [36m...[m[K[69C[37m[1m [m Collecting page data using 7 workers  [36m.[m[K[69C[37m[1m [m Collecting page data using 7 workers  [36m..[m[K[69C[37m[1m [m Collecting page data using 7 workers  [36m...[m[K[69C[32m[1m✓[m Collecting page data using 7 workers in 2.5s    [?25h
+[?25l[37m[1m [m Generating static pages using 7 workers (0/9)  [36m[    ][m[K[69C[37m[1m [m Generating static pages using 7 workers (0/9)  [36m[=   ][m[K[69C[37m[1m [m Generating static pages using 7 workers (3/9)  [36m[==  ][m[K[69C[37m[1m [m Generating static pages using 7 workers (3/9)  [36m[=== ][m[K[69C[37m[1m [m Generating static pages using 7 workers (3/9)  [36m[ ===][m[K[69C[37m[1m [m Generating static pages using 7 workers (4/9)  [36m[  ==][m[K[69C[32m[1m✓[m Generating static pages using 7 workers (9/9) in 1247ms[?25h
+[37m[1m [m Finalizing page optimization  [36m.[?25l[m[K[69C[?25h[32m[1m✓[m Finalizing page optimization in 15ms    
+
+[4mRoute (app)[24m[K
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /api/chat
+├ ƒ /api/test-embedding
+├ ƒ /api/test-index
+├ ƒ /api/upload
+└ ○ /upload
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+[?9001l[?1004l

@@ -4,8 +4,12 @@
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "dependencies": {
-    "groq-sdk": "^0.31.0",
-    "@ai-chat-platform/ai-manager": "workspace:*"
+    "@ai-chat-platform/provider-orchestrator": "workspace:*",
+    "@ai-chat-platform/types": "workspace:^",
+    "groq-sdk": "^0.31.0"
   }
 }

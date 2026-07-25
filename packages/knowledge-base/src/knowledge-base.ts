@@ -1,27 +1,37 @@
-import { Document } from "./document";
-import { Chunker } from "./chunker";
-import { Retriever } from "./retriever";
+import type { Document } from "./document";
 
 export class KnowledgeBase {
   private documents: Document[] = [];
-
-  private chunker = new Chunker();
-
-  private retriever = new Retriever();
 
   add(document: Document) {
     this.documents.push(document);
   }
 
-  search(query: string) {
-    const results: string[] = [];
+  all() {
+    return this.documents;
+  }
 
-    for (const doc of this.documents) {
-      const chunks = this.chunker.split(doc.content);
+  get(id: string) {
+    return this.documents.find((d) => d.id === id);
+  }
 
-      results.push(...this.retriever.retrieve(query, chunks));
-    }
+  remove(id: string) {
+    this.documents = this.documents.filter((d) => d.id !== id);
+  }
 
-    return results;
+  clear() {
+    this.documents = [];
+  }
+
+  search(query: string): string[] {
+    const q = query.toLowerCase();
+
+    return this.documents
+      .filter(
+        (doc) =>
+          doc.title.toLowerCase().includes(q) ||
+          doc.content.toLowerCase().includes(q)
+      )
+      .map((doc) => doc.content);
   }
 }

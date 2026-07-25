@@ -1,7 +1,6 @@
-export interface AIProvider {
-  name: string;
-
-  health(): Promise<boolean>;
-
-  chat(message: string): Promise<string>;
-}
+﻿export type {
+  ProviderKey,
+  AIProvider,
+  AIRequest,
+  AIResponse,
+} from "@ai-chat-platform/types";

@@ -31,11 +31,8 @@ export class JsonProvider implements VectorStore {
     }
   }
 
-  async upsert(
-    records: VectorRecord[]
-  ): Promise<void> {
+  async upsert(records: VectorRecord[]): Promise<void> {
     const current = await this.read();
-
     current.push(...records);
 
     await fs.writeFile(
@@ -51,23 +48,55 @@ export class JsonProvider implements VectorStore {
   ): Promise<SearchResult[]> {
     const records = await this.read();
 
-    // Search implementation will be added next.
-    // For now, return the first records so the pipeline keeps working.
-    return records
-      .slice(0, limit)
+    if (records.length === 0) {
+      return [];
+    }
+
+    const results = records
       .map((record) => ({
         ...record,
-        score: 0,
-      }));
+        score: this.cosineSimilarity(embedding, record.embedding),
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
+
+    return results;
+  }
+
+  private cosineSimilarity(a: number[], b: number[]): number {
+    if (a.length === 0 || b.length === 0 || a.length !== b.length) {
+      return 0;
+    }
+
+    let dotProduct = 0;
+    for (let i = 0; i < a.length; i++) {
+      const valA = a[i] ?? 0;
+      const valB = b[i] ?? 0;
+      dotProduct += valA * valB;
+    }
+
+    let magnitudeA = 0;
+    let magnitudeB = 0;
+    for (let i = 0; i < a.length; i++) {
+      const valA = a[i] ?? 0;
+      const valB = b[i] ?? 0;
+      magnitudeA += valA * valA;
+      magnitudeB += valB * valB;
+    }
+    
+    magnitudeA = Math.sqrt(magnitudeA);
+    magnitudeB = Math.sqrt(magnitudeB);
+
+    if (magnitudeA === 0 || magnitudeB === 0) {
+      return 0;
+    }
+
+    return dotProduct / (magnitudeA * magnitudeB);
   }
 
   private async read(): Promise<VectorRecord[]> {
     try {
-      const text = await fs.readFile(
-        this.filePath,
-        "utf8"
-      );
-
+      const text = await fs.readFile(this.filePath, "utf8");
       return JSON.parse(text);
     } catch {
       return [];

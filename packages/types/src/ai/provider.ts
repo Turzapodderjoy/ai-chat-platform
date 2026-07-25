@@ -12,8 +12,18 @@ export interface AIResponse {
   error?: string;
 }
 
+export interface ProviderKey {
+  id: string;
+  value: string;
+}
+
 export interface AIProvider {
   readonly name: string;
 
-  generate(request: AIRequest): Promise<AIResponse>;
+  generate(
+    request: AIRequest,
+    apiKey?: string
+  ): Promise<AIResponse>;
+
+  health?(): Promise<boolean>;
 }
