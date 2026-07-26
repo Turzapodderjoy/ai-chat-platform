@@ -1,0 +1,17 @@
+{
+  "name": "@ai-chat-platform/auth",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ai-chat-platform/database": "workspace:*",
+    "bcryptjs": "^3.0.2",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10"
+  }
+}
