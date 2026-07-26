@@ -3,8 +3,16 @@ import type {
   EmbeddingResult,
 } from "../types";
 
+interface JinaEmbeddingItem {
+  embedding: number[];
+}
+
+interface JinaEmbeddingResponse {
+  data: JinaEmbeddingItem[];
+}
+
 export class JinaProvider implements EmbeddingProvider {
-  name = "jina";
+  readonly name = "jina";
 
   private readonly apiKey: string;
 
@@ -15,9 +23,7 @@ export class JinaProvider implements EmbeddingProvider {
       "";
 
     if (!this.apiKey) {
-      throw new Error(
-        "JINA_API_KEY is missing."
-      );
+      throw new Error("JINA_API_KEY is missing.");
     }
   }
 
@@ -43,12 +49,23 @@ export class JinaProvider implements EmbeddingProvider {
       );
     }
 
-    const json = await response.json();
+    const json =
+      (await response.json()) as JinaEmbeddingResponse;
+
+    if (!json.data || json.data.length === 0) {
+      throw new Error("Jina returned no embeddings.");
+    }
+
+    const item = json.data[0];
+
+    if (!item) {
+      throw new Error("Embedding result is undefined.");
+    }
 
     return {
-      provider: "jina",
-      embedding: json.data[0].embedding,
-      dimensions: json.data[0].embedding.length,
+      provider: this.name,
+      embedding: item.embedding,
+      dimensions: item.embedding.length,
     };
   }
 
@@ -76,14 +93,17 @@ export class JinaProvider implements EmbeddingProvider {
       );
     }
 
-    const json = await response.json();
+    const json =
+      (await response.json()) as JinaEmbeddingResponse;
 
-    return json.data.map(
-      (item: any): EmbeddingResult => ({
-        provider: "jina",
-        embedding: item.embedding,
-        dimensions: item.embedding.length,
-      })
-    );
+    if (!json.data || json.data.length === 0) {
+      throw new Error("Jina returned no embeddings.");
+    }
+
+    return json.data.map((item) => ({
+      provider: this.name,
+      embedding: item.embedding,
+      dimensions: item.embedding.length,
+    }));
   }
 }

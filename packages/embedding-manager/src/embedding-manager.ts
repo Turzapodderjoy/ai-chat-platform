@@ -6,7 +6,7 @@ import type {
 export class EmbeddingManager {
   private providers = new Map<string, EmbeddingProvider>();
 
-  register(provider: EmbeddingProvider) {
+  register(provider: EmbeddingProvider): void {
     this.providers.set(provider.name, provider);
   }
 

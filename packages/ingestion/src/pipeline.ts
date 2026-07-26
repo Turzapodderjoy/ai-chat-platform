@@ -1,27 +1,27 @@
-import { DocumentLoader } from "@ai-chat-platform/document-loader";
 import { Chunker } from "@ai-chat-platform/chunker";
+import { DocumentLoader } from "@ai-chat-platform/document-loader";
 
-import { IngestionResult } from "./types";
+import type { IngestionResult } from "./types";
 
 export class IngestionPipeline {
+  private readonly loader = new DocumentLoader();
 
-  private loader = new DocumentLoader();
-
-  private chunker = new Chunker();
+  private readonly chunker = new Chunker();
 
   async ingest(filepath: string): Promise<IngestionResult> {
+    const text = await this.loader.load(filepath);
 
-    const document =
-      await this.loader.load(filepath);
-
-    const chunks =
-      this.chunker.chunk(document.text);
+    const chunks = this.chunker.chunk(text);
 
     return {
-      document,
+      document: {
+        filename: filepath.split(/[\\/]/).pop() ?? filepath,
+        extension: filepath.substring(filepath.lastIndexOf(".")),
+        text,
+      },
       chunks,
+      chunkCount: chunks.length,
+      createdAt: new Date(),
     };
-
   }
-
 }

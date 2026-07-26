@@ -9,4 +9,5 @@ export interface IndexResult {
   documentId: string;
   chunks: number;
   vectors: number;
+  createdAt: Date;
 }

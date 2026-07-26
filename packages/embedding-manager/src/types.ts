@@ -5,7 +5,7 @@ export interface EmbeddingResult {
 }
 
 export interface EmbeddingProvider {
-  name: string;
+  readonly name: string;
 
   embed(text: string): Promise<EmbeddingResult>;
 

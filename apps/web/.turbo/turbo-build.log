@@ -1,14 +1,12 @@
 [6n[?9001h[?1004h[m]0;C:\Windows\system32\cmd.exe[?25h[?25l
 > web@0.1.0 build E:\Startup\ai-chat-platform\apps\web
-> next build[5;1H[?25h[38;2;173;127;168m[1m▲ Next.js 16.2.0[m (Turbopack)
-[?25l- Environments: .env.local[8;1H[?25h[37m[1m [m Creating an optimized production build ...
-[32m[1m✓[m Compiled successfully in 13.0s
-[37m[1m [m Running TypeScript  [36m.[?25l[m[K[69C[37m[1m [m Running TypeScript  [36m..[m[K[69C[37m[1m [m Running TypeScript  [36m...[m[K[69C[37m[1m [m Running TypeScript  [36m.[m[K[69C[37m[1m [m Running TypeScript  [36m..[m[K[69C[37m[1m [m Running TypeScript  [36m...[m[K[69C[37m[1m [m Running TypeScript  [36m.[m[K[69C[37m[1m [m Running TypeScript  [36m..[m[K[69C[37m[1m [m Running TypeScript  [36m...[m[K[69C[37m[1m [m Running TypeScript  [36m.[m[K[69C[37m[1m [m Running TypeScript  [36m..[m[K[69C[37m[1m [m Running TypeScript  [36m...[m[K[69C[37m[1m [m Running TypeScript  [36m.[m[K[69C[37m[1m [m Running TypeScript  [36m..[m[K[69C[37m[1m [m Running TypeScript  [36m...[m[K[69C[37m[1m [m Running TypeScript  [36m.[m[K[69C[37m[1m [m Running TypeScript  [36m..[m[K[69C[37m[1m [m Running TypeScript  [36m...[m[K[69C[37m[1m [m Running TypeScript  [36m.[m[K[69C[37m[1m [m Running TypeScript  [36m..[m[K[69C[32m[1m✓[m Finished TypeScript in 4.1s[K[?25h
-[37m[1m [m Collecting page data using 7 workers  [36m.[?25l[m[K[69C[37m[1m [m Collecting page data using 7 workers  [36m..[m[K[69C[37m[1m [m Collecting page data using 7 workers  [36m...[m[K[69C[37m[1m [m Collecting page data using 7 workers  [36m.[m[K[69C[37m[1m [m Collecting page data using 7 workers  [36m..[m[K[69C[37m[1m [m Collecting page data using 7 workers  [36m...[m[K[69C[37m[1m [m Collecting page data using 7 workers  [36m.[m[K[69C[37m[1m [m Collecting page data using 7 workers  [36m..[m[K[69C[37m[1m [m Collecting page data using 7 workers  [36m...[m[K[69C[37m[1m [m Collecting page data using 7 workers  [36m.[m[K[69C[37m[1m [m Collecting page data using 7 workers  [36m..[m[K[69C[37m[1m [m Collecting page data using 7 workers  [36m...[m[K[69C[32m[1m✓[m Collecting page data using 7 workers in 2.5s    [?25h
-[?25l[37m[1m [m Generating static pages using 7 workers (0/9)  [36m[    ][m[K[69C[37m[1m [m Generating static pages using 7 workers (0/9)  [36m[=   ][m[K[69C[37m[1m [m Generating static pages using 7 workers (3/9)  [36m[==  ][m[K[69C[37m[1m [m Generating static pages using 7 workers (3/9)  [36m[=== ][m[K[69C[37m[1m [m Generating static pages using 7 workers (3/9)  [36m[ ===][m[K[69C[37m[1m [m Generating static pages using 7 workers (4/9)  [36m[  ==][m[K[69C[32m[1m✓[m Generating static pages using 7 workers (9/9) in 1247ms[?25h
-[37m[1m [m Finalizing page optimization  [36m.[?25l[m[K[69C[?25h[32m[1m✓[m Finalizing page optimization in 15ms    
-
-[4mRoute (app)[24m[K
+> next build[6;1H[?25h[38;2;173;127;168m[1m▲ Next.js 16.2.0[m (Turbopack)
+[?25l- Environments: .env.local[9;1H[?25h[37m[1m [m Creating an optimized production build ...
+[32m[1m✓[m Compiled successfully in 7.1s
+[?25l[37m[1m [m Running TypeScript  [36m.[m[K[38C[37m[1m [m Running TypeScript  [36m..[m[K[38C[37m[1m [m Running TypeScript  [36m...[m[K[38C[37m[1m [m Running TypeScript  [36m.[m[K[38C[37m[1m [m Running TypeScript  [36m..[m[K[38C[37m[1m [m Running TypeScript  [36m...[m[K[38C[37m[1m [m Running TypeScript  [36m.[m[K[38C[37m[1m [m Running TypeScript  [36m..[m[K[38C[37m[1m [m Running TypeScript  [36m...[m[K[38C[37m[1m [m Running TypeScript  [36m.[m[K[38C[37m[1m [m Running TypeScript  [36m..[m[K[38C[37m[1m [m Running TypeScript  [36m...[m[K[38C[37m[1m [m Running TypeScript  [36m.[m[K[38C[37m[1m [m Running TypeScript  [36m..[m[K[38C[37m[1m [m Running TypeScript  [36m...[m[K[38C[32m[1m[11;1H✓[m Finished TypeScript in 3.0s[K[37m[1m
+ [m Collecting page data using 7 workers  [36m.[m[K[38C[12;1H                                      [12;77H[37m[1m [m Collecting page data using 7 workers  [36m..[m[K[38C[37m[1m[12;1H [m Collecting page data using 7 workers  [36m...[m[K[38C[37m[1m[12;1H [m Collecting page data using 7 workers  [36m.[m[K[38C[37m[1m[12;1H [m Collecting page data using 7 workers  [36m..[m[K[38C[37m[1m[12;1H [m Collecting page data using 7 workers  [36m...[m[K[38C[37m[1m[12;1H [m Collecting page data using 7 workers  [36m.[m[K[38C[37m[1m[12;1H [m Collecting page data using 7 workers[32m[1m✓[m Collecting page data using 7 workers in 1439ms 
+[?25h[37m[1m [m Generating static pages using 7 workers (0/9)  [36m[    ][?25l[m[K[38C[37m[1m[15;1H [m Generating static pages using 7 workers (3/9)  [36m[=   ][m[K[38C[37m[1m[15;1H [m Generating static pages using 7 workers (4/9)  [36m[==  ][m[K[38C[32m[1m[15;1H✓[m Generating static pages using 7 workers (9/9) in 480ms[37m[1m
+ [m Finalizing page optimization  [36m.[m[37m[1m[16;1H [m Finalizing page optimization in 15ms[32m[1m✓[m Finalizing page optimization in 15ms [4m[20;1HRoute (app)[?25h[24m
 ┌ ○ /
 ├ ○ /_not-found
 ├ ƒ /api/chat
@@ -18,7 +16,9 @@
 └ ○ /upload
 
 
-○  (Static)   prerendered as static content
-ƒ  (Dynamic)  server-rendered on demand
+○  (Static)   prerendered as static co
+[19;38Hontent
+ƒ  (Dynamic)  server-rendered on deman
+[19;38Hnd
 
 [?9001l[?1004l

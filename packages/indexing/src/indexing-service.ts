@@ -3,6 +3,7 @@ import {
   EmbeddingManager,
   JinaProvider,
 } from "@ai-chat-platform/embedding-manager";
+
 import {
   JsonProvider,
   VectorStoreManager,
@@ -14,13 +15,16 @@ import type {
 } from "./types";
 
 export class IndexingService {
-  private embeddingManager = new EmbeddingManager();
+  private readonly embeddingManager =
+    new EmbeddingManager();
 
-  private vectorStore = new VectorStoreManager(
-    new JsonProvider()
-  );
+  private readonly vectorStore =
+    new VectorStoreManager(
+      new JsonProvider()
+    );
 
-  private chunker = new Chunker();
+  private readonly chunker =
+    new Chunker();
 
   constructor() {
     this.embeddingManager.register(
@@ -28,23 +32,29 @@ export class IndexingService {
     );
   }
 
-  async initialize() {
+  async initialize(): Promise<void> {
     await this.vectorStore.initialize();
   }
 
   async index(
     request: IndexRequest
   ): Promise<IndexResult> {
-    const chunks = this.chunker.chunk(request.text);
 
-    const documentId = crypto.randomUUID();
+    const chunks =
+      this.chunker.chunk(request.text);
+
+    const documentId =
+      request.documentId ??
+      crypto.randomUUID();
 
     const vectors = [];
 
     for (const chunk of chunks) {
-      const embedding = await this.embeddingManager.embed(
-        chunk.content
-      );
+
+      const embedding =
+        await this.embeddingManager.embed(
+          chunk.content
+        );
 
       vectors.push({
         id: crypto.randomUUID(),
@@ -55,21 +65,32 @@ export class IndexingService {
 
         text: chunk.content,
 
-        embedding: embedding.embedding,
+        embedding:
+          embedding.embedding,
 
         metadata: {
           filename: request.filename,
           chunkIndex: chunk.index,
-        },
+          startOffset:
+            chunk.startOffset,
+          endOffset:
+            chunk.endOffset,
+          tokenEstimate:
+            chunk.tokenEstimate,
+          ...(request.metadata ?? {})
+        }
       });
     }
 
-    await this.vectorStore.upsert(vectors);
+    await this.vectorStore.upsert(
+      vectors
+    );
 
     return {
       documentId,
       chunks: chunks.length,
       vectors: vectors.length,
+      createdAt: new Date()
     };
   }
 }

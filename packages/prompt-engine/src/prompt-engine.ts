@@ -1,17 +1,34 @@
-import { DEFAULT_SYSTEM_PROMPT } from "./system-prompt";
-import { PromptBuilder } from "./builder";
+import type { PromptInput, PromptOutput } from "./types";
 
 export class PromptEngine {
-  private builder = new PromptBuilder();
+  build(input: PromptInput): PromptOutput {
+    const context =
+      input.context.length > 0
+        ? input.context.join("\n\n")
+        : "No relevant context found.";
 
-  buildPrompt(
-    context: string[],
-    user: string
-  ) {
-    return this.builder.build(
-      DEFAULT_SYSTEM_PROMPT,
-      context,
-      user
-    );
+    const prompt = `
+${input.systemPrompt}
+
+------------------------
+Knowledge Base
+------------------------
+
+${context}
+
+------------------------
+User
+------------------------
+
+${input.userMessage}
+
+------------------------
+Assistant
+------------------------
+`.trim();
+
+    return {
+      prompt,
+    };
   }
 }

@@ -1,15 +1,20 @@
 import fs from "fs/promises";
 import path from "path";
-import pdf from "pdf-parse";
-import { LoadedDocument } from "./types";
+import { PDFParse } from "pdf-parse";
+import type { LoadedDocument } from "./types";
 
 export async function loadPdf(
   filepath: string
 ): Promise<LoadedDocument> {
-
   const buffer = await fs.readFile(filepath);
 
-  const result = await pdf(buffer);
+  const parser = new PDFParse({
+    data: buffer,
+  });
+
+  const result = await parser.getText();
+
+  await parser.destroy();
 
   return {
     filename: path.basename(filepath),

@@ -1,49 +1,71 @@
-import path from "path";
 import fs from "fs/promises";
-// @ts-expect-error - pdf-parse lacks a default export definition in some TS environments
+import path from "path";
+
+// @ts-expect-error
 import pdfParse from "pdf-parse";
 import mammoth from "mammoth";
 
 export class DocumentLoader {
-  /**
-   * Reads a file from disk by path and extracts raw text
-   */
-  async load(filepath: string): Promise<string> {
-    const ext = path.extname(filepath).toLowerCase();
-    const buffer = await fs.readFile(filepath);
+  async load(
+    filepath: string
+  ): Promise<string> {
+    const extension =
+      path.extname(filepath).toLowerCase();
 
-    if (ext === ".pdf") {
-      const parsed = await pdfParse(buffer);
-      return parsed.text;
+    const buffer =
+      await fs.readFile(filepath);
+
+    switch (extension) {
+      case ".pdf":
+        return this.loadPdf(buffer);
+
+      case ".docx":
+        return this.loadDocx(buffer);
+
+      default:
+        return buffer.toString("utf8");
     }
-
-    if (ext === ".docx") {
-      const result = await mammoth.extractRawText({ buffer });
-      return result.value;
-    }
-
-    // Default fallback for plain text files (.txt, .md, .json, csv, etc.)
-    return buffer.toString("utf-8");
   }
 
-  /**
-   * Alias method so loadFromFile never throws an undefined error
-   */
-  async loadFromFile(file: File): Promise<string> {
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const ext = path.extname(file.name).toLowerCase();
+  async loadFromFile(
+    file: File
+  ): Promise<string> {
+    const buffer = Buffer.from(
+      await file.arrayBuffer()
+    );
 
-    if (ext === ".pdf") {
-      const parsed = await pdfParse(buffer);
-      return parsed.text;
+    const extension =
+      path.extname(file.name).toLowerCase();
+
+    switch (extension) {
+      case ".pdf":
+        return this.loadPdf(buffer);
+
+      case ".docx":
+        return this.loadDocx(buffer);
+
+      default:
+        return buffer.toString("utf8");
     }
+  }
 
-    if (ext === ".docx") {
-      const result = await mammoth.extractRawText({ buffer });
-      return result.value;
-    }
+  private async loadPdf(
+    buffer: Buffer
+  ): Promise<string> {
+    const result =
+      await pdfParse(buffer);
 
-    return buffer.toString("utf-8");
+    return result.text;
+  }
+
+  private async loadDocx(
+    buffer: Buffer
+  ): Promise<string> {
+    const result =
+      await mammoth.extractRawText({
+        buffer,
+      });
+
+    return result.value;
   }
 }
