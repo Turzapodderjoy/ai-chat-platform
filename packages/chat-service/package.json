@@ -1,0 +1,15 @@
+{
+  "name": "@ai-chat-platform/chat-service",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ai-chat-platform/conversation": "workspace:*",
+    "@ai-chat-platform/retriever": "workspace:*",
+    "@ai-chat-platform/prompt-engine": "workspace:*",
+    "@ai-chat-platform/ai-manager": "workspace:*"
+  }
+}

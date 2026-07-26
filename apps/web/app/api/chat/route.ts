@@ -14,7 +14,9 @@ import { GroqProvider } from "@ai-chat-platform/groq";
  * AIManager itself never needs to change — that's the point of the
  * AIProvider interface boundary.
  */
-const manager = new AIManager({ failoverOrder: ["groq"] });
+const manager = new AIManager({
+  failoverOrder: ["groq"],
+});
 
 manager.registerProvider(new GroqProvider(), [
   { id: "groq-key-1", value: process.env.GROQ_API_KEY ?? "" },

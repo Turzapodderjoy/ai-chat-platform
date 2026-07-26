@@ -1,0 +1,14 @@
+{
+  "name": "@ai-chat-platform/rag",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ai-chat-platform/chat-service": "workspace:*",
+    "@ai-chat-platform/upload": "workspace:*",
+    "@ai-chat-platform/conversation": "workspace:*"
+  }
+}
