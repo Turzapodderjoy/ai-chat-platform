@@ -1,0 +1,16 @@
+{
+  "name": "@ai-chat-platform/auto-heal",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ai-chat-platform/database": "workspace:*",
+    "@ai-chat-platform/tenant": "workspace:*",
+    "@ai-chat-platform/indexing": "workspace:*",
+    "@ai-chat-platform/embedding-manager": "workspace:*",
+    "@ai-chat-platform/web-crawler": "workspace:*"
+  }
+}

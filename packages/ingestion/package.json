@@ -7,7 +7,6 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@ai-chat-platform/chunker": "workspace:*",
     "@ai-chat-platform/document-loader": "workspace:*"
   }
 }

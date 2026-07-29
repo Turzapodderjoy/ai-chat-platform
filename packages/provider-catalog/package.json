@@ -1,0 +1,17 @@
+{
+  "name": "@ai-chat-platform/provider-catalog",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ai-chat-platform/types": "workspace:*",
+    "@ai-chat-platform/groq": "workspace:*",
+    "@ai-chat-platform/gemini": "workspace:*",
+    "@ai-chat-platform/openrouter": "workspace:*",
+    "@ai-chat-platform/cerebras": "workspace:*",
+    "@ai-chat-platform/mistral": "workspace:*"
+  }
+}

@@ -15,6 +15,21 @@
     "@ai-chat-platform/prompt-engine": "workspace:*",
     "@ai-chat-platform/ai-manager": "workspace:*",
     "@ai-chat-platform/upload": "workspace:*",
-    "@ai-chat-platform/groq": "workspace:*"
+    "@ai-chat-platform/groq": "workspace:*",
+    "@ai-chat-platform/embedding-manager": "workspace:*",
+    "@ai-chat-platform/vector-store": "workspace:*",
+    "@ai-chat-platform/ingestion": "workspace:*",
+    "@ai-chat-platform/indexing": "workspace:*",
+    "@ai-chat-platform/provider-catalog": "workspace:*",
+    "@ai-chat-platform/embedding-catalog": "workspace:*",
+    "@ai-chat-platform/tenant": "workspace:*",
+    "@ai-chat-platform/web-crawler": "workspace:*",
+    "@ai-chat-platform/ai-config": "workspace:*",
+    "@ai-chat-platform/provider-keys": "workspace:*",
+    "@ai-chat-platform/training-pipeline": "workspace:*",
+    "@ai-chat-platform/channel-catalog": "workspace:*",
+    "@ai-chat-platform/channel-connections": "workspace:*",
+    "@ai-chat-platform/auto-heal": "workspace:*",
+    "@ai-chat-platform/database": "workspace:*"
   }
 }

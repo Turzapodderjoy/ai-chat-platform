@@ -1,0 +1,81 @@
+import { DEFAULT_MODEL } from "./models";
+import type { AIProvider, AIRequest, AIResponse } from "@ai-chat-platform/types";
+import { InvalidApiKeyError, RateLimitedError } from "@ai-chat-platform/types";
+
+// OpenAI-compatible Chat Completions endpoint — same shape as OpenRouter.
+const ENDPOINT = "https://api.cerebras.ai/v1/chat/completions";
+
+interface CerebrasResponse {
+  choices?: { message?: { content?: string } }[];
+  usage?: { total_tokens?: number };
+}
+
+export class CerebrasProvider implements AIProvider {
+  readonly name = "cerebras";
+
+  async generate(request: AIRequest, apiKey?: string): Promise<AIResponse> {
+    if (!apiKey) {
+      return {
+        success: false,
+        provider: this.name,
+        message: "",
+        error: "No API key provided",
+      };
+    }
+
+    const res = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: DEFAULT_MODEL,
+        messages: [
+          ...(request.systemPrompt
+            ? [{ role: "system", content: request.systemPrompt }]
+            : []),
+          { role: "user", content: request.message },
+        ],
+        temperature: request.temperature,
+        max_tokens: request.maxTokens,
+        top_p: request.topP,
+        frequency_penalty: request.frequencyPenalty,
+        presence_penalty: request.presencePenalty,
+        stop: request.stop,
+        seed: request.seed,
+      }),
+    });
+
+    if (!res.ok) {
+      // Same reasoning as every other provider in this catalog: must
+      // throw the typed errors so AIManager's key-health/failover logic
+      // (which only runs in its catch block) actually fires.
+      const body = await res.text().catch(() => "");
+      const message = `Cerebras request failed (${res.status}): ${body}`;
+
+      if (res.status === 401 || res.status === 403) {
+        throw new InvalidApiKeyError(message);
+      }
+
+      if (res.status === 429) {
+        throw new RateLimitedError(message);
+      }
+
+      throw new Error(message);
+    }
+
+    const data = (await res.json()) as CerebrasResponse;
+
+    return {
+      success: true,
+      provider: this.name,
+      message: data.choices?.[0]?.message?.content ?? "",
+      tokens: data.usage?.total_tokens ?? 0,
+    };
+  }
+
+  async health(): Promise<boolean> {
+    return true;
+  }
+}

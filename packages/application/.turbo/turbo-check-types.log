@@ -1,43 +1,0 @@
-[6n[?9001h[?1004h[m]0;C:\Windows\system32\cmd.exe[?25h[?25l
-> @ai-chat-platform/application@1.0.0 check-types E:\Startup\ai-chat-platform\packages\application
-> tsc --noEmit[7;1H[?25h[?25l[96msrc/container.ts[m:[93m4[m:[93m10 [m- [91merror [90mTS2305: [mModule '"@ai-chat-platform/chat-service"' has no exported member 'ChatService'.[7m[11;1H4[27m import { ChatService } from "@ai-chat-platform/chat-service";[?25h
-[7m [27m[10X[91m[10C~~~~~~~~~~~[K[m
-
-[96m../chat-service/src/chat-service.ts[m:[93m1[m:[93m1 [m- [91merr[m
-[91m[11;45Hror [90mTS2304: [mCannot find name 'packages'.      [12;1H
-
-[7m1[27m packages/upload/src/upload-service.ts      [12;1H
-[7m [27m [91m~~~~~~~~[K[m
-
-[96m../chat-service/src/chat-service.ts[m:[93m1[m:[93m10 [m- [91mer[m
-[91m[11;45Hrror [90mTS2304: [mCannot find name 'upload'.       [12;1H
-
-[7m1[27m packages/upload/src/upload-service.ts      [12;1H
-[7m [27m[10X[91m[10C~~~~~~[K[m
-
-[96m../chat-service/src/chat-service.ts[m:[93m1[m:[93m17 [m- [91mer[m
-[91m[11;45Hrror [90mTS2304: [mCannot find name 'src'.[K
-
-[7m1[27m packages/upload/src/upload-service.ts      [12;1H
-[7m [27m[17X[91m[17C~~~[K[m
-
-[96m../chat-service/src/chat-service.ts[m:[93m1[m:[93m21 [m- [91mer[m
-[91m[11;45Hrror [90mTS2304: [mCannot find name 'upload'.       [12;1H
-
-[7m1[27m packages/upload/src/upload-service.ts      [12;1H
-[7m [27m[21X[91m[21C~~~~~~[K[m
-
-[96m../chat-service/src/chat-service.ts[m:[93m1[m:[93m28 [m- [91mer[m
-[91m[11;45Hrror [90mTS2304: [mCannot find name 'service'.      [12;1H
-
-[7m1[27m packages/upload/src/upload-service.ts      [12;1H
-[7m [27m[28X[91m[28C~~~~~~~[K[m
-
-
-Found 6 errors in 2 files.
-
-Errors  Files
-     1  src/container.ts[90m:4[K[m
-     5  ../chat-service/src/chat-service.ts[90m:1[12;1H[m
-[30m[41m ELIFECYCLE [m [31mCommand failed with exit code 2.[12;1H[m
-[?9001l[?1004l

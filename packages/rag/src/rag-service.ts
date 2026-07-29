@@ -19,10 +19,18 @@ export class RagService {
       await this.chat.chat({
         sessionId: request.sessionId,
         message: request.message,
+        businessId: request.businessId,
+        isTraining: request.isTraining,
       });
 
     return {
       answer: response.answer,
+      provider: response.provider,
+      tokens: response.tokens,
+      confidence: response.confidence,
+      cached: response.cached,
+      handoff: response.handoff,
+      messageId: response.messageId,
     };
   }
 }

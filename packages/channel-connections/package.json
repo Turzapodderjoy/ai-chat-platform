@@ -1,0 +1,13 @@
+{
+  "name": "@ai-chat-platform/channel-connections",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ai-chat-platform/database": "workspace:*",
+    "@prisma/client": "^6.15.0"
+  }
+}

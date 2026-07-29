@@ -27,54 +27,33 @@ importers:
 
   apps/web:
     dependencies:
-      '@ai-chat-platform/ai-manager':
+      '@ai-chat-platform/bootstrap':
         specifier: workspace:*
-        version: link:../../packages/ai-manager
-      '@ai-chat-platform/chat-engine':
-        specifier: workspace:*
-        version: link:../../packages/chat-engine
+        version: link:../../packages/bootstrap
       '@ai-chat-platform/chunker':
         specifier: workspace:*
         version: link:../../packages/chunker
-      '@ai-chat-platform/config':
-        specifier: workspace:*
-        version: link:../../packages/config
       '@ai-chat-platform/document-loader':
         specifier: workspace:*
         version: link:../../packages/document-loader
       '@ai-chat-platform/embedding-manager':
         specifier: workspace:*
         version: link:../../packages/embedding-manager
-      '@ai-chat-platform/groq':
-        specifier: workspace:*
-        version: link:../../packages/groq
       '@ai-chat-platform/indexing':
         specifier: workspace:*
         version: link:../../packages/indexing
       '@ai-chat-platform/ingestion':
         specifier: workspace:*
         version: link:../../packages/ingestion
-      '@ai-chat-platform/knowledge-base':
-        specifier: workspace:*
-        version: link:../../packages/knowledge-base
-      '@ai-chat-platform/types':
-        specifier: workspace:*
-        version: link:../../packages/types
       '@ai-chat-platform/vector-store':
         specifier: workspace:*
         version: link:../../packages/vector-store
       '@google/genai':
         specifier: ^2.12.0
         version: 2.13.0
-      '@lancedb/lancedb':
-        specifier: ^0.13.0
-        version: 0.13.0(apache-arrow@18.1.0)
       '@repo/ui':
         specifier: workspace:*
         version: link:../../packages/ui
-      dotenv:
-        specifier: ^17.4.2
-        version: 17.4.2
       groq-sdk:
         specifier: ^1.3.0
         version: 1.3.0
@@ -93,9 +72,6 @@ importers:
       react-dom:
         specifier: ^19.2.0
         version: 19.2.8(react@19.2.8)
-      zod:
-        specifier: ^4.4.3
-        version: 4.4.3
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*
@@ -119,111 +95,202 @@ importers:
         specifier: 5.9.2
         version: 5.9.2
 
+  packages/ai-config:
+    dependencies:
+      '@ai-chat-platform/database':
+        specifier: workspace:*
+        version: link:../database
+
   packages/ai-manager:
     dependencies:
-      '@ai-chat-platform/provider-orchestrator':
-        specifier: workspace:*
-        version: link:../provider-orchestrator
       '@ai-chat-platform/types':
         specifier: workspace:*
         version: link:../types
 
   packages/api:
     dependencies:
-      '@ai-chat-platform/rag':
+      '@ai-chat-platform/ai-config':
         specifier: workspace:*
-        version: link:../rag
-      '@ai-chat-platform/upload':
-        specifier: workspace:*
-        version: link:../upload
-
-  packages/application:
-    dependencies:
+        version: link:../ai-config
       '@ai-chat-platform/ai-manager':
         specifier: workspace:*
         version: link:../ai-manager
-      '@ai-chat-platform/bootstrap':
+      '@ai-chat-platform/auto-heal':
         specifier: workspace:*
-        version: link:../bootstrap
+        version: link:../auto-heal
+      '@ai-chat-platform/channel-catalog':
+        specifier: workspace:*
+        version: link:../channel-catalog
+      '@ai-chat-platform/channel-connections':
+        specifier: workspace:*
+        version: link:../channel-connections
       '@ai-chat-platform/chat-service':
         specifier: workspace:*
         version: link:../chat-service
-      '@ai-chat-platform/prompt-engine':
+      '@ai-chat-platform/conversation':
         specifier: workspace:*
-        version: link:../prompt-engine
-      '@ai-chat-platform/retriever':
+        version: link:../conversation
+      '@ai-chat-platform/database':
         specifier: workspace:*
-        version: link:../retriever
+        version: link:../database
+      '@ai-chat-platform/embedding-catalog':
+        specifier: workspace:*
+        version: link:../embedding-catalog
+      '@ai-chat-platform/embedding-manager':
+        specifier: workspace:*
+        version: link:../embedding-manager
+      '@ai-chat-platform/indexing':
+        specifier: workspace:*
+        version: link:../indexing
+      '@ai-chat-platform/provider-catalog':
+        specifier: workspace:*
+        version: link:../provider-catalog
+      '@ai-chat-platform/provider-keys':
+        specifier: workspace:*
+        version: link:../provider-keys
+      '@ai-chat-platform/rag':
+        specifier: workspace:*
+        version: link:../rag
+      '@ai-chat-platform/tenant':
+        specifier: workspace:*
+        version: link:../tenant
+      '@ai-chat-platform/training-pipeline':
+        specifier: workspace:*
+        version: link:../training-pipeline
       '@ai-chat-platform/upload':
         specifier: workspace:*
         version: link:../upload
+      '@ai-chat-platform/vector-store':
+        specifier: workspace:*
+        version: link:../vector-store
+      '@ai-chat-platform/web-crawler':
+        specifier: workspace:*
+        version: link:../web-crawler
 
-  packages/auth:
+  packages/auto-heal:
     dependencies:
       '@ai-chat-platform/database':
         specifier: workspace:*
         version: link:../database
-      bcryptjs:
-        specifier: ^3.0.2
-        version: 3.0.3
-      jsonwebtoken:
-        specifier: ^9.0.2
-        version: 9.0.3
-    devDependencies:
-      '@types/jsonwebtoken':
-        specifier: ^9.0.10
-        version: 9.0.10
+      '@ai-chat-platform/embedding-manager':
+        specifier: workspace:*
+        version: link:../embedding-manager
+      '@ai-chat-platform/indexing':
+        specifier: workspace:*
+        version: link:../indexing
+      '@ai-chat-platform/tenant':
+        specifier: workspace:*
+        version: link:../tenant
+      '@ai-chat-platform/web-crawler':
+        specifier: workspace:*
+        version: link:../web-crawler
 
   packages/bootstrap:
     dependencies:
+      '@ai-chat-platform/ai-config':
+        specifier: workspace:*
+        version: link:../ai-config
       '@ai-chat-platform/ai-manager':
         specifier: workspace:*
         version: link:../ai-manager
       '@ai-chat-platform/api':
         specifier: workspace:*
         version: link:../api
+      '@ai-chat-platform/auto-heal':
+        specifier: workspace:*
+        version: link:../auto-heal
+      '@ai-chat-platform/channel-catalog':
+        specifier: workspace:*
+        version: link:../channel-catalog
+      '@ai-chat-platform/channel-connections':
+        specifier: workspace:*
+        version: link:../channel-connections
       '@ai-chat-platform/chat-service':
         specifier: workspace:*
         version: link:../chat-service
       '@ai-chat-platform/conversation':
         specifier: workspace:*
         version: link:../conversation
+      '@ai-chat-platform/database':
+        specifier: workspace:*
+        version: link:../database
+      '@ai-chat-platform/embedding-catalog':
+        specifier: workspace:*
+        version: link:../embedding-catalog
+      '@ai-chat-platform/embedding-manager':
+        specifier: workspace:*
+        version: link:../embedding-manager
       '@ai-chat-platform/groq':
         specifier: workspace:*
         version: link:../groq
+      '@ai-chat-platform/indexing':
+        specifier: workspace:*
+        version: link:../indexing
+      '@ai-chat-platform/ingestion':
+        specifier: workspace:*
+        version: link:../ingestion
       '@ai-chat-platform/prompt-engine':
         specifier: workspace:*
         version: link:../prompt-engine
+      '@ai-chat-platform/provider-catalog':
+        specifier: workspace:*
+        version: link:../provider-catalog
+      '@ai-chat-platform/provider-keys':
+        specifier: workspace:*
+        version: link:../provider-keys
       '@ai-chat-platform/rag':
         specifier: workspace:*
         version: link:../rag
       '@ai-chat-platform/retriever':
         specifier: workspace:*
         version: link:../retriever
+      '@ai-chat-platform/tenant':
+        specifier: workspace:*
+        version: link:../tenant
+      '@ai-chat-platform/training-pipeline':
+        specifier: workspace:*
+        version: link:../training-pipeline
       '@ai-chat-platform/upload':
         specifier: workspace:*
         version: link:../upload
+      '@ai-chat-platform/vector-store':
+        specifier: workspace:*
+        version: link:../vector-store
+      '@ai-chat-platform/web-crawler':
+        specifier: workspace:*
+        version: link:../web-crawler
 
-  packages/chat-engine:
+  packages/cerebras:
     dependencies:
-      '@ai-chat-platform/ai-manager':
+      '@ai-chat-platform/types':
+        specifier: workspace:^
+        version: link:../types
+
+  packages/channel-catalog: {}
+
+  packages/channel-connections:
+    dependencies:
+      '@ai-chat-platform/database':
         specifier: workspace:*
-        version: link:../ai-manager
-      '@ai-chat-platform/knowledge-base':
-        specifier: workspace:*
-        version: link:../knowledge-base
-      '@ai-chat-platform/prompt-engine':
-        specifier: workspace:*
-        version: link:../prompt-engine
+        version: link:../database
+      '@prisma/client':
+        specifier: ^6.15.0
+        version: 6.15.0(prisma@6.15.0(typescript@5.9.2))(typescript@5.9.2)
 
   packages/chat-service:
     dependencies:
+      '@ai-chat-platform/ai-config':
+        specifier: workspace:*
+        version: link:../ai-config
       '@ai-chat-platform/ai-manager':
         specifier: workspace:*
         version: link:../ai-manager
       '@ai-chat-platform/conversation':
         specifier: workspace:*
         version: link:../conversation
+      '@ai-chat-platform/embedding-manager':
+        specifier: workspace:*
+        version: link:../embedding-manager
       '@ai-chat-platform/prompt-engine':
         specifier: workspace:*
         version: link:../prompt-engine
@@ -233,8 +300,6 @@ importers:
 
   packages/chunker: {}
 
-  packages/config: {}
-
   packages/conversation:
     dependencies:
       '@ai-chat-platform/database':
@@ -243,12 +308,6 @@ importers:
       '@ai-chat-platform/types':
         specifier: workspace:*
         version: link:../types
-
-  packages/dashboard:
-    dependencies:
-      '@ai-chat-platform/database':
-        specifier: workspace:*
-        version: link:../database
 
   packages/database:
     dependencies:
@@ -269,7 +328,23 @@ importers:
         specifier: ^1.1.1
         version: 1.1.4
 
-  packages/embedding-manager: {}
+  packages/embedding-catalog:
+    dependencies:
+      '@ai-chat-platform/embedding-manager':
+        specifier: workspace:*
+        version: link:../embedding-manager
+      '@ai-chat-platform/mistral':
+        specifier: workspace:*
+        version: link:../mistral
+
+  packages/embedding-manager:
+    dependencies:
+      '@ai-chat-platform/ai-manager':
+        specifier: workspace:*
+        version: link:../ai-manager
+      '@ai-chat-platform/types':
+        specifier: workspace:*
+        version: link:../types
 
   packages/eslint-config:
     devDependencies:
@@ -307,11 +382,20 @@ importers:
         specifier: ^8.50.0
         version: 8.65.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.2)
 
+  packages/gemini:
+    dependencies:
+      '@ai-chat-platform/embedding-manager':
+        specifier: workspace:^
+        version: link:../embedding-manager
+      '@ai-chat-platform/types':
+        specifier: workspace:^
+        version: link:../types
+      '@google/genai':
+        specifier: ^2.12.0
+        version: 2.13.0
+
   packages/groq:
     dependencies:
-      '@ai-chat-platform/provider-orchestrator':
-        specifier: workspace:*
-        version: link:../provider-orchestrator
       '@ai-chat-platform/types':
         specifier: workspace:^
         version: link:../types
@@ -333,26 +417,53 @@ importers:
 
   packages/ingestion:
     dependencies:
-      '@ai-chat-platform/chunker':
-        specifier: workspace:*
-        version: link:../chunker
       '@ai-chat-platform/document-loader':
         specifier: workspace:*
         version: link:../document-loader
 
-  packages/knowledge-base: {}
-
-  packages/prompt-engine:
+  packages/mistral:
     dependencies:
-      '@ai-chat-platform/knowledge-base':
+      '@ai-chat-platform/embedding-manager':
+        specifier: workspace:^
+        version: link:../embedding-manager
+      '@ai-chat-platform/types':
+        specifier: workspace:^
+        version: link:../types
+
+  packages/openrouter:
+    dependencies:
+      '@ai-chat-platform/types':
+        specifier: workspace:^
+        version: link:../types
+
+  packages/prompt-engine: {}
+
+  packages/provider-catalog:
+    dependencies:
+      '@ai-chat-platform/cerebras':
         specifier: workspace:*
-        version: link:../knowledge-base
-
-  packages/provider-orchestrator:
-    dependencies:
+        version: link:../cerebras
+      '@ai-chat-platform/gemini':
+        specifier: workspace:*
+        version: link:../gemini
+      '@ai-chat-platform/groq':
+        specifier: workspace:*
+        version: link:../groq
+      '@ai-chat-platform/mistral':
+        specifier: workspace:*
+        version: link:../mistral
+      '@ai-chat-platform/openrouter':
+        specifier: workspace:*
+        version: link:../openrouter
       '@ai-chat-platform/types':
         specifier: workspace:*
         version: link:../types
+
+  packages/provider-keys:
+    dependencies:
+      '@ai-chat-platform/database':
+        specifier: workspace:*
+        version: link:../database
 
   packages/rag:
     dependencies:
@@ -366,16 +477,14 @@ importers:
         specifier: workspace:*
         version: link:../upload
 
-  packages/rbac: {}
-
   packages/retriever:
     dependencies:
       '@ai-chat-platform/embedding-manager':
         specifier: workspace:*
         version: link:../embedding-manager
-      '@ai-chat-platform/vector-repository':
+      '@ai-chat-platform/vector-store':
         specifier: workspace:*
-        version: link:../vector-repository
+        version: link:../vector-store
 
   packages/tenant:
     dependencies:
@@ -383,17 +492,23 @@ importers:
         specifier: workspace:*
         version: link:../database
 
-  packages/training:
+  packages/training-pipeline:
     dependencies:
-      '@ai-chat-platform/indexing':
+      '@ai-chat-platform/ai-config':
         specifier: workspace:*
-        version: link:../indexing
-      '@ai-chat-platform/ingestion':
+        version: link:../ai-config
+      '@ai-chat-platform/ai-manager':
         specifier: workspace:*
-        version: link:../ingestion
-      '@ai-chat-platform/upload':
+        version: link:../ai-manager
+      '@ai-chat-platform/conversation':
         specifier: workspace:*
-        version: link:../upload
+        version: link:../conversation
+      '@ai-chat-platform/database':
+        specifier: workspace:*
+        version: link:../database
+      '@ai-chat-platform/tenant':
+        specifier: workspace:*
+        version: link:../tenant
 
   packages/types: {}
 
@@ -404,9 +519,6 @@ importers:
       react:
         specifier: ^19.2.0
         version: 19.2.8
-      react-dom:
-        specifier: ^19.2.0
-        version: 19.2.8(react@19.2.8)
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*
@@ -420,9 +532,6 @@ importers:
       '@types/react':
         specifier: 19.2.2
         version: 19.2.2
-      '@types/react-dom':
-        specifier: 19.2.2
-        version: 19.2.2(@types/react@19.2.2)
       eslint:
         specifier: ^9.39.1
         version: 9.39.5(jiti@2.7.0)
@@ -445,9 +554,23 @@ importers:
         specifier: workspace:*
         version: link:../ingestion
 
-  packages/vector-repository: {}
+  packages/vector-store:
+    dependencies:
+      '@ai-chat-platform/database':
+        specifier: workspace:*
+        version: link:../database
 
-  packages/vector-store: {}
+  packages/web-crawler:
+    dependencies:
+      '@ai-chat-platform/database':
+        specifier: workspace:*
+        version: link:../database
+      '@ai-chat-platform/indexing':
+        specifier: workspace:*
+        version: link:../indexing
+      '@ai-chat-platform/vector-store':
+        specifier: workspace:*
+        version: link:../vector-store
 
 packages:
 
@@ -658,44 +781,6 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@lancedb/lancedb-darwin-arm64@0.13.0':
-    resolution: {integrity: sha512-x+oRj7PDlxOONr27+NgLIk+Pm8VjnEO5VNoEkDv/j4sBimMp3CZNiD/OndxDlOpT1RykJJSMQ1SCYWtInNramQ==}
-    engines: {node: '>= 18'}
-    cpu: [arm64]
-    os: [darwin]
-
-  '@lancedb/lancedb-darwin-x64@0.13.0':
-    resolution: {integrity: sha512-xNwxx/rjvAO0qfKKrsMZyI93ftbz0oxVO34F6nSaPe9u53R+JJJOnYkVAt2Suv0B5lFqeiqgFtE0c5LsD/SUaw==}
-    engines: {node: '>= 18'}
-    cpu: [x64]
-    os: [darwin]
-
-  '@lancedb/lancedb-linux-arm64-gnu@0.13.0':
-    resolution: {integrity: sha512-s3wxoMYERvtk2XrXBNjf1BJVta1+c9mi2x1W0Jxm2iThALUU+MnzY7oAzF3l/JmYJCjxgEEHne0+ZRz0Nrwt4A==}
-    engines: {node: '>= 18'}
-    cpu: [arm64]
-    os: [linux]
-
-  '@lancedb/lancedb-linux-x64-gnu@0.13.0':
-    resolution: {integrity: sha512-AtJLPTmEU4LvZOhj6s7N/UgA9g01Qqm9rLkhosKHcDxKQcvqrVhsoOKJ7MRgfiiGxYUdnUHlehscPm5VdA0GMw==}
-    engines: {node: '>= 18'}
-    cpu: [x64]
-    os: [linux]
-
-  '@lancedb/lancedb-win32-x64-msvc@0.13.0':
-    resolution: {integrity: sha512-5D04/JKidhq73nPK/BC/p+cnDazFxGfwy0XYSs3gyIwIGVVTfMggVs6Wn2Qu3OJ4ENYD7lQpQj/blNl+Ovqp8g==}
-    engines: {node: '>= 18'}
-    cpu: [x64]
-    os: [win32]
-
-  '@lancedb/lancedb@0.13.0':
-    resolution: {integrity: sha512-QSzYvswjroH3aREKaqV6eXENo4zUAHLEPBrb2YCWNWZi/QhA8mbjJcB4hEnqQh55q4qgoqG6tuMsx4dd//mTiQ==}
-    engines: {node: '>= 18'}
-    cpu: [x64, arm64]
-    os: [darwin, linux, win32]
-    peerDependencies:
-      apache-arrow: '>=13.0.0 <=17.0.0'
-
   '@napi-rs/canvas-android-arm64@0.1.80':
     resolution: {integrity: sha512-sk7xhN/MoXeuExlggf91pNziBxLPVUqF2CAVnB57KLG/pz7+U5TKG8eXdc3pm0d7Od0WreB6ZKLj37sX9muGOQ==}
     engines: {node: '>= 10'}
@@ -889,9 +974,6 @@ packages:
   '@swc/helpers@0.5.15':
     resolution: {integrity: sha512-JQ5TuMi45Owi4/BIMAJBoSQoOJu12oOk/gADqlcUL9JEdHB8vyjUSsxqeNXnmXHjYKMi2WcYtezGEEhqUI/E2g==}
 
-  '@swc/helpers@0.5.23':
-    resolution: {integrity: sha512-5lSsMOTXURePglDfvuAQUqkGek9Hg2kksOYay2m0+XR++b2NWYL/4sWyuvVBIs8oKnJaxkdi9whaL/sqN13afw==}
-
   '@turbo/darwin-64@2.10.6':
     resolution: {integrity: sha512-S+yIyZkmjYBQbIM7sTqMAwnLeMjSK60Q9grUDPbTWvkRjbsn5k1Rt5sPvTX80M4PnlYQBwLiYsjlu6tHsuIqQQ==}
     cpu: [x64]
@@ -922,32 +1004,17 @@ packages:
     cpu: [arm64]
     os: [win32]
 
-  '@types/command-line-args@5.2.3':
-    resolution: {integrity: sha512-uv0aG6R0Y8WHZLTamZwtfsDLVRnOa+n+n5rEvFWL5Na5gZ8V2Teab/duDPFzIIIhs9qizDpcavCusCLJZu62Kw==}
-
-  '@types/command-line-usage@5.0.4':
-    resolution: {integrity: sha512-BwR5KP3Es/CSht0xqBcUXS3qCAUVXwpRKsV2+arxeb65atasuXG9LykC9Ab10Cw3s2raH92ZqOeILaQbsB2ACg==}
-
   '@types/estree@1.0.9':
     resolution: {integrity: sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg==}
 
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
 
-  '@types/jsonwebtoken@9.0.10':
-    resolution: {integrity: sha512-asx5hIG9Qmf/1oStypjanR7iKTv0gXQ1Ov/jfrX6kS/EO0OFni8orbmGCn0672NHR3kXHwpAwR+B368ZGN/2rA==}
-
-  '@types/ms@2.1.0':
-    resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
-
   '@types/node-fetch@2.6.13':
     resolution: {integrity: sha512-QGpRVpzSaUs30JBSGPjOg4Uveu384erbHBoT1zeONvyCfwQxIkUshLAOqN/k9EjGviPRmWTTe6aH2qySWKTVSw==}
 
   '@types/node@18.19.130':
     resolution: {integrity: sha512-GRaXQx6jGfL8sKfaIDD6OupbIHBr9jv7Jnaml9tB7l4v068PAOXqfcujMMo5PhbIs6ggR1XODELqahT2R8v0fg==}
-
-  '@types/node@20.19.43':
-    resolution: {integrity: sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA==}
 
   '@types/node@22.20.1':
     resolution: {integrity: sha512-EANqOCF9QFyra+4pfxUcX9STKJpCLjMbObVzljIJomAWSnuSIEAvyzEU53GaajbXJEgdh0iEcPL+DGvpUd4k1Q==}
@@ -1055,23 +1122,11 @@ packages:
     resolution: {integrity: sha512-zbB9rCJAT1rbjiVDb2hqKFHNYLxgtk8NURxZ3IZwD3F6NtxbXZQCnnSi1Lkx+IDohdPlFp222wVALIheZJQSEg==}
     engines: {node: '>=8'}
 
-  apache-arrow@18.1.0:
-    resolution: {integrity: sha512-v/ShMp57iBnBp4lDgV8Jx3d3Q5/Hac25FWmQ98eMahUiHPXcvwIMKJD0hBIgclm/FCG+LwPkAKtkRO1O/W0YGg==}
-    hasBin: true
-
   argparse@1.0.10:
     resolution: {integrity: sha512-o5Roy6tNG4SL/FOkCAN6RzjiakZS25RLYFrcMttJqbdd8BWrnA+fGz57iN5Pb06pvBGvl5gQ0B48dJlslXvoTg==}
 
   argparse@2.0.1:
     resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
-
-  array-back@3.1.0:
-    resolution: {integrity: sha512-TkuxA4UCOvxuDK6NZYXCalszEzj+TLszyASooky+i742l9TqsOdYCMJJupxRic61hwquNtppB3hgcuq9SVSH1Q==}
-    engines: {node: '>=6'}
-
-  array-back@6.2.3:
-    resolution: {integrity: sha512-SGDvmg6QTYiTxCBkYVmThcoa67uLl35pyzRHdpCGBOcqFy6BtwnphoFPk7LhJshD+Yk1Kt35WGWeZPTgwR4Fhw==}
-    engines: {node: '>=12.17'}
 
   array-buffer-byte-length@1.0.2:
     resolution: {integrity: sha512-LHE+8BuR7RYGDKvnrmcuSq3tDcKv9OFEXQt/HpbZhY7V6h0zlUXutnAD82GiFx9rdieCMjkvtcsPqBwgUl1Iiw==}
@@ -1127,10 +1182,6 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  bcryptjs@3.0.3:
-    resolution: {integrity: sha512-GlF5wPWnSa/X5LKM1o0wz0suXIINz1iHRLvTS+sLyi7XPbe5ycmYI3DlZqVGZZtDgl4DmasFg7gOB3JYbphV5g==}
-    hasBin: true
-
   bignumber.js@9.3.1:
     resolution: {integrity: sha512-Ko0uX15oIUS7wJ3Rb30Fs6SkVbLmPBAKdlm7q9+ak9bbIeFf0MwuBsQV6z7+X768/cHsfg+WlysDWJcmthjsjQ==}
 
@@ -1178,10 +1229,6 @@ packages:
   caniuse-lite@1.0.30001806:
     resolution: {integrity: sha512-72Cuvd95zbSYPKq6Fhg8eDJRlzgWDf7/mtoZv6Qe/DYNCEBdNxoA3+rZAU2ZhGCpZlns3EssFavaZomckT5Uuw==}
 
-  chalk-template@0.4.0:
-    resolution: {integrity: sha512-/ghrgmhfY8RaSdeo43hNXxpoHAtxdbskUHjPpfqUWGttFgycUhYPGx3YZBCnUCvOa7Doivn1IZec3DEGFoMgLg==}
-    engines: {node: '>=12'}
-
   chalk@4.1.2:
     resolution: {integrity: sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA==}
     engines: {node: '>=10'}
@@ -1209,14 +1256,6 @@ packages:
   combined-stream@1.0.8:
     resolution: {integrity: sha512-FQN4MRfuJeHf7cBbBMJFXhKSDq+2kAArBlmRBvcvFE5BB1HZKXtSFASDhdlz9zOYwxh8lDdnvmMOe/+5cdoEdg==}
     engines: {node: '>= 0.8'}
-
-  command-line-args@5.2.1:
-    resolution: {integrity: sha512-H4UfQhZyakIjC74I9d34fGYDwk3XpSr17QhEd0Q3I9Xq1CETHo4Hcuo87WyWHpAF1aSLjLRf5lD9ZGX2qStUvg==}
-    engines: {node: '>=4.0.0'}
-
-  command-line-usage@7.0.4:
-    resolution: {integrity: sha512-85UdvzTNx/+s5CkSgBm/0hzP80RFHAa7PsfeADE5ezZF3uHz3/Tqj9gIKGT9PTtpycc3Ua64T0oVulGfKxzfqg==}
-    engines: {node: '>=12.20.0'}
 
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
@@ -1305,10 +1344,6 @@ packages:
 
   dotenv@16.6.1:
     resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
-    engines: {node: '>=12'}
-
-  dotenv@17.4.2:
-    resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
     engines: {node: '>=12'}
 
   duck@0.1.12:
@@ -1492,10 +1527,6 @@ packages:
     resolution: {integrity: sha512-YsGpe3WHLK8ZYi4tWDg2Jy3ebRz2rXowDxnld4bkQB00cc/1Zw9AWnC0i9ztDJitivtQvaI9KaLyKrc+hBW0yg==}
     engines: {node: '>=8'}
 
-  find-replace@3.0.0:
-    resolution: {integrity: sha512-6Tb2myMioCAgv5kfvP5/PkZZ/ntTpVK39fHY7WkWBgvbeE+VHd/tZuZ4mrC+bxh4cfOZeYKVPaJIZtZXV7GNCQ==}
-    engines: {node: '>=4.0.0'}
-
   find-up@5.0.0:
     resolution: {integrity: sha512-78/PXT1wlLLDgTzDs7sjq9hzz0vXD+zn+7wypEe4fXQxCmdmqfGsEPQxmiCSQI3ajFV91bVSsvNtrJRiW6nGng==}
     engines: {node: '>=10'}
@@ -1503,9 +1534,6 @@ packages:
   flat-cache@4.0.1:
     resolution: {integrity: sha512-f7ccFPK3SXFHpx15UIGyRJ/FJQctuKZ0zVuN3frBo4HnK3cay9VEW0R6yPYFHC0AgqhukPzKjq22t5DmAyqGyw==}
     engines: {node: '>=16'}
-
-  flatbuffers@24.12.23:
-    resolution: {integrity: sha512-dLVCAISd5mhls514keQzmEG6QHmUUsNuWsb4tFafIUwvvgDjXhtfAYSKOzt5SWOy+qByV5pbsDZ+Vb7HUOBEdA==}
 
   flatted@3.4.3:
     resolution: {integrity: sha512-/zipXxyO6rGvuNGDiULY9MvEGSkb2gaG4GGH4ygMi0ZZzyMHdUZBmntJmx5x1G2VuPytCwGN4xsJP6cw+sK+vQ==}
@@ -1797,10 +1825,6 @@ packages:
   json-bigint@1.0.0:
     resolution: {integrity: sha512-SiPv/8VpZuWbvLSMtTDU8hEfrZWg/mH/nV/b4o0CYbSxu1UIQPLdwKOCIyLQX+VIPO5vrLX3i8qtqFyhdPSUSQ==}
 
-  json-bignum@0.0.3:
-    resolution: {integrity: sha512-2WHyXj3OfHSgNyuzDbSxI1w2jgw5gkWSWhS7Qg4bWXx1nLk3jnbwfUeS0PSba3IzpTUWdHxBieELUzXRjQB2zg==}
-    engines: {node: '>=0.8'}
-
   json-buffer@3.0.1:
     resolution: {integrity: sha512-4bV5BfR2mqfQTJm+V5tPPdf+ZpuhiIvTuAB5g8kcrXOZpTT/QwwVRWBywX1ozr6lEuPdbHxwaJlm9G6mI2sfSQ==}
 
@@ -1809,10 +1833,6 @@ packages:
 
   json-stable-stringify-without-jsonify@1.0.1:
     resolution: {integrity: sha512-Bdboy+l7tA3OGW6FjyFHWkP5LuByj1Tk33Ljyq0axyzdk9//JSi2u3fP1QSmd1KNwq6VOKYGlAu87CisVir6Pw==}
-
-  jsonwebtoken@9.0.3:
-    resolution: {integrity: sha512-MT/xP0CrubFRNLNKvxJ2BYfy53Zkm++5bX9dtuPbqAeQpTVe0MQTFhao8+Cp//EmJp244xt6Drw/GVEGCUj40g==}
-    engines: {node: '>=12', npm: '>=6'}
 
   jsx-ast-utils@3.3.5:
     resolution: {integrity: sha512-ZZow9HBI5O6EPgSJLUb8n2NKgmVWTwCvHGwFuJlMjvLFqlGG6pjirPhtdsseaLZjSibD8eegzmYpUZwoIlj2cQ==}
@@ -1841,32 +1861,8 @@ packages:
     resolution: {integrity: sha512-iPZK6eYjbxRu3uB4/WZ3EsEIMJFMqAoopl3R+zuq0UjcAm/MO6KCweDgPfP3elTztoKP3KtnVHxTn2NHBSDVUw==}
     engines: {node: '>=10'}
 
-  lodash.camelcase@4.3.0:
-    resolution: {integrity: sha512-TwuEnCnxbc3rAvhf/LbG7tJUDzhqXyFnv3dtzLOPgCG/hODL7WFnsbwktkD7yUV0RrreP/l1PALq/YSg6VvjlA==}
-
-  lodash.includes@4.3.0:
-    resolution: {integrity: sha512-W3Bx6mdkRTGtlJISOvVD/lbqjTlPPUDTMnlXZFnVwi9NKJ6tiAk6LVdlhZMm17VZisqhKcgzpO5Wz91PCt5b0w==}
-
-  lodash.isboolean@3.0.3:
-    resolution: {integrity: sha512-Bz5mupy2SVbPHURB98VAcw+aHh4vRV5IPNhILUCsOzRmsTmSQ17jIuqopAentWoehktxGd9e/hbIXq980/1QJg==}
-
-  lodash.isinteger@4.0.4:
-    resolution: {integrity: sha512-DBwtEWN2caHQ9/imiNeEA5ys1JoRtRfY3d7V9wkqtbycnAmTvRRmbHKDV4a0EYc678/dia0jrte4tjYwVBaZUA==}
-
-  lodash.isnumber@3.0.3:
-    resolution: {integrity: sha512-QYqzpfwO3/CWf3XP+Z+tkQsfaLL/EnUlXWVkIk5FUPc4sBdTehEqZONuyRt2P67PXAk+NXmTBcc97zw9t1FQrw==}
-
-  lodash.isplainobject@4.0.6:
-    resolution: {integrity: sha512-oSXzaWypCMHkPC3NvBEaPHf0KsA5mvPrOPgQWDsbg8n7orZ290M0BmC/jgRZ4vcJ6DTAhjrsSYgdsW/F+MFOBA==}
-
-  lodash.isstring@4.0.1:
-    resolution: {integrity: sha512-0wJxfxH1wgO3GrbuP+dTTk7op+6L41QCXbGINEmD+ny/G/eCqGzxyCsh7159S+mgDDcoarnBw6PC1PS5+wUGgw==}
-
   lodash.merge@4.6.2:
     resolution: {integrity: sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ==}
-
-  lodash.once@4.1.1:
-    resolution: {integrity: sha512-Sb487aTOCr9drQVL8pIxOzVhafOjZN9UU54hiN8PU3uAiSV7lx1yYNpbNmex2PK6dSJoNTSJUUswT651yww3Mg==}
 
   long@5.3.2:
     resolution: {integrity: sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA==}
@@ -2153,9 +2149,6 @@ packages:
     resolution: {integrity: sha512-GDhwkLfywWL2s6vEjyhri+eXmfH6j1L7JE27WhqLeYzoh/A3DBaYGEj2H/HFZCn/kMfim73FXxEJTw06WtxQwg==}
     engines: {node: '>= 14.18.0'}
 
-  reflect-metadata@0.2.2:
-    resolution: {integrity: sha512-urBwgfrvVP/eAyXx4hluJivBKzuEbSQs9rKWCrCkbSxNv8mxPcUZKeuoF3Uy4mJl3Lwprp6yy5/39VWigZ4K6Q==}
-
   reflect.getprototypeof@1.0.10:
     resolution: {integrity: sha512-00o4I+DVrefhv+nX0ulyi3biSHCPDe+yLv5o/p6d/UVlirijB8E16FtfwSAi4g3tcqrQ4lRAqQSoFEZJehYEcw==}
     engines: {node: '>= 0.4'}
@@ -2315,10 +2308,6 @@ packages:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
 
-  table-layout@4.1.1:
-    resolution: {integrity: sha512-iK5/YhZxq5GO5z8wb0bY1317uDF3Zjpha0QFFLA8/trAoiLbQD0HUbMesEaxyzUgDxi2QlcbM8IvqOlEjgoXBA==}
-    engines: {node: '>=12.17'}
-
   tinyexec@1.2.4:
     resolution: {integrity: sha512-SHf/r48b7vOrjve9PxJo3MN5v5yuyjHvdUcrQffT3WXMUfnGmHDVbC4k3sHJaJTgZCwpUplIaAo5ANtMyp3YHg==}
     engines: {node: '>=18'}
@@ -2379,14 +2368,6 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  typical@4.0.0:
-    resolution: {integrity: sha512-VAH4IvQ7BDFYglMd7BPRDfLgxZZX4O4TFcRDA6EN5X7erNJJq+McIEp8np9aVtxrCJ6qx4GTYVfOWNjcqwZgRw==}
-    engines: {node: '>=8'}
-
-  typical@7.3.0:
-    resolution: {integrity: sha512-ya4mg/30vm+DOWfBg4YK3j2WD6TWtRkCbasOJr40CseYENzCUby/7rIvXA99JGsQHeNxLbnXdyLLxKSv3tauFw==}
-    engines: {node: '>=12.17'}
-
   unbox-primitive@1.1.0:
     resolution: {integrity: sha512-nWJ91DjeOkej/TA8pXQ3myruKpKEYgqvpw9lz4OPHj/NWFNluYrjbz9j01CJ8yKQd2g4jFoOkINCTW2I5LEEyw==}
     engines: {node: '>= 0.4'}
@@ -2445,10 +2426,6 @@ packages:
     resolution: {integrity: sha512-BN22B5eaMMI9UMtjrGd5g5eCYPpCPDUy0FJXbYsaT5zYxjFOckS53SQDE3pWkVoWpHXVb3BrYcEN4Twa55B5cA==}
     engines: {node: '>=0.10.0'}
 
-  wordwrapjs@5.1.1:
-    resolution: {integrity: sha512-0yweIbkINJodk27gX9LBGMzyQdBDan3s/dEAiwBOj+Mf0PPyWL6/rikalkv8EeD0E8jm4o5RXEOrFTP3NXbhJg==}
-    engines: {node: '>=12.17'}
-
   ws@8.21.1:
     resolution: {integrity: sha512-+0NTnW77fFN/DjQi6k/Sq/Yvk4Sgajw7urW8V+asjXnRgDs9gyGkdb7EzgfhA4goXsRIZKE28fzIXBHEzhuiWw==}
     engines: {node: '>=10.0.0'}
@@ -2468,9 +2445,6 @@ packages:
   yocto-queue@0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
-
-  zod@4.4.3:
-    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
 snapshots:
 
@@ -2649,32 +2623,6 @@ snapshots:
   '@img/sharp-win32-x64@0.34.5':
     optional: true
 
-  '@lancedb/lancedb-darwin-arm64@0.13.0':
-    optional: true
-
-  '@lancedb/lancedb-darwin-x64@0.13.0':
-    optional: true
-
-  '@lancedb/lancedb-linux-arm64-gnu@0.13.0':
-    optional: true
-
-  '@lancedb/lancedb-linux-x64-gnu@0.13.0':
-    optional: true
-
-  '@lancedb/lancedb-win32-x64-msvc@0.13.0':
-    optional: true
-
-  '@lancedb/lancedb@0.13.0(apache-arrow@18.1.0)':
-    dependencies:
-      apache-arrow: 18.1.0
-      reflect-metadata: 0.2.2
-    optionalDependencies:
-      '@lancedb/lancedb-darwin-arm64': 0.13.0
-      '@lancedb/lancedb-darwin-x64': 0.13.0
-      '@lancedb/lancedb-linux-arm64-gnu': 0.13.0
-      '@lancedb/lancedb-linux-x64-gnu': 0.13.0
-      '@lancedb/lancedb-win32-x64-msvc': 0.13.0
-
   '@napi-rs/canvas-android-arm64@0.1.80':
     optional: true
 
@@ -2821,10 +2769,6 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  '@swc/helpers@0.5.23':
-    dependencies:
-      tslib: 2.8.1
-
   '@turbo/darwin-64@2.10.6':
     optional: true
 
@@ -2843,20 +2787,9 @@ snapshots:
   '@turbo/windows-arm64@2.10.6':
     optional: true
 
-  '@types/command-line-args@5.2.3': {}
-
-  '@types/command-line-usage@5.0.4': {}
-
   '@types/estree@1.0.9': {}
 
   '@types/json-schema@7.0.15': {}
-
-  '@types/jsonwebtoken@9.0.10':
-    dependencies:
-      '@types/ms': 2.1.0
-      '@types/node': 22.20.1
-
-  '@types/ms@2.1.0': {}
 
   '@types/node-fetch@2.6.13':
     dependencies:
@@ -2866,10 +2799,6 @@ snapshots:
   '@types/node@18.19.130':
     dependencies:
       undici-types: 5.26.5
-
-  '@types/node@20.19.43':
-    dependencies:
-      undici-types: 6.21.0
 
   '@types/node@22.20.1':
     dependencies:
@@ -3005,27 +2934,11 @@ snapshots:
     dependencies:
       color-convert: 2.0.1
 
-  apache-arrow@18.1.0:
-    dependencies:
-      '@swc/helpers': 0.5.23
-      '@types/command-line-args': 5.2.3
-      '@types/command-line-usage': 5.0.4
-      '@types/node': 20.19.43
-      command-line-args: 5.2.1
-      command-line-usage: 7.0.4
-      flatbuffers: 24.12.23
-      json-bignum: 0.0.3
-      tslib: 2.8.1
-
   argparse@1.0.10:
     dependencies:
       sprintf-js: 1.0.3
 
   argparse@2.0.1: {}
-
-  array-back@3.1.0: {}
-
-  array-back@6.2.3: {}
 
   array-buffer-byte-length@1.0.2:
     dependencies:
@@ -3100,8 +3013,6 @@ snapshots:
 
   baseline-browser-mapping@2.11.1: {}
 
-  bcryptjs@3.0.3: {}
-
   bignumber.js@9.3.1: {}
 
   bluebird@3.4.7: {}
@@ -3157,10 +3068,6 @@ snapshots:
 
   caniuse-lite@1.0.30001806: {}
 
-  chalk-template@0.4.0:
-    dependencies:
-      chalk: 4.1.2
-
   chalk@4.1.2:
     dependencies:
       ansi-styles: 4.3.0
@@ -3187,20 +3094,6 @@ snapshots:
   combined-stream@1.0.8:
     dependencies:
       delayed-stream: 1.0.0
-
-  command-line-args@5.2.1:
-    dependencies:
-      array-back: 3.1.0
-      find-replace: 3.0.0
-      lodash.camelcase: 4.3.0
-      typical: 4.0.0
-
-  command-line-usage@7.0.4:
-    dependencies:
-      array-back: 6.2.3
-      chalk-template: 0.4.0
-      table-layout: 4.1.1
-      typical: 7.3.0
 
   concat-map@0.0.1: {}
 
@@ -3276,8 +3169,6 @@ snapshots:
   dotenv@16.0.3: {}
 
   dotenv@16.6.1: {}
-
-  dotenv@17.4.2: {}
 
   duck@0.1.12:
     dependencies:
@@ -3566,10 +3457,6 @@ snapshots:
     dependencies:
       to-regex-range: 5.0.1
 
-  find-replace@3.0.0:
-    dependencies:
-      array-back: 3.1.0
-
   find-up@5.0.0:
     dependencies:
       locate-path: 6.0.0
@@ -3579,8 +3466,6 @@ snapshots:
     dependencies:
       flatted: 3.4.3
       keyv: 4.5.4
-
-  flatbuffers@24.12.23: {}
 
   flatted@3.4.3: {}
 
@@ -3913,26 +3798,11 @@ snapshots:
     dependencies:
       bignumber.js: 9.3.1
 
-  json-bignum@0.0.3: {}
-
   json-buffer@3.0.1: {}
 
   json-schema-traverse@0.4.1: {}
 
   json-stable-stringify-without-jsonify@1.0.1: {}
-
-  jsonwebtoken@9.0.3:
-    dependencies:
-      jws: 4.0.1
-      lodash.includes: 4.3.0
-      lodash.isboolean: 3.0.3
-      lodash.isinteger: 4.0.4
-      lodash.isnumber: 3.0.3
-      lodash.isplainobject: 4.0.6
-      lodash.isstring: 4.0.1
-      lodash.once: 4.1.1
-      ms: 2.1.3
-      semver: 7.8.5
 
   jsx-ast-utils@3.3.5:
     dependencies:
@@ -3976,23 +3846,7 @@ snapshots:
     dependencies:
       p-locate: 5.0.0
 
-  lodash.camelcase@4.3.0: {}
-
-  lodash.includes@4.3.0: {}
-
-  lodash.isboolean@3.0.3: {}
-
-  lodash.isinteger@4.0.4: {}
-
-  lodash.isnumber@3.0.3: {}
-
-  lodash.isplainobject@4.0.6: {}
-
-  lodash.isstring@4.0.1: {}
-
   lodash.merge@4.6.2: {}
-
-  lodash.once@4.1.1: {}
 
   long@5.3.2: {}
 
@@ -4288,8 +4142,6 @@ snapshots:
 
   readdirp@4.1.2: {}
 
-  reflect-metadata@0.2.2: {}
-
   reflect.getprototypeof@1.0.10:
     dependencies:
       call-bind: 1.0.9
@@ -4519,11 +4371,6 @@ snapshots:
 
   supports-preserve-symlinks-flag@1.0.0: {}
 
-  table-layout@4.1.1:
-    dependencies:
-      array-back: 6.2.3
-      wordwrapjs: 5.1.1
-
   tinyexec@1.2.4: {}
 
   tinyglobby@0.2.17:
@@ -4602,10 +4449,6 @@ snapshots:
 
   typescript@5.9.2: {}
 
-  typical@4.0.0: {}
-
-  typical@7.3.0: {}
-
   unbox-primitive@1.1.0:
     dependencies:
       call-bound: 1.0.4
@@ -4683,12 +4526,8 @@ snapshots:
 
   word-wrap@1.2.5: {}
 
-  wordwrapjs@5.1.1: {}
-
   ws@8.21.1: {}
 
   xmlbuilder@10.1.1: {}
 
   yocto-queue@0.1.0: {}
-
-  zod@4.4.3: {}

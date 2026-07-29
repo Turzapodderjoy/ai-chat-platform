@@ -2,14 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
 
-import { UPLOAD_DIR } from "@ai-chat-platform/config";
-import { DocumentLoader } from "@ai-chat-platform/document-loader";
-import { IndexingService } from "@ai-chat-platform/indexing";
+import { getApp } from "../../../lib/app";
+import { UPLOAD_DIR } from "../../../lib/paths";
 
 export async function POST(req: NextRequest) {
   try {
     const form = await req.formData();
     const file = form.get("file");
+    const businessId = form.get("businessId");
+
+    if (typeof businessId !== "string" || !businessId.trim()) {
+      return NextResponse.json(
+        { success: false, error: "businessId is required" },
+        { status: 400 }
+      );
+    }
 
     if (!(file instanceof File)) {
       return NextResponse.json(
@@ -27,31 +34,16 @@ export async function POST(req: NextRequest) {
 
     await fs.writeFile(filepath, Buffer.from(bytes));
 
-    // Load document
-    const loader = new DocumentLoader();
-    const rawText = await loader.load(filepath);
-
-    // Initialize pipeline internally via IndexingService
-    const indexingService = new IndexingService();
-    await indexingService.initialize();
-
-    const result = await indexingService.index({
-      filename: file.name,
-      text: rawText,
-    });
+    const app = await getApp();
+    const result = await app.container.router.upload.uploadFile(filepath, businessId);
 
     return NextResponse.json({
-      success: true,
       file: {
         filename,
         originalName: file.name,
         size: file.size,
-        characters: rawText.length,
       },
-      documentId: result.documentId,
-      chunks: result.chunks,
-      vectors: result.vectors,
-      preview: rawText.substring(0, 300),
+      ...result,
     });
   } catch (error) {
     console.error("Upload Route Error:", error);

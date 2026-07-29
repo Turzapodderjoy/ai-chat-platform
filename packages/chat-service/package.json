@@ -10,6 +10,8 @@
     "@ai-chat-platform/conversation": "workspace:*",
     "@ai-chat-platform/retriever": "workspace:*",
     "@ai-chat-platform/prompt-engine": "workspace:*",
-    "@ai-chat-platform/ai-manager": "workspace:*"
+    "@ai-chat-platform/ai-manager": "workspace:*",
+    "@ai-chat-platform/embedding-manager": "workspace:*",
+    "@ai-chat-platform/ai-config": "workspace:*"
   }
 }

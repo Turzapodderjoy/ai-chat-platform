@@ -1,17 +1,19 @@
+export type HandoffStatus = "bot" | "pending" | "human";
+
 export interface ConversationMessage {
-  role: "system" | "user" | "assistant";
-
+  id: string;
+  role: "system" | "user" | "assistant" | "agent";
   content: string;
-
   createdAt: Date;
 }
 
-export interface ConversationSession {
+export interface ConversationRecord {
   id: string;
-
   businessId: string;
-
   userId: string;
-
-  messages: ConversationMessage[];
+  handoffStatus: HandoffStatus;
+  handoffReason: string | null;
+  handoffSummary: string | null;
+  handoffRequestedAt: Date | null;
+  isTraining: boolean;
 }

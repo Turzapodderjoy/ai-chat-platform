@@ -29,6 +29,20 @@ export class KeyManager {
     return this.getAvailableKey(providerName) !== null;
   }
 
+  getMaskedKey(providerName: string): string | null {
+    const key = this.getAvailableKey(providerName);
+
+    if (!key || !key.value) {
+      return null;
+    }
+
+    if (key.value.length <= 8) {
+      return "****";
+    }
+
+    return `${key.value.slice(0, 4)}...${key.value.slice(-4)}`;
+  }
+
   getAvailableKey(providerName: string): ProviderKey | null {
     const now = Date.now();
     const map = this.providers.get(providerName.toLowerCase());

@@ -1,6 +1,16 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "tui",
+  // Turborepo's default "strict" env mode filters which of Vercel's
+  // project env vars actually reach the running app unless each one is
+  // individually declared per-task -- this silently broke the production
+  // deploy (DATABASE_URL/DIRECT_URL never reached the app, 100% error
+  // rate) despite being correctly set in Vercel's dashboard. This is a
+  // single-app monorepo (not several apps needing different env subsets),
+  // so per-var allowlisting only buys risk of forgetting one -- every AI
+  // provider key (Groq/Jina/Mistral/Gemini/OpenRouter/Cerebras),
+  // CRON_SECRET, etc. would hit the exact same silent failure otherwise.
+  "envMode": "loose",
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

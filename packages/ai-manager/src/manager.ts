@@ -13,6 +13,7 @@ import {
 import { HealthTracker } from "./health-tracker";
 import { KeyManager } from "./key-manager";
 import { retryWithBackoff } from "./retry";
+import { UsageTracker, type ProviderUsage } from "./usage-tracker";
 
 interface AIManagerOptions {
   failoverOrder?: string[];
@@ -27,7 +28,13 @@ interface RegisteredProvider {
 
 export class AIManager {
   private readonly providers = new Map<string, RegisteredProvider>();
+  /** Manually disabled providers — separate from health/key state, so an
+   * operator can force a provider off (or force-isolate a single one by
+   * disabling every other) for experimentation, independent of whether
+   * it's actually healthy or has a usable key. Enabled by default. */
+  private readonly disabledProviders = new Set<string>();
   private readonly healthTracker: HealthTracker;
+  private readonly usageTracker: UsageTracker;
   private readonly failoverOrder: string[];
   private readonly keyCooldownMs: number;
   private readonly maxRetriesPerKey: number;
@@ -38,6 +45,80 @@ export class AIManager {
     this.keyCooldownMs = options.keyCooldownMs ?? 30_000;
     this.maxRetriesPerKey = options.maxRetriesPerKey ?? 1;
     this.healthTracker = new HealthTracker();
+    this.usageTracker = new UsageTracker();
+  }
+
+  getUsage(): Record<string, ProviderUsage> {
+    return this.usageTracker.getAll();
+  }
+
+  getProviderStatus(): Array<{
+    name: string;
+    healthy: boolean;
+    hasUsableKey: boolean;
+    maskedKey: string | null;
+    enabled: boolean;
+  }> {
+    return Array.from(this.providers.values()).map((entry) => ({
+      name: entry.provider.name,
+      healthy: this.healthTracker.isAvailable(entry.provider.name),
+      hasUsableKey: entry.keyManager.hasAnyUsableKey(entry.provider.name),
+      maskedKey: entry.keyManager.getMaskedKey(entry.provider.name),
+      enabled: !this.disabledProviders.has(entry.provider.name.toLowerCase()),
+    }));
+  }
+
+  hasProvider(name: string): boolean {
+    return this.providers.has(name.toLowerCase());
+  }
+
+  isProviderEnabled(name: string): boolean {
+    return !this.disabledProviders.has(name.toLowerCase());
+  }
+
+  /** Manually forces a provider on/off — takes effect on the very next
+   * generate() call, no restart. Used to isolate one provider for testing
+   * (disable the rest) or to force a specific one/set off entirely. */
+  setProviderEnabled(name: string, enabled: boolean): void {
+    const key = name.toLowerCase();
+
+    if (!this.providers.has(key)) {
+      throw new Error(`Provider ${name} is not registered.`);
+    }
+
+    if (enabled) {
+      this.disabledProviders.delete(key);
+    } else {
+      this.disabledProviders.add(key);
+    }
+  }
+
+  /** Replaces the active key(s) for an already-registered provider. */
+  setProviderKey(name: string, apiKey: string): void {
+    const entry = this.providers.get(name.toLowerCase());
+
+    if (!entry) {
+      throw new Error(`Provider ${name} is not registered.`);
+    }
+
+    entry.keyManager.registerKeys(name, [
+      { id: `${name}-ui`, value: apiKey },
+    ]);
+  }
+
+  /** Removes every key for an already-registered provider — registerKeys()
+   * fully replaces the key map, so an empty array leaves it with none,
+   * which makes hasAnyUsableKey() correctly return false immediately
+   * (not just after a restart). The provider stays registered (no
+   * unregister capability exists), just unusable until re-activated. */
+  clearProviderKeys(name: string): void {
+    const entry = this.providers.get(name.toLowerCase());
+
+    if (!entry) {
+      throw new Error(`Provider ${name} is not registered.`);
+    }
+
+    entry.keyManager.registerKeys(name, []);
   }
 
   registerProvider(provider: AIProvider, keys: ProviderKey[]): void {
@@ -72,6 +153,10 @@ export class AIManager {
     for (const entry of this.orderedProviders()) {
       const provider = entry.provider;
       const providerName = provider.name;
+
+      if (this.disabledProviders.has(providerName.toLowerCase())) {
+        continue;
+      }
 
       if (!(await this.isProviderHealthy(entry))) {
         continue;
@@ -109,6 +194,8 @@ export class AIManager {
               currentKey.id
             );
 
+            this.usageTracker.recordFailure(providerName);
+
             failures.push(
               new ProviderUnavailableError(
                 `Provider ${providerName} returned an unsuccessful response.`
@@ -125,6 +212,7 @@ export class AIManager {
           );
 
           this.healthTracker.recordSuccess(providerName);
+          this.usageTracker.recordSuccess(providerName, response.tokens ?? 0);
 
           return response;
         } catch (cause) {
@@ -132,6 +220,8 @@ export class AIManager {
             cause instanceof Error
               ? cause
               : new Error(String(cause));
+
+          this.usageTracker.recordFailure(providerName);
 
           if (error instanceof InvalidApiKeyError) {
             entry.keyManager.markKeyFailed(
@@ -160,6 +250,19 @@ export class AIManager {
             continue;
           }
 
+          // Same cooldown treatment as RateLimitedError above — without
+          // this, an unclassified error (a provider outage, an unusual
+          // status code, a network blip) leaves the key "available", so
+          // getAvailableKey() below returns the SAME key again and the
+          // while(key) loop spins on it forever instead of ever moving
+          // on to the next key/provider. Real bug found under load: this
+          // exact gap caused 1500+ back-to-back requests to one provider
+          // in a single chat call before it happened to escape.
+          entry.keyManager.markKeyFailed(
+            providerName,
+            currentKey.id
+          );
+
           this.healthTracker.recordFailure(providerName);
 
           failures.push(error);
@@ -173,17 +276,36 @@ export class AIManager {
   }
 
   async chat(
-    message: string
-  ): Promise<{ provider: string; response: string }> {
+    message: string,
+    options: {
+      temperature?: number;
+      systemPrompt?: string;
+      maxTokens?: number;
+      topP?: number;
+      frequencyPenalty?: number;
+      presencePenalty?: number;
+      stop?: string[];
+      seed?: number;
+    } = {}
+  ): Promise<{ provider: string; response: string; tokens: number }> {
     const result = await this.generate({
       userId: "anonymous",
       sessionId: "anonymous",
       message,
+      temperature: options.temperature,
+      systemPrompt: options.systemPrompt,
+      maxTokens: options.maxTokens,
+      topP: options.topP,
+      frequencyPenalty: options.frequencyPenalty,
+      presencePenalty: options.presencePenalty,
+      stop: options.stop,
+      seed: options.seed,
     });
 
     return {
       provider: result.provider,
       response: result.message,
+      tokens: result.tokens ?? 0,
     };
   }
 

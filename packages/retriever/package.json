@@ -7,7 +7,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@ai-chat-platform/vector-repository": "workspace:*",
-    "@ai-chat-platform/embedding-manager": "workspace:*"
+    "@ai-chat-platform/embedding-manager": "workspace:*",
+    "@ai-chat-platform/vector-store": "workspace:*"
   }
 }

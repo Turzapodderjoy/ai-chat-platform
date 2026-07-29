@@ -7,7 +7,6 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@ai-chat-platform/types": "workspace:*",
-    "@ai-chat-platform/provider-orchestrator": "workspace:*"
+    "@ai-chat-platform/types": "workspace:*"
   }
 }

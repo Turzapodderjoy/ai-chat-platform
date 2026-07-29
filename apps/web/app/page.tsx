@@ -9,6 +9,14 @@ export default function HomePage() {
         <p className="mt-6 text-xl text-gray-400">
           Building the Future of AI Automation
         </p>
+
+        <p className="mt-8">
+          <a href="/dashboard" className="underline">Admin dashboard</a>
+          {" · "}
+          <a href="/upload" className="underline">Upload knowledge</a>
+          {" · "}
+          <a href="/chat" className="underline">Open chat demo</a>
+        </p>
       </div>
     </main>
   );

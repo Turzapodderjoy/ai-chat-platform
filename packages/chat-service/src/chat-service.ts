@@ -1,1 +1,412 @@
-packages/upload/src/upload-service.ts
+import { AIManager } from "@ai-chat-platform/ai-manager";
+import { PromptEngine } from "@ai-chat-platform/prompt-engine";
+import { Retriever } from "@ai-chat-platform/retriever";
+import { ConversationService, ConversationMessage } from "@ai-chat-platform/conversation";
+import { EmbeddingManager } from "@ai-chat-platform/embedding-manager";
+import { AiConfigService } from "@ai-chat-platform/ai-config";
+
+import { ChatUsageLog } from "./chat-usage-log";
+import { ResponseCache } from "./response-cache";
+import type {
+  ChatRequest,
+  ChatResponse,
+} from "./types";
+
+// Emitted by the LLM itself (see the system prompt's ANSWERING FROM THE
+// KNOWLEDGE BASE section) when it can't help from the knowledge base OR
+// the customer explicitly asks for a human — the ONLY reliable, language-
+// agnostic way to know that, since retrieval confidence measures how well
+// the knowledge base matches the QUESTION, not whether the AI actually
+// managed to answer it or whether the customer just typed "talk to a
+// human". Before this, handoff was decided entirely from confidence
+// BEFORE the LLM ever ran, so the AI could say "let me connect you with a
+// team member" in its own reply and nothing would actually happen — no
+// handoff record, invisible to the Handoffs queue, customer stuck talking
+// to the bot forever.
+const HANDOFF_MARKER = "[[NEEDS_HUMAN]]";
+
+// The handoff summary is a short internal note for a human agent, not a
+// customer-facing answer — a smaller cap is appropriate and keeps this
+// background call cheap regardless of which provider handles it.
+const SUMMARY_MAX_TOKENS = 300;
+
+const HANDOFF_MESSAGE_EN =
+  "I don't have any information about that in our knowledge base. Let me connect you with a team member who can help — they'll pick up right where this conversation left off.";
+
+const HANDOFF_MESSAGE_BN =
+  "এই বিষয়ে আমাদের নলেজ বেসে কোনো তথ্য নেই। আমি আপনাকে একজন টিম মেম্বারের সাথে সংযুক্ত করছি — তিনি এই কথোপকথন যেখানে শেষ হয়েছে সেখান থেকেই শুরু করবেন।";
+
+const ALREADY_WAITING_MESSAGE_EN =
+  "You're connected with a human agent — they'll see your message and reply here shortly.";
+
+const ALREADY_WAITING_MESSAGE_BN =
+  "আপনি একজন মানব এজেন্টের সাথে সংযুক্ত আছেন — তিনি শীঘ্রই এখানে আপনার বার্তা দেখে উত্তর দেবেন।";
+
+const HANDOFF_MESSAGE_BANGLISH =
+  "Dukkhito, amader knowledge base e ei bishoye kono tothyo nei. Ami apnake ekjon team member-er sathe connect kore dicchi — uni ei conversation ja jekhane sesh hoyeche sekhan theke shuru korben.";
+
+const ALREADY_WAITING_MESSAGE_BANGLISH =
+  "Apni ekjon human agent-er sathe connected achen — tini shiggiri apnar message dekhe eikhane reply korben.";
+
+// ponytail: Bangla-script detection only (Unicode block ঀ-৿) —
+// cheap and exact, no AI call needed for these canned messages. Banglish
+// (romanized Bengali) isn't reliably detectable by regex, so it falls
+// back to the English canned message; real Banglish handling is the
+// system prompt's job, for actual LLM-generated answers.
+function isBangla(text: string): boolean {
+  return /[ঀ-৿]/.test(text);
+}
+
+/** Which register to use for the canned (non-LLM) messages below — when
+ * the business has locked a language, canned messages respect the lock
+ * too instead of mirroring the customer like "auto" mode does. */
+function cannedMessageLanguage(languageMode: string, userMessage: string): "english" | "bangla" | "banglish" {
+  if (languageMode === "english" || languageMode === "bangla" || languageMode === "banglish") {
+    return languageMode;
+  }
+  return isBangla(userMessage) ? "bangla" : "english";
+}
+
+/** Prepended-none, appended-last so it reads as the most recent/most
+ * specific instruction — a strong override the model can't miss,
+ * regardless of how the rest of the (fully admin-editable) system
+ * prompt is worded. Returns "" for "auto", meaning no override at all:
+ * the base prompt's own "match the customer's register" instructions
+ * apply exactly as they always have. */
+function languageLockInstruction(languageMode: string): string {
+  const LANGUAGE_LABEL: Record<string, string> = {
+    english: "English",
+    bangla: "natural Bangla (Bengali script)",
+    banglish: "Banglish (Bangla written in Latin/Roman letters)",
+  };
+
+  const label = LANGUAGE_LABEL[languageMode];
+  if (!label) return "";
+
+  return `\n\nHARD LANGUAGE LOCK — STRICT, NON-NEGOTIABLE, OVERRIDES EVERYTHING ABOVE (including any "match the customer's language" instruction elsewhere in this prompt): this business has locked ALL replies to ${label}. This is a hard setting, not a preference — there is no exception to it, ever.
+- Understand the customer's message in whatever language or register they actually wrote it in — that part is unrestricted.
+- Your reply, however, is ALWAYS in ${label} — every single message, with zero exceptions.
+- Do NOT switch language mid-conversation. Do NOT mirror the customer's language. Do NOT switch even if the customer explicitly asks you to reply in a different language, insists, or writes only in that other language for the rest of the conversation.
+- If any earlier instruction in this prompt says to match/mirror the customer's language, that instruction is overridden by this lock and no longer applies.`;
+}
+
+// Folds the most recent turn into the string embedded for retrieval —
+// a bare "price?" carries almost no signal alone, but "is X authentic?
+// ... price?" retrieves the right chunks. Deliberately small (last 2
+// messages, not the whole history) so retrieval stays focused on what's
+// actually being asked about right now rather than diluted by older
+// unrelated turns.
+function buildRetrievalQuery(history: ConversationMessage[], currentMessage: string): string {
+  const recent = history.slice(-2).map((m) => m.content).join(" ");
+  return recent ? `${recent} ${currentMessage}`.trim() : currentMessage;
+}
+
+export class ChatService {
+  constructor(
+    private readonly conversations: ConversationService,
+    private readonly retriever: Retriever,
+    private readonly prompts: PromptEngine,
+    private readonly ai: AIManager,
+    private readonly embeddings: EmbeddingManager,
+    private readonly responseCache: ResponseCache,
+    private readonly usageLog: ChatUsageLog,
+    private readonly aiConfig: AiConfigService
+  ) {}
+
+  async chat(
+    request: ChatRequest
+  ): Promise<ChatResponse> {
+
+    const businessId = request.businessId ?? "default";
+
+    // Read live, every request — this is the whole point of moving it
+    // out of hardcoded constants: a dashboard edit takes effect on the
+    // very next message, no redeploy or restart.
+    const config = await this.aiConfig.getCurrent(businessId);
+
+    const conversation =
+      await this.conversations.getOrCreate(
+        request.sessionId,
+        businessId,
+        request.isTraining ? "trainer" : "anonymous",
+        request.isTraining ?? false
+      );
+
+    // Fetched before this turn's message is recorded, so it's "everything
+    // said so far" — exactly what the prompt needs to resolve a follow-up
+    // like "the price" against whatever product was just discussed.
+    const priorHistory =
+      await this.conversations.history(
+        request.sessionId,
+        config.historyTurns
+      );
+
+    await this.conversations.addMessage(
+      request.sessionId,
+      "user",
+      request.message
+    );
+
+    // Already being handled by a human — don't let the bot jump back in.
+    // (Doesn't record this as a message: the customer's real messages
+    // while waiting should just accumulate for the agent to read, not
+    // get interleaved with a repeated "you're waiting" notice.) Skipped
+    // entirely for a Training Arena session — the whole point there is
+    // to keep talking to the AI after it hands off, to correct exactly
+    // that behavior, not to simulate the real "you're waiting" UX.
+    if (!conversation.isTraining && conversation.handoffStatus !== "bot") {
+      const lang = cannedMessageLanguage(config.languageMode, request.message);
+      return {
+        answer:
+          lang === "bangla"
+            ? ALREADY_WAITING_MESSAGE_BN
+            : lang === "banglish"
+              ? ALREADY_WAITING_MESSAGE_BANGLISH
+              : ALREADY_WAITING_MESSAGE_EN,
+        provider: "human",
+        tokens: 0,
+        confidence: 0,
+        handoff: true,
+      };
+    }
+
+    // A bare follow-up ("price?" right after "is the X authentic?") has
+    // almost no retrievable signal on its own — embedding just that turn
+    // finds weak/wrong chunks, confidence falls under the handoff floor,
+    // and the conversation gets handed off before the history-aware
+    // prompt below ever gets a chance to resolve "price of what". Folding
+    // the most recent turn into the RETRIEVAL query (not the final answer
+    // prompt, which already gets full history correctly) fixes this —
+    // it's the same "follow-ups need context" reasoning the cache skip
+    // just below already applies, just applied one step earlier.
+    const retrievalQuery = buildRetrievalQuery(priorHistory, request.message);
+
+    const queryEmbeddingResult =
+      await this.embeddings.embed(retrievalQuery);
+    const queryEmbedding = queryEmbeddingResult.embedding;
+    const queryEmbeddingProvider = queryEmbeddingResult.provider;
+
+    // The semantic cache only makes sense for a standalone, context-free
+    // question (classic FAQ). A short follow-up like "price" is only
+    // meaningful alongside the conversation before it, so skip the cache
+    // once there IS prior history — otherwise it could confidently return
+    // a cached answer for a completely different product.
+    const cached =
+      priorHistory.length === 0
+        ? this.responseCache.find(queryEmbedding, businessId, queryEmbeddingProvider)
+        : null;
+
+    if (cached) {
+      const savedMessage = await this.conversations.addMessage(
+        request.sessionId,
+        "assistant",
+        cached.answer
+      );
+
+      this.usageLog.record({
+        chatId: request.sessionId,
+        provider: `${cached.provider} (cached)`,
+        tokens: 0,
+        confidence: cached.confidence,
+        createdAt: new Date().toISOString(),
+      });
+
+      return {
+        answer: cached.answer,
+        provider: cached.provider,
+        tokens: 0,
+        confidence: cached.confidence,
+        cached: true,
+        messageId: savedMessage.id,
+      };
+    }
+
+    const retrieved =
+      await this.retriever.retrieve(
+        retrievalQuery,
+        { embedding: queryEmbedding, embeddingProvider: queryEmbeddingProvider, businessId }
+      );
+
+    // Top retrieval score doubles as a rough "grounding confidence" for
+    // this answer — how well the knowledge base actually backs it. Shown
+    // in the dashboard; no longer gates whether the AI gets to attempt
+    // an answer (see the retrieved.length check below for why).
+    const confidence = retrieved[0]?.score ?? 0;
+
+    // Only skip the LLM entirely when there is LITERALLY nothing indexed
+    // for this business (a genuinely empty knowledge base) — this used to
+    // check `confidence < config.handoffFloor` instead, which also fired
+    // for perfectly normal messages with low semantic similarity to any
+    // chunk (a plain "hello" scores ~0 against a product catalog with no
+    // greeting content) and handed off BEFORE the AI ever got a chance to
+    // greet naturally, exactly as its own system prompt already tells it
+    // to. The AI's own [[NEEDS_HUMAN]] marker (below) is now the accurate
+    // decision-maker for "can't help"/"customer asked for a human" — this
+    // check's only remaining job is to avoid wasting an LLM call on a
+    // business with zero indexed content at all. Training Arena sessions
+    // never take this shortcut regardless of retrieval results — the
+    // platform-wide Training Arena has NO knowledge base by design (it's
+    // for testing general behavior, not product content), so this check
+    // would otherwise fire on every single message there and the AI
+    // would never actually be reached — defeating the entire feature.
+    if (!request.isTraining && retrieved.length === 0) {
+      const fullHistory = [
+        ...priorHistory,
+        { id: "pending", role: "user" as const, content: request.message, createdAt: new Date() },
+      ];
+      const { summary, tokens: summaryTokens } = await this.buildHandoffSummary(fullHistory);
+      await this.conversations.requestHandoff(
+        request.sessionId,
+        "empty_knowledge_base",
+        summary
+      );
+
+      const handoffLang = cannedMessageLanguage(config.languageMode, request.message);
+      const handoffMessage =
+        handoffLang === "bangla"
+          ? HANDOFF_MESSAGE_BN
+          : handoffLang === "banglish"
+            ? HANDOFF_MESSAGE_BANGLISH
+            : HANDOFF_MESSAGE_EN;
+
+      const savedMessage = await this.conversations.addMessage(
+        request.sessionId,
+        "assistant",
+        handoffMessage
+      );
+
+      this.usageLog.record({
+        chatId: request.sessionId,
+        provider: "handoff",
+        tokens: summaryTokens,
+        confidence,
+        createdAt: new Date().toISOString(),
+      });
+
+      return {
+        answer: handoffMessage,
+        provider: "handoff",
+        tokens: summaryTokens,
+        confidence,
+        handoff: true,
+        messageId: savedMessage.id,
+      };
+    }
+
+    const prompt =
+      this.prompts.build({
+        systemPrompt: config.systemPrompt + languageLockInstruction(config.languageMode),
+        context:
+          retrieved.map(chunk => chunk.text),
+        history:
+          priorHistory.map(m => ({ role: m.role, content: m.content })),
+        userMessage:
+          request.message,
+      });
+
+    const aiResponse =
+      await this.ai.chat(
+        prompt.userPrompt,
+        {
+          temperature: config.temperature,
+          systemPrompt: prompt.systemPrompt,
+          maxTokens: config.maxTokens,
+          topP: config.topP ?? undefined,
+          frequencyPenalty: config.frequencyPenalty ?? undefined,
+          presencePenalty: config.presencePenalty ?? undefined,
+          stop: config.stopSequences
+            ? config.stopSequences.split(",").map(s => s.trim()).filter(Boolean)
+            : undefined,
+          seed: config.seed ?? undefined,
+        }
+      );
+
+    // The AI itself decided (see HANDOFF_MARKER's comment) — strip the
+    // marker before the customer ever sees it either way.
+    const wantsHandoff = aiResponse.response.includes(HANDOFF_MARKER);
+    const cleanedAnswer = aiResponse.response.replaceAll(HANDOFF_MARKER, "").trim();
+
+    let summaryTokens = 0;
+
+    if (wantsHandoff) {
+      const fullHistory = [
+        ...priorHistory,
+        { id: "pending", role: "user" as const, content: request.message, createdAt: new Date() },
+      ];
+      const built = await this.buildHandoffSummary(fullHistory);
+      summaryTokens = built.tokens;
+      await this.conversations.requestHandoff(
+        request.sessionId,
+        "ai_requested",
+        built.summary
+      );
+    }
+
+    const savedMessage = await this.conversations.addMessage(
+      request.sessionId,
+      "assistant",
+      cleanedAnswer
+    );
+
+    this.usageLog.record({
+      chatId: request.sessionId,
+      provider: wantsHandoff ? "handoff" : aiResponse.provider,
+      // Includes the handoff summary's own LLM call cost when applicable
+      // — previously silently dropped from the per-chat total (though it
+      // was still counted in the aggregate provider totals), which made
+      // the two token displays inconsistent for any handed-off chat.
+      tokens: aiResponse.tokens + summaryTokens,
+      confidence,
+      createdAt: new Date().toISOString(),
+    });
+
+    // Same reasoning as the lookup above — only cache answers to
+    // standalone first questions, not context-dependent follow-ups. Also
+    // never cache a handoff — it's a decline, not a reusable answer, and
+    // caching it would keep returning "let me connect you" for a
+    // question a fixed knowledge base gap might answer correctly later.
+    if (priorHistory.length === 0 && !wantsHandoff) {
+      this.responseCache.store(
+        queryEmbedding,
+        businessId,
+        request.message,
+        cleanedAnswer,
+        aiResponse.provider,
+        confidence,
+        queryEmbeddingProvider
+      );
+    }
+
+    return {
+      answer: cleanedAnswer,
+      provider: aiResponse.provider,
+      tokens: aiResponse.tokens,
+      confidence,
+      handoff: wantsHandoff || undefined,
+      messageId: savedMessage.id,
+    };
+  }
+
+  private async buildHandoffSummary(
+    history: ConversationMessage[]
+  ): Promise<{ summary: string; tokens: number }> {
+    const transcript = history
+      .slice(-10)
+      .map((m) => `${m.role}: ${m.content}`)
+      .join("\n");
+
+    try {
+      const result = await this.ai.chat(
+        `Summarize this customer conversation in 2-3 sentences for a support agent taking over. Focus on what the customer wants and what's unresolved. The conversation may be in Bangla, Banglish, or English — write the summary in English regardless, since it's for internal review.\n\n${transcript}`,
+        { maxTokens: SUMMARY_MAX_TOKENS }
+      );
+      return { summary: result.response, tokens: result.tokens };
+    } catch {
+      // Summary is a nice-to-have; never block the handoff on it.
+      return {
+        summary: `Conversation could not be auto-summarized. Last message: "${history.at(-1)?.content ?? ""}"`,
+        tokens: 0,
+      };
+    }
+  }
+}

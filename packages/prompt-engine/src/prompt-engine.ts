@@ -7,28 +7,34 @@ export class PromptEngine {
         ? input.context.join("\n\n")
         : "No relevant context found.";
 
-    const prompt = `
-${input.systemPrompt}
+    const history =
+      input.history && input.history.length > 0
+        ? input.history.map((turn) => `${turn.role}: ${turn.content}`).join("\n")
+        : null;
 
+    const userPrompt = `
 ------------------------
 Knowledge Base
 ------------------------
 
 ${context}
+${history ? `
+------------------------
+Conversation so far
+------------------------
 
+${history}
+` : ""}
 ------------------------
 User
 ------------------------
 
 ${input.userMessage}
-
-------------------------
-Assistant
-------------------------
 `.trim();
 
     return {
-      prompt,
+      systemPrompt: input.systemPrompt,
+      userPrompt,
     };
   }
 }

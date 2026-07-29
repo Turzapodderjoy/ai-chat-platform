@@ -4,7 +4,16 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // DATABASE_URL: Neon's pooled connection string (host ending in
+  // "-pooler"), used at runtime — required for serverless functions,
+  // which would otherwise exhaust Postgres's connection limit under
+  // concurrent traffic. DIRECT_URL: Neon's unpooled connection string,
+  // used only for `prisma db push`/`migrate` — schema changes can fail
+  // or behave unexpectedly through a connection pooler. Locally, both
+  // env vars can just point at the same local Postgres instance (no
+  // pooler involved), so this is a no-op change for local dev.
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
@@ -66,4 +75,440 @@ model RefreshToken {
   createdAt    DateTime @default(now())
 
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum HandoffStatus {
+  BOT
+  PENDING
+  HUMAN
+}
+
+model Conversation {
+  id                 String        @id
+  businessId         String
+  userId             String
+
+  handoffStatus      HandoffStatus @default(BOT)
+  handoffReason      String?
+  handoffSummary     String?
+  handoffRequestedAt DateTime?
+
+  // Training pipeline: has this conversation been through the daily
+  // chat-analysis cron yet? Cron only ever pulls where this is false,
+  // so re-running it never reprocesses the same conversation twice.
+  processedForTraining Boolean @default(false)
+  // Training Arena sessions (dashboard tab where an admin deliberately
+  // provokes/corrects the AI, e.g. triggers a handoff then argues with
+  // it) — set once at creation, never changes. Two effects: ChatService
+  // never applies the "already connected to a human agent" block to a
+  // training conversation (the whole point is to keep talking to the AI
+  // AFTER it hands off, to correct that exact behavior), and the real
+  // Handoffs queue excludes these so a training session's deliberately-
+  // provoked handoff doesn't show up as something an agent must attend to.
+  isTraining           Boolean @default(false)
+  // Not currently collected anywhere in the app (no rating UI exists) —
+  // column added for forward-compatibility so the training pipeline's
+  // schema doesn't need another migration the day a rating widget
+  // does get built.
+  userFeedbackRating   Int?
+
+  messages           Message[]
+  chatAnalysis       ChatAnalysis?
+
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([businessId, processedForTraining])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String
+  content        String
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  feedback       MessageFeedback?
+
+  createdAt      DateTime @default(now())
+}
+
+// Per-message QA verdict from whoever is running the Chat Demo tab as a
+// test/QA tool — not customer-facing. One row per message (upsert on
+// re-submit, not a history of every click), since only the CURRENT
+// verdict matters for what the training pipeline reads. The training
+// pipeline treats a fail (with its note) as a strong, explicit signal
+// about exactly what was wrong with that specific answer — stronger
+// than its own judgment of the same exchange.
+model MessageFeedback {
+  id         String   @id @default(cuid())
+  messageId  String   @unique
+  businessId String
+
+  // "pass" | "fail"
+  verdict    String
+  note       String?
+
+  message    Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([businessId, verdict])
+}
+
+model CrawlTarget {
+  id             String    @id @default(cuid())
+  businessId     String
+  url            String
+
+  status         String    @default("idle")
+  pagesEstimated Int?
+  pagesDone      Int       @default(0)
+
+  lastCrawledAt  DateTime?
+  lastPageCount  Int?
+  lastChunkCount Int?
+  lastError      String?
+
+  // Auto-heal retry/backoff state. lastCrawledAt only updates on a
+  // *successful* crawl, so it can't tell auto-heal "how long has this
+  // target been sitting broken" — updatedAt does. nextRetryAt gates when
+  // auto-heal is allowed to retry a status:"error" target again;
+  // retryCount drives the backoff (min(1h * 2^retryCount, 24h)), reset
+  // to 0 on the next successful crawl.
+  retryCount     Int       @default(0)
+  nextRetryAt    DateTime?
+  updatedAt      DateTime  @default(now()) @updatedAt
+
+  createdAt      DateTime  @default(now())
+
+  @@unique([businessId, url])
+}
+
+// One row per invocation of the auto-heal job (cron every 30min, or the
+// dashboard's manual "Run now" button) — mirrors PipelineRun's shape but
+// fixes its gap: PipelineRun has no status/error columns, so a crash
+// mid-run leaves finishedAt null forever with nothing recorded about
+// what happened. This table always writes a terminal status.
+model AutoHealRun {
+  id                  String    @id @default(cuid())
+
+  // "cron" | "manual"
+  triggeredBy         String
+
+  startedAt           DateTime  @default(now())
+  finishedAt          DateTime?
+
+  // "running" | "succeeded" | "failed"
+  status              String    @default("running")
+  error               String?
+
+  businessesChecked   Int       @default(0)
+  providersBackfilled Int       @default(0)
+  crawlTargetsRetried Int       @default(0)
+
+  @@index([startedAt])
+}
+
+// Per (business, embedding provider) retry/backoff state for auto-heal's
+// coverage-gap backfill attempts. Needed once checks run every 30 minutes
+// instead of once/day — without this, a provider that's still broken
+// after one attempt would get re-attempted on every single 30-minute
+// check instead of backing off. Same formula as CrawlTarget's retry
+// fields: min(1h * 2^retryCount, 24h).
+model EmbeddingBackfillCooldown {
+  businessId  String
+  provider    String
+  retryCount  Int       @default(0)
+  nextRetryAt DateTime?
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  @@id([businessId, provider])
+}
+
+// Replaces storage/embeddings/knowledge.json, which corrupted under
+// concurrent writes (read-whole-file/mutate/write-whole-file with no
+// row-level atomicity). One row per (document chunk x embedding
+// provider) vector. No pgvector — not installed on the local Postgres
+// and installing it on Windows needs an admin-level native extension
+// build with no clean path, so search still does brute-force cosine
+// similarity in JS, just reading from Postgres rows instead of a shared
+// file. businessId/embeddingProvider are the only two fields ever
+// filtered on directly (search/coverageStatus/backfill), so they're
+// dedicated columns; everything else (contentHash, pageStatus, url,
+// filename, chunkIndex, etc.) lives in metadata.
+model VectorRecord {
+  id                String   @id
+  documentId        String
+  chunkId           String
+  text              String
+  embedding         Float[]
+
+  businessId        String?
+  embeddingProvider String?
+  metadata          Json?
+
+  createdAt         DateTime @default(now())
+
+  @@index([businessId, embeddingProvider])
+  @@index([documentId])
+}
+
+// Every save (full update or incremental append) inserts a new row —
+// never mutates an old one. That makes the table both "current config"
+// (latest row per businessId) and "full history" (every row) at the
+// same time, with no separate audit-log table to keep in sync.
+//
+// businessId "__platform__" is the mother dashboard's default. A client
+// with no rows of their own inherits whatever the latest "__platform__"
+// row says; the moment they save their own change, they get their own
+// row and are independent of the platform default from then on.
+model AiConfigVersion {
+  id           String   @id @default(cuid())
+
+  businessId   String   @default("__platform__")
+
+  systemPrompt String
+  handoffFloor Float
+  historyTurns Int
+  temperature  Float    @default(0.1)
+
+  // "auto" (match whatever register the customer's latest message used —
+  // the original, still-default behavior) | "english" | "bangla" |
+  // "banglish" — when locked, the AI always replies in this language
+  // regardless of what language the customer writes in.
+  languageMode String   @default("auto")
+
+  // Provider-tuning parameters, overriding all AI providers uniformly for
+  // this business. maxTokens replaces the old hardcoded ANSWER_MAX_TOKENS
+  // constant — every business now controls its own answer length. The
+  // rest are nullable: null means "let the provider use its own default"
+  // rather than forcing every provider to the same numeric default.
+  maxTokens        Int     @default(1024)
+  topP             Float?
+  frequencyPenalty Float?
+  presencePenalty  Float?
+  // Comma-separated — Postgres text array would need a migration-visible
+  // type change for a field this rarely used; a plain string parsed at
+  // the call site is the smaller diff.
+  stopSequences    String?
+  seed             Int?
+
+  changeType   String   // "seed" | "update" | "append" | "language" | "parameters"
+  note         String?
+
+  createdAt    DateTime @default(now())
+
+  @@index([businessId, createdAt])
+}
+
+// Dashboard "activate provider" keys, persisted so they survive a
+// restart — the whole point of a dashboard toggle is that it's durable,
+// not just a live in-memory patch that silently reverts to whatever's
+// in .env the next time the process restarts. One row per (kind,
+// providerId); activating again just overwrites it (upsert), no history
+// needed here unlike AiConfigVersion.
+//
+// "kind" separates AI chat providers from embedding providers — both
+// systems can have a provider literally named "gemini" or "mistral" at
+// the same time (same company, different endpoint/API key), and they
+// must never collide or overwrite each other.
+model ProviderApiKey {
+  id         String   @id @default(cuid())
+  kind       String   @default("ai")
+  providerId String
+  apiKey     String
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([kind, providerId])
+}
+
+// Dashboard's provider on/off toggle, persisted so it survives a
+// restart — same reasoning as ProviderApiKey above (activating a key
+// only ever patched the running AIManager/EmbeddingManager in memory).
+// Only rows for EXPLICITLY DISABLED providers need to exist — a provider
+// with no row here is enabled by default, matching AIManager's own
+// in-memory default.
+model ProviderState {
+  kind       String
+  providerId String
+  enabled    Boolean  @default(true)
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@id([kind, providerId])
+}
+
+// A user-added AI chat provider not in the hardcoded catalog — any
+// OpenAI-compatible /chat/completions API (which covers the overwhelming
+// majority of newly-released providers, same shape already used by
+// OpenRouter/Cerebras/Mistral) can be added this way without writing a
+// new adapter package for every new vendor. id doubles as the provider
+// name AIManager registers it under.
+model CustomProvider {
+  id        String   @id @default(cuid())
+  label     String
+  baseUrl   String
+  model     String
+  apiKey    String
+  createdAt DateTime @default(now())
+}
+
+// One row per conversation the daily training-pipeline cron has looked
+// at — the permanent, human-readable audit trail ("full track record
+// with findings") regardless of whether anything was extracted. Kept
+// even for dropped conversations so the record of *why* something was
+// dropped survives, not just the kept ones.
+model ChatAnalysis {
+  id             String   @id @default(cuid())
+
+  conversationId String   @unique
+  businessId     String
+
+  // "kept" | "dropped_spam" | "dropped_irrelevant" | "dropped_harmful"
+  verdict        String
+  // Plain-language explanation from the reasoning LLM — what the
+  // Training & Insights dashboard panel actually displays.
+  findings       String
+
+  conversation   Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  examples       TrainingExample[]
+
+  createdAt      DateTime @default(now())
+
+  @@index([businessId, createdAt])
+}
+
+// One row per extracted instruction/response training pair — only
+// exists for "kept" ChatAnalysis rows. `output` carries the full
+// <think>...</think>reasoning + answer, ready to append to the JSONL
+// export as-is.
+model TrainingExample {
+  id             String   @id @default(cuid())
+
+  chatAnalysisId String
+  businessId     String
+
+  instruction    String
+  input          String
+  output         String
+
+  chatAnalysis   ChatAnalysis @relation(fields: [chatAnalysisId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime @default(now())
+
+  @@index([businessId, createdAt])
+}
+
+// A proposed edit to a client's AI Brain prompt, generated from patterns
+// across that business's recent ChatAnalysis findings — never applied
+// automatically. Accepting one calls the existing AiConfigService (same
+// update()/append() a human editing the AI Brain panel would trigger),
+// which creates a real new AiConfigVersion row; declining just marks
+// this row, the live prompt is untouched either way.
+model PromptSuggestion {
+  id                    String    @id @default(cuid())
+
+  businessId            String
+
+  // "pipeline" (nightly cron) | "training_arena" (live arena session) |
+  // "dumped_chat" (pasted transcript + instructions) — which tool
+  // produced this suggestion, shown as a badge in the review panel.
+  source                String    @default("pipeline")
+
+  // "update" | "append" — mirrors AiConfigVersion.changeType
+  kind                  String
+  // Full replacement text, only set when kind = "update"
+  proposedSystemPrompt  String?
+  // Text to append, only set when kind = "append"
+  proposedAppendText    String?
+
+  // Plain-language justification shown next to the Accept/Decline
+  // buttons — "why this change is being suggested."
+  reasoning             String
+
+  // "pending" | "accepted" | "declined" | "superseded" (refined into a
+  // new pending suggestion, kept for audit trail rather than deleted)
+  status                String    @default("pending")
+
+  // Which PipelineRun produced this — nullable so older rows (created
+  // before this field existed) stay valid.
+  pipelineRunId         String?
+  pipelineRun           PipelineRun? @relation(fields: [pipelineRunId], references: [id], onDelete: SetNull)
+
+  createdAt             DateTime  @default(now())
+  decidedAt             DateTime?
+
+  @@index([businessId, status])
+}
+
+// One row per invocation of the training pipeline (5am BST cron, or the
+// dashboard's manual "Run now" button) — the "did it actually run, and
+// what happened" record the Training & Insights panel's run-history
+// table reads. Separate from ChatAnalysis (per-conversation) and
+// PromptSuggestion (per-suggestion): this is the run itself.
+model PipelineRun {
+  id                     String    @id @default(cuid())
+
+  // "cron" | "manual"
+  triggeredBy            String
+
+  startedAt              DateTime  @default(now())
+  // Null while still running (a run in progress, or one that crashed
+  // hard enough to never reach the finish write).
+  finishedAt             DateTime?
+
+  conversationsProcessed Int       @default(0)
+  kept                   Int       @default(0)
+  dropped                Int       @default(0)
+  failed                 Int       @default(0)
+  businessesChecked      Int       @default(0)
+  suggestionsCreated     Int       @default(0)
+
+  suggestions            PromptSuggestion[]
+
+  @@index([startedAt])
+}
+
+// Per-client channel connections (website/messenger/instagram/whatsapp) —
+// one row per (business, channel). Absence of a row means "not
+// connected"; the dashboard shows that as a plain state rather than
+// needing a separate status column for it. Disconnecting deletes the
+// row (not a soft-delete) — status is kept anyway so a future "error"
+// state (e.g. Meta revoked the token) doesn't need a schema change.
+model ChannelConnection {
+  id            String   @id @default(cuid())
+  businessId    String
+  channel       String
+  status        String   @default("connected")
+
+  // Page ID / IG Business Account ID / WhatsApp phone_number_id — how an
+  // inbound webhook payload gets matched back to a business.
+  externalId    String
+  externalLabel String
+  accessToken   String
+  config        Json?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([businessId, channel])
+  @@index([channel, externalId])
+}
+
+// One row per channel, platform-wide (not per client) — the Meta
+// Developer App credentials required before any client can OAuth-connect
+// Messenger/Instagram. WhatsApp's manual-entry connect flow doesn't need
+// appId/appSecret, only webhookVerifyToken, but shares this table since
+// it's still one place to configure every channel's platform-level setup.
+model ChannelAppCredential {
+  channel            String   @id
+  appId              String   @default("")
+  appSecret          String   @default("")
+  webhookVerifyToken String   @default("")
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }

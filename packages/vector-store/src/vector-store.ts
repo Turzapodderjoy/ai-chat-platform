@@ -19,11 +19,35 @@ export class VectorStoreManager {
 
   async search(
     embedding: number[],
-    limit = 5
+    limit = 5,
+    businessId?: string,
+    embeddingProvider?: string
   ): Promise<SearchResult[]> {
     return this.provider.search(
       embedding,
-      limit
+      limit,
+      businessId,
+      embeddingProvider
     );
+  }
+
+  async listAll(): Promise<VectorRecord[]> {
+    return this.provider.listAll();
+  }
+
+  async deleteByDocumentId(documentId: string): Promise<void> {
+    return this.provider.deleteByDocumentId(documentId);
+  }
+
+  async deleteByDocumentIds(documentIds: string[]): Promise<void> {
+    return this.provider.deleteByDocumentIds(documentIds);
+  }
+
+  async updateMetadata(documentId: string, patch: Record<string, unknown>): Promise<void> {
+    return this.provider.updateMetadata(documentId, patch);
+  }
+
+  async updateMetadataMany(documentIds: string[], patch: Record<string, unknown>): Promise<void> {
+    return this.provider.updateMetadataMany(documentIds, patch);
   }
 }

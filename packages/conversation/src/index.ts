@@ -1,4 +1,3 @@
 export * from "./conversation-service";
-export * from "./memory";
-export * from "./session";
+export * from "./message-feedback-service";
 export * from "./types";
