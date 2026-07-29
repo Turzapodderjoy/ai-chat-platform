@@ -105,6 +105,7 @@ export function TrainingReviewPanel({ businessId, broadcast = false }: TrainingR
   const [expandedSuggestionId, setExpandedSuggestionId] = useState<string | null>(null);
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
   const [expandedFeedbackId, setExpandedFeedbackId] = useState<string | null>(null);
+  const [expandedDecidedId, setExpandedDecidedId] = useState<string | null>(null);
   const [refiningId, setRefiningId] = useState<string | null>(null);
   const [refineFeedback, setRefineFeedback] = useState("");
 
@@ -315,6 +316,12 @@ export function TrainingReviewPanel({ businessId, broadcast = false }: TrainingR
 
       <div style={cardStyle}>
         <h3 style={{ marginTop: 0 }}>Pending suggestions</h3>
+        <p style={{ opacity: 0.6 }}>
+          Every source piles up here in one queue — the nightly pipeline
+          scanning the whole conversation database, Training Arena live
+          sessions, and dumped chats — each tagged with where it came from
+          and the full reasoning behind it.
+        </p>
         {!pending && <p>Loading…</p>}
         {pending && pending.length === 0 && <p style={{ opacity: 0.6 }}>No pending suggestions right now.</p>}
         {pending && pending.length > 0 && (
@@ -396,6 +403,11 @@ export function TrainingReviewPanel({ businessId, broadcast = false }: TrainingR
 
       <div style={cardStyle}>
         <h3 style={{ marginTop: 0 }}>Decided history</h3>
+        <p style={{ opacity: 0.6 }}>
+          Every suggestion once it's been decided — expand a row to see
+          exactly what was improved (the reasoning) and how it was
+          hardcoded into the prompt (the literal text that was applied).
+        </p>
         {!decided && <p>Loading…</p>}
         {decided && (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -405,26 +417,72 @@ export function TrainingReviewPanel({ businessId, broadcast = false }: TrainingR
                 <th style={cellStyle}>Source</th>
                 <th style={cellStyle}>Status</th>
                 <th style={cellStyle}>Decided</th>
+                <th style={cellStyle}></th>
               </tr>
             </thead>
             <tbody>
               {decided.map((s) => (
-                <tr key={s.id}>
-                  {!businessId && (
+                <Fragment key={s.id}>
+                  <tr>
+                    {!businessId && (
+                      <td style={cellStyle}>
+                        <code style={{ fontSize: 11 }}>{s.businessId}</code>
+                      </td>
+                    )}
+                    <td style={cellStyle}>{SOURCE_LABEL[s.source] ?? s.source}</td>
                     <td style={cellStyle}>
-                      <code style={{ fontSize: 11 }}>{s.businessId}</code>
+                      {s.status === "accepted" ? "✅ Accepted" : s.status === "declined" ? "❌ Declined" : "♻️ Superseded"}
                     </td>
+                    <td style={cellStyle}>{s.decidedAt ? new Date(s.decidedAt).toLocaleString() : "—"}</td>
+                    <td style={cellStyle}>
+                      <button onClick={() => setExpandedDecidedId(expandedDecidedId === s.id ? null : s.id)}>
+                        {expandedDecidedId === s.id ? "Hide" : "View detail"}
+                      </button>
+                    </td>
+                  </tr>
+                  {expandedDecidedId === s.id && (
+                    <tr>
+                      <td style={cellStyle} colSpan={businessId ? 4 : 5}>
+                        <p style={{ fontSize: 13, margin: "0 0 6px" }}>
+                          <strong>What was improved:</strong> {s.reasoning}
+                        </p>
+                        {s.status === "accepted" ? (
+                          <>
+                            <p style={{ fontSize: 13, margin: "0 0 4px" }}>
+                              <strong>
+                                How it was hardcoded:
+                              </strong>{" "}
+                              {s.kind === "append"
+                                ? `appended to the end of the AI Brain system prompt for ${s.businessId === "__platform__" ? "the platform default" : "this client"}, as a new AiConfigVersion row.`
+                                : "used to fully replace the AI Brain system prompt, as a new AiConfigVersion row."}
+                            </p>
+                            <pre style={{ whiteSpace: "pre-wrap", fontSize: 12, background: "rgba(0,0,0,0.3)", padding: 8, borderRadius: 4, margin: 0 }}>
+                              {s.kind === "append" ? s.proposedAppendText : s.proposedSystemPrompt}
+                            </pre>
+                          </>
+                        ) : s.status === "declined" ? (
+                          <p style={{ fontSize: 13, opacity: 0.7, margin: 0 }}>
+                            Declined — the prompt was left unchanged. Proposed text:
+                            <pre style={{ whiteSpace: "pre-wrap", fontSize: 12, margin: "4px 0 0" }}>
+                              {s.kind === "append" ? s.proposedAppendText : s.proposedSystemPrompt}
+                            </pre>
+                          </p>
+                        ) : (
+                          <p style={{ fontSize: 13, opacity: 0.7, margin: 0 }}>
+                            Superseded by a refined suggestion after reviewer feedback — this version was never applied. Original proposed text:
+                            <pre style={{ whiteSpace: "pre-wrap", fontSize: 12, margin: "4px 0 0" }}>
+                              {s.kind === "append" ? s.proposedAppendText : s.proposedSystemPrompt}
+                            </pre>
+                          </p>
+                        )}
+                      </td>
+                    </tr>
                   )}
-                  <td style={cellStyle}>{SOURCE_LABEL[s.source] ?? s.source}</td>
-                  <td style={cellStyle}>
-                    {s.status === "accepted" ? "✅ Accepted" : s.status === "declined" ? "❌ Declined" : "♻️ Superseded"}
-                  </td>
-                  <td style={cellStyle}>{s.decidedAt ? new Date(s.decidedAt).toLocaleString() : "—"}</td>
-                </tr>
+                </Fragment>
               ))}
               {decided.length === 0 && (
                 <tr>
-                  <td style={cellStyle} colSpan={businessId ? 3 : 4}>
+                  <td style={cellStyle} colSpan={businessId ? 4 : 5}>
                     No decisions made yet.
                   </td>
                 </tr>
