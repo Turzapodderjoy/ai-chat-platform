@@ -2,19 +2,19 @@ import {
   ChatAnalysisService,
   ChatAnalysisPipeline,
   PromptSuggestionService,
-  PipelineRunService,
 } from "@ai-chat-platform/training-pipeline";
 import { AiConfigService, PLATFORM_CONFIG_ID } from "@ai-chat-platform/ai-config";
 import type { TenantService } from "@ai-chat-platform/tenant";
 import type { ConversationService } from "@ai-chat-platform/conversation";
 
 /**
- * Read/decide surface for the Training Review dashboard panel — the
- * actual analysis/suggestion GENERATION happens in the daily cron
- * (chat-analysis-pipeline.ts / prompt-suggestion-service.ts) or on-demand
- * from the Training Arena, not here. This controller reads what's already
- * been produced, lets an admin accept/decline/refine a pending suggestion,
- * and lists Training Arena sessions for the Intercom-style sidebar.
+ * Read/decide surface for the Training Review dashboard panel. Training
+ * only ever happens through two explicit, human-driven paths — a Training
+ * Arena session or a dumped chat + instructions — never an automatic scan
+ * of the whole conversation database. This controller reads what's been
+ * produced, lets an admin accept/decline/refine a pending suggestion (the
+ * "force run" step that actually hardcodes the change into the AI Brain
+ * prompt), and lists Training Arena sessions for the Intercom-style sidebar.
  */
 export class TrainingController {
   constructor(
@@ -22,38 +22,9 @@ export class TrainingController {
     private readonly aiConfig: AiConfigService,
     private readonly pipeline: ChatAnalysisPipeline,
     private readonly suggestions: PromptSuggestionService,
-    private readonly runs_: PipelineRunService,
     private readonly tenants: TenantService,
     private readonly conversations: ConversationService
   ) {}
-
-  /** The daily 5am BST cron's entry point (triggeredBy "cron") — also
-   * called directly by the dashboard's manual "Run now" button
-   * (triggeredBy "manual"). Records a PipelineRun row wrapping the whole
-   * thing so the Training & Insights panel's run-history table has a
-   * permanent "did it run, and what happened" record, and tags every
-   * suggestion created this pass with the run that produced it. */
-  async runPipeline(triggeredBy: "cron" | "manual" = "cron") {
-    const runId = await this.runs_.start(triggeredBy);
-
-    const analysisResult = await this.pipeline.run();
-    const suggestionResult = await this.suggestions.run(runId);
-
-    await this.runs_.finish(runId, {
-      conversationsProcessed: analysisResult.processed,
-      kept: analysisResult.kept,
-      dropped: analysisResult.dropped,
-      failed: analysisResult.failed,
-      businessesChecked: suggestionResult.businessesChecked,
-      suggestionsCreated: suggestionResult.suggestionsCreated,
-    });
-
-    return { analysis: analysisResult, suggestions: suggestionResult };
-  }
-
-  runs(limit?: number) {
-    return this.runs_.list(limit);
-  }
 
   analyses(businessId?: string) {
     return this.analysis.analyses(businessId);
@@ -113,7 +84,7 @@ export class TrainingController {
       throw new Error(`Suggestion ${id} has already been ${suggestion.status}.`);
     }
 
-    const note = `Auto-suggested by training pipeline: ${suggestion.reasoning.slice(0, 150)}`;
+    const note = `${suggestion.source === "dumped_chat" ? "Dumped chat" : "Training Arena"}: ${suggestion.reasoning.slice(0, 150)}`;
 
     if (suggestion.kind === "append") {
       if (!suggestion.proposedAppendText) {
@@ -141,13 +112,10 @@ export class TrainingController {
   }
 
   /** Training Arena's "End session & review" button — analyzes one
-   * specific conversation on demand (not the batch/unprocessed-queue
-   * path) and, if the reasoning LLM found real signal, immediately
-   * generates a proposed AI Brain change from it, skipping the daily
-   * batch's "wait for 5 findings" threshold since a single deliberately-
-   * provoked session is itself the whole point. The returned suggestion
-   * (if any) is a normal pending PromptSuggestion — Save/Discard reuse
-   * the exact same acceptSuggestion()/declineSuggestion() above. */
+   * specific conversation on demand and, if the reasoning LLM found real
+   * signal, immediately generates a proposed AI Brain change from it. The
+   * returned suggestion (if any) is a normal pending PromptSuggestion —
+   * Accept/Decline/Refine reuse the exact same methods below. */
   async reviewTrainingSession(sessionId: string): Promise<{
     verdict: string;
     findings: string;
@@ -159,7 +127,7 @@ export class TrainingController {
       return { verdict, findings, suggestion: null };
     }
 
-    const suggestion = await this.suggestions.suggestFromFindings(businessId, [findings], undefined, "training_arena");
+    const suggestion = await this.suggestions.suggestFromFindings(businessId, [findings], "training_arena");
 
     return { verdict, findings, suggestion };
   }
@@ -191,7 +159,8 @@ export class TrainingController {
 
     const businesses = await this.tenants.listAll();
     const targets = [PLATFORM_CONFIG_ID, ...businesses.map((b) => b.id)];
-    const note = `Training Arena (broadcast to all clients): ${suggestion.reasoning.slice(0, 150)}`;
+    const sourceLabel = suggestion.source === "dumped_chat" ? "Dumped chat" : "Training Arena";
+    const note = `${sourceLabel} (broadcast to all clients): ${suggestion.reasoning.slice(0, 150)}`;
 
     for (const businessId of targets) {
       await this.aiConfig.append(businessId, suggestion.proposedAppendText, note);

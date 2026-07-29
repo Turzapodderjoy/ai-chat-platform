@@ -18,7 +18,6 @@ import {
   ReasoningClient,
   ChatAnalysisPipeline,
   PromptSuggestionService,
-  PipelineRunService,
 } from "@ai-chat-platform/training-pipeline";
 import { ChannelConnectionService, ChannelAppCredentialService } from "@ai-chat-platform/channel-connections";
 import { AutoHealService } from "@ai-chat-platform/auto-heal";
@@ -98,9 +97,10 @@ export class Container {
       new CrawlerService(indexingService, vectorStore);
 
     // Deliberately its own dedicated key (GROQ_TRAINING_API_KEY), not
-    // the shared AIManager/Groq key powering live chat — this pipeline's
-    // batch analysis calls must never compete with real customer
-    // traffic for Groq's rate limit.
+    // the shared AIManager/Groq key powering live chat — training's
+    // reasoning calls (Training Arena review, dumped-chat interpretation,
+    // refine) must never compete with real customer traffic for Groq's
+    // rate limit.
     const reasoningClient =
       new ReasoningClient(process.env.GROQ_TRAINING_API_KEY ?? "");
 
@@ -122,12 +122,8 @@ export class Container {
       new PromptSuggestionService(
         chatAnalysisService,
         reasoningClient,
-        aiConfig,
-        tenants
+        aiConfig
       );
-
-    const pipelineRuns =
-      new PipelineRunService();
 
     const channelConnections =
       new ChannelConnectionService();
@@ -164,7 +160,6 @@ export class Container {
           aiConfig,
           chatAnalysisPipeline,
           promptSuggestionService,
-          pipelineRuns,
           tenants,
           conversations
         ),

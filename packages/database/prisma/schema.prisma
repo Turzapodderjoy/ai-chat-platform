@@ -433,43 +433,10 @@ model PromptSuggestion {
   // new pending suggestion, kept for audit trail rather than deleted)
   status                String    @default("pending")
 
-  // Which PipelineRun produced this — nullable so older rows (created
-  // before this field existed) stay valid.
-  pipelineRunId         String?
-  pipelineRun           PipelineRun? @relation(fields: [pipelineRunId], references: [id], onDelete: SetNull)
-
   createdAt             DateTime  @default(now())
   decidedAt             DateTime?
 
   @@index([businessId, status])
-}
-
-// One row per invocation of the training pipeline (5am BST cron, or the
-// dashboard's manual "Run now" button) — the "did it actually run, and
-// what happened" record the Training & Insights panel's run-history
-// table reads. Separate from ChatAnalysis (per-conversation) and
-// PromptSuggestion (per-suggestion): this is the run itself.
-model PipelineRun {
-  id                     String    @id @default(cuid())
-
-  // "cron" | "manual"
-  triggeredBy            String
-
-  startedAt              DateTime  @default(now())
-  // Null while still running (a run in progress, or one that crashed
-  // hard enough to never reach the finish write).
-  finishedAt             DateTime?
-
-  conversationsProcessed Int       @default(0)
-  kept                   Int       @default(0)
-  dropped                Int       @default(0)
-  failed                 Int       @default(0)
-  businessesChecked      Int       @default(0)
-  suggestionsCreated     Int       @default(0)
-
-  suggestions            PromptSuggestion[]
-
-  @@index([startedAt])
 }
 
 // Per-client channel connections (website/messenger/instagram/whatsapp) —

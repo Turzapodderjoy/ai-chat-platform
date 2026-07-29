@@ -21,25 +21,6 @@ const VALID_VERDICTS = new Set(["kept", "dropped_spam", "dropped_irrelevant", "d
 
 const JSONL_PATH = path.join(process.cwd(), "storage", "training", "dataset.jsonl");
 
-/** Batch size per cron run — deliberately small. This shares a dedicated
- * Groq key's rate limit with the daily suggestion pass (see
- * PromptSuggestionService), and there's no reason to rush: unprocessed
- * conversations just get picked up the following day. */
-const DEFAULT_BATCH_SIZE = 20;
-
-/** gpt-oss-120b's real constraint turned out to be tokens-per-minute
- * (8000 TPM on this account), not the request-count limit its headers
- * advertise — a single analysis call's reasoning output alone can run
- * 1500-2500 tokens. Found live: firing all 20 calls back-to-back
- * exhausted the budget within seconds and most of the batch 429'd.
- * Pacing one call every few seconds keeps steady-state usage under the
- * limit instead of bursting into it. */
-const DELAY_BETWEEN_CALLS_MS = 4000;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export class ChatAnalysisPipeline {
   constructor(
     private readonly analysis: ChatAnalysisService,
@@ -48,48 +29,10 @@ export class ChatAnalysisPipeline {
     private readonly messageFeedback: MessageFeedbackService
   ) {}
 
-  async run(batchSize = DEFAULT_BATCH_SIZE): Promise<{
-    processed: number;
-    kept: number;
-    dropped: number;
-    failed: number;
-  }> {
-    const conversations = await this.analysis.unprocessedConversations(batchSize);
-
-    let kept = 0;
-    let dropped = 0;
-    let failed = 0;
-
-    for (let i = 0; i < conversations.length; i++) {
-      if (i > 0) {
-        await sleep(DELAY_BETWEEN_CALLS_MS);
-      }
-
-      const conversation = conversations[i]!;
-
-      try {
-        const verdict = await this.analyzeOne(conversation);
-        if (verdict === "kept") {
-          kept += 1;
-        } else {
-          dropped += 1;
-        }
-      } catch (error) {
-        // Network/parse failure that escaped analyzeOne's own handling —
-        // conversation stays unprocessed, tomorrow's run retries it.
-        console.error(`Training pipeline: failed to analyze conversation ${conversation.id}:`, error);
-        failed += 1;
-      }
-    }
-
-    return { processed: conversations.length, kept, dropped, failed };
-  }
-
   /** Analyzes ONE specific conversation on demand — used by the Training
-   * Arena's "End session & review" button, bypassing the batch/
-   * unprocessed-queue machinery `run()` uses. Reuses the exact same
-   * extraction logic (analyzeOne) so a Training Arena session and a real
-   * customer conversation get identically-shaped findings either way. */
+   * Arena's "End session & review" button. This is the only entry point
+   * into analysis now — training only ever happens on a specific,
+   * human-reviewed session, never a blanket scan of the whole database. */
   async analyzeConversationById(conversationId: string): Promise<{
     businessId: string;
     verdict: string;
@@ -102,10 +45,9 @@ export class ChatAnalysisPipeline {
 
     // Idempotent — a double-click on "End session & review" (or any other
     // retry) would otherwise crash on ChatAnalysis.conversationId's
-    // unique constraint, the same failure class already fixed once for
-    // the batch pipeline (see unprocessedConversations()'s comment).
-    // Re-analyzing wastes nothing here besides an LLM call, so simplest
-    // fix is just to skip straight to returning the existing row.
+    // unique constraint. Re-analyzing wastes nothing here besides an LLM
+    // call, so simplest fix is just to skip straight to returning the
+    // existing row.
     const existing = await prisma.chatAnalysis.findUnique({ where: { conversationId } });
 
     if (!existing) {

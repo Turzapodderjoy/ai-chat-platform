@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { StatCard, StatCardRow } from "./StatCard";
-import { cardStyle, cellStyle, subtleTextStyle } from "./dashboard-styles";
+import { subtleTextStyle } from "./dashboard-styles";
 
 interface Counts {
   clients: number | null;
@@ -16,15 +16,6 @@ interface Counts {
   aiTotal: number | null;
   embeddingHealthy: number | null;
   embeddingTotal: number | null;
-}
-
-interface RecentRun {
-  id: string;
-  triggeredBy: string;
-  startedAt: string;
-  finishedAt: string | null;
-  conversationsProcessed: number;
-  suggestionsCreated: number;
 }
 
 /**
@@ -46,8 +37,6 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
     embeddingHealthy: null,
     embeddingTotal: null,
   });
-  const [runs, setRuns] = useState<RecentRun[] | null>(null);
-
   // Refetches every time this tab becomes active (not just on first
   // mount) — panels stay permanently mounted across tab switches (so
   // Chat Demo's conversation survives), which previously meant this
@@ -103,10 +92,6 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
           embeddingHealthy: d.status.filter((p) => p.enabled && p.healthy).length,
         }))
       );
-
-    fetch("/api/admin/training/runs")
-      .then((r) => r.json())
-      .then((d: { runs: RecentRun[] }) => setRuns(d.runs.slice(0, 5)));
   }, [active]);
 
   const val = (n: number | null) => (n === null ? "…" : String(n));
@@ -145,38 +130,6 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
           }
         />
       </StatCardRow>
-
-      <div style={cardStyle}>
-        <h3 style={{ marginTop: 0 }}>Recent training pipeline runs</h3>
-        {!runs && <p style={subtleTextStyle}>Loading…</p>}
-        {runs && runs.length === 0 && (
-          <p style={subtleTextStyle}>No runs yet — see the Training & Insights tab.</p>
-        )}
-        {runs && runs.length > 0 && (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={cellStyle}>When</th>
-                <th style={cellStyle}>Trigger</th>
-                <th style={cellStyle}>Status</th>
-                <th style={cellStyle}>Conversations</th>
-                <th style={cellStyle}>Suggestions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {runs.map((r) => (
-                <tr key={r.id}>
-                  <td style={cellStyle}>{new Date(r.startedAt).toLocaleString()}</td>
-                  <td style={cellStyle}>{r.triggeredBy === "manual" ? "👤 Manual" : "⏰ Scheduled"}</td>
-                  <td style={cellStyle}>{r.finishedAt ? "✅ Done" : "⏳ Running…"}</td>
-                  <td style={cellStyle}>{r.conversationsProcessed}</td>
-                  <td style={cellStyle}>{r.suggestionsCreated}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
     </section>
   );
 }

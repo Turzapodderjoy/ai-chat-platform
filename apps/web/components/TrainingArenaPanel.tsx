@@ -38,9 +38,9 @@ type Mode = "live" | "dump";
  * The one difference: the AI keeps responding even after it hands off,
  * since the whole point is to argue with it ("why did you hand off, you
  * could have just said hello") and see how it reasons about the
- * correction. Ending a session runs it through the same analysis the
- * nightly training pipeline uses, on demand, and — if there's real signal
- * — proposes a concrete AI Brain change you can review and Save or
+ * correction. Ending a session runs it through the reasoning-LLM analysis
+ * on demand, and — if there's real signal — proposes a concrete AI Brain
+ * change you can review and Save or
  * Discard. "Dump a chat" mode does the same thing for a conversation that
  * already happened elsewhere: paste the transcript plus instructions
  * instead of re-enacting it live. */

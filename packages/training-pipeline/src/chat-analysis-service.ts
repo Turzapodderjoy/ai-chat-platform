@@ -39,104 +39,6 @@ export interface PromptSuggestionRecord {
  * business logic about WHEN to analyze or suggest (that's
  * ChatAnalysisPipeline/PromptSuggestionService's job). */
 export class ChatAnalysisService {
-  /** Conversations not yet analyzed, with enough real back-and-forth to
-   * be worth analyzing (at least 3 messages — a lone greeting or an
-   * abandoned first message isn't useful training signal). */
-  /** Pages through unprocessed conversations (oldest first) looking for
-   * ones with real back-and-forth (≥3 messages) until it finds `limit`
-   * of them or runs out. A single fixed-size over-fetch isn't enough in
-   * practice — plenty of real (and test) traffic is a single one-shot
-   * question+answer (exactly 2 messages), and if a long enough run of
-   * those sorts before anything longer, a naive one-shot fetch+filter
-   * can come back completely empty even though qualifying conversations
-   * exist further down. Short conversations are marked processed as
-   * they're skipped (with a lightweight, no-LLM-call ChatAnalysis row)
-   * so they don't get rescanned by every future run forever. */
-  async unprocessedConversations(limit: number): Promise<
-    Array<{ id: string; businessId: string; messages: { id: string; role: string; content: string }[] }>
-  > {
-    const PAGE_SIZE = 50;
-    const MAX_PAGES = 10; // caps a single cron run's scan at 500 conversations
-
-    const qualifying: Array<{
-      id: string;
-      businessId: string;
-      messages: { id: string; role: string; content: string }[];
-    }> = [];
-
-    // Conversations pushed into `qualifying` don't get marked processed
-    // here — that happens later, once the pipeline actually analyzes
-    // them. Without tracking which ids this call has already seen, every
-    // subsequent page re-runs the SAME "processedForTraining: false"
-    // query (no cursor) and refetches the exact same still-unprocessed
-    // qualifying conversations, duplicating them into the list — a real
-    // bug found live: the same conversation got attempted 5+ times in
-    // one run, wasting the reasoning LLM's shared rate-limit budget on
-    // redundant retries and crashing on ChatAnalysis's unique
-    // conversationId constraint the first time one of the duplicates
-    // happened to succeed.
-    const seenIds = new Set<string>();
-
-    for (let page = 0; page < MAX_PAGES && qualifying.length < limit; page++) {
-      const conversations = await prisma.conversation.findMany({
-        where: {
-          processedForTraining: false,
-          messages: { some: {} },
-          id: seenIds.size > 0 ? { notIn: [...seenIds] } : undefined,
-        },
-        include: {
-          messages: { orderBy: { createdAt: "asc" } },
-        },
-        orderBy: { createdAt: "asc" },
-        take: PAGE_SIZE,
-      });
-
-      if (conversations.length === 0) {
-        break; // no more unprocessed conversations at all
-      }
-
-      for (const c of conversations) {
-        seenIds.add(c.id);
-        // A 1-2 message exchange is normally skipped as too short to
-        // learn from — but an admin QA'ing exactly that exchange in the
-        // Chat Demo tab (one question, one answer, one Pass/Fail click)
-        // is exactly a 2-message conversation, and that explicit human
-        // judgment is too valuable a signal to auto-skip before the
-        // reasoning LLM ever sees it.
-        const hasFeedback =
-          c.messages.length > 0 &&
-          (await prisma.messageFeedback.findFirst({
-            where: { messageId: { in: c.messages.map((m) => m.id) } },
-            select: { id: true },
-          })) !== null;
-
-        if (c.messages.length >= 3 || hasFeedback) {
-          qualifying.push({
-            id: c.id,
-            businessId: c.businessId,
-            messages: c.messages.map((m) => ({ id: m.id, role: m.role, content: m.content })),
-          });
-        } else {
-          // Marked processed immediately (not left for the LLM) — a
-          // 1-2 message exchange has no real back-and-forth to learn
-          // from, but it must still be marked so it stops occupying
-          // the front of the queue on every subsequent run. Same
-          // atomic write as the main analysis path, for the same
-          // reason (see recordAnalysisAndMarkProcessed's comment).
-          await this.recordAnalysisAndMarkProcessed({
-            conversationId: c.id,
-            businessId: c.businessId,
-            verdict: "dropped_irrelevant",
-            findings: "Conversation too short (fewer than 3 messages) to analyze meaningfully — skipped without a reasoning LLM call.",
-            examples: [],
-          });
-        }
-      }
-    }
-
-    return qualifying.slice(0, limit);
-  }
-
   /** Records the analysis AND marks the conversation processed in one
    * transaction — these must never happen as two separate awaited calls.
    * A real bug found live: with them separate, a failure anywhere after
@@ -225,22 +127,20 @@ export class ChatAnalysisService {
 
   async createSuggestion(params: {
     businessId: string;
-    source?: string;
+    source: string;
     kind: string;
     proposedSystemPrompt?: string | null;
     proposedAppendText?: string | null;
     reasoning: string;
-    pipelineRunId?: string | null;
   }): Promise<PromptSuggestionRecord> {
     const created = await prisma.promptSuggestion.create({
       data: {
         businessId: params.businessId,
-        source: params.source ?? "pipeline",
+        source: params.source,
         kind: params.kind,
         proposedSystemPrompt: params.proposedSystemPrompt ?? null,
         proposedAppendText: params.proposedAppendText ?? null,
         reasoning: params.reasoning,
-        pipelineRunId: params.pipelineRunId ?? null,
       },
     });
 

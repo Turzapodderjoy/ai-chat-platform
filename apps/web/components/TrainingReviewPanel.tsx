@@ -26,30 +26,6 @@ interface PromptSuggestion {
   decidedAt: string | null;
 }
 
-interface RunSuggestion {
-  id: string;
-  businessId: string;
-  kind: string;
-  proposedAppendText: string | null;
-  proposedSystemPrompt: string | null;
-  reasoning: string;
-  status: string;
-}
-
-interface PipelineRun {
-  id: string;
-  triggeredBy: "cron" | "manual";
-  startedAt: string;
-  finishedAt: string | null;
-  conversationsProcessed: number;
-  kept: number;
-  dropped: number;
-  failed: number;
-  businessesChecked: number;
-  suggestionsCreated: number;
-  suggestions: RunSuggestion[];
-}
-
 interface QaFeedback {
   messageId: string;
   businessId: string;
@@ -70,7 +46,6 @@ const VERDICT_LABEL: Record<string, string> = {
 };
 
 const SOURCE_LABEL: Record<string, string> = {
-  pipeline: "⏰ Pipeline",
   training_arena: "🥊 Training Arena",
   dumped_chat: "📋 Dumped chat",
 };
@@ -78,39 +53,34 @@ const SOURCE_LABEL: Record<string, string> = {
 interface TrainingReviewPanelProps {
   /** Omit on the mother dashboard to see every business at once (with a
    * Client column and "Accept to all clients" for platform-scoped
-   * suggestions). Pass a client's id to see only that business, with
-   * plain single-business accept only, and no global "Run now" trigger
-   * (the pipeline runs across every business in one pass — there's no
-   * per-business equivalent to trigger). */
+   * suggestions). Pass a client's id to see only that business. */
   businessId?: string;
   broadcast?: boolean;
 }
 
 /**
- * Consolidated review surface — merges the old Training & Insights panel
- * (run history, pending/decided suggestions, findings log) and QA Review
- * panel (per-message pass/fail feedback linked to its analysis) into one
- * place, plus what's new: a source badge per suggestion (pipeline / live
- * arena / dumped chat) and a "Refine & resubmit" flow for feedback that
- * doesn't warrant an outright Accept or Decline.
+ * Consolidated review surface for the two human-driven training paths —
+ * Training Arena sessions and dumped chats — with no automatic scanning
+ * of the whole conversation database. Accepting a pending suggestion here
+ * IS the "force run" step: it immediately hardcodes the approved text
+ * into the AI Brain prompt as a new AiConfigVersion. Also shows per-
+ * message QA feedback and the analysis findings log Training Arena
+ * sessions produce.
  */
 export function TrainingReviewPanel({ businessId, broadcast = false }: TrainingReviewPanelProps) {
   const [analyses, setAnalyses] = useState<ChatAnalysis[] | null>(null);
   const [pending, setPending] = useState<PromptSuggestion[] | null>(null);
   const [decided, setDecided] = useState<PromptSuggestion[] | null>(null);
-  const [runs, setRuns] = useState<PipelineRun[] | null>(null);
   const [feedback, setFeedback] = useState<QaFeedback[] | null>(null);
 
   const [expandedAnalysisId, setExpandedAnalysisId] = useState<string | null>(null);
   const [expandedSuggestionId, setExpandedSuggestionId] = useState<string | null>(null);
-  const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
   const [expandedFeedbackId, setExpandedFeedbackId] = useState<string | null>(null);
   const [expandedDecidedId, setExpandedDecidedId] = useState<string | null>(null);
   const [refiningId, setRefiningId] = useState<string | null>(null);
   const [refineFeedback, setRefineFeedback] = useState("");
 
   const [deciding, setDeciding] = useState<string | null>(null);
-  const [running, setRunning] = useState(false);
   const [message, setMessage] = useState("");
 
   const suggestionQs = businessId ? `?businessId=${encodeURIComponent(businessId)}` : "";
@@ -131,37 +101,9 @@ export function TrainingReviewPanel({ businessId, broadcast = false }: TrainingR
     fetch(`/api/admin/qa-feedback${scopeQs}`)
       .then((r) => r.json())
       .then((data) => setFeedback(data.feedback));
-
-    if (!businessId) {
-      fetch("/api/admin/training/runs")
-        .then((r) => r.json())
-        .then((data) => setRuns(data.runs));
-    }
   }
 
   useEffect(refresh, [businessId]);
-
-  async function runNow() {
-    setRunning(true);
-    setMessage("");
-
-    try {
-      const res = await fetch("/api/admin/training/run", { method: "POST" });
-      const result = await res.json();
-
-      setMessage(
-        res.ok
-          ? `Run complete — analyzed ${result.analysis.processed} conversation(s) (${result.analysis.kept} kept), ${result.suggestions.suggestionsCreated} new suggestion(s) created.`
-          : `Error: ${result.error}`
-      );
-
-      if (res.ok) {
-        refresh();
-      }
-    } finally {
-      setRunning(false);
-    }
-  }
 
   async function decide(s: PromptSuggestion, action: "accept" | "decline") {
     setDeciding(s.id);
@@ -225,102 +167,22 @@ export function TrainingReviewPanel({ businessId, broadcast = false }: TrainingR
     <section>
       <h1 style={{ marginBottom: 4 }}>Training Review</h1>
       <p style={{ opacity: 0.6 }}>
-        Every proposed AI Brain change lands here for review, however it was
-        produced — the daily pipeline, a Training Arena session, or a
-        dumped chat — nothing is ever applied automatically. Accept, Decline,
-        or leave feedback and Refine for another pass.
+        Every proposed AI Brain change lands here for review — only from a
+        Training Arena session or a dumped chat, both driven by explicit
+        human instructions, never an automatic scan of the database.
+        Nothing is applied until you decide: Accept hardcodes it into the
+        prompt immediately, Decline leaves the prompt untouched, or leave
+        feedback and Refine for another pass.
       </p>
-
-      {!businessId && (
-        <>
-          <button onClick={runNow} disabled={running}>
-            {running ? "Running… (this can take a minute)" : "Run now"}
-          </button>
-        </>
-      )}
       {message && <p style={{ fontSize: 13, opacity: 0.8, marginTop: 8 }}>{message}</p>}
 
-      {!businessId && (
-        <div style={{ ...cardStyle, marginTop: 20 }}>
-          <h3 style={{ marginTop: 0 }}>Run history</h3>
-          <p style={{ opacity: 0.6 }}>
-            Every time the pipeline has run (scheduled or manual), with what
-            it did and any suggestions that run produced.
-          </p>
-          {!runs && <p>Loading…</p>}
-          {runs && (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <th style={cellStyle}>When</th>
-                  <th style={cellStyle}>Trigger</th>
-                  <th style={cellStyle}>Status</th>
-                  <th style={cellStyle}>Conversations</th>
-                  <th style={cellStyle}>Suggestions</th>
-                  <th style={cellStyle}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {runs.map((r) => (
-                  <Fragment key={r.id}>
-                    <tr>
-                      <td style={cellStyle}>{new Date(r.startedAt).toLocaleString()}</td>
-                      <td style={cellStyle}>{r.triggeredBy === "manual" ? "👤 Manual" : "⏰ Scheduled"}</td>
-                      <td style={cellStyle}>
-                        {r.finishedAt
-                          ? `✅ Done (${r.kept} kept, ${r.dropped} dropped, ${r.failed} failed)`
-                          : "⏳ Running…"}
-                      </td>
-                      <td style={cellStyle}>{r.conversationsProcessed}</td>
-                      <td style={cellStyle}>{r.suggestionsCreated}</td>
-                      <td style={cellStyle}>
-                        {r.suggestions.length > 0 && (
-                          <button onClick={() => setExpandedRunId(expandedRunId === r.id ? null : r.id)}>
-                            {expandedRunId === r.id ? "Hide" : "View suggestions"}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                    {expandedRunId === r.id && (
-                      <tr>
-                        <td style={cellStyle} colSpan={6}>
-                          {r.suggestions.map((s) => (
-                            <div key={s.id} style={{ marginBottom: 12 }}>
-                              <div style={{ fontSize: 12, opacity: 0.7 }}>
-                                <code>{s.businessId}</code> · {s.kind} ·{" "}
-                                {s.status === "pending" ? "⏳ pending" : s.status === "accepted" ? "✅ accepted" : "❌ declined"}
-                              </div>
-                              <div style={{ fontSize: 12, marginTop: 2 }}>{s.reasoning}</div>
-                              <pre style={{ whiteSpace: "pre-wrap", fontSize: 12, margin: "4px 0 0" }}>
-                                {s.proposedAppendText ?? s.proposedSystemPrompt}
-                              </pre>
-                            </div>
-                          ))}
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
-                ))}
-                {runs.length === 0 && (
-                  <tr>
-                    <td style={cellStyle} colSpan={6}>
-                      No runs yet — click Run now above, or wait for the 5:00am BST cron.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
-
-      <div style={cardStyle}>
+      <div style={{ ...cardStyle, marginTop: 20 }}>
         <h3 style={{ marginTop: 0 }}>Pending suggestions</h3>
         <p style={{ opacity: 0.6 }}>
-          Every source piles up here in one queue — the nightly pipeline
-          scanning the whole conversation database, Training Arena live
-          sessions, and dumped chats — each tagged with where it came from
-          and the full reasoning behind it.
+          Every Training Arena session and dumped chat piles up here in one
+          queue, tagged with where it came from and the full reasoning
+          behind it. Accept is the force-run step that hardcodes it into
+          the prompt.
         </p>
         {!pending && <p>Loading…</p>}
         {pending && pending.length === 0 && <p style={{ opacity: 0.6 }}>No pending suggestions right now.</p>}
@@ -496,7 +358,8 @@ export function TrainingReviewPanel({ businessId, broadcast = false }: TrainingR
         <h3 style={{ marginTop: 0 }}>QA feedback</h3>
         <p style={{ opacity: 0.6 }}>
           Every Pass/Fail submitted from Training Arena sessions, with
-          whether the pipeline has processed that conversation yet.
+          whether that session has been analyzed yet (via "End session &amp;
+          review").
         </p>
         {!feedback && <p>Loading…</p>}
         {feedback && feedback.length === 0 && <p style={{ opacity: 0.6 }}>No QA feedback yet.</p>}
@@ -557,7 +420,7 @@ export function TrainingReviewPanel({ businessId, broadcast = false }: TrainingR
 
       <div style={cardStyle}>
         <h3 style={{ marginTop: 0 }}>Findings log</h3>
-        <p style={{ opacity: 0.6 }}>Every conversation the pipeline has analyzed, kept or dropped — the full human-readable audit trail.</p>
+        <p style={{ opacity: 0.6 }}>Every Training Arena session that's been reviewed, kept or dropped — the full human-readable audit trail.</p>
         {!analyses && <p>Loading…</p>}
         {analyses && (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
