@@ -3,6 +3,8 @@ export interface AskRequest {
   message: string;
   businessId?: string;
   isTraining?: boolean;
+  channel?: string;
+  externalUserId?: string | null;
 }
 
 export interface AskResponse {

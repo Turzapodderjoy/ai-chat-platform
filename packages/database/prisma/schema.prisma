@@ -88,6 +88,17 @@ model Conversation {
   businessId         String
   userId             String
 
+  // "website" | "messenger" | "instagram" | "whatsapp" — which channel
+  // this conversation came in through. Needed for the unified All Chats
+  // inbox (per-conversation channel icon/label/filter) and for routing a
+  // human agent's handoff reply back out through the right channel's own
+  // Send API instead of just saving it to the database.
+  channel            String        @default("website")
+  // The customer's platform-specific id (Messenger PSID / IG-scoped id /
+  // WhatsApp wa_id) — null for website conversations. This is where a
+  // human agent's reply actually gets sent on that channel's Send API.
+  externalUserId     String?
+
   handoffStatus      HandoffStatus @default(BOT)
   handoffReason      String?
   handoffSummary     String?
@@ -119,6 +130,7 @@ model Conversation {
   updatedAt          DateTime      @updatedAt
 
   @@index([businessId, processedForTraining])
+  @@index([businessId, channel])
 }
 
 model Message {

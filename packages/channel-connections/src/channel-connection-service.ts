@@ -67,6 +67,17 @@ export class ChannelConnectionService {
 
     return row ? toRecord(row) : null;
   }
+
+  /** The single connection a business has for one channel — used when
+   * sending an outbound message (e.g. a human agent's handoff reply)
+   * back out through that channel's own Send API. */
+  async forBusinessAndChannel(businessId: string, channel: string): Promise<ChannelConnectionRecord | null> {
+    const row = await prisma.channelConnection.findUnique({
+      where: { businessId_channel: { businessId, channel } },
+    });
+
+    return row ? toRecord(row) : null;
+  }
 }
 
 type ConnectionRow = {

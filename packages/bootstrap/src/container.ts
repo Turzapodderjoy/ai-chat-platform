@@ -151,7 +151,7 @@ export class Container {
           providerKeys,
           providerState
         ),
-        new HandoffController(conversations),
+        new HandoffController(conversations, channelConnections),
         new CrawlerController(crawlerService),
         new AiConfigController(aiConfig, tenants),
         new EmbeddingController(embeddings, providerKeys, indexingService, providerState),

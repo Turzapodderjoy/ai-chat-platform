@@ -11,6 +11,8 @@ export interface ConversationRecord {
   id: string;
   businessId: string;
   userId: string;
+  channel: string;
+  externalUserId: string | null;
   handoffStatus: HandoffStatus;
   handoffReason: string | null;
   handoffSummary: string | null;

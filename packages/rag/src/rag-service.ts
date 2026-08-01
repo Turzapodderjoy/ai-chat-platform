@@ -21,6 +21,8 @@ export class RagService {
         message: request.message,
         businessId: request.businessId,
         isTraining: request.isTraining,
+        channel: request.channel,
+        externalUserId: request.externalUserId,
       });
 
     return {

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { KnowledgeHubPanel } from "../../components/KnowledgeHubPanel";
 import { HandoffsPanel } from "../../components/HandoffsPanel";
+import { AllChatsPanel } from "../../components/AllChatsPanel";
 import { AiBrainPanel } from "../../components/AiBrainPanel";
 import { AiParametersPanel } from "../../components/AiParametersPanel";
 import { TrainingReviewPanel } from "../../components/TrainingReviewPanel";
@@ -18,7 +19,7 @@ import { cardStyle, cellStyle, formatBytes } from "../../components/dashboard-st
 // client component just for one string constant.
 const PLATFORM_CONFIG_ID = "__platform__";
 
-type Tab = "overview" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "knowledge" | "handoffs" | "database";
+type Tab = "overview" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "knowledge" | "allchats" | "handoffs" | "database";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }] },
@@ -36,6 +37,7 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
     label: "Content",
     items: [
       { id: "knowledge", label: "Knowledge Hub" },
+      { id: "allchats", label: "All Chats" },
       { id: "handoffs", label: "Handoffs" },
     ],
   },
@@ -161,6 +163,9 @@ export default function DashboardPage() {
       </div>
       <div style={{ display: tab === "knowledge" ? "block" : "none" }}>
         <KnowledgeHubPanel />
+      </div>
+      <div style={{ display: tab === "allchats" ? "block" : "none" }}>
+        <AllChatsPanel />
       </div>
       <div style={{ display: tab === "handoffs" ? "block" : "none" }}>
         <HandoffsPanel />

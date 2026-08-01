@@ -157,6 +157,8 @@ export class ChannelController {
         sessionId: `${channel}:${connection.businessId}:${msg.senderId}`,
         message: msg.text,
         businessId: connection.businessId,
+        channel,
+        externalUserId: msg.senderId,
       });
 
       await entry.sendMessage(connection, msg.senderId, response.answer);

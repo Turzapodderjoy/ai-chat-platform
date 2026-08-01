@@ -10,6 +10,8 @@ type ConversationRow = {
   id: string;
   businessId: string;
   userId: string;
+  channel: string;
+  externalUserId: string | null;
   handoffStatus: string;
   handoffReason: string | null;
   handoffSummary: string | null;
@@ -22,6 +24,8 @@ function toRecord(row: ConversationRow): ConversationRecord {
     id: row.id,
     businessId: row.businessId,
     userId: row.userId,
+    channel: row.channel,
+    externalUserId: row.externalUserId,
     handoffStatus: row.handoffStatus.toLowerCase() as HandoffStatus,
     handoffReason: row.handoffReason,
     handoffSummary: row.handoffSummary,
@@ -36,7 +40,9 @@ export class ConversationService {
     sessionId: string,
     businessId: string,
     userId: string,
-    isTraining = false
+    isTraining = false,
+    channel = "website",
+    externalUserId: string | null = null
   ): Promise<ConversationRecord> {
 
     const existing = await prisma.conversation.findUnique({
@@ -48,7 +54,7 @@ export class ConversationService {
     }
 
     const created = await prisma.conversation.create({
-      data: { id: sessionId, businessId, userId, isTraining },
+      data: { id: sessionId, businessId, userId, isTraining, channel, externalUserId },
     });
 
     return toRecord(created);
@@ -173,5 +179,63 @@ export class ConversationService {
       lastMessage: row.messages[0]?.content ?? null,
       reviewed: row.chatAnalysis !== null,
     }));
+  }
+
+  /** Every real conversation (bot-handled and handed-off alike) for the
+   * unified All Chats inbox — unlike listHandoffs, this is not filtered
+   * to only conversations needing a human. Always excludes Training
+   * Arena sessions, same reasoning as listHandoffs. */
+  async listAllConversations(params: {
+    businessId?: string;
+    channel?: string;
+    needsHandoffOnly?: boolean;
+    sort?: "newest" | "oldest";
+    cursor?: string;
+    limit?: number;
+  }): Promise<{
+    conversations: Array<{
+      id: string;
+      businessId: string;
+      channel: string;
+      handoffStatus: HandoffStatus;
+      updatedAt: Date;
+      messageCount: number;
+      lastMessage: string | null;
+    }>;
+    nextCursor: string | null;
+  }> {
+    const limit = params.limit ?? 50;
+
+    const rows = await prisma.conversation.findMany({
+      where: {
+        isTraining: false,
+        ...(params.businessId ? { businessId: params.businessId } : {}),
+        ...(params.channel ? { channel: params.channel } : {}),
+        ...(params.needsHandoffOnly ? { handoffStatus: { not: "BOT" } } : {}),
+      },
+      orderBy: { updatedAt: params.sort === "oldest" ? "asc" : "desc" },
+      take: limit + 1,
+      ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),
+      include: {
+        messages: { orderBy: { createdAt: "desc" }, take: 1 },
+        _count: { select: { messages: true } },
+      },
+    });
+
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+
+    return {
+      conversations: page.map((row) => ({
+        id: row.id,
+        businessId: row.businessId,
+        channel: row.channel,
+        handoffStatus: row.handoffStatus.toLowerCase() as HandoffStatus,
+        updatedAt: row.updatedAt,
+        messageCount: row._count.messages,
+        lastMessage: row.messages[0]?.content ?? null,
+      })),
+      nextCursor: hasMore ? page[page.length - 1]!.id : null,
+    };
   }
 }

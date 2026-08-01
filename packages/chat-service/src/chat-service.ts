@@ -129,7 +129,9 @@ export class ChatService {
         request.sessionId,
         businessId,
         request.isTraining ? "trainer" : "anonymous",
-        request.isTraining ?? false
+        request.isTraining ?? false,
+        request.channel ?? "website",
+        request.externalUserId ?? null
       );
 
     // Fetched before this turn's message is recorded, so it's "everything
