@@ -1,4 +1,4 @@
-import { prisma, Prisma } from "@ai-chat-platform/database";
+import { prisma, Prisma, withSerializableRetry } from "@ai-chat-platform/database";
 
 import type {
   SearchResult,
@@ -74,15 +74,17 @@ export class PostgresProvider implements VectorStore {
     for (let i = 0; i < records.length; i += UPSERT_BATCH_SIZE) {
       const batch = records.slice(i, i + UPSERT_BATCH_SIZE);
 
-      await prisma.$transaction(
-        batch.map((record) => {
-          const row = recordToRow(record);
-          return prisma.vectorRecord.upsert({
-            where: { id: row.id },
-            create: row,
-            update: row,
-          });
-        })
+      await withSerializableRetry(() =>
+        prisma.$transaction(
+          batch.map((record) => {
+            const row = recordToRow(record);
+            return prisma.vectorRecord.upsert({
+              where: { id: row.id },
+              create: row,
+              update: row,
+            });
+          })
+        )
       );
     }
   }
@@ -177,19 +179,21 @@ export class PostgresProvider implements VectorStore {
       where: { documentId: { in: documentIds } },
     });
 
-    await prisma.$transaction(
-      rows.map((row) => {
-        const merged = rowToRecord(row);
-        const updatedRow = recordToRow({
-          ...merged,
-          metadata: { ...merged.metadata, ...patch },
-        });
+    await withSerializableRetry(() =>
+      prisma.$transaction(
+        rows.map((row) => {
+          const merged = rowToRecord(row);
+          const updatedRow = recordToRow({
+            ...merged,
+            metadata: { ...merged.metadata, ...patch },
+          });
 
-        return prisma.vectorRecord.update({
-          where: { id: row.id },
-          data: updatedRow,
-        });
-      })
+          return prisma.vectorRecord.update({
+            where: { id: row.id },
+            data: updatedRow,
+          });
+        })
+      )
     );
   }
 

@@ -1,4 +1,4 @@
-import { prisma } from "@ai-chat-platform/database";
+import { prisma, withSerializableRetry } from "@ai-chat-platform/database";
 
 export interface ChatAnalysisRecord {
   id: string;
@@ -55,7 +55,7 @@ export class ChatAnalysisService {
     findings: string;
     examples: { instruction: string; input: string; output: string }[];
   }): Promise<ChatAnalysisRecord> {
-    const created = await prisma.$transaction(async (tx) => {
+    const created = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
       const analysis = await tx.chatAnalysis.create({
         data: {
           conversationId: params.conversationId,
@@ -79,7 +79,7 @@ export class ChatAnalysisService {
       });
 
       return analysis;
-    });
+    }));
 
     return {
       id: created.id,
