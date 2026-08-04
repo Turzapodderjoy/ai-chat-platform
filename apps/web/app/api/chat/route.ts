@@ -30,15 +30,35 @@ export async function POST(req: NextRequest) {
 
   try {
     const app = await getApp();
-    const answer = await app.container.router.chat.post(sessionId, body.message, businessId);
+    const answer = await withTimeout(
+      app.container.router.chat.post(sessionId, body.message, businessId),
+      12_000
+    );
     return NextResponse.json(answer, { headers: CORS_HEADERS });
   } catch (err) {
+    // The database sits behind a home-network tunnel — a slow/dropped
+    // connection there must never hang the customer's widget until
+    // Vercel force-kills the function. Log the real error for us to see,
+    // but the customer gets a normal-looking reply instead of a broken
+    // error state — same shape ChatResponse always returns, so the
+    // widget needs no special-case handling for this.
+    console.error("Chat request failed or timed out:", err);
     return NextResponse.json(
       {
-        error: "Chat failed.",
-        detail: err instanceof Error ? err.message : String(err),
+        answer: "We're having trouble connecting right now — a team member will follow up with you shortly.",
+        provider: "system",
+        tokens: 0,
+        confidence: 0,
+        handoff: true,
       },
-      { status: 503, headers: CORS_HEADERS }
+      { headers: CORS_HEADERS }
     );
   }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`Timed out after ${ms}ms`)), ms)),
+  ]);
 }
