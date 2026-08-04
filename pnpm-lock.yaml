@@ -503,9 +503,6 @@ importers:
       '@ai-chat-platform/database':
         specifier: workspace:*
         version: link:../database
-      '@ai-chat-platform/training-pipeline':
-        specifier: workspace:*
-        version: link:../training-pipeline
 
   packages/tenant:
     dependencies:
