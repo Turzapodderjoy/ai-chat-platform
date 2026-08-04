@@ -3,11 +3,26 @@
 import { useEffect, useState } from "react";
 
 import { cardStyle, subtleTextStyle } from "./dashboard-styles";
+import { MessageTagControl } from "./MessageTagControl";
 
 interface Message {
+  id: string;
   role: "system" | "user" | "assistant" | "agent";
   content: string;
   createdAt: string;
+}
+
+interface Tag {
+  id: string;
+  label: string;
+  color: string | null;
+}
+
+interface TagAssignment {
+  tagId: string;
+  label: string;
+  color: string | null;
+  source: string;
 }
 
 interface ConversationSummary {
@@ -55,6 +70,63 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
 
+  const [tagCatalog, setTagCatalog] = useState<Tag[]>([]);
+  const [conversationTags, setConversationTags] = useState<Record<string, TagAssignment[]>>({});
+  const [messageTags, setMessageTags] = useState<Record<string, TagAssignment[]>>({});
+
+  useEffect(() => {
+    const qs = businessId ? `?businessId=${encodeURIComponent(businessId)}` : "";
+    fetch(`/api/admin/tags${qs}`)
+      .then((r) => r.json())
+      .then((d) => setTagCatalog(d.tags));
+  }, [businessId]);
+
+  function refreshConversationTags(ids: string[]) {
+    if (ids.length === 0) return;
+    fetch(`/api/admin/tags/for-conversations?ids=${ids.map(encodeURIComponent).join(",")}`)
+      .then((r) => r.json())
+      .then((d) => setConversationTags((prev) => ({ ...prev, ...d.tagsByConversationId })));
+  }
+
+  function refreshMessageTags(ids: string[]) {
+    if (ids.length === 0) return;
+    fetch(`/api/admin/tags/for-messages?ids=${ids.map(encodeURIComponent).join(",")}`)
+      .then((r) => r.json())
+      .then((d) => setMessageTags((prev) => ({ ...prev, ...d.tagsByMessageId })));
+  }
+
+  async function assignConversationTag(conversationId: string, tagId: string) {
+    await fetch("/api/admin/tags/assign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversationId, tagId }),
+    });
+    refreshConversationTags([conversationId]);
+  }
+
+  async function removeConversationTag(conversationId: string, tagId: string) {
+    await fetch(`/api/admin/tags/assign?conversationId=${encodeURIComponent(conversationId)}&tagId=${encodeURIComponent(tagId)}`, {
+      method: "DELETE",
+    });
+    refreshConversationTags([conversationId]);
+  }
+
+  async function assignMessageTag(messageId: string, tagId: string) {
+    await fetch("/api/admin/tags/assign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageId, tagId }),
+    });
+    refreshMessageTags([messageId]);
+  }
+
+  async function removeMessageTag(messageId: string, tagId: string) {
+    await fetch(`/api/admin/tags/assign?messageId=${encodeURIComponent(messageId)}&tagId=${encodeURIComponent(tagId)}`, {
+      method: "DELETE",
+    });
+    refreshMessageTags([messageId]);
+  }
+
   function buildQuery(cursor?: string) {
     const qs = new URLSearchParams();
     if (businessId) qs.set("businessId", businessId);
@@ -71,6 +143,7 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
       .then((data) => {
         setConversations(data.conversations);
         setNextCursor(data.nextCursor);
+        refreshConversationTags(data.conversations.map((c: ConversationSummary) => c.id));
       });
   }
 
@@ -84,6 +157,7 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
       const data = await res.json();
       setConversations((prev) => [...(prev ?? []), ...data.conversations]);
       setNextCursor(data.nextCursor);
+      refreshConversationTags(data.conversations.map((c: ConversationSummary) => c.id));
     } finally {
       setLoadingMore(false);
     }
@@ -94,7 +168,11 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
     setMessages(null);
     fetch(`/api/chat/messages?sessionId=${encodeURIComponent(id)}`)
       .then((r) => r.json())
-      .then((data) => setMessages(data.messages ?? []));
+      .then((data) => {
+        const msgs: Message[] = data.messages ?? [];
+        setMessages(msgs);
+        refreshMessageTags(msgs.map((m) => m.id));
+      });
   }
 
   async function sendReply() {
@@ -172,6 +250,18 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
                     {c.lastMessage.length > 60 ? `${c.lastMessage.slice(0, 60)}…` : c.lastMessage}
                   </div>
                 )}
+                {(conversationTags[c.id] ?? []).length > 0 && (
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
+                    {(conversationTags[c.id] ?? []).map((t) => (
+                      <span
+                        key={t.tagId}
+                        style={{ fontSize: 10, padding: "1px 6px", borderRadius: 999, background: "rgba(255,255,255,0.08)" }}
+                      >
+                        {t.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -196,12 +286,30 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
                 </span>
                 <code style={{ fontSize: 11, opacity: 0.6 }}>{selected.id}</code>
               </div>
+              <div style={{ marginBottom: 8 }}>
+                <MessageTagControl
+                  catalog={tagCatalog}
+                  applied={conversationTags[selected.id] ?? []}
+                  onAssign={(tagId) => assignConversationTag(selected.id, tagId)}
+                  onRemove={(tagId) => removeConversationTag(selected.id, tagId)}
+                />
+              </div>
               <div style={{ border: "1px solid #333", borderRadius: 8, minHeight: 300, maxHeight: 420, overflowY: "auto", padding: 16 }}>
                 {!messages && <p style={subtleTextStyle}>Loading…</p>}
-                {messages?.map((m, i) => (
-                  <div key={i} style={{ marginBottom: 6 }}>
-                    <strong>{m.role === "user" ? "Customer" : m.role === "agent" ? "Agent" : m.role === "assistant" ? "AI" : "System"}:</strong>{" "}
-                    {m.content}
+                {messages?.map((m) => (
+                  <div key={m.id} style={{ marginBottom: 10 }}>
+                    <div>
+                      <strong>{m.role === "user" ? "Customer" : m.role === "agent" ? "Agent" : m.role === "assistant" ? "AI" : "System"}:</strong>{" "}
+                      {m.content}
+                    </div>
+                    <div style={{ marginTop: 2 }}>
+                      <MessageTagControl
+                        catalog={tagCatalog}
+                        applied={messageTags[m.id] ?? []}
+                        onAssign={(tagId) => assignMessageTag(m.id, tagId)}
+                        onRemove={(tagId) => removeMessageTag(m.id, tagId)}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>

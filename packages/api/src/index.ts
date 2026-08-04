@@ -11,3 +11,4 @@ export * from "./training-controller";
 export * from "./channel-controller";
 export * from "./feedback-controller";
 export * from "./auto-heal-controller";
+export * from "./tag-controller";

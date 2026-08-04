@@ -123,12 +123,14 @@ model Conversation {
 
   messages           Message[]
   chatAnalysis       ChatAnalysis?
+  conversationTags   ConversationTag[]
 
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
   @@index([businessId, processedForTraining])
   @@index([businessId, channel])
+  @@index([businessId, createdAt])
 }
 
 model Message {
@@ -139,6 +141,7 @@ model Message {
 
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   feedback       MessageFeedback?
+  messageTags    MessageTag[]
 
   createdAt      DateTime @default(now())
 }
@@ -488,4 +491,67 @@ model ChannelAppCredential {
 
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+}
+
+// Intercom-style conversation/message tagging. businessId "__platform__"
+// is a tag visible to and usable by every client (mother-managed,
+// mirrors AiConfigVersion's platform-default convention); any other
+// businessId is a tag private to that one client. isFunnelStage +
+// funnelOrder let a subset of tags double as an ordered sales pipeline
+// (Lead -> Interested -> Sold) for the client dashboard's funnel/
+// conversion-rate charts — a plain tag just leaves these unset.
+model Tag {
+  id            String   @id @default(cuid())
+  label         String
+  color         String?
+  businessId    String   @default("__platform__")
+  isFunnelStage Boolean  @default(false)
+  funnelOrder   Int?
+  createdAt     DateTime @default(now())
+
+  conversationTags ConversationTag[]
+  messageTags      MessageTag[]
+
+  @@unique([businessId, label])
+  @@index([businessId, isFunnelStage])
+}
+
+// Conversation-level tag assignment. source distinguishes an AI-assigned
+// tag (from ConversationTaggingPipeline) from one a human added by hand
+// via the inline "+ tag" control — both render as chips, visually
+// distinguished. The unique constraint is what guarantees a tag can
+// never be double-counted for one conversation even if both the AI and
+// a human apply the same tag.
+model ConversationTag {
+  id             String   @id @default(cuid())
+  conversationId String
+  tagId          String
+  source         String   // "ai" | "manual"
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  tag            Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime @default(now())
+
+  @@unique([conversationId, tagId])
+  @@index([tagId])
+}
+
+// Message-level tag assignment — the finer-grained companion to
+// ConversationTag, applied via the hover-to-tag control on a single
+// message bubble. Never rolled into the headline conversation-level
+// analytics; only shown as a "which message triggered this" drill-down.
+model MessageTag {
+  id        String   @id @default(cuid())
+  messageId String
+  tagId     String
+  source    String   // "ai" | "manual"
+
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([messageId, tagId])
+  @@index([tagId])
 }

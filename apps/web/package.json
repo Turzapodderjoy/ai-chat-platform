@@ -25,7 +25,8 @@
     "@ai-chat-platform/ingestion": "workspace:*",
     "@ai-chat-platform/embedding-manager": "workspace:*",
     "@ai-chat-platform/vector-store": "workspace:*",
-    "@ai-chat-platform/indexing": "workspace:*"
+    "@ai-chat-platform/indexing": "workspace:*",
+    "recharts": "^2.15.0"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

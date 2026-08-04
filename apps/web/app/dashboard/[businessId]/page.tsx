@@ -12,15 +12,17 @@ import { AiParametersPanel } from "../../../components/AiParametersPanel";
 import { TrainingReviewPanel } from "../../../components/TrainingReviewPanel";
 import { ChannelsPanel } from "../../../components/ChannelsPanel";
 import { ClientOverviewPanel } from "../../../components/ClientOverviewPanel";
+import { ClientTagDashboardPanel } from "../../../components/ClientTagDashboardPanel";
 import { TrainingArenaPanel } from "../../../components/TrainingArenaPanel";
 import { DashboardShell, type NavGroup } from "../../../components/DashboardShell";
 
-type Tab = "overview" | "knowledge" | "allchats" | "handoffs" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels";
+type Tab = "overview" | "tagdashboard" | "knowledge" | "allchats" | "handoffs" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   {
     items: [
       { id: "overview", label: "Overview" },
+      { id: "tagdashboard", label: "Dashboard" },
       { id: "knowledge", label: "Knowledge Hub" },
       { id: "allchats", label: "All Chats" },
       { id: "handoffs", label: "Handoffs" },
@@ -90,6 +92,9 @@ export default function ClientDashboardPage() {
     >
       <div style={{ display: tab === "overview" ? "block" : "none" }}>
         <ClientOverviewPanel businessId={businessId} active={tab === "overview"} />
+      </div>
+      <div style={{ display: tab === "tagdashboard" ? "block" : "none" }}>
+        <ClientTagDashboardPanel businessId={businessId} />
       </div>
       <div style={{ display: tab === "knowledge" ? "block" : "none" }}>
         <KnowledgeHubPanel businessId={businessId} />

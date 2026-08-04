@@ -9,6 +9,7 @@ import { AiBrainPanel } from "../../components/AiBrainPanel";
 import { AiParametersPanel } from "../../components/AiParametersPanel";
 import { TrainingReviewPanel } from "../../components/TrainingReviewPanel";
 import { PlatformChannelAppsPanel } from "../../components/PlatformChannelAppsPanel";
+import { TagsPanel } from "../../components/TagsPanel";
 import { OverviewPanel } from "../../components/OverviewPanel";
 import { TrainingArenaPanel } from "../../components/TrainingArenaPanel";
 import { DashboardShell, type NavGroup } from "../../components/DashboardShell";
@@ -19,7 +20,7 @@ import { cardStyle, cellStyle, formatBytes } from "../../components/dashboard-st
 // client component just for one string constant.
 const PLATFORM_CONFIG_ID = "__platform__";
 
-type Tab = "overview" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "knowledge" | "allchats" | "handoffs" | "database";
+type Tab = "overview" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "knowledge" | "allchats" | "handoffs" | "database" | "tags";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }] },
@@ -39,6 +40,7 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
       { id: "knowledge", label: "Knowledge Hub" },
       { id: "allchats", label: "All Chats" },
       { id: "handoffs", label: "Handoffs" },
+      { id: "tags", label: "Tags" },
     ],
   },
   {
@@ -169,6 +171,9 @@ export default function DashboardPage() {
       </div>
       <div style={{ display: tab === "handoffs" ? "block" : "none" }}>
         <HandoffsPanel />
+      </div>
+      <div style={{ display: tab === "tags" ? "block" : "none" }}>
+        <TagsPanel />
       </div>
       <div style={{ display: tab === "database" ? "block" : "none" }}>
         <DatabasePanel />

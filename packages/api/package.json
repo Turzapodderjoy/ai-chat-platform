@@ -23,6 +23,7 @@
     "@ai-chat-platform/provider-keys": "workspace:*",
     "@ai-chat-platform/indexing": "workspace:*",
     "@ai-chat-platform/training-pipeline": "workspace:*",
+    "@ai-chat-platform/tagging-pipeline": "workspace:*",
     "@ai-chat-platform/channel-catalog": "workspace:*",
     "@ai-chat-platform/channel-connections": "workspace:*",
     "@ai-chat-platform/auto-heal": "workspace:*"

@@ -20,6 +20,11 @@ import {
   PromptSuggestionService,
 } from "@ai-chat-platform/training-pipeline";
 import { ChannelConnectionService, ChannelAppCredentialService } from "@ai-chat-platform/channel-connections";
+import {
+  TagService,
+  TagAssignmentService,
+  AnalyticsService,
+} from "@ai-chat-platform/tagging-pipeline";
 import { AutoHealService } from "@ai-chat-platform/auto-heal";
 import { ChatController } from "@ai-chat-platform/api";
 import { UploadController } from "@ai-chat-platform/api";
@@ -33,6 +38,7 @@ import { TrainingController } from "@ai-chat-platform/api";
 import { ChannelController } from "@ai-chat-platform/api";
 import { FeedbackController } from "@ai-chat-platform/api";
 import { AutoHealController } from "@ai-chat-platform/api";
+import { TagController } from "@ai-chat-platform/api";
 import { ApiRouter } from "@ai-chat-platform/api";
 
 export class Container {
@@ -134,6 +140,15 @@ export class Container {
     const autoHeal =
       new AutoHealService(crawlerService, indexingService, embeddings, tenants);
 
+    const tagService =
+      new TagService();
+
+    const tagAssignments =
+      new TagAssignmentService();
+
+    const tagAnalytics =
+      new AnalyticsService(tagService);
+
     this.router =
       new ApiRouter(
         new ChatController(rag),
@@ -169,7 +184,8 @@ export class Container {
           rag
         ),
         new FeedbackController(messageFeedback),
-        new AutoHealController(autoHeal)
+        new AutoHealController(autoHeal),
+        new TagController(tagService, tagAssignments, tagAnalytics)
       );
   }
 
