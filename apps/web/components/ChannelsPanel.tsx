@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { cardStyle } from "./dashboard-styles";
+import { WidgetCustomizerPanel } from "./WidgetCustomizerPanel";
 
 interface CatalogEntry {
   id: string;
@@ -139,6 +140,13 @@ export function ChannelsPanel({ businessId }: { businessId: string }) {
                   {data.embedSnippet}
                 </pre>
                 <button onClick={copySnippet}>Copy snippet</button>
+
+                <h3 style={{ marginTop: 20 }}>Customize the widget</h3>
+                <p style={{ opacity: 0.6, fontSize: 13 }}>
+                  Everything below is plug-and-play — change it any time and it goes live on the client&apos;s
+                  site immediately. The embed snippet above never changes.
+                </p>
+                <WidgetCustomizerPanel businessId={businessId} />
               </>
             )}
 

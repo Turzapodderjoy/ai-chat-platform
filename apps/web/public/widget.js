@@ -15,77 +15,158 @@
     window.localStorage.setItem(sessionKey, sessionId);
   }
 
-  var button = document.createElement("button");
-  button.textContent = "Chat";
-  button.setAttribute("style", [
-    "position:fixed", "bottom:20px", "right:20px", "z-index:999999",
-    "padding:12px 20px", "border-radius:24px", "border:none",
-    "background:#222", "color:#fff", "font-size:14px", "cursor:pointer",
-    "box-shadow:0 2px 8px rgba(0,0,0,.3)",
-  ].join(";"));
+  // Every visual/copy option lives server-side (WidgetConfig, edited from
+  // the client dashboard's Integrations tab) — nothing here is hardcoded
+  // per business, so this one script tag never needs to change when a
+  // client tweaks their widget's look.
+  fetch(origin + "/api/widget-config?businessId=" + encodeURIComponent(businessId))
+    .then(function (res) { return res.json(); })
+    .then(function (config) { build(config || {}); })
+    .catch(function () { build({}); });
 
-  var panel = document.createElement("div");
-  panel.setAttribute("style", [
-    "position:fixed", "bottom:76px", "right:20px", "z-index:999999",
-    "width:320px", "height:420px", "background:#fff", "color:#111",
-    "border-radius:12px", "box-shadow:0 4px 20px rgba(0,0,0,.3)",
-    "display:none", "flex-direction:column", "overflow:hidden",
-    "font-family:system-ui,sans-serif", "font-size:13px",
-  ].join(";"));
+  function build(config) {
+    var accent = config.accentColor || "#2563eb";
+    var position = config.position === "bottom-left" ? "left" : "right";
+    var dark = config.theme === "dark";
+    var panelBg = dark ? "#161b22" : "#ffffff";
+    var panelText = dark ? "#e6edf3" : "#111111";
+    var headerText = config.headerText || "Chat with us";
+    var launcherText = config.launcherText || "Chat";
+    var greeting = config.greeting || "Hi! How can I help you today?";
+    var avatarUrl = config.avatarUrl || "";
+    var showBranding = config.showBranding !== false;
 
-  var log = document.createElement("div");
-  log.setAttribute("style", "flex:1;overflow-y:auto;padding:12px;");
-  panel.appendChild(log);
+    var launcher = document.createElement("button");
+    launcher.setAttribute("aria-label", "Open chat");
+    launcher.innerHTML =
+      (avatarUrl ? '<img src="' + escapeAttr(avatarUrl) + '" style="width:22px;height:22px;border-radius:50%;object-fit:cover;margin-right:8px;vertical-align:-6px" />' : "") +
+      escapeHtml(launcherText);
+    launcher.setAttribute("style", [
+      "position:fixed", "bottom:20px", position + ":20px", "z-index:999999",
+      "padding:12px 20px", "border-radius:999px", "border:none",
+      "background:" + accent, "color:#fff", "font-size:14px", "font-family:system-ui,sans-serif",
+      "cursor:pointer", "box-shadow:0 4px 16px rgba(0,0,0,.25)",
+      "transition:transform .15s ease",
+    ].join(";"));
+    launcher.addEventListener("mouseenter", function () { launcher.style.transform = "scale(1.04)"; });
+    launcher.addEventListener("mouseleave", function () { launcher.style.transform = "scale(1)"; });
 
-  var inputRow = document.createElement("div");
-  inputRow.setAttribute("style", "display:flex;border-top:1px solid #eee;");
-  var input = document.createElement("input");
-  input.placeholder = "Ask something…";
-  input.setAttribute("style", "flex:1;border:none;padding:10px;font-size:13px;outline:none;");
-  var send = document.createElement("button");
-  send.textContent = "Send";
-  send.setAttribute("style", "border:none;background:#222;color:#fff;padding:0 14px;cursor:pointer;");
-  inputRow.appendChild(input);
-  inputRow.appendChild(send);
-  panel.appendChild(inputRow);
+    var panel = document.createElement("div");
+    panel.setAttribute("style", [
+      "position:fixed", "bottom:80px", position + ":20px", "z-index:999999",
+      "width:340px", "max-width:92vw", "height:460px", "max-height:75vh",
+      "background:" + panelBg, "color:" + panelText,
+      "border-radius:14px", "box-shadow:0 10px 40px rgba(0,0,0,.35)",
+      "display:none", "flex-direction:column", "overflow:hidden",
+      "font-family:system-ui,sans-serif", "font-size:13px",
+      "border:1px solid " + (dark ? "#30363d" : "#e5e7eb"),
+    ].join(";"));
 
-  document.body.appendChild(panel);
-  document.body.appendChild(button);
+    var header = document.createElement("div");
+    header.setAttribute("style", [
+      "padding:14px 16px", "background:" + accent, "color:#fff",
+      "font-weight:600", "font-size:14px", "display:flex", "align-items:center", "gap:8px",
+    ].join(";"));
+    if (avatarUrl) {
+      var headerAvatar = document.createElement("img");
+      headerAvatar.src = avatarUrl;
+      headerAvatar.setAttribute("style", "width:24px;height:24px;border-radius:50%;object-fit:cover;");
+      header.appendChild(headerAvatar);
+    }
+    var headerLabel = document.createElement("span");
+    headerLabel.textContent = headerText;
+    header.appendChild(headerLabel);
+    panel.appendChild(header);
 
-  button.addEventListener("click", function () {
-    panel.style.display = panel.style.display === "none" ? "flex" : "none";
-  });
+    var log = document.createElement("div");
+    log.setAttribute("style", "flex:1;overflow-y:auto;padding:12px;");
+    panel.appendChild(log);
 
-  function addMessage(role, text) {
-    var row = document.createElement("div");
-    row.setAttribute("style", "margin-bottom:8px;");
-    row.innerHTML = "<strong>" + (role === "user" ? "You" : "Assistant") + ":</strong> " + text;
-    log.appendChild(row);
-    log.scrollTop = log.scrollHeight;
-  }
+    var inputRow = document.createElement("div");
+    inputRow.setAttribute("style", "display:flex;border-top:1px solid " + (dark ? "#30363d" : "#eee") + ";");
+    var input = document.createElement("input");
+    input.placeholder = "Ask something…";
+    input.setAttribute("style", [
+      "flex:1", "border:none", "padding:10px", "font-size:13px", "outline:none",
+      "background:" + panelBg, "color:" + panelText,
+    ].join(";"));
+    var send = document.createElement("button");
+    send.textContent = "Send";
+    send.setAttribute("style", "border:none;background:" + accent + ";color:#fff;padding:0 16px;cursor:pointer;font-size:13px;");
+    inputRow.appendChild(input);
+    inputRow.appendChild(send);
+    panel.appendChild(inputRow);
 
-  function sendMessage() {
-    var text = input.value.trim();
-    if (!text) return;
-    input.value = "";
-    addMessage("user", text);
+    if (showBranding) {
+      var branding = document.createElement("div");
+      branding.textContent = "Powered by AI Chat Platform";
+      branding.setAttribute("style", "text-align:center;padding:4px;font-size:10px;opacity:.5;");
+      panel.appendChild(branding);
+    }
 
-    fetch(origin + "/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId: sessionId, message: text, businessId: businessId }),
-    })
-      .then(function (res) { return res.json(); })
-      .then(function (data) {
-        addMessage("assistant", data.answer || ("Error: " + (data.detail || data.error)));
+    document.body.appendChild(panel);
+    document.body.appendChild(launcher);
+
+    var opened = false;
+    launcher.addEventListener("click", function () {
+      opened = !opened;
+      panel.style.display = opened ? "flex" : "none";
+      if (opened && log.children.length === 0 && greeting) {
+        addMessage("assistant", greeting);
+      }
+    });
+
+    function addMessage(role, text) {
+      var row = document.createElement("div");
+      row.setAttribute("style", "margin-bottom:8px;");
+      var bubble = document.createElement("div");
+      bubble.textContent = text;
+      bubble.setAttribute("style", [
+        "display:inline-block", "padding:8px 12px", "border-radius:12px", "max-width:85%",
+        role === "user"
+          ? "background:" + accent + ";color:#fff;float:right;"
+          : "background:" + (dark ? "#21262d" : "#f1f3f5") + ";color:" + panelText + ";float:left;",
+      ].join(";"));
+      row.appendChild(bubble);
+      var clear = document.createElement("div");
+      clear.setAttribute("style", "clear:both;");
+      row.appendChild(clear);
+      log.appendChild(row);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function sendMessage() {
+      var text = input.value.trim();
+      if (!text) return;
+      input.value = "";
+      addMessage("user", text);
+
+      fetch(origin + "/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: sessionId, message: text, businessId: businessId }),
       })
-      .catch(function (err) {
-        addMessage("assistant", "Error: " + err);
-      });
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          addMessage("assistant", data.answer || ("Error: " + (data.detail || data.error)));
+        })
+        .catch(function (err) {
+          addMessage("assistant", "Error: " + err);
+        });
+    }
+
+    send.addEventListener("click", sendMessage);
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") sendMessage();
+    });
   }
 
-  send.addEventListener("click", sendMessage);
-  input.addEventListener("keydown", function (e) {
-    if (e.key === "Enter") sendMessage();
-  });
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function escapeAttr(s) {
+    return String(s).replace(/"/g, "&quot;");
+  }
 })();

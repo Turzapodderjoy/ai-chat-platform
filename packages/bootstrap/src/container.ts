@@ -40,8 +40,10 @@ import { FeedbackController } from "@ai-chat-platform/api";
 import { AutoHealController } from "@ai-chat-platform/api";
 import { TagController } from "@ai-chat-platform/api";
 import { ClientAuthController } from "@ai-chat-platform/api";
+import { WidgetConfigController } from "@ai-chat-platform/api";
 import { ApiRouter } from "@ai-chat-platform/api";
 import { ClientAuthService } from "@ai-chat-platform/client-auth";
+import { WidgetConfigService } from "@ai-chat-platform/widget-config";
 
 export class Container {
 
@@ -154,6 +156,9 @@ export class Container {
     const clientAuth =
       new ClientAuthService();
 
+    const widgetConfig =
+      new WidgetConfigService();
+
     this.router =
       new ApiRouter(
         new ChatController(rag),
@@ -191,7 +196,8 @@ export class Container {
         new FeedbackController(messageFeedback),
         new AutoHealController(autoHeal),
         new TagController(tagService, tagAssignments, tagAnalytics),
-        new ClientAuthController(clientAuth)
+        new ClientAuthController(clientAuth),
+        new WidgetConfigController(widgetConfig)
       );
   }
 

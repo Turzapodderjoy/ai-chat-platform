@@ -181,6 +181,9 @@ importers:
       '@ai-chat-platform/web-crawler':
         specifier: workspace:*
         version: link:../web-crawler
+      '@ai-chat-platform/widget-config':
+        specifier: workspace:*
+        version: link:../widget-config
 
   packages/auto-heal:
     dependencies:
@@ -280,6 +283,9 @@ importers:
       '@ai-chat-platform/web-crawler':
         specifier: workspace:*
         version: link:../web-crawler
+      '@ai-chat-platform/widget-config':
+        specifier: workspace:*
+        version: link:../widget-config
 
   packages/cerebras:
     dependencies:
@@ -607,6 +613,12 @@ importers:
       '@ai-chat-platform/vector-store':
         specifier: workspace:*
         version: link:../vector-store
+
+  packages/widget-config:
+    dependencies:
+      '@ai-chat-platform/database':
+        specifier: workspace:*
+        version: link:../database
 
 packages:
 

@@ -589,3 +589,26 @@ model ClientSession {
 
   @@index([clientAccountId])
 }
+
+// One live row per business, not versioned like AiConfigVersion — a
+// widget's look has no audit/history need the way prompt changes do,
+// so a plain upsert-by-businessId is the right-sized fit here. widget.js
+// fetches this by businessId at load time, so every option here is
+// truly plug-and-play: the embed snippet never changes when a client
+// tweaks colors/copy from the dashboard, only this row does.
+model WidgetConfig {
+  id            String   @id @default(cuid())
+  businessId    String   @unique
+
+  accentColor   String   @default("#2563eb")
+  position      String   @default("bottom-right") // "bottom-right" | "bottom-left"
+  theme         String   @default("light") // "light" | "dark"
+  launcherText  String   @default("Chat")
+  headerText    String   @default("Chat with us")
+  greeting      String   @default("Hi! How can I help you today?")
+  avatarUrl     String?
+  showBranding  Boolean  @default(true)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
