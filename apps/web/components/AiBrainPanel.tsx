@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState } from "react";
 
-import { cardStyle, cellStyle } from "./dashboard-styles";
+import { cardStyle, cellStyle, subtleTextStyle, primaryButtonStyle } from "./dashboard-styles";
 
 interface AiConfig {
   id: string;
@@ -168,30 +168,18 @@ export function AiBrainPanel({ businessId }: AiBrainPanelProps) {
   return (
     <section style={cardStyle}>
       <h2 style={{ marginTop: 0 }}>AI Brain</h2>
-      <p style={{ opacity: 0.6 }}>
-        The system prompt and the knobs that control how eagerly the AI
-        hands off vs. tries to answer, and how creative it is — editable
-        here instead of hardcoded in the code. Every save creates a new
-        version; nothing is ever overwritten, so the full history below is
-        a permanent record of what was asked of the AI and when.
-        {businessId
-          ? " Until you save a change here, this client uses the mother dashboard's default. The first save gives this client its own independent AI Brain."
-          : ""}
+      <p style={subtleTextStyle}>
+        What the AI is told to do, and when it should ask for a human instead.
+        {businessId ? " Unsaved settings use the platform default." : ""}
       </p>
 
-      {!current && <p>Loading…</p>}
+      {!current && <p style={subtleTextStyle}>Loading…</p>}
 
       {current && (
         <>
-          <div style={{ border: "1px solid #30363d", borderRadius: 8, padding: 16, marginBottom: 20 }}>
+          <div style={{ ...cardStyle, marginBottom: 20 }}>
             <h3 style={{ marginTop: 0 }}>Reply language</h3>
-            <p style={{ opacity: 0.6, fontSize: 13 }}>
-              Lock which language the AI always replies in, no matter what
-              language the customer writes in — it still reads and
-              understands any language, only the reply is locked. Choose
-              &quot;Auto&quot; to go back to matching the customer&apos;s
-              own language/register instead (the default).
-            </p>
+            <p style={subtleTextStyle}>Lock the AI's reply language, or leave it on Auto to match the customer.</p>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <select
                 value={languageDraft}
@@ -204,16 +192,16 @@ export function AiBrainPanel({ businessId }: AiBrainPanelProps) {
                   </option>
                 ))}
               </select>
-              <button onClick={saveLanguage} disabled={savingLanguage || languageDraft === current.languageMode}>
+              <button onClick={saveLanguage} disabled={savingLanguage || languageDraft === current.languageMode} style={primaryButtonStyle}>
                 {savingLanguage ? "Saving…" : "Save"}
               </button>
               {current.languageMode !== "auto" && (
-                <span style={{ fontSize: 12, opacity: 0.6 }}>
-                  Currently locked to: {LANGUAGE_OPTIONS.find((o) => o.value === current.languageMode)?.label}
+                <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                  Locked to: {LANGUAGE_OPTIONS.find((o) => o.value === current.languageMode)?.label}
                 </span>
               )}
             </div>
-            {languageMessage && <p style={{ fontSize: 13, opacity: 0.8, marginTop: 8 }}>{languageMessage}</p>}
+            {languageMessage && <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 8 }}>{languageMessage}</p>}
           </div>
 
           <h3>Current prompt</h3>
@@ -269,57 +257,53 @@ export function AiBrainPanel({ businessId }: AiBrainPanelProps) {
               />{" "}
               <strong>{temperatureDraft.toFixed(1)}</strong>
             </label>
-            <p style={{ opacity: 0.6, fontSize: 12, marginTop: 4 }}>
-              0.1 = Strict, Factual, Direct (Best for Customer Support) · 0.7+
-              = Creative, Chatty, Unpredictable
+            <p style={{ ...subtleTextStyle, marginTop: 4 }}>
+              0.1 = strict &amp; factual · 0.7+ = creative &amp; chatty
             </p>
           </div>
 
           <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
             <input
-              style={{ flex: 1, padding: 8 }}
+              style={{ flex: 1 }}
               placeholder="What changed and why (kept in the history log)"
               value={updateNote}
               onChange={(e) => setUpdateNote(e.target.value)}
             />
-            <button onClick={saveUpdate} disabled={saving}>
+            <button onClick={saveUpdate} disabled={saving} style={primaryButtonStyle}>
               {saving ? "Saving…" : "Update"}
             </button>
           </div>
 
           <h3 style={{ marginTop: 24 }}>Add an instruction</h3>
-          <p style={{ opacity: 0.6 }}>
-            Appends to the end of the current prompt as a new version,
-            instead of retyping the whole thing — e.g. "Never mention
-            competitor pricing" or "Always offer the express shipping
-            option when discussing delivery."
+          <p style={subtleTextStyle}>
+            Appends a new rule to the end of the prompt — e.g. &quot;Never mention competitor pricing.&quot;
           </p>
           <textarea
             value={addText}
             onChange={(e) => setAddText(e.target.value)}
             placeholder="New rule to add…"
-            style={{ width: "100%", minHeight: 60, padding: 8, boxSizing: "border-box" }}
+            style={{ width: "100%", minHeight: 60, boxSizing: "border-box" }}
           />
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
             <input
-              style={{ flex: 1, padding: 8 }}
+              style={{ flex: 1 }}
               placeholder="Note (optional — defaults to the added text)"
               value={addNote}
               onChange={(e) => setAddNote(e.target.value)}
             />
-            <button onClick={saveAppend} disabled={adding}>
+            <button onClick={saveAppend} disabled={adding} style={primaryButtonStyle}>
               {adding ? "Adding…" : "Add"}
             </button>
           </div>
 
-          {message && <p style={{ fontSize: 13, opacity: 0.8, marginTop: 8 }}>{message}</p>}
+          {message && <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 8 }}>{message}</p>}
         </>
       )}
 
       <h3 style={{ marginTop: 24 }}>History</h3>
-      {!history && <p>Loading…</p>}
+      {!history && <p style={subtleTextStyle}>Loading…</p>}
       {history && (
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table>
           <thead>
             <tr>
               <th style={cellStyle}>When</th>

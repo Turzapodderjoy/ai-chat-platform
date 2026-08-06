@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { cardStyle, cellStyle } from "./dashboard-styles";
+import { cardStyle, cellStyle, subtleTextStyle, primaryButtonStyle } from "./dashboard-styles";
 
 interface Credential {
   channel: string;
@@ -68,7 +68,7 @@ export function PlatformChannelAppsPanel() {
   return (
     <section style={cardStyle}>
       <h2 style={{ marginTop: 0 }}>Integrations</h2>
-      <p style={{ opacity: 0.6 }}>
+      <p style={subtleTextStyle}>
         Platform-wide Meta App setup — a one-time step per channel, done
         here once, that unlocks the &quot;Connect&quot; button on every client&apos;s
         own dashboard. The App Secret is never sent back to this page once
@@ -129,7 +129,7 @@ export function PlatformChannelAppsPanel() {
               onChange={(e) => setVerifyToken(e.target.value)}
               style={{ padding: 8, flex: 1, minWidth: 160 }}
             />
-            <button onClick={save} disabled={saving}>
+            <button onClick={save} disabled={saving} style={primaryButtonStyle}>
               {saving ? "Saving…" : "Save"}
             </button>
           </div>

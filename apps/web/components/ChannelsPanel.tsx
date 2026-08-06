@@ -126,7 +126,7 @@ export function ChannelsPanel({ businessId }: { businessId: string }) {
         const connection = connectionFor(entry.id);
 
         return (
-          <div key={entry.id} style={{ border: "1px solid #333", borderRadius: 8, padding: 16, marginTop: 16 }}>
+          <div key={entry.id} style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 16, marginTop: 16 }}>
             <h3 style={{ margin: 0 }}>{entry.label}</h3>
 
             {entry.id === "website" && (
@@ -136,7 +136,7 @@ export function ChannelsPanel({ businessId }: { businessId: string }) {
                   tag on the client&apos;s site — a chat button appears immediately,
                   no further setup needed.
                 </p>
-                <pre style={{ background: "#111", color: "#eee", padding: 12, borderRadius: 6, fontSize: 12, overflowX: "auto" }}>
+                <pre style={{ background: "var(--surface)", color: "#eee", padding: 12, borderRadius: 6, fontSize: 12, overflowX: "auto" }}>
                   {data.embedSnippet}
                 </pre>
                 <button onClick={copySnippet}>Copy snippet</button>

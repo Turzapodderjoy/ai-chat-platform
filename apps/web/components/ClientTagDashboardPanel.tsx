@@ -15,7 +15,7 @@ import {
 } from "recharts";
 
 import { StatCard, StatCardRow } from "./StatCard";
-import { cardStyle, cellStyle, subtleTextStyle } from "./dashboard-styles";
+import { cardStyle, cellStyle, subtleTextStyle, primaryButtonStyle } from "./dashboard-styles";
 
 interface Tag {
   id: string;
@@ -450,8 +450,8 @@ export function ClientTagDashboardPanel({ businessId }: { businessId: string }) 
               if (e.key === "Enter") addMyTag();
             }}
           />
-          <input type="color" value={newTagColor} onChange={(e) => setNewTagColor(e.target.value)} style={{ width: 40, height: 34, padding: 0, border: "1px solid #333" }} />
-          <button onClick={addMyTag}>+ New tag</button>
+          <input type="color" value={newTagColor} onChange={(e) => setNewTagColor(e.target.value)} style={{ width: 40, height: 34, padding: 0, border: "1px solid var(--border)" }} />
+          <button onClick={addMyTag} style={primaryButtonStyle}>+ New tag</button>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {myTags.map((t) => (

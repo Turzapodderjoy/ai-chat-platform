@@ -14,10 +14,26 @@ export function StatCard({
   hint?: string;
 }) {
   return (
-    <div style={{ ...cardStyle, marginBottom: 0, minWidth: 160, flex: "1 1 160px" }}>
-      <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 6 }}>{label}</div>
+    <div
+      style={{
+        ...cardStyle,
+        marginBottom: 0,
+        minWidth: 160,
+        flex: "1 1 160px",
+        transition: "transform 0.15s ease, border-color 0.15s ease",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "translateY(-2px)";
+        e.currentTarget.style.borderColor = "var(--border-strong)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "none";
+        e.currentTarget.style.borderColor = "var(--border)";
+      }}
+    >
+      <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 6 }}>{label}</div>
       <div style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.1 }}>{value}</div>
-      {hint && <div style={{ fontSize: 12, opacity: 0.5, marginTop: 6 }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 6 }}>{hint}</div>}
     </div>
   );
 }

@@ -107,7 +107,7 @@ export function TagsPanel() {
           type="color"
           value={color}
           onChange={(e) => setColor(e.target.value)}
-          style={{ width: 40, height: 34, padding: 0, border: "1px solid #333" }}
+          style={{ width: 40, height: 34, padding: 0, border: "1px solid var(--border)" }}
         />
         <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
           <input type="checkbox" checked={isFunnelStage} onChange={(e) => setIsFunnelStage(e.target.checked)} />

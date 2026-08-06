@@ -14,7 +14,7 @@ import { ClientAccessPanel } from "../../components/ClientAccessPanel";
 import { OverviewPanel } from "../../components/OverviewPanel";
 import { TrainingArenaPanel } from "../../components/TrainingArenaPanel";
 import { DashboardShell, type NavGroup } from "../../components/DashboardShell";
-import { cardStyle, cellStyle, formatBytes } from "../../components/dashboard-styles";
+import { cardStyle, cellStyle, formatBytes, subtleTextStyle, primaryButtonStyle } from "../../components/dashboard-styles";
 
 // PLATFORM_CONFIG_ID as used by @ai-chat-platform/ai-config — kept as a
 // plain literal here rather than importing a backend package into this
@@ -256,7 +256,7 @@ function ClientsPanel() {
   return (
     <section style={cardStyle}>
       <h2 style={{ marginTop: 0 }}>Clients</h2>
-      <p style={{ opacity: 0.6 }}>
+      <p style={subtleTextStyle}>
         Adding a company creates its dashboard immediately — every client
         shares the same dashboard page (/dashboard/[id]), so there&apos;s
         nothing to deploy per client and every future update applies to all
@@ -273,7 +273,7 @@ function ClientsPanel() {
             if (e.key === "Enter") addClient();
           }}
         />
-        <button onClick={addClient} disabled={creating}>
+        <button onClick={addClient} disabled={creating} style={primaryButtonStyle}>
           {creating ? "Adding…" : "Add company"}
         </button>
       </div>
@@ -476,7 +476,7 @@ function AiProvidersPanel() {
   return (
     <section style={cardStyle}>
       <h2 style={{ marginTop: 0 }}>AI Providers</h2>
-      <p style={{ opacity: 0.6 }}>
+      <p style={subtleTextStyle}>
         Turn a provider on/off to experiment — disable the others to force
         every chat through one specific provider, or disable one to see
         the rest pick up its traffic. Takes effect on the very next chat
@@ -535,7 +535,7 @@ function AiProvidersPanel() {
           </table>
 
           <h3 style={{ marginTop: 24 }}>Add a custom provider</h3>
-          <p style={{ opacity: 0.6 }}>
+          <p style={subtleTextStyle}>
             Not in the list below? Any provider speaking the standard
             OpenAI-compatible /chat/completions API (which covers most
             newly-released providers) can be added here directly — no code
@@ -571,10 +571,10 @@ function AiProvidersPanel() {
               {customSaving ? "Saving…" : "Add"}
             </button>
           </div>
-          {customMessage && <p style={{ fontSize: 13, opacity: 0.8 }}>{customMessage}</p>}
+          {customMessage && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{customMessage}</p>}
 
           <h3 style={{ marginTop: 24 }}>Add / activate a provider</h3>
-          <p style={{ opacity: 0.6 }}>
+          <p style={subtleTextStyle}>
             Only providers with a real, coded adapter can be activated —
             picking one just needs an API key, no redeploy or code change.
             Planned but not-yet-coded providers are listed below for
@@ -600,14 +600,14 @@ function AiProvidersPanel() {
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
             />
-            <button onClick={activate} disabled={saving}>
+            <button onClick={activate} disabled={saving} style={primaryButtonStyle}>
               {saving ? "Saving…" : "Activate"}
             </button>
           </div>
 
-          {message && <p style={{ fontSize: 13, opacity: 0.8 }}>{message}</p>}
+          {message && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{message}</p>}
 
-          <p style={{ opacity: 0.5, fontSize: 12, marginTop: 12 }}>
+          <p style={{ ...subtleTextStyle, fontSize: 12, marginTop: 12 }}>
             Not implemented yet: {data.catalog.planned.map((p) => p.label).join(", ")}.
             Each needs its adapter written once (implements the same
             AIProvider interface as Groq) before it can be activated here.
@@ -720,7 +720,7 @@ function EmbeddingProvidersPanel() {
   return (
     <section style={cardStyle}>
       <h2 style={{ marginTop: 0 }}>Embedding Providers</h2>
-      <p style={{ opacity: 0.6 }}>
+      <p style={subtleTextStyle}>
         The same rotation/failover the AI Providers panel does for chat
         replies, but for the embedding step that runs before every
         retrieval and every document upload. Turn a provider on/off to
@@ -782,7 +782,7 @@ function EmbeddingProvidersPanel() {
           </table>
 
           <h3 style={{ marginTop: 24 }}>Add / activate a provider</h3>
-          <p style={{ opacity: 0.6 }}>
+          <p style={subtleTextStyle}>
             Only providers with a real, coded adapter can be activated —
             picking one just needs an API key, no redeploy or code change.
             Planned but not-yet-coded providers are listed below for
@@ -808,14 +808,14 @@ function EmbeddingProvidersPanel() {
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
             />
-            <button onClick={activate} disabled={saving}>
+            <button onClick={activate} disabled={saving} style={primaryButtonStyle}>
               {saving ? "Saving…" : "Activate"}
             </button>
           </div>
 
-          {message && <p style={{ fontSize: 13, opacity: 0.8 }}>{message}</p>}
+          {message && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{message}</p>}
 
-          <p style={{ opacity: 0.5, fontSize: 12, marginTop: 12 }}>
+          <p style={{ ...subtleTextStyle, fontSize: 12, marginTop: 12 }}>
             Not implemented yet: {data.catalog.planned.map((p) => p.label).join(", ")}.
             Each needs its adapter written once (implements the same
             EmbeddingProvider interface as Jina) before it can be
@@ -850,7 +850,7 @@ function UsagePanel() {
   return (
     <section>
       <h1 style={{ marginBottom: 4 }}>Usage</h1>
-      <p style={{ opacity: 0.6 }}>
+      <p style={subtleTextStyle}>
         In-memory counters, reset on server restart — and in local testing
         they didn&apos;t even stay consistent request-to-request, which means
         this dev server is handling requests across more than one worker
@@ -859,7 +859,7 @@ function UsagePanel() {
       </p>
 
       {cacheStats && (
-        <p style={{ opacity: 0.8 }}>
+        <p style={{ color: "var(--text-muted)" }}>
           Response cache: {cacheStats.size} cached answers, {cacheStats.totalHits}{" "}
           reuses so far — each reuse is a chat answered with 0 LLM tokens.
         </p>
@@ -991,7 +991,7 @@ function DatabasePanel() {
   return (
     <section style={cardStyle}>
       <h2 style={{ marginTop: 0 }}>Database</h2>
-      <p style={{ opacity: 0.6 }}>
+      <p style={subtleTextStyle}>
         Swap <code>DATABASE_URL</code> in your env (local Postgres today, any
         online Postgres — Neon, Supabase, RDS — tomorrow) and this panel
         reflects it. No connection strings are entered or stored through this

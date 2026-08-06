@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 
-import { cardStyle, cellStyle, formatBytes } from "./dashboard-styles";
+import { cardStyle, subtleTextStyle, formatBytes } from "./dashboard-styles";
+import { StatCard, StatCardRow } from "./StatCard";
 
 interface StorageInfo {
   knowledgeChunks: number;
@@ -26,54 +27,29 @@ export function StoragePanel({ businessId }: { businessId: string }) {
       .then(setInfo);
   }, [businessId]);
 
-  if (!info) return <p>Loading…</p>;
+  if (!info) return <p style={subtleTextStyle}>Loading…</p>;
 
   return (
-    <section style={cardStyle}>
-      <h2 style={{ marginTop: 0 }}>Storage</h2>
-      <p style={{ opacity: 0.6 }}>
-        Estimated size, not exact — the knowledge base is a shared JSON
-        file today (filtered by this client's tag), so this is a
-        per-record size estimate rather than a real disk quota.
-      </p>
+    <section>
+      <h1 style={{ marginBottom: 4 }}>Storage</h1>
+      <p style={subtleTextStyle}>What this client&apos;s knowledge base and chat history take up (estimated).</p>
 
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <tbody>
-          <tr>
-            <td style={cellStyle}>Knowledge base size (est.)</td>
-            <td style={cellStyle}>{formatBytes(info.knowledgeBytesEstimate)}</td>
-          </tr>
-          <tr>
-            <td style={cellStyle}>Indexed documents</td>
-            <td style={cellStyle}>{info.knowledgeDocuments}</td>
-          </tr>
-          <tr>
-            <td style={cellStyle}>Chunks / vectors</td>
-            <td style={cellStyle}>{info.knowledgeChunks}</td>
-          </tr>
-          <tr>
-            <td style={cellStyle}>Crawl targets registered</td>
-            <td style={cellStyle}>{info.crawlTargets}</td>
-          </tr>
-          <tr>
-            <td style={cellStyle}>Conversations</td>
-            <td style={cellStyle}>{info.conversations}</td>
-          </tr>
-          <tr>
-            <td style={cellStyle}>Messages</td>
-            <td style={cellStyle}>{info.messages}</td>
-          </tr>
-        </tbody>
-      </table>
+      <div style={{ marginTop: 16 }}>
+        <StatCardRow>
+          <StatCard label="Knowledge base" value={formatBytes(info.knowledgeBytesEstimate)} hint={`${info.knowledgeDocuments} documents`} />
+          <StatCard label="Chunks / vectors" value={String(info.knowledgeChunks)} />
+          <StatCard label="Crawl targets" value={String(info.crawlTargets)} />
+          <StatCard label="Conversations" value={String(info.conversations)} hint={`${info.messages} messages`} />
+        </StatCardRow>
+      </div>
 
-      <h3 style={{ marginTop: 24 }}>Where it's stored</h3>
-      <ul>
-        <li>Knowledge base (documents, chunks, embeddings): {info.vectorStoreLocation}</li>
-        <li>
-          Conversations, messages, crawl targets, client record:{" "}
-          {info.databaseLocation ?? "DATABASE_URL not set"}
-        </li>
-      </ul>
+      <section style={cardStyle}>
+        <h3 style={{ marginTop: 0 }}>Where it&apos;s stored</h3>
+        <p style={{ fontSize: 13, marginBottom: 6 }}>Knowledge base: {info.vectorStoreLocation}</p>
+        <p style={{ fontSize: 13, margin: 0 }}>
+          Conversations &amp; messages: {info.databaseLocation ?? "DATABASE_URL not set"}
+        </p>
+      </section>
     </section>
   );
 }

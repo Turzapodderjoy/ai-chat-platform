@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { UploadWidget } from "./UploadWidget";
-import { cardStyle, cellStyle } from "./dashboard-styles";
+import { cardStyle, cellStyle, subtleTextStyle, primaryButtonStyle } from "./dashboard-styles";
 
 interface KnowledgeDocument {
   documentId: string;
@@ -215,19 +215,11 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
 
       <div style={cardStyle}>
         <h3 style={{ marginTop: 0 }}>Auto-heal</h3>
-        <p style={{ opacity: 0.6 }}>
-          Runs automatically every 30 minutes (external scheduler, not
-          Vercel&apos;s own cron — see the cron route&apos;s comment):
-          backfills any embedding provider that&apos;s under 100% coverage
-          (if it&apos;s actually fixable — enabled with a usable key) and
-          retries any crawl target stuck in an error state, each on its
-          own cooldown so a stuck one doesn&apos;t get hammered every
-          check. Force a check now instead of waiting for the next cycle.
-        </p>
-        <button onClick={runAutoHeal} disabled={healing}>
+        <p style={subtleTextStyle}>Runs every 30 minutes automatically — fixes gaps in coverage and stuck crawls.</p>
+        <button onClick={runAutoHeal} disabled={healing} style={primaryButtonStyle}>
           {healing ? "Checking…" : "Run now"}
         </button>
-        {healMessage && <p style={{ fontSize: 13, opacity: 0.8, marginTop: 8 }}>{healMessage}</p>}
+        {healMessage && <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 8 }}>{healMessage}</p>}
       </div>
 
       <div style={cardStyle}>
@@ -237,18 +229,11 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
 
       <div style={cardStyle}>
       <h3 style={{ marginTop: 0 }}>Website crawler</h3>
-      <p style={{ opacity: 0.6 }}>
-        Add a client&apos;s site once — it re-crawls automatically every day
-        at 7am BST (Vercel Cron) to keep answers current. Respects
-        robots.txt, identifies itself with a real User-Agent, and rate-limits
-        itself. It will not attempt to get past CAPTCHAs, WAFs, or other bot
-        protection — allowlist our User-Agent on the client&apos;s side if a
-        site blocks it.
-      </p>
+      <p style={subtleTextStyle}>Add a site once — it re-crawls automatically every day to keep answers current.</p>
 
       <div style={{ display: "flex", gap: 8 }}>
         <input
-          style={{ flex: 1, padding: 8 }}
+          style={{ flex: 1 }}
           placeholder="https://client-site.com"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
@@ -256,12 +241,12 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
             if (e.key === "Enter") addSite();
           }}
         />
-        <button onClick={addSite} disabled={adding}>
+        <button onClick={addSite} disabled={adding} style={primaryButtonStyle}>
           {adding ? "Queuing…" : "Add & crawl"}
         </button>
       </div>
 
-      {crawlMessage && <p style={{ fontSize: 13, opacity: 0.8 }}>{crawlMessage}</p>}
+      {crawlMessage && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{crawlMessage}</p>}
 
       {targets && targets.length > 0 && (
         <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12 }}>
@@ -305,7 +290,7 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
       <div style={cardStyle}>
       <h3 style={{ marginTop: 0 }}>Indexed documents</h3>
 
-      {!documents && <p>Loading…</p>}
+      {!documents && <p style={subtleTextStyle}>Loading…</p>}
 
       {documents && (
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -353,16 +338,9 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
       {businessId && (
         <div style={cardStyle}>
           <h3 style={{ marginTop: 0 }}>Embedding coverage by provider</h3>
-          <p style={{ opacity: 0.6 }}>
-            Every chunk gets embedded by EVERY active embedding provider,
-            not just one — this is what makes retrieval work no matter
-            which provider a query happens to be embedded with. 100%
-            coverage means every indexed chunk has a vector from that
-            provider; less than 100% means the daily backfill cron (or a
-            provider being down/disabled) hasn&apos;t caught up yet.
-          </p>
-          {backfillMessage && <p style={{ fontSize: 13, opacity: 0.8 }}>{backfillMessage}</p>}
-          {!coverage && <p>Loading…</p>}
+          <p style={subtleTextStyle}>100% means every chunk has a vector from that provider.</p>
+          {backfillMessage && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{backfillMessage}</p>}
+          {!coverage && <p style={subtleTextStyle}>Loading…</p>}
           {coverage && (
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
@@ -447,18 +425,18 @@ function CrawlProgress({ target }: { target: CrawlTarget }) {
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <div style={{ flex: 1, background: "#333", borderRadius: 4, height: 8, minWidth: 80 }}>
+      <div style={{ flex: 1, background: "var(--border)", borderRadius: 4, height: 8, minWidth: 80 }}>
         <div
           style={{
             width: `${pct}%`,
-            background: "#4caf50",
+            background: "var(--success)",
             height: "100%",
             borderRadius: 4,
             transition: "width 0.3s",
           }}
         />
       </div>
-      <span style={{ fontSize: 12, opacity: 0.7 }}>
+      <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
         {target.pagesDone}/{total} ({pct}%)
       </span>
     </div>

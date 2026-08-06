@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState } from "react";
 
-import { cardStyle, cellStyle } from "./dashboard-styles";
+import { cardStyle, cellStyle, subtleTextStyle, primaryButtonStyle, badgeStyle } from "./dashboard-styles";
 
 interface AiConfig {
   id: string;
@@ -31,8 +31,62 @@ interface AiParametersPanelProps {
   businessId?: string;
 }
 
-/** Overrides all AI providers uniformly for this business — answer length
- * plus sampling controls, versioned the same way the AI Brain prompt is. */
+const LENGTH_PRESETS = [
+  { label: "Short", hint: "Quick, to the point", tokens: 256 },
+  { label: "Medium", hint: "A normal reply", tokens: 768 },
+  { label: "Long", hint: "Detailed, thorough", tokens: 1536 },
+] as const;
+
+const STYLE_PRESETS = [
+  { label: "Focused", hint: "Sticks close to the knowledge base", topP: 0.5 },
+  { label: "Balanced", hint: "Good default for most businesses", topP: 0.9 },
+  { label: "Creative", hint: "More varied phrasing", topP: 1 },
+] as const;
+
+function SegmentedControl<T extends { label: string; hint: string }>({
+  options,
+  selectedLabel,
+  onSelect,
+}: {
+  options: readonly T[];
+  selectedLabel: string | null;
+  onSelect: (opt: T) => void;
+}) {
+  return (
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      {options.map((opt) => {
+        const active = opt.label === selectedLabel;
+        return (
+          <button
+            key={opt.label}
+            type="button"
+            onClick={() => onSelect(opt)}
+            title={opt.hint}
+            style={{
+              padding: "10px 16px",
+              borderRadius: "var(--radius-sm)",
+              border: active ? "1px solid var(--accent)" : "1px solid var(--border-strong)",
+              background: active ? "var(--accent-soft)" : "var(--surface)",
+              color: active ? "var(--accent-strong)" : "var(--text)",
+              fontWeight: active ? 600 : 400,
+              minWidth: 110,
+              textAlign: "left",
+            }}
+          >
+            <div style={{ fontSize: 13 }}>{opt.label}</div>
+            <div style={{ fontSize: 11, color: active ? "var(--accent-strong)" : "var(--text-faint)", marginTop: 2 }}>{opt.hint}</div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Same underlying AiConfigVersion fields as before, just presented as
+ * two plain-language choices (reply length, reply style) instead of raw
+ * model parameters — "Short/Medium/Long" instead of a token count,
+ * "Focused/Balanced/Creative" instead of a top-P value. The exact
+ * numbers are still there under "Advanced", for anyone who wants them. */
 export function AiParametersPanel({ businessId }: AiParametersPanelProps) {
   const [current, setCurrent] = useState<AiConfig | null>(null);
   const [history, setHistory] = useState<AiConfig[] | null>(null);
@@ -47,6 +101,7 @@ export function AiParametersPanel({ businessId }: AiParametersPanelProps) {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [advanced, setAdvanced] = useState(false);
 
   const qs = businessId ? `?businessId=${encodeURIComponent(businessId)}` : "";
 
@@ -95,11 +150,7 @@ export function AiParametersPanel({ businessId }: AiParametersPanelProps) {
       });
       const result = await res.json();
 
-      setMessage(
-        res.ok
-          ? "Saved — takes effect on the very next chat message, no restart needed."
-          : `Error: ${result.error}`
-      );
+      setMessage(res.ok ? "Saved — used on the very next message." : `Error: ${result.error}`);
 
       if (res.ok) {
         setNote("");
@@ -110,132 +161,115 @@ export function AiParametersPanel({ businessId }: AiParametersPanelProps) {
     }
   }
 
+  const selectedLength = LENGTH_PRESETS.find((p) => p.tokens === maxTokensDraft)?.label ?? null;
+  const topPNumber = topPDraft.trim() === "" ? 0.9 : Number(topPDraft);
+  const selectedStyle = STYLE_PRESETS.find((p) => Math.abs(p.topP - topPNumber) < 0.001)?.label ?? null;
+
   return (
     <section style={cardStyle}>
       <h2 style={{ marginTop: 0 }}>Parameters</h2>
-      <p style={{ opacity: 0.6 }}>
-        Overrides every AI provider for this business with the same tuning
-        parameters, so answers stay consistent regardless of which provider
-        actually handled the request. Leave a field blank to let the
-        provider use its own default.
-        {businessId
-          ? " Until you save a change here, this client uses the mother dashboard's default."
-          : ""}
+      <p style={subtleTextStyle}>
+        How the AI replies — length and style. {businessId ? "Unsaved fields use the platform default." : ""}
       </p>
 
-      {!current && <p>Loading…</p>}
+      {!current && <p style={subtleTextStyle}>Loading…</p>}
 
       {current && (
         <>
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-            <label>
-              Max tokens{" "}
-              <input
-                type="number"
-                min={1}
-                value={maxTokensDraft}
-                onChange={(e) => setMaxTokensDraft(Number(e.target.value))}
-                style={{ width: 100, padding: 4 }}
-              />
-            </label>
-            <label>
-              Top P{" "}
-              <input
-                type="number"
-                min={0}
-                max={1}
-                step={0.05}
-                value={topPDraft}
-                onChange={(e) => setTopPDraft(e.target.value)}
-                placeholder="default"
-                style={{ width: 100, padding: 4 }}
-              />
-            </label>
-            <label>
-              Frequency penalty{" "}
-              <input
-                type="number"
-                min={-2}
-                max={2}
-                step={0.1}
-                value={freqPenaltyDraft}
-                onChange={(e) => setFreqPenaltyDraft(e.target.value)}
-                placeholder="default"
-                style={{ width: 100, padding: 4 }}
-              />
-            </label>
-            <label>
-              Presence penalty{" "}
-              <input
-                type="number"
-                min={-2}
-                max={2}
-                step={0.1}
-                value={presPenaltyDraft}
-                onChange={(e) => setPresPenaltyDraft(e.target.value)}
-                placeholder="default"
-                style={{ width: 100, padding: 4 }}
-              />
-            </label>
-            <label>
-              Seed{" "}
-              <input
-                type="number"
-                value={seedDraft}
-                onChange={(e) => setSeedDraft(e.target.value)}
-                placeholder="random"
-                style={{ width: 100, padding: 4 }}
-              />
-            </label>
-          </div>
-
-          <div style={{ marginTop: 12 }}>
-            <label style={{ display: "block", marginBottom: 4 }}>Stop sequences (comma-separated)</label>
-            <input
-              style={{ width: "100%", padding: 8, boxSizing: "border-box" }}
-              value={stopDraft}
-              onChange={(e) => setStopDraft(e.target.value)}
-              placeholder="e.g. ###, END"
+          <div style={{ marginTop: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Reply length</div>
+            <SegmentedControl
+              options={LENGTH_PRESETS}
+              selectedLabel={selectedLength}
+              onSelect={(opt) => setMaxTokensDraft(opt.tokens)}
             />
           </div>
 
-          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <div style={{ marginTop: 18 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Reply style</div>
+            <SegmentedControl
+              options={STYLE_PRESETS}
+              selectedLabel={selectedStyle}
+              onSelect={(opt) => setTopPDraft(String(opt.topP))}
+            />
+          </div>
+
+          <button
+            type="button"
+            className="plain"
+            onClick={() => setAdvanced((v) => !v)}
+            style={{ marginTop: 16, padding: 0, border: "none", background: "none", color: "var(--accent)", fontSize: 12.5 }}
+          >
+            {advanced ? "Hide advanced settings" : "Show advanced settings"}
+          </button>
+
+          {advanced && (
+            <div style={{ marginTop: 12, padding: 14, background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
+              <p style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 0 }}>
+                Exact numbers, for fine-tuning beyond the presets above. Leave a field blank for the provider&apos;s own default.
+              </p>
+              <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                <label style={{ fontSize: 12 }}>
+                  Max tokens<br />
+                  <input type="number" min={1} value={maxTokensDraft} onChange={(e) => setMaxTokensDraft(Number(e.target.value))} style={{ width: 100 }} />
+                </label>
+                <label style={{ fontSize: 12 }}>
+                  Top P<br />
+                  <input type="number" min={0} max={1} step={0.05} value={topPDraft} onChange={(e) => setTopPDraft(e.target.value)} placeholder="default" style={{ width: 100 }} />
+                </label>
+                <label style={{ fontSize: 12 }}>
+                  Frequency penalty<br />
+                  <input type="number" min={-2} max={2} step={0.1} value={freqPenaltyDraft} onChange={(e) => setFreqPenaltyDraft(e.target.value)} placeholder="default" style={{ width: 100 }} />
+                </label>
+                <label style={{ fontSize: 12 }}>
+                  Presence penalty<br />
+                  <input type="number" min={-2} max={2} step={0.1} value={presPenaltyDraft} onChange={(e) => setPresPenaltyDraft(e.target.value)} placeholder="default" style={{ width: 100 }} />
+                </label>
+                <label style={{ fontSize: 12 }}>
+                  Seed<br />
+                  <input type="number" value={seedDraft} onChange={(e) => setSeedDraft(e.target.value)} placeholder="random" style={{ width: 100 }} />
+                </label>
+              </div>
+              <div style={{ marginTop: 10 }}>
+                <label style={{ display: "block", marginBottom: 4, fontSize: 12 }}>Stop sequences (comma-separated)</label>
+                <input style={{ width: "100%" }} value={stopDraft} onChange={(e) => setStopDraft(e.target.value)} placeholder="e.g. ###, END" />
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
             <input
-              style={{ flex: 1, padding: 8 }}
-              placeholder="What changed and why (kept in the history log)"
+              style={{ flex: 1 }}
+              placeholder="What changed and why (optional, kept in history)"
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
-            <button onClick={save} disabled={saving}>
+            <button onClick={save} disabled={saving} style={primaryButtonStyle}>
               {saving ? "Saving…" : "Save"}
             </button>
           </div>
 
-          {message && <p style={{ fontSize: 13, opacity: 0.8, marginTop: 8 }}>{message}</p>}
+          {message && <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 8 }}>{message}</p>}
         </>
       )}
 
-      <h3 style={{ marginTop: 24 }}>Provider status</h3>
-      <p style={{ opacity: 0.6, fontSize: 13 }}>
-        Whether each provider is enabled and has a usable key right now —
-        parameters only take effect on a provider that's actually able to
-        handle requests.
-      </p>
-      {!providers && <p>Loading…</p>}
+      <h3 style={{ marginTop: 28 }}>Provider status</h3>
+      <p style={subtleTextStyle}>Only a provider that&apos;s enabled with a valid key can actually answer.</p>
+      {!providers && <p style={subtleTextStyle}>Loading…</p>}
       {providers && (
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
           {providers.map((p) => (
-            <div key={p.name} style={{ fontSize: 13 }}>
-              {p.enabled && p.hasUsableKey ? "✅" : "❌"} {p.name}
-            </div>
+            <span key={p.name} style={badgeStyle(p.enabled && p.hasUsableKey ? "ok" : "neutral")}>
+              {p.name}
+            </span>
           ))}
         </div>
       )}
 
-      <h3 style={{ marginTop: 24 }}>History</h3>
-      {!history && <p>Loading…</p>}
+      <h3 style={{ marginTop: 28 }}>History</h3>
+      {!history && <p style={subtleTextStyle}>Loading…</p>}
       {history && (
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table>
           <thead>
             <tr>
               <th style={cellStyle}>When</th>

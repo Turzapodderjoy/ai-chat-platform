@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { cardStyle, subtleTextStyle } from "./dashboard-styles";
+import { cardStyle, subtleTextStyle, primaryButtonStyle } from "./dashboard-styles";
 
 interface Message {
   role: "user" | "assistant" | "agent";
@@ -223,18 +223,13 @@ export function TrainingArenaPanel({
     <section style={cardStyle}>
       <h2 style={{ marginTop: 0 }}>Training Arena{broadcast ? " (general — applies to all clients)" : ""}</h2>
       <p style={subtleTextStyle}>
-        Talk to the AI directly to provoke and correct its real behavior, or
-        dump an already-completed chat with instructions instead. End a
-        session (or submit a dump) to review what it learned and decide
-        whether to save that as a real AI Brain rule.
-        {broadcast
-          ? " This is the platform-wide arena — saving here pushes the fix to the platform default AND every existing client at once."
-          : ""}
+        Chat with the AI to correct its behavior, then save what it learned as a real rule.
+        {broadcast ? " Saving here applies to every client." : ""}
       </p>
 
       <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
-        <div style={{ width: 220, flexShrink: 0, border: "1px solid #333", borderRadius: 8, maxHeight: 480, overflowY: "auto" }}>
-          <div style={{ padding: 10, borderBottom: "1px solid #333", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ width: 220, flexShrink: 0, border: "1px solid var(--border)", borderRadius: 8, maxHeight: 480, overflowY: "auto" }}>
+          <div style={{ padding: 10, borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <strong style={{ fontSize: 13 }}>Sessions</strong>
             <button
               onClick={() => {
@@ -279,7 +274,7 @@ export function TrainingArenaPanel({
                 <strong>Session transcript (read-only)</strong>
                 <button onClick={newSession}>Close</button>
               </div>
-              <div style={{ border: "1px solid #333", borderRadius: 8, minHeight: 240, padding: 16 }}>
+              <div style={{ border: "1px solid var(--border)", borderRadius: 8, minHeight: 240, padding: 16 }}>
                 {!viewingMessages && <p style={subtleTextStyle}>Loading…</p>}
                 {viewingMessages?.map((m, i) => (
                   <div key={i} style={{ marginBottom: 6 }}>
@@ -303,7 +298,7 @@ export function TrainingArenaPanel({
                 <>
                   <div
                     style={{
-                      border: "1px solid #333",
+                      border: "1px solid var(--border)",
                       borderRadius: 8,
                       minHeight: 240,
                       padding: 16,
@@ -338,7 +333,7 @@ export function TrainingArenaPanel({
                       }}
                       placeholder="Say something to the AI…"
                     />
-                    <button onClick={send} disabled={sending}>
+                    <button onClick={send} disabled={sending} style={primaryButtonStyle}>
                       Send
                     </button>
                     <button onClick={newSession}>New session</button>

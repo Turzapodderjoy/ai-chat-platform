@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { cardStyle } from "./dashboard-styles";
+import { cardStyle, subtleTextStyle, badgeStyle, primaryButtonStyle } from "./dashboard-styles";
 
 interface HandoffSummary {
   sessionId: string;
@@ -69,57 +69,45 @@ export function HandoffsPanel({ businessId }: { businessId?: string }) {
   return (
     <section style={cardStyle}>
       <h2 style={{ marginTop: 0 }}>Handoffs</h2>
-      <p style={{ opacity: 0.6 }}>
-        Chats the AI couldn&apos;t confidently answer land here with an
-        auto-generated summary — pick one up and reply as a human agent.
-      </p>
+      <p style={subtleTextStyle}>Chats the AI couldn&apos;t confidently answer — pick one up and reply.</p>
 
-      <div style={{ display: "flex", gap: 24 }}>
+      <div style={{ display: "flex", gap: 24, marginTop: 16 }}>
         <div style={{ flex: 1 }}>
-          {!handoffs && <p>Loading…</p>}
-          {handoffs?.length === 0 && <p style={{ opacity: 0.6 }}>No handoffs right now.</p>}
+          {!handoffs && <p style={subtleTextStyle}>Loading…</p>}
+          {handoffs?.length === 0 && <p style={subtleTextStyle}>No handoffs right now.</p>}
           {handoffs?.map((h) => (
             <div
               key={h.sessionId}
               onClick={() => openChat(h.sessionId)}
               style={{
-                border: openId === h.sessionId ? "2px solid #666" : "1px solid #333",
-                borderRadius: 6,
+                border: openId === h.sessionId ? "1px solid var(--accent)" : "1px solid var(--border)",
+                background: openId === h.sessionId ? "var(--accent-soft)" : "var(--surface)",
+                borderRadius: "var(--radius-sm)",
                 padding: 12,
                 marginBottom: 8,
                 cursor: "pointer",
+                transition: "border-color 0.15s ease",
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <code style={{ fontSize: 11 }}>{h.sessionId}</code>
-                <span
-                  style={{
-                    fontSize: 11,
-                    padding: "2px 6px",
-                    borderRadius: 4,
-                    background: h.status === "pending" ? "#553" : "#353",
-                  }}
-                >
-                  {h.status}
-                </span>
+                <span style={badgeStyle(h.status === "pending" ? "warn" : "ok")}>{h.status}</span>
               </div>
               <p style={{ fontSize: 13, margin: "6px 0" }}>{h.summary}</p>
-              <p style={{ fontSize: 12, opacity: 0.5, margin: 0 }}>
-                Last: {h.lastMessage}
-              </p>
+              <p style={{ fontSize: 12, color: "var(--text-faint)", margin: 0 }}>Last: {h.lastMessage}</p>
             </div>
           ))}
         </div>
 
         <div style={{ flex: 1 }}>
-          {!openId && <p style={{ opacity: 0.6 }}>Select a handoff to view the conversation.</p>}
+          {!openId && <p style={subtleTextStyle}>Select a handoff to view the conversation.</p>}
 
           {openId && (
             <>
               <div
                 style={{
-                  border: "1px solid #333",
-                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-sm)",
                   minHeight: 200,
                   padding: 12,
                   display: "flex",
@@ -136,7 +124,7 @@ export function HandoffsPanel({ businessId }: { businessId?: string }) {
 
               <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                 <input
-                  style={{ flex: 1, padding: 8 }}
+                  style={{ flex: 1 }}
                   value={reply}
                   onChange={(e) => setReply(e.target.value)}
                   onKeyDown={(e) => {
@@ -144,7 +132,7 @@ export function HandoffsPanel({ businessId }: { businessId?: string }) {
                   }}
                   placeholder="Reply to the customer…"
                 />
-                <button onClick={sendReply} disabled={sending}>
+                <button onClick={sendReply} disabled={sending} style={primaryButtonStyle}>
                   {sending ? "Sending…" : "Send"}
                 </button>
               </div>

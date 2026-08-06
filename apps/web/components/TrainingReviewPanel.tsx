@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState } from "react";
 
-import { cardStyle, cellStyle } from "./dashboard-styles";
+import { cardStyle, cellStyle, subtleTextStyle, primaryButtonStyle } from "./dashboard-styles";
 
 interface ChatAnalysis {
   id: string;
@@ -166,7 +166,7 @@ export function TrainingReviewPanel({ businessId, broadcast = false }: TrainingR
   return (
     <section>
       <h1 style={{ marginBottom: 4 }}>Training Review</h1>
-      <p style={{ opacity: 0.6 }}>
+      <p style={subtleTextStyle}>
         Every proposed AI Brain change lands here for review — only from a
         Training Arena session or a dumped chat, both driven by explicit
         human instructions, never an automatic scan of the database.
@@ -178,14 +178,14 @@ export function TrainingReviewPanel({ businessId, broadcast = false }: TrainingR
 
       <div style={{ ...cardStyle, marginTop: 20 }}>
         <h3 style={{ marginTop: 0 }}>Pending suggestions</h3>
-        <p style={{ opacity: 0.6 }}>
+        <p style={subtleTextStyle}>
           Every Training Arena session and dumped chat piles up here in one
           queue, tagged with where it came from and the full reasoning
           behind it. Accept is the force-run step that hardcodes it into
           the prompt.
         </p>
         {!pending && <p>Loading…</p>}
-        {pending && pending.length === 0 && <p style={{ opacity: 0.6 }}>No pending suggestions right now.</p>}
+        {pending && pending.length === 0 && <p style={subtleTextStyle}>No pending suggestions right now.</p>}
         {pending && pending.length > 0 && (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
@@ -214,7 +214,7 @@ export function TrainingReviewPanel({ businessId, broadcast = false }: TrainingR
                         <button onClick={() => setExpandedSuggestionId(expandedSuggestionId === s.id ? null : s.id)}>
                           {expandedSuggestionId === s.id ? "Hide" : "View change"}
                         </button>
-                        <button onClick={() => decide(s, "accept")} disabled={deciding === s.id}>
+                        <button onClick={() => decide(s, "accept")} disabled={deciding === s.id} style={primaryButtonStyle}>
                           {deciding === s.id
                             ? "…"
                             : broadcast && s.businessId === "__platform__"
@@ -265,7 +265,7 @@ export function TrainingReviewPanel({ businessId, broadcast = false }: TrainingR
 
       <div style={cardStyle}>
         <h3 style={{ marginTop: 0 }}>Decided history</h3>
-        <p style={{ opacity: 0.6 }}>
+        <p style={subtleTextStyle}>
           Every suggestion once it's been decided — expand a row to see
           exactly what was improved (the reasoning) and how it was
           hardcoded into the prompt (the literal text that was applied).
@@ -356,13 +356,13 @@ export function TrainingReviewPanel({ businessId, broadcast = false }: TrainingR
 
       <div style={cardStyle}>
         <h3 style={{ marginTop: 0 }}>QA feedback</h3>
-        <p style={{ opacity: 0.6 }}>
+        <p style={subtleTextStyle}>
           Every Pass/Fail submitted from Training Arena sessions, with
           whether that session has been analyzed yet (via "End session &amp;
           review").
         </p>
         {!feedback && <p>Loading…</p>}
-        {feedback && feedback.length === 0 && <p style={{ opacity: 0.6 }}>No QA feedback yet.</p>}
+        {feedback && feedback.length === 0 && <p style={subtleTextStyle}>No QA feedback yet.</p>}
         {feedback && feedback.length > 0 && (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
@@ -420,7 +420,7 @@ export function TrainingReviewPanel({ businessId, broadcast = false }: TrainingR
 
       <div style={cardStyle}>
         <h3 style={{ marginTop: 0 }}>Findings log</h3>
-        <p style={{ opacity: 0.6 }}>Every Training Arena session that's been reviewed, kept or dropped — the full human-readable audit trail.</p>
+        <p style={subtleTextStyle}>Every Training Arena session that's been reviewed, kept or dropped — the full human-readable audit trail.</p>
         {!analyses && <p>Loading…</p>}
         {analyses && (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
