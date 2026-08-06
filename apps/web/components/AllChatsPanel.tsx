@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { cardStyle, subtleTextStyle } from "./dashboard-styles";
+import { cardStyle, subtleTextStyle, primaryButtonStyle } from "./dashboard-styles";
 import { MessageTagControl } from "./MessageTagControl";
 
 interface Message {
@@ -35,12 +35,33 @@ interface ConversationSummary {
   lastMessage: string | null;
 }
 
-const CHANNEL_LABEL: Record<string, { icon: string; label: string }> = {
-  website: { icon: "🌐", label: "Website" },
-  messenger: { icon: "💬", label: "Messenger" },
-  instagram: { icon: "📷", label: "Instagram" },
-  whatsapp: { icon: "🟢", label: "WhatsApp" },
+const CHANNEL_LABEL: Record<string, { color: string; label: string }> = {
+  website: { color: "#ffffff", label: "Website" },
+  messenger: { color: "#0084ff", label: "Messenger" },
+  instagram: { color: "#e1306c", label: "Instagram" },
+  whatsapp: { color: "#25d366", label: "WhatsApp" },
 };
+
+/** Solid colored circle per channel — Messenger blue, WhatsApp green,
+ * website white (per the client's own spec), Instagram its brand pink
+ * as the one channel that wasn't specified. A thin border keeps the
+ * white website dot visible against the dark dashboard background. */
+function ChannelDot({ channel }: { channel: string }) {
+  const color = CHANNEL_LABEL[channel]?.color ?? "#8b96a8";
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        width: 9,
+        height: 9,
+        borderRadius: "50%",
+        background: color,
+        border: "1px solid rgba(255,255,255,0.25)",
+        flexShrink: 0,
+      }}
+    />
+  );
+}
 
 const STATUS_LABEL: Record<string, string> = {
   bot: "🤖 Bot",
@@ -208,10 +229,10 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
       <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
         <select value={channelFilter} onChange={(e) => setChannelFilter(e.target.value)} style={{ padding: 6 }}>
           <option value="">All channels</option>
-          <option value="website">🌐 Website</option>
-          <option value="messenger">💬 Messenger</option>
-          <option value="instagram">📷 Instagram</option>
-          <option value="whatsapp">🟢 WhatsApp</option>
+          <option value="website">Website</option>
+          <option value="messenger">Messenger</option>
+          <option value="instagram">Instagram</option>
+          <option value="whatsapp">WhatsApp</option>
         </select>
         <select value={sort} onChange={(e) => setSort(e.target.value as SortOption)} style={{ padding: 6 }}>
           <option value="newest">Newest first</option>
@@ -224,25 +245,27 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
       </div>
 
       <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
-        <div style={{ width: 280, flexShrink: 0, border: "1px solid #333", borderRadius: 8, maxHeight: 560, overflowY: "auto" }}>
+        <div style={{ width: 280, flexShrink: 0, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", maxHeight: 560, overflowY: "auto" }}>
           {!conversations && <p style={{ padding: 10, ...subtleTextStyle }}>Loading…</p>}
           {conversations && conversations.length === 0 && <p style={{ padding: 10, ...subtleTextStyle }}>No chats yet.</p>}
           {conversations?.map((c) => {
-            const ch = CHANNEL_LABEL[c.channel] ?? { icon: "❔", label: c.channel };
+            const ch = CHANNEL_LABEL[c.channel] ?? { color: "#8b96a8", label: c.channel };
             return (
               <div
                 key={c.id}
                 onClick={() => openConversation(c.id)}
                 style={{
                   padding: 10,
-                  borderBottom: "1px solid #222",
+                  borderBottom: "1px solid var(--border)",
                   cursor: "pointer",
-                  background: selectedId === c.id ? "rgba(255,255,255,0.05)" : "transparent",
+                  background: selectedId === c.id ? "var(--surface-hover)" : "transparent",
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                  <span>{ch.icon} {ch.label}</span>
-                  <span style={{ opacity: 0.7 }}>{STATUS_LABEL[c.handoffStatus]}</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <ChannelDot channel={c.channel} /> {ch.label}
+                  </span>
+                  <span style={{ color: "var(--text-muted)" }}>{STATUS_LABEL[c.handoffStatus]}</span>
                 </div>
                 <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>{new Date(c.updatedAt).toLocaleString()}</div>
                 {c.lastMessage && (
@@ -278,13 +301,14 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
           {!selected && <p style={subtleTextStyle}>Select a chat to view the conversation.</p>}
           {selected && (
             <>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 13 }}>
-                <span>
-                  {CHANNEL_LABEL[selected.channel]?.icon ?? "❔"} {CHANNEL_LABEL[selected.channel]?.label ?? selected.channel}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, fontSize: 13 }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <ChannelDot channel={selected.channel} />
+                  {CHANNEL_LABEL[selected.channel]?.label ?? selected.channel}
                   {" · "}
                   {STATUS_LABEL[selected.handoffStatus]}
                 </span>
-                <code style={{ fontSize: 11, opacity: 0.6 }}>{selected.id}</code>
+                <code style={{ fontSize: 11, color: "var(--text-faint)" }}>{selected.id}</code>
               </div>
               <div style={{ marginBottom: 8 }}>
                 <MessageTagControl
@@ -294,7 +318,7 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
                   onRemove={(tagId) => removeConversationTag(selected.id, tagId)}
                 />
               </div>
-              <div style={{ border: "1px solid #333", borderRadius: 8, minHeight: 300, maxHeight: 420, overflowY: "auto", padding: 16 }}>
+              <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", minHeight: 300, maxHeight: 420, overflowY: "auto", padding: 16 }}>
                 {!messages && <p style={subtleTextStyle}>Loading…</p>}
                 {messages?.map((m) => (
                   <div key={m.id} style={{ marginBottom: 10 }}>
@@ -323,7 +347,7 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
                   }}
                   placeholder="Reply to the customer…"
                 />
-                <button onClick={sendReply} disabled={sending}>
+                <button onClick={sendReply} disabled={sending} style={primaryButtonStyle}>
                   {sending ? "Sending…" : "Send"}
                 </button>
               </div>

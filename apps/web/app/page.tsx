@@ -10,10 +10,9 @@ export default function HomePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  // Real credential check now — a client account is created for a
-  // specific business in the mother dashboard's Client Access panel, and
-  // signing in here lands only on that business's dashboard. The mother
-  // dashboard itself stays open (no login wall there — see CLAUDE.md).
+  // Real credential check — the fixed admin identity lands on the mother
+  // dashboard; a client account (created in the mother dashboard's
+  // Client Access panel) lands only on that business's own dashboard.
   async function enter(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (submitting) return;
@@ -44,7 +43,7 @@ export default function HomePage() {
         return;
       }
 
-      router.push(`/dashboard/${data.businessId}`);
+      router.push(data.admin ? "/dashboard" : `/dashboard/${data.businessId}`);
     } catch {
       setError("Couldn't reach the server. Please try again.");
     } finally {

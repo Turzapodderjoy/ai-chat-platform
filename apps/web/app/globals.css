@@ -48,3 +48,203 @@ a {
     display: unset;
   }
 }
+
+/* ---------------------------------------------------------------------
+ * Dashboard design system — scoped to `.app-shell` (both dashboards,
+ * via DashboardShell) so the public login page keeps its own separate
+ * light theme untouched. Deliberately always-dark, not tied to OS
+ * preference: a fixed professional look, the way most CRM/admin tools
+ * (Linear, Stripe dashboard, Vercel) ship one considered theme rather
+ * than inheriting the visitor's OS setting.
+ * ------------------------------------------------------------------- */
+.app-shell {
+  --bg: #0a0d13;
+  --bg-elevated: #10141c;
+  --surface: #141924;
+  --surface-hover: #1a2130;
+  --border: #232a38;
+  --border-strong: #313b4d;
+  --text: #e8ecf4;
+  --text-muted: #90a0b7;
+  --text-faint: #5b6779;
+  --accent: #4c8dfa;
+  --accent-strong: #6ba3ff;
+  --accent-soft: rgba(76, 141, 250, 0.14);
+  --success: #34d399;
+  --success-soft: rgba(52, 211, 153, 0.14);
+  --warning: #f2b84b;
+  --warning-soft: rgba(242, 184, 75, 0.14);
+  --danger: #f16565;
+  --danger-soft: rgba(241, 101, 101, 0.14);
+  --radius: 10px;
+  --radius-sm: 7px;
+  --shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.45);
+
+  color-scheme: dark;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.app-shell h1,
+.app-shell h2,
+.app-shell h3 {
+  color: var(--text);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.app-shell h1 { font-size: 22px; }
+.app-shell h2 { font-size: 17px; }
+.app-shell h3 { font-size: 14px; }
+
+.app-shell p {
+  color: var(--text);
+}
+
+.app-shell code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+/* Inputs, selects, textareas — one consistent control style everywhere,
+ * so every existing panel's raw <input>/<select> instantly matches
+ * without each one needing its own className rewrite. */
+.app-shell input:not([type="checkbox"]):not([type="radio"]),
+.app-shell select,
+.app-shell textarea {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  padding: 8px 10px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.app-shell input:not([type="checkbox"]):not([type="radio"])::placeholder,
+.app-shell textarea::placeholder {
+  color: var(--text-faint);
+}
+
+.app-shell input:not([type="checkbox"]):not([type="radio"]):focus,
+.app-shell select:focus,
+.app-shell textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.app-shell input[type="checkbox"],
+.app-shell input[type="radio"] {
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+.app-shell input[type="color"] {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+/* Buttons — a real button system (primary / plain) instead of bare
+ * browser chrome, applied at the element level so every panel's
+ * existing <button> picks it up with no per-file changes. */
+.app-shell button {
+  font: inherit;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease, transform 0.05s ease;
+}
+
+.app-shell button:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.app-shell button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.app-shell button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* The dashboards' "primary action" buttons never carried a distinct
+ * className — this promotes the common submit-style verbs by label so
+ * they read as primary without touching every call site. Purely
+ * cosmetic, no behavior change. */
+.app-shell button:not(.plain) {
+  font-weight: 600;
+}
+
+.app-shell aside button {
+  border: none;
+  background: transparent;
+  font-weight: 400;
+}
+
+/* Tables */
+.app-shell table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.app-shell th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-strong);
+  white-space: nowrap;
+}
+
+.app-shell td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+.app-shell tbody tr:hover {
+  background: var(--surface-hover);
+}
+
+.app-shell a:not(.plain-link) {
+  color: var(--accent);
+}
+
+.app-shell a:hover:not(.plain-link) {
+  text-decoration: underline;
+}
+
+.app-shell ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.app-shell ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-shell ::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+}

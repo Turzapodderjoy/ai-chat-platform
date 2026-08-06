@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkAdminCredentials, createAdminToken } from "@ai-chat-platform/client-auth";
 
 import { getApp } from "../../../../lib/app";
 
-const COOKIE_NAME = "client_session";
+const CLIENT_COOKIE = "client_session";
+const ADMIN_COOKIE = "admin_session";
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -11,19 +13,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Username and password are required." }, { status: 400 });
   }
 
+  const remember = Boolean(body.remember);
+
+  // The single fixed admin identity — checked first since it's a cheap
+  // in-memory comparison, no DB round-trip needed before falling
+  // through to the real client-account lookup below.
+  if (checkAdminCredentials(body.username, body.password)) {
+    const { token, expiresAt } = createAdminToken(remember ? 30 : 1);
+    const res = NextResponse.json({ admin: true });
+    res.cookies.delete(CLIENT_COOKIE);
+    res.cookies.set(ADMIN_COOKIE, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      expires: expiresAt,
+    });
+    return res;
+  }
+
   const app = await getApp();
-  const result = await app.container.router.clientAuth.login(
-    body.username,
-    body.password,
-    Boolean(body.remember)
-  );
+  const result = await app.container.router.clientAuth.login(body.username, body.password, remember);
 
   if (!result) {
     return NextResponse.json({ error: "Incorrect username or password, or this account has been disabled." }, { status: 401 });
   }
 
   const res = NextResponse.json({ businessId: result.businessId });
-  res.cookies.set(COOKIE_NAME, result.token, {
+  res.cookies.delete(ADMIN_COOKIE);
+  res.cookies.set(CLIENT_COOKIE, result.token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

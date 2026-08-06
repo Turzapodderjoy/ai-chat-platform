@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { cardStyle, cellStyle, subtleTextStyle } from "./dashboard-styles";
+import { cardStyle, cellStyle, subtleTextStyle, primaryButtonStyle } from "./dashboard-styles";
 
 interface Tag {
   id: string;
@@ -122,7 +122,7 @@ export function TagsPanel() {
             onChange={(e) => setFunnelOrder(Number(e.target.value))}
           />
         )}
-        <button onClick={addTag} disabled={creating}>
+        <button onClick={addTag} disabled={creating} style={primaryButtonStyle}>
           {creating ? "Adding…" : "+ New tag"}
         </button>
       </div>

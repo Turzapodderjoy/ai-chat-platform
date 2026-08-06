@@ -1,6 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+
+import { NavIcon } from "./nav-icons";
 
 export interface NavItem<T extends string> {
   id: T;
@@ -15,12 +17,14 @@ export interface NavGroup<T extends string> {
 }
 
 /**
- * Shared sidebar + content layout for both dashboards — replaces the old
- * flat row of buttons (which wrapped across several lines once a
- * dashboard grew past ~6 tabs) with a fixed, grouped sidebar that scales
- * to any number of sections without getting visually noisy. Purely a
- * shell: every panel's own markup/data-fetching is unchanged, this only
- * changes what wraps around it.
+ * Shared sidebar + content layout for both dashboards. Sidebar is
+ * collapsible (to an icon-only rail) and each labeled group collapses
+ * independently — both purely local UI state, reset on reload, since
+ * neither needs to persist across sessions for an internal tool. Every
+ * panel's own markup/data-fetching is unchanged; this only changes what
+ * wraps around it. Wrapped in `.app-shell` so the dashboard design
+ * tokens in globals.css apply here and nowhere else (the public login
+ * page keeps its own separate light theme).
  */
 export function DashboardShell<T extends string>({
   sidebarLabel,
@@ -35,71 +39,156 @@ export function DashboardShell<T extends string>({
   onSelect: (tab: T) => void;
   children: ReactNode;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<number, boolean>>({});
+
+  const activeLabel = groups.flatMap((g) => g.items).find((i) => i.id === activeTab)?.label ?? "";
+
+  function toggleGroup(i: number) {
+    setCollapsedGroups((prev) => ({ ...prev, [i]: !prev[i] }));
+  }
+
   return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
+    <div className="app-shell" style={{ display: "flex", minHeight: "100vh" }}>
       <aside
         style={{
-          width: 220,
+          width: collapsed ? 60 : 232,
           flexShrink: 0,
-          borderRight: "1px solid #30363d",
-          padding: "24px 0",
+          borderRight: "1px solid var(--border)",
+          background: "var(--bg-elevated)",
+          padding: "18px 0",
           position: "sticky",
           top: 0,
           alignSelf: "flex-start",
           height: "100vh",
           overflowY: "auto",
+          overflowX: "hidden",
+          transition: "width 0.15s ease",
         }}
       >
-        <div style={{ padding: "0 16px 20px", fontSize: 13, fontWeight: 700, opacity: 0.7, letterSpacing: 0.3 }}>
-          {sidebarLabel}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: collapsed ? "center" : "space-between",
+            padding: collapsed ? "0 0 16px" : "0 14px 16px",
+            gap: 8,
+          }}
+        >
+          {!collapsed && (
+            <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.2, minWidth: 0 }}>
+              {sidebarLabel}
+            </div>
+          )}
+          <button
+            onClick={() => setCollapsed((c) => !c)}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="plain"
+            style={{
+              width: 26,
+              height: 26,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              color: "var(--text-muted)",
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              {collapsed ? <path d="m9 5 7 7-7 7" /> : <path d="m15 5-7 7 7 7" />}
+            </svg>
+          </button>
         </div>
+
         <nav>
-          {groups.map((group, i) => (
-            <div key={i} style={{ marginBottom: 18 }}>
-              {group.label && (
-                <div
-                  style={{
-                    fontSize: 11,
-                    textTransform: "uppercase",
-                    opacity: 0.45,
-                    padding: "0 16px",
-                    marginBottom: 6,
-                    letterSpacing: 0.6,
-                  }}
-                >
-                  {group.label}
-                </div>
-              )}
-              {group.items.map((item) => {
-                const active = activeTab === item.id;
-                return (
+          {groups.map((group, i) => {
+            const groupCollapsed = collapsedGroups[i];
+            return (
+              <div key={i} style={{ marginBottom: 6 }}>
+                {group.label && !collapsed && (
                   <button
-                    key={item.id}
-                    onClick={() => onSelect(item.id)}
+                    onClick={() => toggleGroup(i)}
+                    className="plain"
                     style={{
-                      display: "block",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
                       width: "100%",
-                      textAlign: "left",
-                      padding: "8px 16px",
-                      border: "none",
-                      borderLeft: active ? "3px solid #58a6ff" : "3px solid transparent",
-                      background: active ? "rgba(88,166,255,0.1)" : "transparent",
-                      color: active ? "#58a6ff" : "inherit",
-                      fontWeight: active ? 600 : 400,
-                      fontSize: 13.5,
-                      cursor: "pointer",
+                      fontSize: 11,
+                      textTransform: "uppercase",
+                      color: "var(--text-faint)",
+                      padding: "6px 14px",
+                      letterSpacing: 0.6,
                     }}
                   >
-                    {item.label}
+                    <span>{group.label}</span>
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      style={{ transform: groupCollapsed ? "rotate(-90deg)" : "none", transition: "transform 0.12s ease" }}
+                    >
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
                   </button>
-                );
-              })}
-            </div>
-          ))}
+                )}
+                {!groupCollapsed &&
+                  group.items.map((item) => {
+                    const active = activeTab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => onSelect(item.id)}
+                        title={collapsed ? item.label : undefined}
+                        className="plain"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          width: "100%",
+                          justifyContent: collapsed ? "center" : "flex-start",
+                          textAlign: "left",
+                          padding: collapsed ? "9px 0" : "8px 14px",
+                          borderLeft: active && !collapsed ? "2px solid var(--accent)" : "2px solid transparent",
+                          background: active ? "var(--accent-soft)" : "transparent",
+                          color: active ? "var(--accent-strong)" : "var(--text-muted)",
+                          fontWeight: active ? 600 : 400,
+                          fontSize: 13,
+                          borderRadius: collapsed ? 0 : 6,
+                          marginTop: 1,
+                        }}
+                      >
+                        <span style={{ display: "flex", flexShrink: 0 }}>
+                          <NavIcon id={item.id} />
+                        </span>
+                        {!collapsed && <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>}
+                      </button>
+                    );
+                  })}
+              </div>
+            );
+          })}
         </nav>
       </aside>
 
-      <main style={{ flex: 1, minWidth: 0, padding: "32px 40px", maxWidth: 1100 }}>{children}</main>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+        <header
+          style={{
+            padding: "14px 32px",
+            borderBottom: "1px solid var(--border)",
+            background: "var(--bg-elevated)",
+            fontSize: 13,
+            color: "var(--text-muted)",
+          }}
+        >
+          {activeLabel}
+        </header>
+        <main style={{ flex: 1, minWidth: 0, padding: "28px 32px", maxWidth: 1160, width: "100%" }}>{children}</main>
+      </div>
     </div>
   );
 }

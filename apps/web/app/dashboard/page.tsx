@@ -131,7 +131,19 @@ export default function DashboardPage() {
   const [tab, setTab] = useState<Tab>("overview");
 
   return (
-    <DashboardShell sidebarLabel="Mother Dashboard" groups={NAV_GROUPS} activeTab={tab} onSelect={setTab}>
+    <DashboardShell
+      sidebarLabel={
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>Command Center</div>
+          <div style={{ fontSize: 10.5, color: "var(--text-faint)", fontWeight: 400, marginTop: 2 }}>
+            AI Chat Platform
+          </div>
+        </div>
+      }
+      groups={NAV_GROUPS}
+      activeTab={tab}
+      onSelect={setTab}
+    >
       {/* Every panel stays mounted (hidden via CSS, not unmounted) so
           switching tabs never wipes a panel's local state. */}
       <div style={{ display: tab === "overview" ? "block" : "none" }}>

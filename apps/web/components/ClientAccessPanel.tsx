@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { cardStyle, cellStyle, subtleTextStyle, badgeStyle } from "./dashboard-styles";
+import { cardStyle, cellStyle, subtleTextStyle, badgeStyle, primaryButtonStyle } from "./dashboard-styles";
 
 interface Client {
   id: string;
@@ -172,7 +172,7 @@ export function ClientAccessPanel() {
           <input type="checkbox" checked={showPassword} onChange={(e) => setShowPassword(e.target.checked)} />
           Show
         </label>
-        <button onClick={createAccount} disabled={creating || !clients?.length}>
+        <button onClick={createAccount} disabled={creating || !clients?.length} style={primaryButtonStyle}>
           {creating ? "Creating…" : "+ Create login"}
         </button>
       </div>

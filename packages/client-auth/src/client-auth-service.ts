@@ -120,4 +120,20 @@ export class ClientAuthService {
   async logout(token: string) {
     await prisma.clientSession.deleteMany({ where: { token } });
   }
+
+  /** Used by /api/auth/me — same validity rules as login (not expired,
+   * account not disabled) so a disabled client's stale cookie doesn't
+   * still read as "logged in" to the UI. */
+  async getSession(token: string): Promise<{ businessId: string } | null> {
+    const session = await prisma.clientSession.findUnique({
+      where: { token },
+      include: { account: true },
+    });
+
+    if (!session || session.expiresAt <= new Date() || session.account.disabled) {
+      return null;
+    }
+
+    return { businessId: session.account.businessId };
+  }
 }

@@ -57,10 +57,20 @@ export default function ClientDashboardPage() {
 
   const [tab, setTab] = useState<Tab>("overview");
   const [client, setClient] = useState<Client | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   function logout() {
     fetch("/api/auth/logout", { method: "POST" }).finally(() => router.push("/"));
   }
+
+  // Only an admin session gets the "back to Command Center" link — a
+  // real client's session can't reach /dashboard anyway (see proxy.ts),
+  // so this just keeps the UI from offering a link that would bounce.
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((data) => setIsAdmin(data.role === "admin"));
+  }, []);
 
   // Always renders "overview" on the server/first paint to avoid a
   // hydration mismatch, then jumps to the OAuth callback's ?tab= param
@@ -85,14 +95,19 @@ export default function ClientDashboardPage() {
     <DashboardShell
       sidebarLabel={
         <div>
-          <div style={{ fontSize: 14 }}>{client?.name ?? businessId}</div>
-          <a href="/dashboard" style={{ fontSize: 11, opacity: 0.6, fontWeight: 400 }}>
-            ← Mother dashboard
-          </a>
-          <div>
+          <div style={{ fontSize: 14, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {client?.name ?? businessId}
+          </div>
+          <div style={{ display: "flex", gap: 10, marginTop: 3 }}>
+            {isAdmin && (
+              <a href="/dashboard" style={{ fontSize: 10.5, color: "var(--text-faint)", fontWeight: 400 }}>
+                ← Command Center
+              </a>
+            )}
             <button
               onClick={logout}
-              style={{ fontSize: 11, opacity: 0.6, fontWeight: 400, background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit", textDecoration: "underline" }}
+              className="plain-link"
+              style={{ fontSize: 10.5, color: "var(--text-faint)", fontWeight: 400, background: "none", border: "none", padding: 0, cursor: "pointer" }}
             >
               Log out
             </button>

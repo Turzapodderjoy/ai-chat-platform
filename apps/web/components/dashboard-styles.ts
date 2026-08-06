@@ -1,8 +1,10 @@
 import type { CSSProperties } from "react";
 
+// th/td already get their look from the global `.app-shell th/td` rules
+// in globals.css — this is kept only for panels that still pass it
+// explicitly, and no longer overrides border/padding so it doesn't
+// fight the shared table styling.
 export const cellStyle: CSSProperties = {
-  border: "1px solid #333",
-  padding: "6px 10px",
   textAlign: "left",
 };
 
@@ -18,26 +20,38 @@ export function formatBytes(bytes: number): string {
 // one improvising its own <section> + ad-hoc emoji status text.
 
 export const cardStyle: CSSProperties = {
-  border: "1px solid #30363d",
-  borderRadius: 10,
-  padding: 20,
+  background: "var(--bg-elevated)",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius)",
+  padding: 22,
   marginBottom: 20,
+  boxShadow: "var(--shadow)",
 };
 
 export const subtleTextStyle: CSSProperties = {
-  opacity: 0.6,
+  color: "var(--text-muted)",
   fontSize: 13,
   marginTop: 4,
+};
+
+/** A real primary action button — most panels never had a distinct
+ * "this is the main verb" style, just a bare <button>. Spread this onto
+ * the one or two calls-to-action that matter per panel (Create, Save,
+ * Send…); everything else keeps the plain button look from globals.css. */
+export const primaryButtonStyle: CSSProperties = {
+  background: "var(--accent)",
+  borderColor: "var(--accent)",
+  color: "#08111f",
 };
 
 export type BadgeTone = "ok" | "warn" | "error" | "neutral" | "info";
 
 const BADGE_COLORS: Record<BadgeTone, { bg: string; fg: string }> = {
-  ok: { bg: "rgba(63, 185, 80, 0.15)", fg: "#3fb950" },
-  warn: { bg: "rgba(210, 153, 34, 0.15)", fg: "#d29922" },
-  error: { bg: "rgba(248, 81, 73, 0.15)", fg: "#f85149" },
-  neutral: { bg: "rgba(139, 148, 158, 0.15)", fg: "#8b949e" },
-  info: { bg: "rgba(88, 166, 255, 0.15)", fg: "#58a6ff" },
+  ok: { bg: "var(--success-soft)", fg: "var(--success)" },
+  warn: { bg: "var(--warning-soft)", fg: "var(--warning)" },
+  error: { bg: "var(--danger-soft)", fg: "var(--danger)" },
+  neutral: { bg: "rgba(144, 160, 183, 0.14)", fg: "var(--text-muted)" },
+  info: { bg: "var(--accent-soft)", fg: "var(--accent)" },
 };
 
 /** A small colored pill — `<span style={badgeStyle("ok")}>Healthy</span>` —

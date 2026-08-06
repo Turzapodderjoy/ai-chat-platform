@@ -33,6 +33,9 @@ importers:
       '@ai-chat-platform/chunker':
         specifier: workspace:*
         version: link:../../packages/chunker
+      '@ai-chat-platform/client-auth':
+        specifier: workspace:*
+        version: link:../../packages/client-auth
       '@ai-chat-platform/database':
         specifier: workspace:*
         version: link:../../packages/database

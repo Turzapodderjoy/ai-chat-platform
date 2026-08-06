@@ -23,6 +23,10 @@ export class ClientAuthController {
     return this.clientAuth.login(username, password, remember);
   }
 
+  getSession(token: string) {
+    return this.clientAuth.getSession(token);
+  }
+
   logout(token: string) {
     return this.clientAuth.logout(token);
   }
