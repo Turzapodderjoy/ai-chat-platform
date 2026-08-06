@@ -8,9 +8,8 @@
   },
   "dependencies": {
     "@ai-chat-platform/database": "workspace:*",
-    "@ai-chat-platform/ai-manager": "workspace:*",
     "@ai-chat-platform/ai-config": "workspace:*",
-    "@ai-chat-platform/tenant": "workspace:*",
-    "@ai-chat-platform/conversation": "workspace:*"
+    "@ai-chat-platform/conversation": "workspace:*",
+    "@google/genai": "^2.12.0"
   }
 }

@@ -1,7 +1,7 @@
 import { MessageFeedbackService } from "@ai-chat-platform/conversation";
 
-/** Per-message QA pass/fail + feedback note from the Chat Demo tab —
- * used only for internal testing/QA, not exposed to real customers. */
+/** Per-message QA pass/fail + feedback note, written from Chat Learning's
+ * per-message controls — internal QA only, never exposed to customers. */
 export class FeedbackController {
   constructor(private readonly feedback: MessageFeedbackService) {}
 
@@ -17,8 +17,8 @@ export class FeedbackController {
     return this.feedback.record(messageId, businessId, verdict, note);
   }
 
-  /** Every QA'd message plus training-pipeline status — backs the QA
-   * Review dashboard panel (mother-dashboard, spans every client). */
+  /** Every QA'd message for a business — used by Chat Learning to show
+   * per-message pass/fail state inline while browsing a conversation. */
   list(businessId?: string) {
     return this.feedback.listWithStatus(businessId);
   }

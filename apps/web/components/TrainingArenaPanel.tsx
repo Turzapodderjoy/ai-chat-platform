@@ -11,12 +11,6 @@ interface Message {
   handoff?: boolean;
 }
 
-interface ReviewResult {
-  verdict: string;
-  findings: string;
-  suggestion: { id: string; proposedAppendText: string; reasoning: string } | null;
-}
-
 interface SessionSummary {
   id: string;
   updatedAt: string;
@@ -31,29 +25,16 @@ function newSessionId(): string {
 
 type Mode = "live" | "dump";
 
-/** Intercom-style layout: a sidebar of past Training Arena sessions beside
- * the active chat/dump window. A chat box for deliberately provoking and
- * correcting the AI's real behavior (retrieval, system prompt, handoff
- * logic — the exact same pipeline a real customer hits), not a simulation.
- * The one difference: the AI keeps responding even after it hands off,
- * since the whole point is to argue with it ("why did you hand off, you
- * could have just said hello") and see how it reasons about the
- * correction. Ending a session runs it through the reasoning-LLM analysis
- * on demand, and — if there's real signal — proposes a concrete AI Brain
- * change you can review and Save or
- * Discard. "Dump a chat" mode does the same thing for a conversation that
- * already happened elsewhere: paste the transcript plus instructions
- * instead of re-enacting it live. */
-export function TrainingArenaPanel({
-  businessId,
-  broadcast = false,
-}: {
-  businessId: string;
-  /** Mother dashboard's Training Arena (general/platform-wide training) —
-   * Save applies the fix to the platform default AND every existing
-   * client at once, instead of just this one business. */
-  broadcast?: boolean;
-}) {
+/** Intercom-style layout: a sidebar of past Training Arena sessions
+ * beside the active chat/dump window. Live chat mode talks to the real
+ * chat pipeline (retrieval, system prompt, handoff logic) so you can
+ * deliberately provoke and correct real behavior — the AI keeps
+ * responding even after a handoff, since the point is arguing with it
+ * about the handoff itself. Dump mode parses a pasted transcript into a
+ * real conversation. Neither mode analyzes or proposes anything anymore
+ * — every session just lands in Chat Learning, where a human decides
+ * what to do with it. */
+export function TrainingArenaPanel({ businessId }: { businessId: string }) {
   const [mode, setMode] = useState<Mode>("live");
 
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null);
@@ -64,9 +45,6 @@ export function TrainingArenaPanel({
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [reviewing, setReviewing] = useState(false);
-  const [review, setReview] = useState<ReviewResult | null>(null);
-  const [deciding, setDeciding] = useState(false);
   const [message, setMessage] = useState("");
 
   const [transcript, setTranscript] = useState("");
@@ -84,7 +62,6 @@ export function TrainingArenaPanel({
   function newSession() {
     setSessionId(newSessionId());
     setMessages([]);
-    setReview(null);
     setMessage("");
     setViewingSessionId(null);
     setViewingMessages(null);
@@ -127,35 +104,10 @@ export function TrainingArenaPanel({
     }
   }
 
-  async function endAndReview() {
-    if (messages.length === 0) return;
-    setReviewing(true);
-    setMessage("");
-
-    try {
-      const res = await fetch("/api/admin/training/review", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId }),
-      });
-      const data = await res.json();
-
-      if (res.ok) {
-        setReview(data);
-        refreshSessions();
-      } else {
-        setMessage(`Error: ${data.error}`);
-      }
-    } finally {
-      setReviewing(false);
-    }
-  }
-
   async function submitDump() {
-    if (!transcript.trim() || !instructions.trim()) return;
+    if (!transcript.trim()) return;
     setSubmittingDump(true);
     setMessage("");
-    setReview(null);
 
     try {
       const res = await fetch("/api/admin/training/dump", {
@@ -166,7 +118,10 @@ export function TrainingArenaPanel({
       const data = await res.json();
 
       if (res.ok) {
-        setReview({ verdict: "kept", findings: instructions, suggestion: data });
+        setMessage("Added — find it in Chat Learning to review and curate.");
+        setTranscript("");
+        setInstructions("");
+        refreshSessions();
       } else {
         setMessage(`Error: ${data.error}`);
       }
@@ -175,56 +130,13 @@ export function TrainingArenaPanel({
     }
   }
 
-  async function decide(accept: boolean) {
-    if (!review?.suggestion) return;
-    setDeciding(true);
-
-    try {
-      const endpoint = !accept
-        ? "decline"
-        : broadcast
-          ? "broadcast-accept"
-          : "accept";
-
-      const res = await fetch(`/api/admin/training/suggestions/${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: review.suggestion.id }),
-      });
-      const data = await res.json();
-
-      setMessage(
-        res.ok
-          ? accept
-            ? broadcast
-              ? `Saved — pushed to the platform default and ${data.businessIds.length - 1} client(s).`
-              : "Saved — the AI Brain now has this rule."
-            : "Discarded — nothing changed."
-          : `Error: ${data.error}`
-      );
-
-      if (res.ok) {
-        if (mode === "live") {
-          newSession();
-        } else {
-          setReview(null);
-          setTranscript("");
-          setInstructions("");
-        }
-      }
-    } finally {
-      setDeciding(false);
-    }
-  }
-
   const viewingSession = viewingSessionId !== null;
 
   return (
     <section style={cardStyle}>
-      <h2 style={{ marginTop: 0 }}>Training Arena{broadcast ? " (general — applies to all clients)" : ""}</h2>
+      <h2 style={{ marginTop: 0 }}>Training Arena</h2>
       <p style={subtleTextStyle}>
-        Chat with the AI to correct its behavior, then save what it learned as a real rule.
-        {broadcast ? " Saving here applies to every client." : ""}
+        Chat with the AI (or paste a completed chat) to create a session — review and curate it in Chat Learning.
       </p>
 
       <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
@@ -249,17 +161,17 @@ export function TrainingArenaPanel({
               onClick={() => viewSession(s.id)}
               style={{
                 padding: 10,
-                borderBottom: "1px solid #222",
+                borderBottom: "1px solid var(--border)",
                 cursor: "pointer",
-                background: viewingSessionId === s.id ? "rgba(255,255,255,0.05)" : "transparent",
+                background: viewingSessionId === s.id ? "var(--surface-hover)" : "transparent",
               }}
             >
-              <div style={{ fontSize: 12, opacity: 0.8 }}>{new Date(s.updatedAt).toLocaleString()}</div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{new Date(s.updatedAt).toLocaleString()}</div>
               <div style={{ fontSize: 12, marginTop: 2 }}>
-                {s.reviewed ? "✅ Reviewed" : "⏳ Not reviewed"} · {s.messageCount} msg
+                {s.reviewed ? "✅ In Chat Learning" : "⏳ Not reviewed yet"} · {s.messageCount} msg
               </div>
               {s.lastMessage && (
-                <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2 }}>
+                <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>
                   {s.lastMessage.length > 50 ? `${s.lastMessage.slice(0, 50)}…` : s.lastMessage}
                 </div>
               )}
@@ -316,16 +228,16 @@ export function TrainingArenaPanel({
                     {messages.map((m, i) => (
                       <div key={i}>
                         <strong>{m.role === "user" ? "You" : "Assistant"}:</strong> {m.content}
-                        {m.handoff && <span style={{ fontSize: 11, opacity: 0.6, marginLeft: 6 }}>(handed off here)</span>}
+                        {m.handoff && <span style={{ fontSize: 11, color: "var(--text-faint)", marginLeft: 6 }}>(handed off here)</span>}
                       </div>
                     ))}
 
-                    {sending && <div style={{ opacity: 0.6 }}>Thinking…</div>}
+                    {sending && <div style={subtleTextStyle}>Thinking…</div>}
                   </div>
 
                   <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                     <input
-                      style={{ flex: 1, padding: 8 }}
+                      style={{ flex: 1 }}
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={(e) => {
@@ -337,9 +249,6 @@ export function TrainingArenaPanel({
                       Send
                     </button>
                     <button onClick={newSession}>New session</button>
-                    <button onClick={endAndReview} disabled={reviewing || messages.length === 0}>
-                      {reviewing ? "Reviewing…" : "End session & review"}
-                    </button>
                   </div>
                 </>
               )}
@@ -351,20 +260,20 @@ export function TrainingArenaPanel({
                     value={transcript}
                     onChange={(e) => setTranscript(e.target.value)}
                     placeholder={"Paste the completed conversation, e.g.:\nuser: ...\nassistant: ..."}
-                    style={{ width: "100%", minHeight: 160, padding: 8, boxSizing: "border-box", fontFamily: "monospace", fontSize: 12 }}
+                    style={{ width: "100%", minHeight: 160, boxSizing: "border-box", fontFamily: "monospace", fontSize: 12 }}
                   />
                   <label style={{ display: "block", margin: "12px 0 4px", fontSize: 13 }}>
-                    Instructions — what should/shouldn&apos;t the bot have done
+                    Note (optional — saved as this chat&apos;s initial QA note in Chat Learning)
                   </label>
                   <textarea
                     value={instructions}
                     onChange={(e) => setInstructions(e.target.value)}
                     placeholder="e.g. It should not have handed off here — a simple greeting doesn't need a human."
-                    style={{ width: "100%", minHeight: 80, padding: 8, boxSizing: "border-box" }}
+                    style={{ width: "100%", minHeight: 80, boxSizing: "border-box" }}
                   />
                   <div style={{ marginTop: 12 }}>
-                    <button onClick={submitDump} disabled={submittingDump || !transcript.trim() || !instructions.trim()}>
-                      {submittingDump ? "Submitting…" : "Submit"}
+                    <button onClick={submitDump} disabled={submittingDump || !transcript.trim()} style={primaryButtonStyle}>
+                      {submittingDump ? "Adding…" : "Add to Chat Learning"}
                     </button>
                   </div>
                 </>
@@ -374,46 +283,7 @@ export function TrainingArenaPanel({
         </div>
       </div>
 
-      {message && <p style={{ fontSize: 13, opacity: 0.8, marginTop: 8 }}>{message}</p>}
-
-      {review && (
-        <div style={{ ...cardStyle, marginTop: 16, background: "rgba(255,255,255,0.03)" }}>
-          <h3 style={{ marginTop: 0 }}>What it learned</h3>
-          {mode === "live" && (
-            <p>
-              <strong>Verdict:</strong> {review.verdict}
-            </p>
-          )}
-          <p style={{ whiteSpace: "pre-wrap" }}>
-            <strong>{mode === "live" ? "Findings:" : "Instructions:"}</strong>{" "}
-            {review.findings || "(none — nothing worth extracting from this session)"}
-          </p>
-
-          {review.suggestion ? (
-            <>
-              <p>
-                <strong>Proposed AI Brain addition:</strong>
-              </p>
-              <pre style={{ whiteSpace: "pre-wrap", background: "rgba(0,0,0,0.3)", padding: 8, borderRadius: 4 }}>
-                {review.suggestion.proposedAppendText}
-              </pre>
-              <p style={subtleTextStyle}>Why: {review.suggestion.reasoning}</p>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => decide(true)} disabled={deciding}>
-                  {deciding ? "…" : broadcast ? "Save to ALL clients" : "Save to AI Brain"}
-                </button>
-                <button onClick={() => decide(false)} disabled={deciding}>
-                  {deciding ? "…" : "Discard"}
-                </button>
-              </div>
-            </>
-          ) : (
-            <p style={subtleTextStyle}>
-              No concrete rule change proposed from this session — either nothing went wrong, or there wasn&apos;t enough signal to act on.
-            </p>
-          )}
-        </div>
-      )}
+      {message && <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 8 }}>{message}</p>}
     </section>
   );
 }

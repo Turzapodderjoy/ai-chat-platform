@@ -9,7 +9,7 @@ import { AllChatsPanel } from "../../../components/AllChatsPanel";
 import { StoragePanel } from "../../../components/StoragePanel";
 import { AiBrainPanel } from "../../../components/AiBrainPanel";
 import { AiParametersPanel } from "../../../components/AiParametersPanel";
-import { TrainingReviewPanel } from "../../../components/TrainingReviewPanel";
+import { ChatLearningPanel } from "../../../components/ChatLearningPanel";
 import { ChannelsPanel } from "../../../components/ChannelsPanel";
 import { ClientOverviewPanel } from "../../../components/ClientOverviewPanel";
 import { ClientTagDashboardPanel } from "../../../components/ClientTagDashboardPanel";
@@ -30,7 +30,7 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
       { id: "brain", label: "AI Brain" },
       { id: "parameters", label: "Parameters" },
       { id: "arena", label: "Training Arena" },
-      { id: "review", label: "Training Review" },
+      { id: "review", label: "Chat Learning" },
       { id: "channels", label: "Integrations" },
     ],
   },
@@ -146,7 +146,7 @@ export default function ClientDashboardPage() {
         <TrainingArenaPanel businessId={businessId} />
       </div>
       <div style={{ display: tab === "review" ? "block" : "none" }}>
-        <TrainingReviewPanel businessId={businessId} />
+        <ChatLearningPanel businessId={businessId} />
       </div>
       <div style={{ display: tab === "channels" ? "block" : "none" }}>
         <ChannelsPanel businessId={businessId} />

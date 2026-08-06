@@ -102,10 +102,6 @@ model Conversation {
   handoffSummary     String?
   handoffRequestedAt DateTime?
 
-  // Training pipeline: has this conversation been through the daily
-  // chat-analysis cron yet? Cron only ever pulls where this is false,
-  // so re-running it never reprocesses the same conversation twice.
-  processedForTraining Boolean @default(false)
   // Training Arena sessions (dashboard tab where an admin deliberately
   // provokes/corrects the AI, e.g. triggers a handoff then argues with
   // it) — set once at creation, never changes. Two effects: ChatService
@@ -122,13 +118,12 @@ model Conversation {
   userFeedbackRating   Int?
 
   messages           Message[]
-  chatAnalysis       ChatAnalysis?
+  conversationReview ConversationReview?
   conversationTags   ConversationTag[]
 
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  @@index([businessId, processedForTraining])
   @@index([businessId, channel])
   @@index([businessId, createdAt])
 }
@@ -369,87 +364,51 @@ model CustomProvider {
   createdAt DateTime @default(now())
 }
 
-// One row per conversation the daily training-pipeline cron has looked
-// at — the permanent, human-readable audit trail ("full track record
-// with findings") regardless of whether anything was extracted. Kept
-// even for dropped conversations so the record of *why* something was
-// dropped survives, not just the kept ones.
-model ChatAnalysis {
-  id             String   @id @default(cuid())
+// A human's manual decision on one conversation for the "Chat Learning"
+// workflow — is this chat worth training on at all ("add"/"drop"), and
+// did the AI actually handle it well ("pass"/"fail" + free-text note).
+// Nothing here is ever written by an LLM — replaces the old automatic
+// ChatAnalysis verdict entirely. analyzedAt is stamped once this chat
+// has been included in a completed TrainingAnalysisRun, so the UI can
+// show "already analyzed" without forcing a re-run.
+model ConversationReview {
+  id             String    @id @default(cuid())
 
-  conversationId String   @unique
+  conversationId String    @unique
   businessId     String
 
-  // "kept" | "dropped_spam" | "dropped_irrelevant" | "dropped_harmful"
-  verdict        String
-  // Plain-language explanation from the reasoning LLM — what the
-  // Training & Insights dashboard panel actually displays.
-  findings       String
+  decision       String?   // "add" | "drop" | null = undecided
+  qaVerdict      String?   // "pass" | "fail" | null
+  qaNote         String?
+  analyzedAt     DateTime?
 
-  conversation   Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  examples       TrainingExample[]
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
-  createdAt      DateTime @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  @@index([businessId, createdAt])
+  @@index([businessId, decision])
 }
 
-// One row per extracted instruction/response training pair — only
-// exists for "kept" ChatAnalysis rows. `output` carries the full
-// <think>...</think>reasoning + answer, ready to append to the JSONL
-// export as-is.
-model TrainingExample {
-  id             String   @id @default(cuid())
+// One row per "Run AI Analysis" click in Chat Learning — a human curates
+// a batch of chats (ConversationReview.decision = "add") plus their QA
+// feedback, then this sends the whole batch to Gemini in one call and
+// stores the resulting findings report. Read-only: nothing here ever
+// writes to AiConfigVersion — the human reads this and edits the AI
+// Brain prompt themselves.
+model TrainingAnalysisRun {
+  id              String   @id @default(cuid())
 
-  chatAnalysisId String
-  businessId     String
+  businessId      String
+  // Comma-separated conversation ids included in this run — same
+  // convention as AiConfigVersion.stopSequences (small scale, avoids a
+  // migration-visible array type change for a rarely-queried field).
+  conversationIds String
+  report          String
 
-  instruction    String
-  input          String
-  output         String
-
-  chatAnalysis   ChatAnalysis @relation(fields: [chatAnalysisId], references: [id], onDelete: Cascade)
-
-  createdAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
 
   @@index([businessId, createdAt])
-}
-
-// A proposed edit to a client's AI Brain prompt, generated from patterns
-// across that business's recent ChatAnalysis findings — never applied
-// automatically. Accepting one calls the existing AiConfigService (same
-// update()/append() a human editing the AI Brain panel would trigger),
-// which creates a real new AiConfigVersion row; declining just marks
-// this row, the live prompt is untouched either way.
-model PromptSuggestion {
-  id                    String    @id @default(cuid())
-
-  businessId            String
-
-  // "pipeline" (nightly cron) | "training_arena" (live arena session) |
-  // "dumped_chat" (pasted transcript + instructions) — which tool
-  // produced this suggestion, shown as a badge in the review panel.
-  source                String    @default("pipeline")
-
-  // "update" | "append" — mirrors AiConfigVersion.changeType
-  kind                  String
-  // Full replacement text, only set when kind = "update"
-  proposedSystemPrompt  String?
-  // Text to append, only set when kind = "append"
-  proposedAppendText    String?
-
-  // Plain-language justification shown next to the Accept/Decline
-  // buttons — "why this change is being suggested."
-  reasoning             String
-
-  // "pending" | "accepted" | "declined" | "superseded" (refined into a
-  // new pending suggestion, kept for audit trail rather than deleted)
-  status                String    @default("pending")
-
-  createdAt             DateTime  @default(now())
-  decidedAt             DateTime?
-
-  @@index([businessId, status])
 }
 
 // Per-client channel connections (website/messenger/instagram/whatsapp) —

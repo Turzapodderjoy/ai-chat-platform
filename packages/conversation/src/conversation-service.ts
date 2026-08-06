@@ -150,8 +150,9 @@ export class ConversationService {
   }
 
   /** Past Training Arena sessions for the Intercom-style sidebar — most
-   * recent first, with a preview of the last message and whether the
-   * session has already been reviewed (has a ChatAnalysis row). */
+   * recent first, with a preview of the last message and whether a human
+   * has touched this session yet in Chat Learning (any ConversationReview
+   * row at all, decided or not). */
   async listTrainingSessions(businessId: string): Promise<
     Array<{
       id: string;
@@ -167,7 +168,7 @@ export class ConversationService {
       take: 100,
       include: {
         messages: { orderBy: { createdAt: "desc" }, take: 1 },
-        chatAnalysis: { select: { id: true } },
+        conversationReview: { select: { id: true } },
         _count: { select: { messages: true } },
       },
     });
@@ -177,14 +178,16 @@ export class ConversationService {
       updatedAt: row.updatedAt,
       messageCount: row._count.messages,
       lastMessage: row.messages[0]?.content ?? null,
-      reviewed: row.chatAnalysis !== null,
+      reviewed: row.conversationReview !== null,
     }));
   }
 
   /** Every real conversation (bot-handled and handed-off alike) for the
    * unified All Chats inbox — unlike listHandoffs, this is not filtered
-   * to only conversations needing a human. Always excludes Training
-   * Arena sessions, same reasoning as listHandoffs. */
+   * to only conversations needing a human. Excludes Training Arena
+   * sessions by default, same reasoning as listHandoffs — pass
+   * includeTraining to also surface them, which only Chat Learning does
+   * (it curates real chats and Training Arena sessions in one list). */
   async listAllConversations(params: {
     businessId?: string;
     channel?: string;
@@ -192,6 +195,7 @@ export class ConversationService {
     sort?: "newest" | "oldest";
     cursor?: string;
     limit?: number;
+    includeTraining?: boolean;
   }): Promise<{
     conversations: Array<{
       id: string;
@@ -208,7 +212,7 @@ export class ConversationService {
 
     const rows = await prisma.conversation.findMany({
       where: {
-        isTraining: false,
+        ...(params.includeTraining ? {} : { isTraining: false }),
         ...(params.businessId ? { businessId: params.businessId } : {}),
         ...(params.channel ? { channel: params.channel } : {}),
         ...(params.needsHandoffOnly ? { handoffStatus: { not: "BOT" } } : {}),

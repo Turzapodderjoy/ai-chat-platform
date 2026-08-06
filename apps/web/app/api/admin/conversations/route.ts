@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
     sort: params.get("sort") === "oldest" ? "oldest" : "newest",
     cursor: params.get("cursor") ?? undefined,
     limit: params.get("limit") ? Number(params.get("limit")) : undefined,
+    includeTraining: params.get("includeTraining") === "true",
   });
 
   return NextResponse.json(result);

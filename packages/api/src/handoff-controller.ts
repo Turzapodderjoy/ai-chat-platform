@@ -45,6 +45,7 @@ export class HandoffController {
     sort?: "newest" | "oldest";
     cursor?: string;
     limit?: number;
+    includeTraining?: boolean;
   }) {
     return this.conversations.listAllConversations(params);
   }

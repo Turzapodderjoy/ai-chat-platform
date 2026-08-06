@@ -9,14 +9,15 @@ const PLATFORM_CONFIG_ID = "__platform__";
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
 
-  if (!body || typeof body.transcript !== "string" || typeof body.instructions !== "string") {
-    return NextResponse.json({ error: "transcript and instructions are required" }, { status: 400 });
+  if (!body || typeof body.transcript !== "string") {
+    return NextResponse.json({ error: "transcript is required" }, { status: 400 });
   }
 
   try {
     const app = await getApp();
     const businessId = typeof body.businessId === "string" ? body.businessId : PLATFORM_CONFIG_ID;
-    const result = await app.container.router.training.submitDump(businessId, body.transcript, body.instructions);
+    const instructions = typeof body.instructions === "string" ? body.instructions : "";
+    const result = await app.container.router.training.submitDump(businessId, body.transcript, instructions);
     return NextResponse.json(result);
   } catch (err) {
     return NextResponse.json(

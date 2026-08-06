@@ -14,10 +14,9 @@ import { UploadService } from "@ai-chat-platform/upload";
 import { TenantService } from "@ai-chat-platform/tenant";
 import { CrawlerService } from "@ai-chat-platform/web-crawler";
 import {
-  ChatAnalysisService,
-  ReasoningClient,
-  ChatAnalysisPipeline,
-  PromptSuggestionService,
+  GeminiBatchClient,
+  ConversationReviewService,
+  TrainingAnalysisService,
 } from "@ai-chat-platform/training-pipeline";
 import { ChannelConnectionService, ChannelAppCredentialService } from "@ai-chat-platform/channel-connections";
 import {
@@ -106,33 +105,25 @@ export class Container {
     const crawlerService =
       new CrawlerService(indexingService, vectorStore);
 
-    // Deliberately its own dedicated key (GROQ_TRAINING_API_KEY), not
-    // the shared AIManager/Groq key powering live chat — training's
-    // reasoning calls (Training Arena review, dumped-chat interpretation,
-    // refine) must never compete with real customer traffic for Groq's
-    // rate limit.
-    const reasoningClient =
-      new ReasoningClient(process.env.GROQ_TRAINING_API_KEY ?? "");
-
-    const chatAnalysisService =
-      new ChatAnalysisService();
-
     const messageFeedback =
       new MessageFeedbackService();
 
-    const chatAnalysisPipeline =
-      new ChatAnalysisPipeline(
-        chatAnalysisService,
-        reasoningClient,
-        aiConfig,
-        messageFeedback
-      );
+    // Deliberately its own dedicated key (GEMINI_TRAINING_API_KEY), not
+    // the shared AIManager/Gemini key powering live chat — Chat
+    // Learning's batch-analysis calls must never compete with real
+    // customer traffic for quota.
+    const geminiBatchClient =
+      new GeminiBatchClient(process.env.GEMINI_TRAINING_API_KEY ?? "");
 
-    const promptSuggestionService =
-      new PromptSuggestionService(
-        chatAnalysisService,
-        reasoningClient,
-        aiConfig
+    const conversationReviews =
+      new ConversationReviewService();
+
+    const trainingAnalysis =
+      new TrainingAnalysisService(
+        geminiBatchClient,
+        aiConfig,
+        messageFeedback,
+        conversationReviews
       );
 
     const channelConnections =
@@ -181,11 +172,8 @@ export class Container {
         new AiConfigController(aiConfig, tenants),
         new EmbeddingController(embeddings, providerKeys, indexingService, providerState),
         new TrainingController(
-          chatAnalysisService,
-          aiConfig,
-          chatAnalysisPipeline,
-          promptSuggestionService,
-          tenants,
+          conversationReviews,
+          trainingAnalysis,
           conversations
         ),
         new ChannelController(
