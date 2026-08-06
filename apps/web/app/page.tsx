@@ -8,15 +8,48 @@ import styles from "./page.module.css";
 export default function HomePage() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  // There's no real authentication in this app (see CLAUDE.md) — this
-  // screen is a cosmetic gate, not a credential check, so any submission
-  // just continues into the dashboard rather than validating anything.
-  function enter(e?: FormEvent) {
-    e?.preventDefault();
+  // Real credential check now — a client account is created for a
+  // specific business in the mother dashboard's Client Access panel, and
+  // signing in here lands only on that business's dashboard. The mother
+  // dashboard itself stays open (no login wall there — see CLAUDE.md).
+  async function enter(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     if (submitting) return;
+
+    const form = new FormData(e.currentTarget);
+    const username = String(form.get("username") ?? "").trim();
+    const password = String(form.get("password") ?? "");
+    const remember = form.get("remember") === "on";
+
+    if (!username || !password) {
+      setError("Please enter both your username and password.");
+      return;
+    }
+
     setSubmitting(true);
-    router.push("/dashboard");
+    setError("");
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password, remember }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? "Something went wrong. Please try again.");
+        return;
+      }
+
+      router.push(`/dashboard/${data.businessId}`);
+    } catch {
+      setError("Couldn't reach the server. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -33,10 +66,12 @@ export default function HomePage() {
         </div>
 
         <div className={styles.card}>
+          {error && <div className={styles.errorMessage}>{error}</div>}
+
           <form onSubmit={enter} noValidate>
             <div className={styles.formGroup}>
-              <label htmlFor="email">Email address</label>
-              <input type="email" id="email" name="email" placeholder="you@example.com" autoComplete="email" />
+              <label htmlFor="username">Username</label>
+              <input type="text" id="username" name="username" placeholder="yourname" autoComplete="username" />
             </div>
 
             <div className={styles.formGroup}>
@@ -58,25 +93,7 @@ export default function HomePage() {
               {submitting ? "Signing in…" : "Sign in"}
             </button>
           </form>
-
-          <div className={styles.divider}>
-            <span>or</span>
-          </div>
-
-          <button type="button" className={styles.btnSecondary} onClick={() => enter()} disabled={submitting}>
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="3" y="3" width="7" height="7" rx="1" stroke="#6b7280" strokeWidth="2" />
-              <rect x="14" y="3" width="7" height="7" rx="1" stroke="#6b7280" strokeWidth="2" />
-              <rect x="3" y="14" width="7" height="7" rx="1" stroke="#6b7280" strokeWidth="2" />
-              <rect x="14" y="14" width="7" height="7" rx="1" stroke="#6b7280" strokeWidth="2" />
-            </svg>
-            Sign in with SSO
-          </button>
         </div>
-
-        <p className={styles.footerText}>
-          Don&apos;t have an account? <a href="#" onClick={(e) => e.preventDefault()}>Request access</a>
-        </p>
 
         <p className={styles.legalText}>
           By signing in, you agree to our <a href="#" onClick={(e) => e.preventDefault()}>Terms of Service</a> and{" "}

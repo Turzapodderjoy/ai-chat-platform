@@ -31,6 +31,7 @@
     "@ai-chat-platform/channel-catalog": "workspace:*",
     "@ai-chat-platform/channel-connections": "workspace:*",
     "@ai-chat-platform/auto-heal": "workspace:*",
-    "@ai-chat-platform/database": "workspace:*"
+    "@ai-chat-platform/database": "workspace:*",
+    "@ai-chat-platform/client-auth": "workspace:*"
   }
 }

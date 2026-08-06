@@ -157,76 +157,14 @@
   cursor: default;
 }
 
-.divider {
-  display: flex;
-  align-items: center;
-  margin: 24px 0;
-  gap: 12px;
-}
-
-.divider::before,
-.divider::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background-color: #e5e7eb;
-}
-
-.divider span {
-  font-size: 13px;
-  color: #9ca3af;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.btnSecondary {
-  width: 100%;
-  padding: 11px 16px;
-  font-size: 14px;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #ffffff;
-  color: #374151;
-  border: 1px solid #d1d5db;
+.errorMessage {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
   border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
-}
-
-.btnSecondary:hover {
-  background-color: #f9fafb;
-  border-color: #b0b7c3;
-}
-
-.btnSecondary:disabled {
-  opacity: 0.7;
-  cursor: default;
-}
-
-.btnSecondary svg {
-  width: 18px;
-  height: 18px;
-}
-
-.footerText {
-  text-align: center;
-  margin-top: 24px;
-  font-size: 14px;
-  color: #6b7280;
-}
-
-.footerText a {
-  color: #1a56db;
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.footerText a:hover {
-  text-decoration: underline;
+  padding: 12px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: #b91c1c;
 }
 
 .legalText {

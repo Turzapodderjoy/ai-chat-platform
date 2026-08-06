@@ -10,6 +10,7 @@ import { AiParametersPanel } from "../../components/AiParametersPanel";
 import { TrainingReviewPanel } from "../../components/TrainingReviewPanel";
 import { PlatformChannelAppsPanel } from "../../components/PlatformChannelAppsPanel";
 import { TagsPanel } from "../../components/TagsPanel";
+import { ClientAccessPanel } from "../../components/ClientAccessPanel";
 import { OverviewPanel } from "../../components/OverviewPanel";
 import { TrainingArenaPanel } from "../../components/TrainingArenaPanel";
 import { DashboardShell, type NavGroup } from "../../components/DashboardShell";
@@ -20,11 +21,11 @@ import { cardStyle, cellStyle, formatBytes } from "../../components/dashboard-st
 // client component just for one string constant.
 const PLATFORM_CONFIG_ID = "__platform__";
 
-type Tab = "overview" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "knowledge" | "allchats" | "handoffs" | "database" | "tags";
+type Tab = "overview" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "access" | "knowledge" | "allchats" | "handoffs" | "database" | "tags";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }] },
-  { items: [{ id: "clients", label: "Clients" }] },
+  { items: [{ id: "clients", label: "Clients" }, { id: "access", label: "Client Access" }] },
   {
     label: "AI Brain",
     items: [
@@ -162,6 +163,9 @@ export default function DashboardPage() {
       </div>
       <div style={{ display: tab === "clients" ? "block" : "none" }}>
         <ClientsPanel />
+      </div>
+      <div style={{ display: tab === "access" ? "block" : "none" }}>
+        <ClientAccessPanel />
       </div>
       <div style={{ display: tab === "knowledge" ? "block" : "none" }}>
         <KnowledgeHubPanel />

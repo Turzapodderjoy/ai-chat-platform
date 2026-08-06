@@ -26,6 +26,7 @@
     "@ai-chat-platform/tagging-pipeline": "workspace:*",
     "@ai-chat-platform/channel-catalog": "workspace:*",
     "@ai-chat-platform/channel-connections": "workspace:*",
-    "@ai-chat-platform/auto-heal": "workspace:*"
+    "@ai-chat-platform/auto-heal": "workspace:*",
+    "@ai-chat-platform/client-auth": "workspace:*"
   }
 }

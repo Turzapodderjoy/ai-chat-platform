@@ -555,3 +555,37 @@ model MessageTag {
   @@unique([messageId, tagId])
   @@index([tagId])
 }
+
+// A client login — separate from the orphaned User/Membership models
+// above (those were an abandoned platform-wide auth attempt). One
+// business can have several of these (different staff, different
+// usernames), all landing on the same /dashboard/{businessId}. Created
+// and managed entirely from the mother dashboard's Client Access panel.
+model ClientAccount {
+  id           String    @id @default(cuid())
+  businessId   String
+  username     String    @unique
+  passwordHash String
+  disabled     Boolean   @default(false)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  sessions     ClientSession[]
+
+  @@index([businessId])
+}
+
+// Disabling or deleting the owning ClientAccount deletes these too
+// (cascade), which is what makes "restrict" kick out an already-logged-in
+// session immediately rather than waiting for it to expire.
+model ClientSession {
+  id              String   @id @default(cuid())
+  token           String   @unique
+  clientAccountId String
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+
+  account         ClientAccount @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
+
+  @@index([clientAccountId])
+}

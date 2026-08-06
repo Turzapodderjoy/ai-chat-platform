@@ -11,6 +11,7 @@ import { ChannelController } from "./channel-controller";
 import { FeedbackController } from "./feedback-controller";
 import { AutoHealController } from "./auto-heal-controller";
 import { TagController } from "./tag-controller";
+import { ClientAuthController } from "./client-auth-controller";
 
 export class ApiRouter {
   constructor(
@@ -26,6 +27,7 @@ export class ApiRouter {
     readonly channels: ChannelController,
     readonly feedback: FeedbackController,
     readonly autoHeal: AutoHealController,
-    readonly tags: TagController
+    readonly tags: TagController,
+    readonly clientAuth: ClientAuthController
   ) {}
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 import { KnowledgeHubPanel } from "../../../components/KnowledgeHubPanel";
 import { HandoffsPanel } from "../../../components/HandoffsPanel";
@@ -53,9 +53,14 @@ interface Client {
 export default function ClientDashboardPage() {
   const params = useParams<{ businessId: string }>();
   const businessId = params.businessId;
+  const router = useRouter();
 
   const [tab, setTab] = useState<Tab>("overview");
   const [client, setClient] = useState<Client | null>(null);
+
+  function logout() {
+    fetch("/api/auth/logout", { method: "POST" }).finally(() => router.push("/"));
+  }
 
   // Always renders "overview" on the server/first paint to avoid a
   // hydration mismatch, then jumps to the OAuth callback's ?tab= param
@@ -84,6 +89,14 @@ export default function ClientDashboardPage() {
           <a href="/dashboard" style={{ fontSize: 11, opacity: 0.6, fontWeight: 400 }}>
             ← Mother dashboard
           </a>
+          <div>
+            <button
+              onClick={logout}
+              style={{ fontSize: 11, opacity: 0.6, fontWeight: 400, background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit", textDecoration: "underline" }}
+            >
+              Log out
+            </button>
+          </div>
         </div>
       }
       groups={NAV_GROUPS}
