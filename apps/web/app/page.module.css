@@ -1,167 +1,257 @@
-.stage {
-  position: relative;
-  display: flex;
+.page {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: #f5f6f8;
+  color: #333;
   min-height: 100svh;
   width: 100%;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  background:
-    radial-gradient(ellipse 55% 45% at 78% 15%, rgba(180, 140, 100, 0.07), transparent 65%),
-    #030304;
-  color: #eef2f7;
-  font-family: "Segoe UI", "Inter", system-ui, sans-serif;
-}
-
-.stage::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  box-shadow: inset 0 0 18vw rgba(0, 0, 0, 0.85);
-  pointer-events: none;
-}
-
-.heroText {
-  position: absolute;
-  top: 9vh;
-  left: 50%;
-  transform: translateX(-50%);
-  text-align: center;
-  z-index: 1;
-  pointer-events: none;
-}
-
-.eyebrow {
-  margin: 0 0 10px;
-  font-family: "Consolas", "SFMono-Regular", monospace;
-  font-size: 0.72rem;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: #8fd8ff;
-  opacity: 0.75;
-}
-
-.headline {
-  margin: 0;
-  font-size: clamp(1.9rem, 4.4vw, 3.1rem);
-  font-weight: 650;
-  letter-spacing: -0.01em;
-  text-wrap: balance;
-  background: linear-gradient(135deg, #f4f7fb 30%, #b9c6d6 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-.scene {
-  position: relative;
-  width: min(92vw, 620px);
-  height: min(78vh, 620px);
-}
-
-.handLayer {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.tileWrap {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: min(78vw, 340px);
-}
-
-.tile {
-  position: relative;
-  border-radius: 22px;
-  padding: 34px 30px 30px;
-  background: linear-gradient(155deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04));
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  box-shadow:
-    0 30px 60px -20px rgba(0, 0, 0, 0.65),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 0 40px rgba(143, 216, 255, 0.06);
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  cursor: pointer;
-  text-align: center;
-  user-select: none;
-}
-
-.tile::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(135deg, rgba(143, 216, 255, 0.55), rgba(124, 108, 255, 0.05) 40%, rgba(51, 214, 198, 0.35));
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
-.tileTitle {
-  margin: 0 0 6px;
-  font-size: 1.15rem;
-  font-weight: 600;
-  color: #f7fafc;
-}
-
-.tileSub {
-  margin: 0 0 22px;
-  font-size: 0.85rem;
-  color: #a9b7c8;
-}
-
-.tileButton {
-  width: 100%;
-  padding: 12px 18px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  background: linear-gradient(135deg, rgba(124, 108, 255, 0.85), rgba(51, 214, 198, 0.75));
-  color: #0b0d12;
-  font-size: 0.92rem;
-  font-weight: 650;
-  letter-spacing: 0.01em;
-  cursor: pointer;
-}
-
-.tileStatus {
-  margin: 16px 0 0;
-  font-family: "Consolas", "SFMono-Regular", monospace;
-  font-size: 0.68rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #6fe3c8;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  padding: 20px;
 }
 
-.statusDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: #6fe3c8;
-  box-shadow: 0 0 8px 2px rgba(111, 227, 200, 0.8);
+.container {
+  width: 100%;
+  max-width: 400px;
 }
 
-.footNote {
-  position: absolute;
-  bottom: 6vh;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 0.78rem;
-  color: #56606f;
-  z-index: 1;
+.logoSection {
+  text-align: center;
+  margin-bottom: 32px;
 }
 
-@media (max-width: 520px) {
-  .scene {
-    width: 94vw;
-    height: 70vh;
+.logoIcon {
+  width: 48px;
+  height: 48px;
+  background-color: #1a56db;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.logoIcon svg {
+  width: 24px;
+  height: 24px;
+  fill: #ffffff;
+}
+
+.logoSection h1 {
+  font-size: 22px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 6px;
+}
+
+.logoSection p {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 32px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.formGroup {
+  margin-bottom: 20px;
+}
+
+.formGroup label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.formGroup input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #111827;
+  transition: border-color 0.15s ease;
+  outline: none;
+}
+
+.formGroup input:focus {
+  border-color: #1a56db;
+  box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.1);
+}
+
+.formGroup input::placeholder {
+  color: #9ca3af;
+}
+
+.formRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.checkboxGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkboxGroup input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+  accent-color: #1a56db;
+}
+
+.checkboxGroup label {
+  font-size: 14px;
+  color: #4b5563;
+  cursor: pointer;
+}
+
+.forgotLink {
+  font-size: 14px;
+  color: #1a56db;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.forgotLink:hover {
+  text-decoration: underline;
+}
+
+.btnPrimary {
+  width: 100%;
+  padding: 11px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  background-color: #1a56db;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.btnPrimary:hover {
+  background-color: #1648b8;
+}
+
+.btnPrimary:active {
+  background-color: #123d9e;
+}
+
+.btnPrimary:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  margin: 24px 0;
+  gap: 12px;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background-color: #e5e7eb;
+}
+
+.divider span {
+  font-size: 13px;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.btnSecondary {
+  width: 100%;
+  padding: 11px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #ffffff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.btnSecondary:hover {
+  background-color: #f9fafb;
+  border-color: #b0b7c3;
+}
+
+.btnSecondary:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.btnSecondary svg {
+  width: 18px;
+  height: 18px;
+}
+
+.footerText {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.footerText a {
+  color: #1a56db;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.footerText a:hover {
+  text-decoration: underline;
+}
+
+.legalText {
+  text-align: center;
+  margin-top: 32px;
+  font-size: 12px;
+  color: #9ca3af;
+  line-height: 1.5;
+}
+
+.legalText a {
+  color: #6b7280;
+  text-decoration: none;
+}
+
+.legalText a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 480px) {
+  .card {
+    padding: 24px;
+  }
+
+  .logoSection h1 {
+    font-size: 20px;
   }
 }

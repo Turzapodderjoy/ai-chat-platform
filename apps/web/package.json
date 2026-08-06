@@ -26,7 +26,6 @@
     "@ai-chat-platform/embedding-manager": "workspace:*",
     "@ai-chat-platform/vector-store": "workspace:*",
     "@ai-chat-platform/indexing": "workspace:*",
-    "framer-motion": "^12.4.0",
     "recharts": "^2.15.0"
   },
   "devDependencies": {
