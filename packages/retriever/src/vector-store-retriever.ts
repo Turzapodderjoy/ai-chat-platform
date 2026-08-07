@@ -43,7 +43,15 @@ export class VectorStoreRetriever implements Retriever {
     query: string,
     options: RetrieveOptions = {}
   ): Promise<RetrievedChunk[]> {
-    const limit = options.limit ?? 5;
+    // 8, not 5 — a narrower top-K makes near-boundary items flicker in
+    // and out of the result set purely based on how a question is
+    // phrased (e.g. the same product list coming back with 4 items in
+    // English vs 3 in Banglish, observed in a real training analysis
+    // report), since different phrasings of the same intent land at
+    // slightly different points in each embedding space. A wider net
+    // converges results across phrasings without needing fragile
+    // "is this a catalog/list question" intent detection.
+    const limit = options.limit ?? 8;
 
     // A single query's relevance score depends on which embedding model
     // produced its vector — a chunk can score high in one provider's

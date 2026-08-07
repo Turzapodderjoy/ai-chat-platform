@@ -25,6 +25,18 @@ import type {
 // to the bot forever.
 const HANDOFF_MARKER = "[[NEEDS_HUMAN]]";
 
+// Belt-and-suspenders for HANDOFF_MARKER: the system prompt tells the AI
+// to always append the marker when it offers a human handoff, but
+// instruction-following on a magic string isn't 100% reliable —
+// especially in Bangla/Banglish generation, observed in real training
+// analysis reports (the AI says "connecting you with a team member" but
+// drops the marker, so nothing actually routes to a human despite the
+// reply promising it). "team member" (English/Banglish) and its Bangla
+// transliteration "টিম মেম্বার" are reserved by this system's own canned
+// messages/prompt for exactly this one meaning, so matching them is a
+// safe, low-false-positive fallback signal, not a guess.
+const HANDOFF_INTENT_FALLBACK = /team member|টিম মেম্বার/i;
+
 // The handoff summary is a short internal note for a human agent, not a
 // customer-facing answer — a smaller cap is appropriate and keeps this
 // background call cheap regardless of which provider handles it.
@@ -328,7 +340,9 @@ export class ChatService {
 
     // The AI itself decided (see HANDOFF_MARKER's comment) — strip the
     // marker before the customer ever sees it either way.
-    const wantsHandoff = aiResponse.response.includes(HANDOFF_MARKER);
+    const wantsHandoff =
+      aiResponse.response.includes(HANDOFF_MARKER) ||
+      HANDOFF_INTENT_FALLBACK.test(aiResponse.response);
     const cleanedAnswer = aiResponse.response.replaceAll(HANDOFF_MARKER, "").trim();
 
     let summaryTokens = 0;
