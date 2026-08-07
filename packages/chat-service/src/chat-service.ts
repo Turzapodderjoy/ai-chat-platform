@@ -29,13 +29,18 @@ const HANDOFF_MARKER = "[[NEEDS_HUMAN]]";
 // to always append the marker when it offers a human handoff, but
 // instruction-following on a magic string isn't 100% reliable —
 // especially in Bangla/Banglish generation, observed in real training
-// analysis reports (the AI says "connecting you with a team member" but
-// drops the marker, so nothing actually routes to a human despite the
-// reply promising it). "team member" (English/Banglish) and its Bangla
-// transliteration "টিম মেম্বার" are reserved by this system's own canned
-// messages/prompt for exactly this one meaning, so matching them is a
-// safe, low-false-positive fallback signal, not a guess.
-const HANDOFF_INTENT_FALLBACK = /team member|টিম মেম্বার/i;
+// analysis reports in two different ways: (1) the AI says "connecting
+// you with a team member" but drops the marker, and (2) the AI admits
+// "I don't have this information" without offering a handoff OR the
+// marker at all, even though the system prompt requires both whenever it
+// admits it can't answer. "team member"/"টিম মেম্বার" are reserved by this
+// system's own canned messages for case (1); the "don't have
+// information" phrasings below are the system prompt's own canonical
+// admission language for case (2) — matching them is a safe,
+// low-false-positive fallback since a real customer question is never
+// phrased this way, only the AI's own admission is.
+const HANDOFF_INTENT_FALLBACK =
+  /team member|টিম মেম্বার|knowledge base|তথ্য (নেই|নাই)|tothyo[^.]*(nei|nai)|don'?t have (that|this|any) (specific )?information/i;
 
 // The handoff summary is a short internal note for a human agent, not a
 // customer-facing answer — a smaller cap is appropriate and keeps this
