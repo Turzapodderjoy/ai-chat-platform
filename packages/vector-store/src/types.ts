@@ -58,6 +58,18 @@ export interface VectorStore {
     embeddingProvider?: string
   ): Promise<SearchResult[][]>;
 
+  /** Plain substring match on chunk text, case-insensitive, scored by how
+   * many of the given terms hit — a supplement to search()/searchMany(),
+   * not a replacement. Pure vector similarity can bury an exact match on
+   * a specific term (a product code, model number, or distinctive word)
+   * under semantically-similar-but-wrong chunks; this catches it whether
+   * or not the embedding space ranked it highly. */
+  keywordSearch(
+    terms: string[],
+    limit?: number,
+    businessId?: string
+  ): Promise<SearchResult[]>;
+
   listAll(): Promise<VectorRecord[]>;
 
   deleteByDocumentId(documentId: string): Promise<void>;

@@ -17,6 +17,28 @@ import type {
 // exactly the original one-query behavior.
 const CLAUSE_SPLIT = /,|\/|\bvs\.?\b|\bversus\b|\band\b|\bor\b/gi;
 
+// A distinctive term (a product code, model number, or specific word)
+// can score low in semantic similarity purely by bad luck of embedding
+// geometry even though it's an exact, unambiguous match in the text.
+// Pulled from the ORIGINAL query, not the split clauses — clause-level
+// re-extraction would just repeat the same handful of terms per clause
+// for no benefit. Short/common words are filtered out since they'd match
+// almost every chunk and add noise instead of signal.
+const STOPWORDS = new Set([
+  "the", "and", "for", "with", "this", "that", "what", "which", "how",
+  "does", "have", "your", "you", "are", "amar", "amader", "apni", "apnar",
+  "ki", "kotodin", "kemon", "koto", "ache", "nei", "chai", "chan",
+]);
+
+function extractKeywordTerms(query: string): string[] {
+  const terms = query
+    .split(/[^\p{L}\p{N}]+/u)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 4 && !STOPWORDS.has(t.toLowerCase()));
+
+  return Array.from(new Set(terms)).slice(0, 6);
+}
+
 function splitIntoClauses(query: string): string[] {
   const parts = query
     .split(CLAUSE_SPLIT)
@@ -88,8 +110,22 @@ export class VectorStoreRetriever implements Retriever {
 
     const bestById = new Map<string, SearchResult>();
 
-    await Promise.all(
-      Array.from(byProvider.entries()).map(async ([provider, embeddingsForProvider]) => {
+    const keywordTerms = useFixedEmbedding ? [] : extractKeywordTerms(query);
+
+    await Promise.all([
+      ...(keywordTerms.length > 0
+        ? [
+            this.vectorStore.keywordSearch(keywordTerms, limit, options.businessId).then((results) => {
+              for (const result of results) {
+                const existing = bestById.get(result.id);
+                if (!existing || result.score > existing.score) {
+                  bestById.set(result.id, result);
+                }
+              }
+            }),
+          ]
+        : []),
+      ...Array.from(byProvider.entries()).map(async ([provider, embeddingsForProvider]) => {
         const resultSets = await this.vectorStore.searchMany(
           embeddingsForProvider,
           limit,
@@ -109,8 +145,8 @@ export class VectorStoreRetriever implements Retriever {
             }
           }
         }
-      })
-    );
+      }),
+    ]);
 
     // Cosine similarity scores are in [-1, 1], unlike the keyword
     // scorer's integer match counts, so this retriever's default

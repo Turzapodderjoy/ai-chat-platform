@@ -154,6 +154,49 @@ export class PostgresProvider implements VectorStore {
     );
   }
 
+  async keywordSearch(
+    terms: string[],
+    limit = 5,
+    businessId?: string
+  ): Promise<SearchResult[]> {
+    const cleanTerms = terms.map((t) => t.trim()).filter((t) => t.length >= 3);
+
+    if (cleanTerms.length === 0) {
+      return [];
+    }
+
+    const rows = await prisma.vectorRecord.findMany({
+      where: {
+        ...(businessId ? { businessId } : {}),
+        OR: cleanTerms.map((term) => ({
+          text: { contains: term, mode: "insensitive" as const },
+        })),
+      },
+      // Vector fetched to satisfy the SearchResult/VectorRecord shape —
+      // callers of keywordSearch only read text/metadata, never score
+      // this against another embedding, so the real column is skipped.
+    });
+
+    if (rows.length === 0) {
+      return [];
+    }
+
+    return rows
+      .map((row) => rowToRecord(row))
+      .map((record) => {
+        const lowerText = record.text.toLowerCase();
+        const matched = cleanTerms.filter((term) => lowerText.includes(term.toLowerCase())).length;
+
+        // Kept below typical strong vector-similarity scores (usually
+        // 0.6-0.9 for a real match) so a keyword hit supplements rather
+        // than displaces genuine semantic matches, but still clears the
+        // default minimumScore=0 floor so it always surfaces.
+        return { ...record, score: 0.35 + 0.1 * matched };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
+  }
+
   async listAll(): Promise<VectorRecord[]> {
     // Excludes the embedding column on purpose — see the comment on
     // rowToRecord's `embedding` field above. Every listAll() caller today

@@ -45,6 +45,14 @@ export class VectorStoreManager {
     );
   }
 
+  async keywordSearch(
+    terms: string[],
+    limit = 5,
+    businessId?: string
+  ): Promise<SearchResult[]> {
+    return this.provider.keywordSearch(terms, limit, businessId);
+  }
+
   async listAll(): Promise<VectorRecord[]> {
     return this.provider.listAll();
   }
