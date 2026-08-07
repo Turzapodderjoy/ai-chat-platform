@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { cardStyle, subtleTextStyle, badgeStyle, primaryButtonStyle } from "./dashboard-styles";
+import { MarkdownMessage } from "./MarkdownMessage";
 
 interface HandoffSummary {
   sessionId: string;
@@ -117,7 +118,8 @@ export function HandoffsPanel({ businessId }: { businessId?: string }) {
               >
                 {messages?.map((m, i) => (
                   <div key={i} style={{ fontSize: 13 }}>
-                    <strong>{m.role}:</strong> {m.content}
+                    <strong>{m.role}:</strong>{" "}
+                    {m.role === "user" ? m.content : <MarkdownMessage text={m.content} />}
                   </div>
                 ))}
               </div>

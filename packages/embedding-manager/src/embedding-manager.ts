@@ -288,6 +288,30 @@ export class EmbeddingManager {
     return out;
   }
 
+  /** Singular-query version of embedManyAllProviders — embeds ONE query
+   * with EVERY enabled/healthy/keyed provider in parallel instead of
+   * whichever one rotation picks. Retrieval needs this: a chunk's
+   * relevance score depends on which embedding model produced the query
+   * vector, so a rotated single-provider query makes the same question
+   * return different results turn to turn (the correct chunk can score
+   * high in one provider's space and low in another's, even though every
+   * provider's vector space is fully populated at indexing time via
+   * embedManyAllProviders). Querying every provider and letting the
+   * caller merge by score makes retrieval consistent instead of a
+   * lottery. One user message is cheap to embed N times; this is not
+   * indexing-scale traffic. */
+  async embedWithAllProviders(text: string): Promise<EmbeddingResult[]> {
+    const names = this.getProviderNames();
+
+    const settled = await Promise.allSettled(
+      names.map((name) => this.embedWithProvider(name, text))
+    );
+
+    return settled
+      .filter((outcome): outcome is PromiseFulfilledResult<EmbeddingResult> => outcome.status === "fulfilled")
+      .map((outcome) => outcome.value);
+  }
+
   /** Same structure as AIManager.generate(): try each enabled, healthy
    * provider in order, rotating through its keys, until one succeeds or
    * every provider/key combination has failed. */

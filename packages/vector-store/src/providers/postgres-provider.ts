@@ -95,6 +95,27 @@ export class PostgresProvider implements VectorStore {
     businessId?: string,
     embeddingProvider?: string
   ): Promise<SearchResult[]> {
+    const [results] = await this.searchMany([embedding], limit, businessId, embeddingProvider);
+    return results!;
+  }
+
+  async searchMany(
+    embeddings: number[][],
+    limit = 5,
+    businessId?: string,
+    embeddingProvider?: string
+  ): Promise<SearchResult[][]> {
+    if (embeddings.length === 0) {
+      return [];
+    }
+
+    // Fetched and mapped to records exactly ONCE regardless of how many
+    // embeddings are being scored against it — a multi-clause comparison
+    // question calling search() once per clause was refetching and
+    // rescanning this business's entire vector set redundantly, and that
+    // scan is synchronous JS (cosineSimilarity over every row), so it was
+    // real, measured latency blocking the whole process, not just this
+    // request.
     const rows = await prisma.vectorRecord.findMany({
       where: {
         ...(businessId ? { businessId } : {}),
@@ -117,17 +138,20 @@ export class PostgresProvider implements VectorStore {
     });
 
     if (rows.length === 0) {
-      return [];
+      return embeddings.map(() => []);
     }
 
-    return rows
-      .map((row) => rowToRecord(row))
-      .map((record) => ({
-        ...record,
-        score: this.cosineSimilarity(embedding, record.embedding),
-      }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit);
+    const records = rows.map((row) => rowToRecord(row));
+
+    return embeddings.map((embedding) =>
+      records
+        .map((record) => ({
+          ...record,
+          score: this.cosineSimilarity(embedding, record.embedding),
+        }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit)
+    );
   }
 
   async listAll(): Promise<VectorRecord[]> {

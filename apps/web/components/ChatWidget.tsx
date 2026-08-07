@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { MarkdownMessage } from "./MarkdownMessage";
+
 interface Message {
   role: "user" | "assistant" | "agent";
   content: string;
@@ -282,8 +284,8 @@ export function ChatWidget({
               <div>
                 <strong>
                   {m.role === "user" ? "You" : m.role === "agent" ? "Agent" : "Assistant"}:
-                </strong>{" "}
-                {m.content}
+                </strong>
+                {m.role === "user" ? ` ${m.content}` : <MarkdownMessage text={m.content} />}
               </div>
               {m.role === "assistant" && m.provider && (
                 <div style={{ fontSize: 11, opacity: 0.5 }}>

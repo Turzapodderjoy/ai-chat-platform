@@ -31,6 +31,20 @@ export class VectorStoreManager {
     );
   }
 
+  async searchMany(
+    embeddings: number[][],
+    limit = 5,
+    businessId?: string,
+    embeddingProvider?: string
+  ): Promise<SearchResult[][]> {
+    return this.provider.searchMany(
+      embeddings,
+      limit,
+      businessId,
+      embeddingProvider
+    );
+  }
+
   async listAll(): Promise<VectorRecord[]> {
     return this.provider.listAll();
   }

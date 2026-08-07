@@ -32,7 +32,7 @@ export class IndexingService {
   ): Promise<IndexResult> {
 
     const chunks =
-      this.chunker.chunk(request.text);
+      request.preChunked ?? this.chunker.chunk(request.text);
 
     const documentId =
       request.documentId ??

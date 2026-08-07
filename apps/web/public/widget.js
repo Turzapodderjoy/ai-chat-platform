@@ -120,7 +120,11 @@
       var row = document.createElement("div");
       row.setAttribute("style", "margin-bottom:8px;");
       var bubble = document.createElement("div");
-      bubble.textContent = text;
+      if (role === "user") {
+        bubble.textContent = text;
+      } else {
+        bubble.innerHTML = formatMessage(text);
+      }
       bubble.setAttribute("style", [
         "display:inline-block", "padding:8px 12px", "border-radius:12px", "max-width:85%",
         role === "user"
@@ -159,6 +163,74 @@
     input.addEventListener("keydown", function (e) {
       if (e.key === "Enter") sendMessage();
     });
+  }
+
+  // Small markdown-lite renderer for assistant replies — no bundler here
+  // (this file is served as-is, not compiled), so a full markdown library
+  // isn't an option. Covers exactly what the system prompt is instructed
+  // to produce: bold, bullet/numbered lists, and pipe tables. Escapes
+  // HTML FIRST, then only ever introduces tags itself, so this stays safe
+  // against a customer typing markdown-looking text back (that path never
+  // reaches this function — only assistant text does, via bubble.innerHTML
+  // above) and against the AI echoing untrusted text inside its answer.
+  function formatMessage(text) {
+    var escaped = escapeHtml(text);
+    var lines = escaped.split("\n");
+    var html = "";
+    var i = 0;
+
+    function inline(s) {
+      return s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    }
+
+    while (i < lines.length) {
+      var line = lines[i];
+
+      // Pipe table: a header row, a "---|---" separator row, then 1+ data rows.
+      if (/^\s*\|.*\|\s*$/.test(line) && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i + 1])) {
+        var headerCells = line.split("|").map(function (c) { return c.trim(); }).filter(function (c) { return c !== ""; });
+        i += 2;
+        var bodyRows = [];
+        while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) {
+          bodyRows.push(lines[i].split("|").map(function (c) { return c.trim(); }).filter(function (c) { return c !== ""; }));
+          i++;
+        }
+        html += '<table style="border-collapse:collapse;margin:4px 0;font-size:12px">';
+        html += "<tr>" + headerCells.map(function (c) { return '<th style="text-align:left;padding:3px 8px;border-bottom:1px solid currentColor;opacity:.85">' + inline(c) + "</th>"; }).join("") + "</tr>";
+        bodyRows.forEach(function (row) {
+          html += "<tr>" + row.map(function (c) { return '<td style="padding:3px 8px;border-bottom:1px solid rgba(128,128,128,.25)">' + inline(c) + "</td>"; }).join("") + "</tr>";
+        });
+        html += "</table>";
+        continue;
+      }
+
+      // Bullet list: consecutive "- " / "* " lines.
+      if (/^\s*[-*]\s+/.test(line)) {
+        html += '<ul style="margin:4px 0;padding-left:18px">';
+        while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
+          html += "<li>" + inline(lines[i].replace(/^\s*[-*]\s+/, "")) + "</li>";
+          i++;
+        }
+        html += "</ul>";
+        continue;
+      }
+
+      // Numbered list: consecutive "1. " lines.
+      if (/^\s*\d+\.\s+/.test(line)) {
+        html += '<ol style="margin:4px 0;padding-left:18px">';
+        while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
+          html += "<li>" + inline(lines[i].replace(/^\s*\d+\.\s+/, "")) + "</li>";
+          i++;
+        }
+        html += "</ol>";
+        continue;
+      }
+
+      html += (line.trim() === "" ? "<br>" : inline(line)) + "<br>";
+      i++;
+    }
+
+    return html;
   }
 
   function escapeHtml(s) {

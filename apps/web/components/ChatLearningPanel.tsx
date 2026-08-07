@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 
 import { cardStyle, cellStyle, subtleTextStyle, badgeStyle, primaryButtonStyle } from "./dashboard-styles";
+import { MarkdownMessage } from "./MarkdownMessage";
 
 interface ConversationSummary {
   id: string;
@@ -339,7 +340,7 @@ export function ChatLearningPanel({ businessId }: { businessId?: string }) {
                     <div key={m.id} style={{ marginBottom: 12 }}>
                       <div>
                         <strong>{m.role === "user" ? "Customer" : m.role === "agent" ? "Agent" : m.role === "assistant" ? "AI" : "System"}:</strong>{" "}
-                        {m.content}
+                        {m.role === "user" ? m.content : <MarkdownMessage text={m.content} />}
                       </div>
                       {m.role === "assistant" && (
                         <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 4 }}>

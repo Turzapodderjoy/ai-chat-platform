@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { cardStyle, subtleTextStyle, primaryButtonStyle } from "./dashboard-styles";
 import { MessageTagControl } from "./MessageTagControl";
+import { MarkdownMessage } from "./MarkdownMessage";
 
 interface Message {
   id: string;
@@ -324,7 +325,7 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
                   <div key={m.id} style={{ marginBottom: 10 }}>
                     <div>
                       <strong>{m.role === "user" ? "Customer" : m.role === "agent" ? "Agent" : m.role === "assistant" ? "AI" : "System"}:</strong>{" "}
-                      {m.content}
+                      {m.role === "user" ? m.content : <MarkdownMessage text={m.content} />}
                     </div>
                     <div style={{ marginTop: 2 }}>
                       <MessageTagControl

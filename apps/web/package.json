@@ -12,6 +12,14 @@
   },
   "dependencies": {
     "@ai-chat-platform/bootstrap": "workspace:*",
+    "@ai-chat-platform/chunker": "workspace:*",
+    "@ai-chat-platform/client-auth": "workspace:*",
+    "@ai-chat-platform/database": "workspace:*",
+    "@ai-chat-platform/document-loader": "workspace:*",
+    "@ai-chat-platform/embedding-manager": "workspace:*",
+    "@ai-chat-platform/indexing": "workspace:*",
+    "@ai-chat-platform/ingestion": "workspace:*",
+    "@ai-chat-platform/vector-store": "workspace:*",
     "@google/genai": "^2.12.0",
     "@repo/ui": "workspace:*",
     "groq-sdk": "^1.3.0",
@@ -20,15 +28,9 @@
     "pdf-parse": "^2.4.5",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "@ai-chat-platform/document-loader": "workspace:*",
-    "@ai-chat-platform/chunker": "workspace:*",
-    "@ai-chat-platform/ingestion": "workspace:*",
-    "@ai-chat-platform/embedding-manager": "workspace:*",
-    "@ai-chat-platform/vector-store": "workspace:*",
-    "@ai-chat-platform/indexing": "workspace:*",
-    "@ai-chat-platform/database": "workspace:*",
-    "@ai-chat-platform/client-auth": "workspace:*",
-    "recharts": "^2.15.0"
+    "react-markdown": "^10.1.0",
+    "recharts": "^2.15.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

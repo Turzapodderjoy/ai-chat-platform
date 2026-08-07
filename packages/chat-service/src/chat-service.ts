@@ -223,11 +223,14 @@ export class ChatService {
       };
     }
 
+    // Deliberately NOT passing queryEmbedding/queryEmbeddingProvider here
+    // (unlike the cache lookup above, which legitimately wants one fixed
+    // vector to key on) — retrieval needs to search every embedding
+    // provider's space and merge by score, not just whichever single
+    // provider rotation picked for the cache key. See
+    // VectorStoreRetriever.retrieve()'s own comment for why.
     const retrieved =
-      await this.retriever.retrieve(
-        retrievalQuery,
-        { embedding: queryEmbedding, embeddingProvider: queryEmbeddingProvider, businessId }
-      );
+      await this.retriever.retrieve(retrievalQuery, { businessId });
 
     // Top retrieval score doubles as a rough "grounding confidence" for
     // this answer — how well the knowledge base actually backs it. Shown

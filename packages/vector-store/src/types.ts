@@ -42,6 +42,22 @@ export interface VectorStore {
     embeddingProvider?: string
   ): Promise<SearchResult[]>;
 
+  /** Scores MANY query embeddings (same businessId/embeddingProvider,
+   * e.g. one per clause of a comparison/joint question) against the
+   * candidate rows fetched only ONCE, instead of once per embedding —
+   * search() does its own fetch+scan per call, so a multi-clause
+   * retrieval calling it in a loop refetches and rescans the same
+   * business's entire vector set redundantly, which is real, measured
+   * latency (each scan is synchronous JS work blocking the event loop,
+   * not I/O — it shows up as unrelated concurrent requests slowing down
+   * too). Returns one result array per input embedding, same order. */
+  searchMany(
+    embeddings: number[][],
+    limit?: number,
+    businessId?: string,
+    embeddingProvider?: string
+  ): Promise<SearchResult[][]>;
+
   listAll(): Promise<VectorRecord[]>;
 
   deleteByDocumentId(documentId: string): Promise<void>;

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { cardStyle, subtleTextStyle, primaryButtonStyle } from "./dashboard-styles";
+import { MarkdownMessage } from "./MarkdownMessage";
 
 interface Message {
   role: "user" | "assistant" | "agent";
@@ -190,7 +191,8 @@ export function TrainingArenaPanel({ businessId }: { businessId: string }) {
                 {!viewingMessages && <p style={subtleTextStyle}>Loading…</p>}
                 {viewingMessages?.map((m, i) => (
                   <div key={i} style={{ marginBottom: 6 }}>
-                    <strong>{m.role === "user" ? "You" : m.role === "agent" ? "Agent" : "Assistant"}:</strong> {m.content}
+                    <strong>{m.role === "user" ? "You" : m.role === "agent" ? "Agent" : "Assistant"}:</strong>{" "}
+                    {m.role === "user" ? m.content : <MarkdownMessage text={m.content} />}
                   </div>
                 ))}
               </div>
@@ -227,7 +229,8 @@ export function TrainingArenaPanel({ businessId }: { businessId: string }) {
 
                     {messages.map((m, i) => (
                       <div key={i}>
-                        <strong>{m.role === "user" ? "You" : "Assistant"}:</strong> {m.content}
+                        <strong>{m.role === "user" ? "You" : "Assistant"}:</strong>{" "}
+                        {m.role === "user" ? m.content : <MarkdownMessage text={m.content} />}
                         {m.handoff && <span style={{ fontSize: 11, color: "var(--text-faint)", marginLeft: 6 }}>(handed off here)</span>}
                       </div>
                     ))}
