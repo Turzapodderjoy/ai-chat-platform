@@ -5,6 +5,7 @@ import { ConversationService, ConversationMessage } from "@ai-chat-platform/conv
 import { EmbeddingManager } from "@ai-chat-platform/embedding-manager";
 import { AiConfigService } from "@ai-chat-platform/ai-config";
 import type { VectorStoreManager } from "@ai-chat-platform/vector-store";
+import type { MasterCsvService } from "@ai-chat-platform/knowledge-refresh";
 
 import { ChatUsageLog } from "./chat-usage-log";
 import { ResponseCache } from "./response-cache";
@@ -172,7 +173,8 @@ export class ChatService {
     private readonly responseCache: ResponseCache,
     private readonly usageLog: ChatUsageLog,
     private readonly aiConfig: AiConfigService,
-    private readonly vectorStore: VectorStoreManager
+    private readonly vectorStore: VectorStoreManager,
+    private readonly masterCsv: MasterCsvService
   ) {}
 
   // 200K chars (~50K tokens) — conservative, safely under the smallest
@@ -199,6 +201,25 @@ export class ChatService {
     }
 
     return texts.map((text, i) => ({ id: `full-context-${i}`, text, score: 1 }));
+  }
+
+  /** The scheduled knowledge-refresh job's consolidated CSV — every
+   * product/price/spec across every crawled page and uploaded document
+   * for this business, in one place. Owner's own words: the AI should
+   * scan this when answering, not just whatever a handful of top-K
+   * chunks happened to surface. Always tried first and merged ALONGSIDE
+   * (never instead of) normal retrieval/full-context below — the master
+   * CSV only updates on its schedule, so live retrieval still covers
+   * anything newer, and prose content the CSV doesn't include at all.
+   * Null if none exists yet or it's grown past a sane single-prompt
+   * budget (same reasoning/size as FULL_CONTEXT_CHAR_BUDGET). */
+  private async getMasterCsvChunkIfAvailable(businessId: string): Promise<RetrievedChunk | null> {
+    const csv = await this.masterCsv.get(businessId);
+    if (!csv || !csv.content || csv.content.length > ChatService.FULL_CONTEXT_CHAR_BUDGET) {
+      return null;
+    }
+
+    return { id: "master-csv", text: csv.content, score: 1 };
   }
 
   async chat(
@@ -347,9 +368,31 @@ export class ChatService {
     // provider's space and merge by score, not just whichever single
     // provider rotation picked for the cache key. See
     // VectorStoreRetriever.retrieve()'s own comment for why.
+    const fullContext = await this.getFullContextIfSmallEnough(businessId);
+
+    // full-context mode already hands the model every chunk this
+    // business has (tabular included) — the master CSV would be pure
+    // duplication there. It matters for the businesses that DON'T
+    // qualify for full-context (too large): those still only get top-K
+    // retrieval by default, so prepending the master CSV is what
+    // actually gives the model the whole table at once for them.
+    //
+    // The master CSV lookup (one indexed DB read) and retrieval (multi-
+    // provider embedding + vector search) are independent — run them in
+    // parallel, not sequentially, so adding the CSV lookup doesn't add
+    // its own latency on top of retrieval's. Confirmed live: awaiting
+    // them one after another pushed an already-borderline-slow business
+    // past this route's 12s hard timeout on every call.
+    const [masterCsvChunk, retrievedFromSearch] = fullContext
+      ? [null, null]
+      : await Promise.all([
+          this.getMasterCsvChunkIfAvailable(businessId),
+          this.retriever.retrieve(retrievalQuery, { businessId }),
+        ]);
+
     const retrieved =
-      (await this.getFullContextIfSmallEnough(businessId)) ??
-      (await this.retriever.retrieve(retrievalQuery, { businessId }));
+      fullContext ??
+      [...(masterCsvChunk ? [masterCsvChunk] : []), ...(retrievedFromSearch ?? [])];
 
     // Top retrieval score doubles as a rough "grounding confidence" for
     // this answer — how well the knowledge base actually backs it. Shown

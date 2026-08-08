@@ -73,22 +73,6 @@ export class Container {
     const aiConfig =
       new AiConfigService();
 
-    const chat =
-      new ChatService(
-        conversations,
-        retriever,
-        prompts,
-        ai,
-        embeddings,
-        responseCache,
-        chatUsageLog,
-        aiConfig,
-        vectorStore
-      );
-
-    const rag =
-      new RagService(chat);
-
     // Own dedicated key (GROQ_EXTRACTION_API_KEY), not the shared
     // AIManager/Groq key powering live chat — this runs on every crawl
     // and every document upload, for every business, so it needs its
@@ -133,6 +117,23 @@ export class Container {
         tabularExtraction,
         refreshSchedule
       );
+
+    const chat =
+      new ChatService(
+        conversations,
+        retriever,
+        prompts,
+        ai,
+        embeddings,
+        responseCache,
+        chatUsageLog,
+        aiConfig,
+        vectorStore,
+        masterCsv
+      );
+
+    const rag =
+      new RagService(chat);
 
     const messageFeedback =
       new MessageFeedbackService();

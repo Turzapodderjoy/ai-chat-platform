@@ -13,6 +13,7 @@
     "@ai-chat-platform/ai-manager": "workspace:*",
     "@ai-chat-platform/embedding-manager": "workspace:*",
     "@ai-chat-platform/ai-config": "workspace:*",
-    "@ai-chat-platform/vector-store": "workspace:*"
+    "@ai-chat-platform/vector-store": "workspace:*",
+    "@ai-chat-platform/knowledge-refresh": "workspace:*"
   }
 }
