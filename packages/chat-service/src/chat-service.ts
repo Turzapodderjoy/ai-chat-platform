@@ -65,6 +65,49 @@ const HANDOFF_MESSAGE_BANGLISH =
 const ALREADY_WAITING_MESSAGE_BANGLISH =
   "Apni ekjon human agent-er sathe connected achen — tini shiggiri apnar message dekhe eikhane reply korben.";
 
+// A plain greeting has no real content to reason about, yet letting the
+// LLM generate a reply for it is where nonsense like "How can Amader
+// help you today?" comes from — the "always say Amader, never Apnar"
+// business-identity rule (meant for Bangla/Banglish sentences) bleeding
+// into an English sentence where "Amader" isn't even a word. A greeting
+// is 100% predictable, so it gets a fixed, always-correct reply instead
+// of a roll of the dice — also skips retrieval/LLM entirely, so it's
+// instant and free. Must match the ENTIRE trimmed message, not just
+// contain a greeting word, so "hi, what's the price of X" still goes
+// through the real pipeline.
+const GREETING_BN = /^(হ্যালো|হাই|সালাম|আসসালামু\s*আলাইকুম)[।!?\s]*$/;
+const GREETING_BANGLISH = /^(assalamu\s*[-']?\s*alaikum|salam|hi|hello|hey|heyy+|yo|ki\s*obostha|kemon\s*(acho|achen|acen)|kmn\s*(acho|achen))[.!?\s]*$/i;
+const GREETING_EN = /^(hi+|hello|hey+|hiya|yo|good\s*(morning|afternoon|evening))[.!?\s]*$/i;
+
+const GREETING_MESSAGE_EN = "Hi! How can I help you today?";
+const GREETING_MESSAGE_BN = "হ্যালো! আজ আমি আপনাকে কীভাবে সাহায্য করতে পারি?";
+const GREETING_MESSAGE_BANGLISH = "Hi! Ami apnake ki bhabe shahajjo korte pari?";
+
+/** Returns the canned greeting reply if this message is nothing but a
+ * greeting, else null. Bangla-script and the common Banglish greeting
+ * words (salam, assalamualaikum, kemon achen) resolve their own
+ * language directly; a bare "hi"/"hello" defers to the business's
+ * language setting/heuristic via cannedMessageLanguage, same as every
+ * other canned message in this file. */
+function greetingReply(languageMode: string, userMessage: string): string | null {
+  const trimmed = userMessage.trim();
+
+  if (GREETING_BN.test(trimmed)) {
+    return GREETING_MESSAGE_BN;
+  }
+
+  if (GREETING_BANGLISH.test(trimmed) && !GREETING_EN.test(trimmed)) {
+    return GREETING_MESSAGE_BANGLISH;
+  }
+
+  if (GREETING_EN.test(trimmed)) {
+    const lang = cannedMessageLanguage(languageMode, userMessage);
+    return lang === "bangla" ? GREETING_MESSAGE_BN : lang === "banglish" ? GREETING_MESSAGE_BANGLISH : GREETING_MESSAGE_EN;
+  }
+
+  return null;
+}
+
 // ponytail: Bangla-script detection only (Unicode block ঀ-৿) —
 // cheap and exact, no AI call needed for these canned messages. Banglish
 // (romanized Bengali) isn't reliably detectable by regex, so it falls
@@ -186,6 +229,36 @@ export class ChatService {
         tokens: 0,
         confidence: 0,
         handoff: true,
+      };
+    }
+
+    // A plain "hi"/"salam" gets a fixed, always-grammatical reply
+    // instead of an LLM roll of the dice — see greetingReply's own
+    // comment for why. Checked after the already-waiting handoff (a
+    // human taking over still wins) but before retrieval/LLM, so it's
+    // instant and costs nothing.
+    const greeting = greetingReply(config.languageMode, request.message);
+    if (greeting) {
+      const savedMessage = await this.conversations.addMessage(
+        request.sessionId,
+        "assistant",
+        greeting
+      );
+
+      this.usageLog.record({
+        chatId: request.sessionId,
+        provider: "canned",
+        tokens: 0,
+        confidence: 1,
+        createdAt: new Date().toISOString(),
+      });
+
+      return {
+        answer: greeting,
+        provider: "canned",
+        tokens: 0,
+        confidence: 1,
+        messageId: savedMessage.id,
       };
     }
 
