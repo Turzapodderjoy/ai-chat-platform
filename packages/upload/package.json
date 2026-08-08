@@ -11,6 +11,7 @@
     "@ai-chat-platform/ingestion": "workspace:*",
     "@ai-chat-platform/indexing": "workspace:*",
     "@ai-chat-platform/database": "workspace:*",
-    "@ai-chat-platform/chunker": "workspace:*"
+    "@ai-chat-platform/chunker": "workspace:*",
+    "@ai-chat-platform/vector-store": "workspace:*"
   }
 }

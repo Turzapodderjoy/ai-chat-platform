@@ -271,6 +271,9 @@ importers:
       '@ai-chat-platform/retriever':
         specifier: workspace:*
         version: link:../retriever
+      '@ai-chat-platform/tabular-extraction':
+        specifier: workspace:*
+        version: link:../tabular-extraction
       '@ai-chat-platform/tagging-pipeline':
         specifier: workspace:*
         version: link:../tagging-pipeline
@@ -459,6 +462,9 @@ importers:
       '@ai-chat-platform/embedding-manager':
         specifier: workspace:*
         version: link:../embedding-manager
+      '@ai-chat-platform/tabular-extraction':
+        specifier: workspace:*
+        version: link:../tabular-extraction
       '@ai-chat-platform/vector-store':
         specifier: workspace:*
         version: link:../vector-store
@@ -533,6 +539,15 @@ importers:
       '@ai-chat-platform/vector-store':
         specifier: workspace:*
         version: link:../vector-store
+
+  packages/tabular-extraction:
+    dependencies:
+      groq-sdk:
+        specifier: ^0.31.0
+        version: 0.31.0
+      xlsx:
+        specifier: ^0.18.5
+        version: 0.18.5
 
   packages/tagging-pipeline:
     dependencies:
@@ -610,6 +625,9 @@ importers:
       '@ai-chat-platform/ingestion':
         specifier: workspace:*
         version: link:../ingestion
+      '@ai-chat-platform/vector-store':
+        specifier: workspace:*
+        version: link:../vector-store
 
   packages/vector-store:
     dependencies:

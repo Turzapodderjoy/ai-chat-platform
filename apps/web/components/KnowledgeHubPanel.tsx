@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 
 import { UploadWidget } from "./UploadWidget";
 import { cardStyle, cellStyle, subtleTextStyle, primaryButtonStyle } from "./dashboard-styles";
@@ -12,6 +12,12 @@ interface KnowledgeDocument {
   status: string;
   lastCrawledAt: string | null;
   lastUpdated: string | null;
+}
+
+interface DocumentChunk {
+  chunkId: string;
+  text: string;
+  chunkingMethod: string | null;
 }
 
 interface CoverageEntry {
@@ -63,7 +69,33 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
   const [backfillMessage, setBackfillMessage] = useState("");
   const [healing, setHealing] = useState(false);
   const [healMessage, setHealMessage] = useState("");
+  const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
+  const [chunksCache, setChunksCache] = useState<Record<string, DocumentChunk[]>>({});
+  const [loadingChunks, setLoadingChunks] = useState(false);
   const wasActive = useRef(false);
+
+  /** Toggles the "view extracted data" section under a document row —
+   * fetches its chunks once and caches them, so re-expanding after
+   * collapsing doesn't refetch. */
+  async function toggleChunks(documentId: string) {
+    if (expandedDocId === documentId) {
+      setExpandedDocId(null);
+      return;
+    }
+
+    setExpandedDocId(documentId);
+
+    if (!chunksCache[documentId]) {
+      setLoadingChunks(true);
+      try {
+        const res = await fetch(`/api/admin/knowledge/chunks?documentId=${encodeURIComponent(documentId)}`);
+        const data = await res.json();
+        setChunksCache((prev) => ({ ...prev, [documentId]: data.chunks ?? [] }));
+      } finally {
+        setLoadingChunks(false);
+      }
+    }
+  }
 
   function refreshDocuments() {
     const qs = businessId ? `?businessId=${encodeURIComponent(businessId)}` : "";
@@ -306,22 +338,38 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
           </thead>
           <tbody>
             {documents.map((d) => (
-              <tr key={d.documentId}>
-                <td style={cellStyle}>{d.filename}</td>
-                <td style={cellStyle}>
-                  <DocumentStatus status={d.status} lastCrawledAt={d.lastCrawledAt} />
-                </td>
-                <td style={cellStyle}>{d.chunks}</td>
-                <td style={cellStyle}>
-                  {d.lastUpdated ? new Date(d.lastUpdated).toLocaleString() : "—"}
-                </td>
-                <td style={cellStyle}>
-                  <code style={{ fontSize: 11 }}>{d.documentId}</code>
-                </td>
-                <td style={cellStyle}>
-                  <button onClick={() => deleteDocument(d)}>Delete</button>
-                </td>
-              </tr>
+              <Fragment key={d.documentId}>
+                <tr>
+                  <td style={cellStyle}>{d.filename}</td>
+                  <td style={cellStyle}>
+                    <DocumentStatus status={d.status} lastCrawledAt={d.lastCrawledAt} />
+                  </td>
+                  <td style={cellStyle}>{d.chunks}</td>
+                  <td style={cellStyle}>
+                    {d.lastUpdated ? new Date(d.lastUpdated).toLocaleString() : "—"}
+                  </td>
+                  <td style={cellStyle}>
+                    <code style={{ fontSize: 11 }}>{d.documentId}</code>
+                  </td>
+                  <td style={cellStyle}>
+                    <button onClick={() => toggleChunks(d.documentId)} style={{ marginRight: 6 }}>
+                      {expandedDocId === d.documentId ? "Hide data" : "View data"}
+                    </button>
+                    <button onClick={() => deleteDocument(d)}>Delete</button>
+                  </td>
+                </tr>
+                {expandedDocId === d.documentId && (
+                  <tr>
+                    <td style={cellStyle} colSpan={6}>
+                      {loadingChunks && !chunksCache[d.documentId] ? (
+                        <p style={subtleTextStyle}>Loading…</p>
+                      ) : (
+                        <DocumentChunksView chunks={chunksCache[d.documentId] ?? []} />
+                      )}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
             {documents.length === 0 && (
               <tr>
@@ -402,6 +450,92 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
         </div>
       )}
     </section>
+  );
+}
+
+const TABULAR_METHODS = new Set(["llm-extracted", "caller-tabular"]);
+
+/** Chunk text from chunkTabularRows is "Header: Value" lines — parses it
+ * back into a row object. Splits on the FIRST ": " only, so a value that
+ * contains its own colon (e.g. "Hours: 9am - 5pm") still parses
+ * correctly instead of getting truncated at the wrong colon. */
+function parseTabularChunk(text: string): Record<string, string> {
+  const row: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    const idx = line.indexOf(": ");
+    if (idx === -1) continue;
+    row[line.slice(0, idx)] = line.slice(idx + 2);
+  }
+  return row;
+}
+
+/** A single document can now contain BOTH tabular chunks (from LLM
+ * extraction or a real CSV/XLSX upload) and plain char-chunked prose at
+ * once — extraction is additive, never a replacement, so nothing on the
+ * source page/document is ever silently dropped from indexing. Renders
+ * each kind the way it's actually useful to look at: a real table for
+ * tabular data, plain text blocks for prose. */
+function DocumentChunksView({ chunks }: { chunks: DocumentChunk[] }) {
+  if (chunks.length === 0) {
+    return <p style={subtleTextStyle}>No chunks found.</p>;
+  }
+
+  const tabularChunks = chunks.filter((c) => c.chunkingMethod && TABULAR_METHODS.has(c.chunkingMethod));
+  const textChunks = chunks.filter((c) => !c.chunkingMethod || !TABULAR_METHODS.has(c.chunkingMethod));
+
+  const rows = tabularChunks.map((c) => parseTabularChunk(c.text));
+  const headers: string[] = [];
+  for (const row of rows) {
+    for (const key of Object.keys(row)) {
+      if (!headers.includes(key)) headers.push(key);
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {rows.length > 0 && (
+        <div>
+          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>
+            AI-structured data ({rows.length} row{rows.length === 1 ? "" : "s"})
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead>
+                <tr>
+                  {headers.map((h) => (
+                    <th key={h} style={cellStyle}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, i) => (
+                  <tr key={i}>
+                    {headers.map((h) => (
+                      <td key={h} style={cellStyle}>{row[h] ?? ""}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {textChunks.length > 0 && (
+        <div>
+          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>
+            Plain text chunks ({textChunks.length})
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 300, overflowY: "auto" }}>
+            {textChunks.map((c) => (
+              <div key={c.chunkId} style={{ fontSize: 12, padding: 8, border: "1px solid var(--border)", borderRadius: 6 }}>
+                {c.text}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

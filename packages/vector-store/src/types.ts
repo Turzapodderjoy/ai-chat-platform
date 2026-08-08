@@ -77,6 +77,16 @@ export interface VectorStore {
    * hand a model directly instead of retrieving from it. */
   listUniqueChunkTexts(businessId: string): Promise<string[]>;
 
+  /** One entry per unique chunk (deduped by chunkId, same reasoning as
+   * listUniqueChunkTexts) for a single document — backs the Knowledge
+   * Hub's per-document "view extracted data" panel. Includes metadata so
+   * the caller can tell llm-extracted/caller-tabular chunks (render as a
+   * table) from char-chunked ones (render as plain text) and sort by
+   * chunkIndex. */
+  listChunksForDocument(
+    documentId: string
+  ): Promise<{ chunkId: string; text: string; metadata?: Record<string, unknown> }[]>;
+
   listAll(): Promise<VectorRecord[]>;
 
   deleteByDocumentId(documentId: string): Promise<void>;

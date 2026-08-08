@@ -197,6 +197,24 @@ export class PostgresProvider implements VectorStore {
       .slice(0, limit);
   }
 
+  async listChunksForDocument(
+    documentId: string
+  ): Promise<{ chunkId: string; text: string; metadata?: Record<string, unknown> }[]> {
+    const rows = await prisma.vectorRecord.findMany({
+      where: { documentId },
+      distinct: ["chunkId"],
+    });
+
+    return rows
+      .map((row) => rowToRecord(row))
+      .map((record) => ({ chunkId: record.chunkId, text: record.text, metadata: record.metadata }))
+      .sort((a, b) => {
+        const ai = (a.metadata?.chunkIndex as number | undefined) ?? 0;
+        const bi = (b.metadata?.chunkIndex as number | undefined) ?? 0;
+        return ai - bi;
+      });
+  }
+
   async listUniqueChunkTexts(businessId: string): Promise<string[]> {
     const rows = await prisma.vectorRecord.findMany({
       where: { businessId },

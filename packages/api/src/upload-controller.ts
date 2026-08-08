@@ -7,11 +7,13 @@ export class UploadController {
 
   async uploadFile(
     filepath: string,
-    businessId: string
+    businessId: string,
+    originalFilename: string
   ) {
     return this.upload.upload({
       filepath,
       businessId,
+      originalFilename,
     });
   }
 }

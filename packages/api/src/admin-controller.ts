@@ -202,6 +202,22 @@ export class AdminController {
     return [...byDocument.values()];
   }
 
+  /** One document's chunks, in order — backs the Knowledge Hub's
+   * "view extracted data" panel so a client can see exactly what got
+   * indexed from a crawled page or uploaded file, including whether it
+   * came from LLM tabular extraction or plain chunking. */
+  async documentChunks(
+    documentId: string
+  ): Promise<{ chunkId: string; text: string; chunkingMethod: string | null }[]> {
+    const chunks = await this.vectorStore.listChunksForDocument(documentId);
+
+    return chunks.map((c) => ({
+      chunkId: c.chunkId,
+      text: c.text,
+      chunkingMethod: (c.metadata?.chunkingMethod as string | undefined) ?? null,
+    }));
+  }
+
   /** Removes one indexed document (all its chunks) — does not touch the
    * crawl target that produced it, if any; that keeps re-crawling. When
    * called with a businessId (every real caller — the per-client and

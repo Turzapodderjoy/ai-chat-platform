@@ -1,0 +1,99 @@
+import Groq from "groq-sdk";
+import * as XLSX from "xlsx";
+
+// Own dedicated key (GROQ_EXTRACTION_API_KEY) — runs on every crawl and
+// every document upload, for every business, so it must never compete
+// with live-chat or Chat Learning's quota. Groq, not Gemini — a real
+// Gemini API key was tried first and hit its free-tier's 20
+// requests/day cap on the very first test run; Groq's free tier is far
+// more generous and was already validated live (24/24 real products,
+// 5/5 multilingual synthetic listings, zero site-specific tuning).
+const MODEL = "llama-3.3-70b-versatile";
+
+// A content block with no clear list of distinct items (an About Us
+// page, a return policy, a single-paragraph FAQ answer) has nothing to
+// structure — forcing it into a one-row CSV would be worse than plain
+// chunking, not better. The model says so explicitly rather than us
+// guessing from the output shape.
+const NOT_TABULAR_SENTINEL = "NOT_TABULAR";
+
+const SYSTEM_PROMPT = `You extract product/item listings from raw scraped webpage or document text into CSV rows.
+The text may be flattened (HTML tags stripped, whitespace collapsed) so it can run on without clear line breaks. It may be in English, Bangla (Bengali script), Banglish (Bangla written in Latin letters), or a mix of all three within the same listing.
+
+If this text has no clear list of multiple distinct items (e.g. it's a policy page, an About Us page, a single FAQ answer, generic navigation/menu text) — output exactly the single word ${NOT_TABULAR_SENTINEL} and nothing else.
+
+Otherwise, decide the CSV columns from what's ACTUALLY present in the content — every distinct piece of information about an item (name, price, stock status, size/weight, brand, description, delivery info, specs, etc.) becomes its own column. Every row must have every column that ANY row needs, even if blank for some rows. Don't invent columns that aren't backed by the text.
+
+Translate values into clear English for the column HEADERS (so "দাম"/"দাম:" -> "Price", "স্টক"/"স্টক অবস্থা" -> "Stock") but keep item names/descriptions in their original language/register if that's how a customer would recognize them. Numbers/prices: extract the number only, no currency symbols/commas, normalized to plain Western digits regardless of source script. Stock/availability status: always normalize the VALUE itself to exactly "In stock" or "Out of stock" in English, regardless of what language/wording the source used.
+
+Output ONLY the CSV (or the ${NOT_TABULAR_SENTINEL} sentinel) — no commentary, no markdown code fences.`;
+
+export interface ExtractedTable {
+  headers: string[];
+  rows: string[][];
+}
+
+export class TabularExtractionClient {
+  constructor(private readonly apiKey: string) {}
+
+  /** Never throws — a failed/misconfigured/rate-limited extraction call
+   * must never be able to break an upload or crawl. Returns null on any
+   * failure, on the NOT_TABULAR sentinel, or on an empty result; callers
+   * fall back to normal chunking in that case. */
+  async extract(text: string): Promise<ExtractedTable | null> {
+    if (!this.apiKey) {
+      return null;
+    }
+
+    let raw: string;
+    try {
+      const client = new Groq({ apiKey: this.apiKey });
+      const response = await client.chat.completions.create({
+        model: MODEL,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: text },
+        ],
+        temperature: 0,
+        max_tokens: 4000,
+      });
+      raw = (response.choices[0]?.message?.content ?? "").trim();
+    } catch {
+      return null;
+    }
+
+    if (!raw || raw === NOT_TABULAR_SENTINEL || raw.includes(NOT_TABULAR_SENTINEL)) {
+      return null;
+    }
+
+    // Strip a markdown code fence if the model added one despite being
+    // told not to — defensive, not relied on.
+    const csv = raw.replace(/^```(?:csv)?\n?/, "").replace(/\n?```$/, "");
+
+    try {
+      const workbook = XLSX.read(csv, { type: "string" });
+      const sheetName = workbook.SheetNames[0];
+      if (!sheetName) {
+        return null;
+      }
+
+      const rows: string[][] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]!, {
+        header: 1,
+        defval: "",
+        raw: false,
+      });
+
+      const [headerRow, ...dataRows] = rows;
+      if (!headerRow || headerRow.length === 0 || dataRows.length === 0) {
+        return null;
+      }
+
+      return {
+        headers: headerRow.map((h) => String(h)),
+        rows: dataRows.map((row) => row.map((cell) => String(cell))),
+      };
+    } catch {
+      return null;
+    }
+  }
+}

@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     await fs.writeFile(filepath, Buffer.from(bytes));
 
     const app = await getApp();
-    const result = await app.container.router.upload.uploadFile(filepath, businessId);
+    const result = await app.container.router.upload.uploadFile(filepath, businessId, file.name);
 
     return NextResponse.json({
       file: {

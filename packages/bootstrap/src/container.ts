@@ -10,6 +10,7 @@ import { AiConfigService } from "@ai-chat-platform/ai-config";
 import { RagService } from "@ai-chat-platform/rag";
 import { IngestionPipeline } from "@ai-chat-platform/ingestion";
 import { IndexingService } from "@ai-chat-platform/indexing";
+import { TabularExtractionClient } from "@ai-chat-platform/tabular-extraction";
 import { UploadService } from "@ai-chat-platform/upload";
 import { TenantService } from "@ai-chat-platform/tenant";
 import { CrawlerService } from "@ai-chat-platform/web-crawler";
@@ -86,18 +87,31 @@ export class Container {
     const rag =
       new RagService(chat);
 
+    // Own dedicated key (GROQ_EXTRACTION_API_KEY), not the shared
+    // AIManager/Groq key powering live chat — this runs on every crawl
+    // and every document upload, for every business, so it needs its
+    // own quota lane entirely. See TabularExtractionClient's own comment
+    // for what it does and why it can never break an upload/crawl on
+    // failure (a real Gemini key was tried first and hit its free
+    // tier's 20-requests/day cap on the very first live test).
+    const tabularExtraction =
+      new TabularExtractionClient(process.env.GROQ_EXTRACTION_API_KEY ?? "");
+
     // Shared by both upload and crawler — each used to build its own
     // private IndexingService (and inside that, its own unconfigured
     // EmbeddingManager), meaning uploaded/crawled documents never got
     // the dashboard-activated/rotating embedding providers everything
-    // else uses. One instance now, wired to the real `embeddings`.
+    // else uses. One instance now, wired to the real `embeddings` — also
+    // the single integration point for LLM tabular extraction, so both
+    // upload and crawler get it automatically from this one wiring.
     const indexingService =
-      new IndexingService(embeddings, vectorStore);
+      new IndexingService(embeddings, vectorStore, tabularExtraction);
 
     const uploadService =
       new UploadService(
         new IngestionPipeline(),
-        indexingService
+        indexingService,
+        vectorStore
       );
 
     const tenants =

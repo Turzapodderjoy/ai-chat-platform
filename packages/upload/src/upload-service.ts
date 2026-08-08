@@ -1,6 +1,7 @@
 import { IngestionPipeline } from "@ai-chat-platform/ingestion";
 import { IndexingService } from "@ai-chat-platform/indexing";
 import { chunkTabularRows, type TextChunk } from "@ai-chat-platform/chunker";
+import type { VectorStoreManager } from "@ai-chat-platform/vector-store";
 
 import type {
   UploadRequest,
@@ -10,7 +11,8 @@ import type {
 export class UploadService {
   constructor(
     private readonly ingestion: IngestionPipeline,
-    private readonly indexing: IndexingService
+    private readonly indexing: IndexingService,
+    private readonly vectorStore: VectorStoreManager
   ) {}
 
   async upload(
@@ -30,6 +32,17 @@ export class UploadService {
       ? ingestion.document.tabular.flatMap((sheet) => chunkTabularRows(sheet.headers, sheet.rows))
       : undefined;
 
+    // Stable per-(business, original filename) documentId — same
+    // reasoning as the crawler's `crawl:${id}:${page.url}` (see
+    // crawler-service.ts) — so re-uploading an updated version of the
+    // same file (e.g. this week's price list) REPLACES its old chunks
+    // instead of leaving them live alongside the new ones. Without this,
+    // a stale "Price: 500" row and a fresh "Price: 600" row for the same
+    // product would both stay searchable forever, and the AI has no way
+    // to know which one is current.
+    const documentId = `upload:${request.businessId}:${request.originalFilename}`;
+    await this.vectorStore.deleteByDocumentId(documentId);
+
     const result =
       await this.indexing.index({
         filename:
@@ -37,6 +50,7 @@ export class UploadService {
         text:
           ingestion.document.text,
         preChunked,
+        documentId,
         metadata: {
           businessId:
             request.businessId,

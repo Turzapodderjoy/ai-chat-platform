@@ -1,5 +1,6 @@
-import { Chunker } from "@ai-chat-platform/chunker";
+import { Chunker, chunkTabularRows, type TextChunk } from "@ai-chat-platform/chunker";
 import type { EmbeddingManager } from "@ai-chat-platform/embedding-manager";
+import type { TabularExtractionClient } from "@ai-chat-platform/tabular-extraction";
 
 import type { VectorStoreManager } from "@ai-chat-platform/vector-store";
 import type { VectorRecord } from "@ai-chat-platform/vector-store";
@@ -8,6 +9,14 @@ import type {
   IndexRequest,
   IndexResult,
 } from "./types";
+
+// Above this, a single extraction prompt would be carrying more content
+// than is reasonable for one call (cost, latency, and reliability all
+// degrade) — skip extraction and fall through to normal chunking rather
+// than silently truncating and extracting a partial/misleading table.
+// ~15K tokens, comfortably inside Gemini Flash's context with room for a
+// large response.
+const EXTRACTION_CHAR_CAP = 60_000;
 
 export class IndexingService {
   private readonly chunker =
@@ -18,10 +27,32 @@ export class IndexingService {
   // instead of constructing their own — a private `new VectorStoreManager
   // (new JsonProvider())` here used to mean this class read/wrote its own
   // separate instance of the store from every other construction site.
+  // extractionClient is optional so tests/callers that don't care about
+  // LLM structuring can omit it and just get normal char-based chunking.
   constructor(
     private readonly embeddingManager: EmbeddingManager,
-    private readonly vectorStore: VectorStoreManager
+    private readonly vectorStore: VectorStoreManager,
+    private readonly extractionClient?: TabularExtractionClient
   ) {}
+
+  /** Tries to turn free text into self-contained tabular rows (one chunk
+   * per item, "Header: Value" — see chunkTabularRows) via the LLM
+   * extraction client before falling back to the plain char-based
+   * chunker. Null whenever extraction isn't applicable or didn't find a
+   * clear listing — see TabularExtractionClient.extract's own contract
+   * for why that's common and expected, not a failure. */
+  private async tryExtraction(text: string): Promise<TextChunk[] | null> {
+    if (!this.extractionClient || text.length > EXTRACTION_CHAR_CAP) {
+      return null;
+    }
+
+    const result = await this.extractionClient.extract(text);
+    if (!result) {
+      return null;
+    }
+
+    return chunkTabularRows(result.headers, result.rows);
+  }
 
   async initialize(): Promise<void> {
     await this.vectorStore.initialize();
@@ -31,8 +62,28 @@ export class IndexingService {
     request: IndexRequest
   ): Promise<IndexResult> {
 
-    const chunks =
-      request.preChunked ?? this.chunker.chunk(request.text);
+    // Extraction is ADDITIVE, never a replacement — every detail on a
+    // page/document must end up indexed somewhere, and an LLM extraction
+    // pass can miss things (page-level description text, a disclaimer, a
+    // spec that didn't fit the row shape it chose). So whenever
+    // extraction finds a listing, its clean per-item rows are indexed
+    // ALONGSIDE the full original text getting chunked normally too, not
+    // instead of it — the only case that skips normal chunking is
+    // request.preChunked (a real CSV/XLSX upload, where the rows already
+    // ARE the complete data, nothing left over to lose).
+    const extracted = request.preChunked ? null : await this.tryExtraction(request.text);
+    const charChunks = request.preChunked ? null : this.chunker.chunk(request.text);
+    const chunks: TextChunk[] = request.preChunked ?? (extracted ? [...extracted, ...charChunks!] : charChunks!);
+
+    // Not caller-supplied — computed per-chunk from which branch above
+    // actually produced it, so the Knowledge Hub can show which chunks
+    // came from AI structuring vs. plain chunking without guessing from
+    // content. Extraction and char-chunking can both be present at once
+    // (see above), so this has to be tracked per chunk id, not once for
+    // the whole request.
+    const extractedIds = new Set((extracted ?? []).map((c) => c.id));
+    const chunkingMethodFor = (chunk: TextChunk) =>
+      request.preChunked ? "caller-tabular" : extractedIds.has(chunk.id) ? "llm-extracted" : "char-chunked";
 
     const documentId =
       request.documentId ??
@@ -67,6 +118,7 @@ export class IndexingService {
 
         metadata: {
           filename: request.filename,
+          chunkingMethod: chunkingMethodFor(chunk),
           chunkIndex: chunk.index,
           startOffset:
             chunk.startOffset,
