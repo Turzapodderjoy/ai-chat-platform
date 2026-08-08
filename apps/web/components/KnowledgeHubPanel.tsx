@@ -72,7 +72,79 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
   const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
   const [chunksCache, setChunksCache] = useState<Record<string, DocumentChunk[]>>({});
   const [loadingChunks, setLoadingChunks] = useState(false);
+  const [scheduleHour, setScheduleHour] = useState("");
+  const [lastRunAt, setLastRunAt] = useState<string | null>(null);
+  const [masterCsvUpdatedAt, setMasterCsvUpdatedAt] = useState<string | null>(null);
+  const [masterCsvPreview, setMasterCsvPreview] = useState<string>("");
+  const [savingSchedule, setSavingSchedule] = useState(false);
+  const [refreshingNow, setRefreshingNow] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState("");
   const wasActive = useRef(false);
+
+  function refreshKnowledgeRefresh() {
+    if (!businessId) return;
+    fetch(`/api/admin/knowledge/schedule?businessId=${encodeURIComponent(businessId)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setScheduleHour(data.hourBd !== null && data.hourBd !== undefined ? String(data.hourBd).padStart(2, "0") + ":00" : "");
+        setLastRunAt(data.lastRunAt);
+      });
+
+    fetch(`/api/admin/knowledge/master-csv?businessId=${encodeURIComponent(businessId)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setMasterCsvUpdatedAt(data.masterCsv?.updatedAt ?? null);
+        setMasterCsvPreview(data.masterCsv?.content ?? "");
+      });
+  }
+
+  async function saveSchedule() {
+    if (!businessId || !scheduleHour) return;
+    const hourBd = Number(scheduleHour.split(":")[0]);
+    setSavingSchedule(true);
+
+    try {
+      await fetch("/api/admin/knowledge/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, hourBd }),
+      });
+      refreshKnowledgeRefresh();
+    } finally {
+      setSavingSchedule(false);
+    }
+  }
+
+  /** Recrawl + reprocess every upload + rebuild the master CSV — can
+   * take minutes, fires in the background (see refresh-now/route.ts),
+   * so this just confirms it started and polls for the result. */
+  async function runRefreshNow() {
+    if (!businessId) return;
+    setRefreshingNow(true);
+    setRefreshMessage("Started — recrawling and reprocessing every upload, this can take a few minutes…");
+
+    try {
+      await fetch("/api/admin/knowledge/refresh-now", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId }),
+      });
+
+      const poll = setInterval(() => {
+        refreshKnowledgeRefresh();
+      }, 8000);
+
+      setTimeout(() => {
+        clearInterval(poll);
+        setRefreshingNow(false);
+        setRefreshMessage("Done (or still running in the background — check \"Last run\" above).");
+        refreshDocuments();
+      }, 60000);
+    } catch {
+      setRefreshingNow(false);
+      setRefreshMessage("Failed to start.");
+    }
+  }
 
   /** Toggles the "view extracted data" section under a document row —
    * fetches its chunks once and caches them, so re-expanding after
@@ -128,6 +200,7 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
   useEffect(() => {
     refreshDocuments();
     refreshTargets();
+    refreshKnowledgeRefresh();
 
     // Poll every 2s while anything is crawling so the progress bar moves;
     // the interval is cheap to leave running since it's just one query.
@@ -253,6 +326,66 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
         </button>
         {healMessage && <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 8 }}>{healMessage}</p>}
       </div>
+
+      {businessId && (
+        <div style={cardStyle}>
+          <h3 style={{ marginTop: 0 }}>Daily knowledge refresh</h3>
+          <p style={subtleTextStyle}>
+            At this time (Bangladesh time), re-crawls every site, re-processes every uploaded document, and
+            rebuilds one consolidated CSV of everything. Can take a few minutes — that's expected.
+          </p>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <input
+              type="time"
+              value={scheduleHour}
+              onChange={(e) => setScheduleHour(e.target.value)}
+              style={{ width: 120 }}
+            />
+            <button onClick={saveSchedule} disabled={savingSchedule || !scheduleHour}>
+              {savingSchedule ? "Saving…" : "Save time"}
+            </button>
+            <button onClick={runRefreshNow} disabled={refreshingNow} style={primaryButtonStyle}>
+              {refreshingNow ? "Running…" : "Run now"}
+            </button>
+          </div>
+          <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8 }}>
+            Last run: {lastRunAt ? new Date(lastRunAt).toLocaleString() : "never"}
+          </p>
+          {refreshMessage && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{refreshMessage}</p>}
+
+          <h4 style={{ marginBottom: 4 }}>Master CSV</h4>
+          {masterCsvUpdatedAt ? (
+            <>
+              <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                Updated {new Date(masterCsvUpdatedAt).toLocaleString()}
+              </p>
+              <a
+                href={`/api/admin/knowledge/master-csv?businessId=${encodeURIComponent(businessId)}&download=true`}
+                style={{ fontSize: 13 }}
+              >
+                Download CSV
+              </a>
+              <pre
+                style={{
+                  marginTop: 8,
+                  maxHeight: 200,
+                  overflow: "auto",
+                  fontSize: 11,
+                  padding: 8,
+                  border: "1px solid var(--border)",
+                  borderRadius: 6,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {masterCsvPreview.slice(0, 4000)}
+                {masterCsvPreview.length > 4000 ? "\n… (truncated preview — download for the full file)" : ""}
+              </pre>
+            </>
+          ) : (
+            <p style={subtleTextStyle}>Not generated yet — set a time above or click "Run now".</p>
+          )}
+        </div>
+      )}
 
       <div style={cardStyle}>
       <h3 style={{ marginTop: 0 }}>Upload a document</h3>

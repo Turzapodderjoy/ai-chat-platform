@@ -59,6 +59,12 @@ export class VectorStoreManager {
     return this.provider.listChunksForDocument(documentId);
   }
 
+  async listTabularChunksForBusiness(
+    businessId: string
+  ): Promise<{ documentId: string; chunkId: string; text: string; metadata?: Record<string, unknown> }[]> {
+    return this.provider.listTabularChunksForBusiness(businessId);
+  }
+
   async listUniqueChunkTexts(businessId: string): Promise<string[]> {
     return this.provider.listUniqueChunkTexts(businessId);
   }

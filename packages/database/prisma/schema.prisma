@@ -571,3 +571,48 @@ model WidgetConfig {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
+
+// Original ingested text for an uploaded file, persisted separately from
+// its (post-chunking, fragmented) VectorRecord rows — without this, the
+// scheduled knowledge-refresh job would have nothing to re-run
+// extraction against, since UPLOAD_DIR is an ephemeral tmp path (see
+// apps/web/lib/paths.ts) that doesn't survive past the upload request on
+// Vercel. tabularHeaders/tabularRows are set only for a real CSV/XLSX
+// upload — deterministic source, re-serialize directly on refresh
+// instead of paying for another LLM extraction call.
+model UploadedDocument {
+  id               String    @id @default(cuid())
+  businessId       String
+  originalFilename String
+  rawText          String
+  tabularHeaders   Json?
+  tabularRows      Json?
+
+  updatedAt        DateTime  @updatedAt
+  createdAt        DateTime  @default(now())
+
+  @@unique([businessId, originalFilename])
+}
+
+// One consolidated CSV per business — a sectioned concatenation of every
+// tabular chunk's own table (own headers per source; a single forced
+// rectangular schema across heterogeneous sources was considered and
+// rejected, see MasterCsvService). Rebuilt by the scheduled knowledge
+// refresh job, not on every chat message — live chat keeps reading
+// current chunks in real time regardless; this is a human-viewable/
+// downloadable snapshot, not a retrieval data path.
+model MasterCsv {
+  businessId String   @id
+  content    String
+  updatedAt  DateTime @updatedAt
+}
+
+// Per-business "run the knowledge refresh at this Dhaka-time hour"
+// setting — same single-mutable-row-per-business shape as WidgetConfig,
+// not versioned like AiConfigVersion (a schedule time has no need for a
+// change history).
+model KnowledgeRefreshSchedule {
+  businessId String    @id
+  hourBd     Int
+  lastRunAt  DateTime?
+}

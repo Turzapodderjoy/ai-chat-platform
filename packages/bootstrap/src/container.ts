@@ -41,6 +41,8 @@ import { AutoHealController } from "@ai-chat-platform/api";
 import { TagController } from "@ai-chat-platform/api";
 import { ClientAuthController } from "@ai-chat-platform/api";
 import { WidgetConfigController } from "@ai-chat-platform/api";
+import { KnowledgeRefreshController } from "@ai-chat-platform/api";
+import { RefreshScheduleService, MasterCsvService } from "@ai-chat-platform/knowledge-refresh";
 import { ApiRouter } from "@ai-chat-platform/api";
 import { ClientAuthService } from "@ai-chat-platform/client-auth";
 import { WidgetConfigService } from "@ai-chat-platform/widget-config";
@@ -119,6 +121,18 @@ export class Container {
 
     const crawlerService =
       new CrawlerService(indexingService, vectorStore);
+
+    const refreshSchedule =
+      new RefreshScheduleService();
+
+    const masterCsv =
+      new MasterCsvService(
+        crawlerService,
+        indexingService,
+        vectorStore,
+        tabularExtraction,
+        refreshSchedule
+      );
 
     const messageFeedback =
       new MessageFeedbackService();
@@ -200,7 +214,8 @@ export class Container {
         new AutoHealController(autoHeal),
         new TagController(tagService, tagAssignments, tagAnalytics),
         new ClientAuthController(clientAuth),
-        new WidgetConfigController(widgetConfig)
+        new WidgetConfigController(widgetConfig),
+        new KnowledgeRefreshController(refreshSchedule, masterCsv)
       );
   }
 

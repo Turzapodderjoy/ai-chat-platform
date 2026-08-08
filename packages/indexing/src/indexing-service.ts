@@ -1,4 +1,4 @@
-import { Chunker, chunkTabularRows, type TextChunk } from "@ai-chat-platform/chunker";
+import { Chunker, chunkTabularTable, type TextChunk } from "@ai-chat-platform/chunker";
 import type { EmbeddingManager } from "@ai-chat-platform/embedding-manager";
 import type { TabularExtractionClient } from "@ai-chat-platform/tabular-extraction";
 
@@ -35,12 +35,12 @@ export class IndexingService {
     private readonly extractionClient?: TabularExtractionClient
   ) {}
 
-  /** Tries to turn free text into self-contained tabular rows (one chunk
-   * per item, "Header: Value" — see chunkTabularRows) via the LLM
-   * extraction client before falling back to the plain char-based
-   * chunker. Null whenever extraction isn't applicable or didn't find a
-   * clear listing — see TabularExtractionClient.extract's own contract
-   * for why that's common and expected, not a failure. */
+  /** Tries to turn free text into one consolidated CSV chunk (the whole
+   * table in one shot — see chunkTabularTable) via the LLM extraction
+   * client before falling back to the plain char-based chunker. Null
+   * whenever extraction isn't applicable or didn't find a clear listing
+   * — see TabularExtractionClient.extract's own contract for why that's
+   * common and expected, not a failure. */
   private async tryExtraction(text: string): Promise<TextChunk[] | null> {
     if (!this.extractionClient || text.length > EXTRACTION_CHAR_CAP) {
       return null;
@@ -51,7 +51,7 @@ export class IndexingService {
       return null;
     }
 
-    return chunkTabularRows(result.headers, result.rows);
+    return chunkTabularTable(result.headers, result.rows);
   }
 
   async initialize(): Promise<void> {

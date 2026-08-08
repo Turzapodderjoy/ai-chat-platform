@@ -1,7 +1,8 @@
 import { IngestionPipeline } from "@ai-chat-platform/ingestion";
 import { IndexingService } from "@ai-chat-platform/indexing";
-import { chunkTabularRows, type TextChunk } from "@ai-chat-platform/chunker";
+import { chunkTabularTable, type TextChunk } from "@ai-chat-platform/chunker";
 import type { VectorStoreManager } from "@ai-chat-platform/vector-store";
+import { prisma, type Prisma } from "@ai-chat-platform/database";
 
 import type {
   UploadRequest,
@@ -25,11 +26,11 @@ export class UploadService {
         request.filepath
       );
 
-    // CSV/XLSX rows go in as one chunk per row (never re-split by the
-    // char-based Chunker) so a record's full set of fields is never
-    // severed from its identifying value — see chunkTabularRows.
+    // CSV/XLSX rows go in as one consolidated CSV chunk per sheet (never
+    // re-split by the char-based Chunker) — the AI gets the whole table
+    // in one shot instead of one row at a time. See chunkTabularTable.
     const preChunked: TextChunk[] | undefined = ingestion.document.tabular
-      ? ingestion.document.tabular.flatMap((sheet) => chunkTabularRows(sheet.headers, sheet.rows))
+      ? ingestion.document.tabular.flatMap((sheet) => chunkTabularTable(sheet.headers, sheet.rows))
       : undefined;
 
     // Stable per-(business, original filename) documentId — same
@@ -42,6 +43,28 @@ export class UploadService {
     // to know which one is current.
     const documentId = `upload:${request.businessId}:${request.originalFilename}`;
     await this.vectorStore.deleteByDocumentId(documentId);
+
+    // Persisted separately from the (fragmented, post-chunking)
+    // VectorRecord rows — UPLOAD_DIR is an ephemeral tmp path (see
+    // apps/web/lib/paths.ts) that doesn't survive past this request on
+    // Vercel, so without this the scheduled knowledge-refresh job would
+    // have nothing to re-run extraction against later. tabularRows holds
+    // the full per-sheet {sheet,headers,rows}[] structure for a real
+    // CSV/XLSX upload (re-serialize directly on refresh, no LLM call
+    // needed — deterministic source); null for PDF/DOCX/plain text.
+    await prisma.uploadedDocument.upsert({
+      where: { businessId_originalFilename: { businessId: request.businessId, originalFilename: request.originalFilename } },
+      create: {
+        businessId: request.businessId,
+        originalFilename: request.originalFilename,
+        rawText: ingestion.document.text,
+        tabularRows: (ingestion.document.tabular as unknown as Prisma.InputJsonValue) ?? undefined,
+      },
+      update: {
+        rawText: ingestion.document.text,
+        tabularRows: (ingestion.document.tabular as unknown as Prisma.InputJsonValue) ?? undefined,
+      },
+    });
 
     const result =
       await this.indexing.index({

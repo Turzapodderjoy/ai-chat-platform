@@ -160,6 +160,9 @@ importers:
       '@ai-chat-platform/indexing':
         specifier: workspace:*
         version: link:../indexing
+      '@ai-chat-platform/knowledge-refresh':
+        specifier: workspace:*
+        version: link:../knowledge-refresh
       '@ai-chat-platform/provider-catalog':
         specifier: workspace:*
         version: link:../provider-catalog
@@ -256,6 +259,9 @@ importers:
       '@ai-chat-platform/ingestion':
         specifier: workspace:*
         version: link:../ingestion
+      '@ai-chat-platform/knowledge-refresh':
+        specifier: workspace:*
+        version: link:../knowledge-refresh
       '@ai-chat-platform/prompt-engine':
         specifier: workspace:*
         version: link:../prompt-engine
@@ -337,7 +343,11 @@ importers:
         specifier: workspace:*
         version: link:../vector-store
 
-  packages/chunker: {}
+  packages/chunker:
+    dependencies:
+      xlsx:
+        specifier: ^0.18.5
+        version: 0.18.5
 
   packages/client-auth:
     dependencies:
@@ -474,6 +484,27 @@ importers:
       '@ai-chat-platform/document-loader':
         specifier: workspace:*
         version: link:../document-loader
+
+  packages/knowledge-refresh:
+    dependencies:
+      '@ai-chat-platform/chunker':
+        specifier: workspace:*
+        version: link:../chunker
+      '@ai-chat-platform/database':
+        specifier: workspace:*
+        version: link:../database
+      '@ai-chat-platform/indexing':
+        specifier: workspace:*
+        version: link:../indexing
+      '@ai-chat-platform/tabular-extraction':
+        specifier: workspace:*
+        version: link:../tabular-extraction
+      '@ai-chat-platform/vector-store':
+        specifier: workspace:*
+        version: link:../vector-store
+      '@ai-chat-platform/web-crawler':
+        specifier: workspace:*
+        version: link:../web-crawler
 
   packages/mistral:
     dependencies:

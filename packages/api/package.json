@@ -28,6 +28,7 @@
     "@ai-chat-platform/channel-connections": "workspace:*",
     "@ai-chat-platform/auto-heal": "workspace:*",
     "@ai-chat-platform/client-auth": "workspace:*",
-    "@ai-chat-platform/widget-config": "workspace:*"
+    "@ai-chat-platform/widget-config": "workspace:*",
+    "@ai-chat-platform/knowledge-refresh": "workspace:*"
   }
 }

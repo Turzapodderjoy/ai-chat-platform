@@ -13,6 +13,7 @@ import { AutoHealController } from "./auto-heal-controller";
 import { TagController } from "./tag-controller";
 import { ClientAuthController } from "./client-auth-controller";
 import { WidgetConfigController } from "./widget-config-controller";
+import { KnowledgeRefreshController } from "./knowledge-refresh-controller";
 
 export class ApiRouter {
   constructor(
@@ -30,6 +31,7 @@ export class ApiRouter {
     readonly autoHeal: AutoHealController,
     readonly tags: TagController,
     readonly clientAuth: ClientAuthController,
-    readonly widgetConfig: WidgetConfigController
+    readonly widgetConfig: WidgetConfigController,
+    readonly knowledgeRefresh: KnowledgeRefreshController
   ) {}
 }
