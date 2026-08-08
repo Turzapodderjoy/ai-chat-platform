@@ -87,12 +87,12 @@ export interface VectorStore {
     documentId: string
   ): Promise<{ chunkId: string; text: string; metadata?: Record<string, unknown> }[]>;
 
-  /** Every tabular (llm-extracted or caller-tabular) chunk for a
-   * business, deduped by chunkId, with documentId + metadata so callers
-   * can group by source — backs MasterCsvService's consolidation pass.
-   * Prose (char-chunked) content is deliberately excluded; the master
-   * CSV is a tabular-data artifact, not a full-knowledge-base dump. */
-  listTabularChunksForBusiness(
+  /** Every chunk for a business — tabular AND prose — deduped by
+   * chunkId, with documentId + metadata so callers can group by source
+   * and tell chunkingMethod apart. Backs MasterCsvService's
+   * consolidation pass: the master CSV covers the WHOLE knowledge base,
+   * not just the tabular subset. */
+  listAllChunksForBusiness(
     businessId: string
   ): Promise<{ documentId: string; chunkId: string; text: string; metadata?: Record<string, unknown> }[]>;
 

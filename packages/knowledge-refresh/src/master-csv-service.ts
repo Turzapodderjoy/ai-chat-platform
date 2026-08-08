@@ -1,5 +1,6 @@
 import { prisma } from "@ai-chat-platform/database";
 import { chunkTabularTable } from "@ai-chat-platform/chunker";
+import * as XLSX from "xlsx";
 import type { IndexingService } from "@ai-chat-platform/indexing";
 import type { VectorStoreManager } from "@ai-chat-platform/vector-store";
 import type { CrawlerService } from "@ai-chat-platform/web-crawler";
@@ -17,6 +18,15 @@ interface StoredTabularSheet {
   sheet: string;
   headers: string[];
   rows: string[][];
+}
+
+/** Wraps a plain-text (char-chunked) chunk into a one-column CSV block —
+ * keeps the master CSV consistently CSV-structured end to end instead of
+ * mixing real CSV sections with raw text dumps. XLSX's CSV writer
+ * handles embedded newlines/commas/quotes in the cell correctly. */
+function proseToCsvBlock(text: string): string {
+  const sheet = XLSX.utils.aoa_to_sheet([["Content"], [text]]);
+  return XLSX.utils.sheet_to_csv(sheet);
 }
 
 export class MasterCsvService {
@@ -100,14 +110,21 @@ export class MasterCsvService {
     });
   }
 
-  /** Sectioned concatenation of every tabular chunk's own table, grouped
-   * by source — a true single rectangular schema across heterogeneous
-   * sources (a product-page table has different columns than a price-
-   * list upload) was considered and rejected: a wide, mostly-blank table
-   * is harder for both a human and the AI to scan than several clean
-   * small ones kept in their own natural shape. */
+  /** Sectioned concatenation of EVERY chunk — tabular and prose, crawled
+   * and uploaded — grouped by source, covering the whole knowledge base
+   * (owner's explicit requirement, no exceptions). A true single
+   * rectangular schema across every source was considered and rejected:
+   * a product-page table has different columns than a price-list upload
+   * has different shape than a policy page's prose, and forcing all of
+   * that into one wide, mostly-blank table is harder for both a human
+   * and the AI to scan than several clean sections kept in their own
+   * natural shape. Tabular chunks are already valid CSV text (from
+   * chunkTabularTable) and get concatenated as-is; prose chunks get
+   * wrapped into a one-column "Content" CSV block so the whole file
+   * stays consistently CSV-structured throughout, not a mix of CSV and
+   * raw text. */
   private async buildCsv(businessId: string): Promise<string> {
-    const chunks = await this.vectorStore.listTabularChunksForBusiness(businessId);
+    const chunks = await this.vectorStore.listAllChunksForBusiness(businessId);
 
     const byDocument = new Map<string, { label: string; blocks: string[] }>();
     for (const chunk of chunks) {
@@ -116,8 +133,12 @@ export class MasterCsvService {
         (chunk.metadata?.filename as string | undefined) ??
         chunk.documentId;
 
+      const method = chunk.metadata?.chunkingMethod as string | undefined;
+      const isTabular = method === "llm-extracted" || method === "caller-tabular";
+      const block = isTabular ? chunk.text : proseToCsvBlock(chunk.text);
+
       const entry = byDocument.get(chunk.documentId) ?? { label, blocks: [] };
-      entry.blocks.push(chunk.text);
+      entry.blocks.push(block);
       byDocument.set(chunk.documentId, entry);
     }
 

@@ -215,7 +215,7 @@ export class PostgresProvider implements VectorStore {
       });
   }
 
-  async listTabularChunksForBusiness(
+  async listAllChunksForBusiness(
     businessId: string
   ): Promise<{ documentId: string; chunkId: string; text: string; metadata?: Record<string, unknown> }[]> {
     const rows = await prisma.vectorRecord.findMany({
@@ -225,10 +225,6 @@ export class PostgresProvider implements VectorStore {
 
     return rows
       .map((row) => rowToRecord(row))
-      .filter((record) => {
-        const method = record.metadata?.chunkingMethod as string | undefined;
-        return method === "llm-extracted" || method === "caller-tabular";
-      })
       .map((record) => ({
         documentId: record.documentId,
         chunkId: record.chunkId,
