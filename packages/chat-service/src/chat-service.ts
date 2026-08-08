@@ -1,9 +1,10 @@
 import { AIManager } from "@ai-chat-platform/ai-manager";
 import { PromptEngine } from "@ai-chat-platform/prompt-engine";
-import { Retriever } from "@ai-chat-platform/retriever";
+import { Retriever, RetrievedChunk } from "@ai-chat-platform/retriever";
 import { ConversationService, ConversationMessage } from "@ai-chat-platform/conversation";
 import { EmbeddingManager } from "@ai-chat-platform/embedding-manager";
 import { AiConfigService } from "@ai-chat-platform/ai-config";
+import type { VectorStoreManager } from "@ai-chat-platform/vector-store";
 
 import { ChatUsageLog } from "./chat-usage-log";
 import { ResponseCache } from "./response-cache";
@@ -170,8 +171,35 @@ export class ChatService {
     private readonly embeddings: EmbeddingManager,
     private readonly responseCache: ResponseCache,
     private readonly usageLog: ChatUsageLog,
-    private readonly aiConfig: AiConfigService
+    private readonly aiConfig: AiConfigService,
+    private readonly vectorStore: VectorStoreManager
   ) {}
+
+  // 200K chars (~50K tokens) — conservative, safely under the smallest
+  // context window among every currently-rotated provider (Groq/Mistral/
+  // Cerebras are ~128K tokens), leaving headroom for system prompt,
+  // history, and output. A business whose whole indexed knowledge base
+  // fits under this budget skips retrieval entirely (see chat()) — the
+  // same reason uploading a small doc straight into Gemini/ChatGPT "just
+  // works": nothing needs to be found because nothing was left out.
+  private static readonly FULL_CONTEXT_CHAR_BUDGET = 200_000;
+
+  /** Null if the business's knowledge base is too large for full-context
+   * mode (falls back to normal chunk retrieval) — otherwise every unique
+   * chunk of text they have, shaped as RetrievedChunk[] so it's a drop-in
+   * replacement for retriever.retrieve()'s return value. */
+  private async getFullContextIfSmallEnough(
+    businessId: string
+  ): Promise<RetrievedChunk[] | null> {
+    const texts = await this.vectorStore.listUniqueChunkTexts(businessId);
+    const totalChars = texts.reduce((sum, t) => sum + t.length, 0);
+
+    if (texts.length === 0 || totalChars > ChatService.FULL_CONTEXT_CHAR_BUDGET) {
+      return null;
+    }
+
+    return texts.map((text, i) => ({ id: `full-context-${i}`, text, score: 1 }));
+  }
 
   async chat(
     request: ChatRequest
@@ -320,7 +348,8 @@ export class ChatService {
     // provider rotation picked for the cache key. See
     // VectorStoreRetriever.retrieve()'s own comment for why.
     const retrieved =
-      await this.retriever.retrieve(retrievalQuery, { businessId });
+      (await this.getFullContextIfSmallEnough(businessId)) ??
+      (await this.retriever.retrieve(retrievalQuery, { businessId }));
 
     // Top retrieval score doubles as a rough "grounding confidence" for
     // this answer — how well the knowledge base actually backs it. Shown

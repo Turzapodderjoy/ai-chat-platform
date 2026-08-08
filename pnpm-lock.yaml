@@ -330,6 +330,9 @@ importers:
       '@ai-chat-platform/retriever':
         specifier: workspace:*
         version: link:../retriever
+      '@ai-chat-platform/vector-store':
+        specifier: workspace:*
+        version: link:../vector-store
 
   packages/chunker: {}
 

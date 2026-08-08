@@ -12,6 +12,7 @@
     "@ai-chat-platform/prompt-engine": "workspace:*",
     "@ai-chat-platform/ai-manager": "workspace:*",
     "@ai-chat-platform/embedding-manager": "workspace:*",
-    "@ai-chat-platform/ai-config": "workspace:*"
+    "@ai-chat-platform/ai-config": "workspace:*",
+    "@ai-chat-platform/vector-store": "workspace:*"
   }
 }

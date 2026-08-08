@@ -53,6 +53,10 @@ export class VectorStoreManager {
     return this.provider.keywordSearch(terms, limit, businessId);
   }
 
+  async listUniqueChunkTexts(businessId: string): Promise<string[]> {
+    return this.provider.listUniqueChunkTexts(businessId);
+  }
+
   async listAll(): Promise<VectorRecord[]> {
     return this.provider.listAll();
   }

@@ -79,7 +79,8 @@ export class Container {
         embeddings,
         responseCache,
         chatUsageLog,
-        aiConfig
+        aiConfig,
+        vectorStore
       );
 
     const rag =

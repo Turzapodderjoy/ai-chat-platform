@@ -70,6 +70,13 @@ export interface VectorStore {
     businessId?: string
   ): Promise<SearchResult[]>;
 
+  /** Every chunk's text for a business, deduplicated by chunkId — each
+   * chunk is stored once PER embedding provider (embedManyAllProviders),
+   * so a plain findMany would double/triple-count the same text. Used to
+   * decide whether a business's whole knowledge base is small enough to
+   * hand a model directly instead of retrieving from it. */
+  listUniqueChunkTexts(businessId: string): Promise<string[]>;
+
   listAll(): Promise<VectorRecord[]>;
 
   deleteByDocumentId(documentId: string): Promise<void>;

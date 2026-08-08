@@ -197,6 +197,16 @@ export class PostgresProvider implements VectorStore {
       .slice(0, limit);
   }
 
+  async listUniqueChunkTexts(businessId: string): Promise<string[]> {
+    const rows = await prisma.vectorRecord.findMany({
+      where: { businessId },
+      distinct: ["chunkId"],
+      select: { text: true },
+    });
+
+    return rows.map((row) => row.text);
+  }
+
   async listAll(): Promise<VectorRecord[]> {
     // Excludes the embedding column on purpose — see the comment on
     // rowToRecord's `embedding` field above. Every listAll() caller today
