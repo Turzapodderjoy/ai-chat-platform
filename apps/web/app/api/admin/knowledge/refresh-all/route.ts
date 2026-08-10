@@ -13,6 +13,8 @@ export const maxDuration = 60;
  * comment for why after() doesn't work self-hosted and isn't needed. */
 export async function POST() {
   const app = await getApp();
-  app.container.router.knowledgeRefresh.runRefreshAll().catch(() => {});
+  app.container.router.knowledgeRefresh.runRefreshAll().catch((err) => {
+    console.error("[refresh-all] failed:", err);
+  });
   return NextResponse.json({ started: true });
 }

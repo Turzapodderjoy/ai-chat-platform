@@ -56,10 +56,14 @@ export class MasterCsvService {
     for (const target of targets) {
       try {
         await this.crawler.runCrawl(target.id);
-      } catch {
+      } catch (err) {
         // That target failed this round — its existing chunks are left
         // as-is (not deleted), so the business doesn't lose data over a
-        // transient crawl failure. Next scheduled run retries it.
+        // transient crawl failure. Next scheduled run retries it. Logged
+        // (not fully silent) — a background refresh failing with zero
+        // trace anywhere is exactly what made an earlier real hang here
+        // take far too long to diagnose.
+        console.error(`[MasterCsvService.refresh] crawl target ${target.id} failed:`, err);
       }
     }
 
@@ -67,8 +71,9 @@ export class MasterCsvService {
     for (const doc of documents) {
       try {
         await this.reprocessUpload(businessId, doc);
-      } catch {
+      } catch (err) {
         // Same tolerance as crawl targets above.
+        console.error(`[MasterCsvService.refresh] document ${doc.originalFilename} failed:`, err);
       }
     }
 

@@ -1,5 +1,9 @@
 const USER_AGENT = "AIChatPlatformBot/1.0";
 
+// A slow/unresponsive site here hung the crawl before it ever started —
+// same reasoning as crawler.ts's own FETCH_TIMEOUT_MS.
+const FETCH_TIMEOUT_MS = 15_000;
+
 /**
  * Minimal robots.txt parser — collects Disallow rules that apply to our
  * User-agent (falling back to "*"). No allowlist-precedence handling,
@@ -10,6 +14,7 @@ export async function fetchDisallowedPaths(origin: string): Promise<string[]> {
   try {
     const res = await fetch(`${origin}/robots.txt`, {
       headers: { "User-Agent": USER_AGENT },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
 
     if (!res.ok) {
