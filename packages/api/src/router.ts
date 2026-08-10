@@ -14,6 +14,7 @@ import { TagController } from "./tag-controller";
 import { ClientAuthController } from "./client-auth-controller";
 import { WidgetConfigController } from "./widget-config-controller";
 import { KnowledgeRefreshController } from "./knowledge-refresh-controller";
+import { ClientHealthController } from "./client-health-controller";
 
 export class ApiRouter {
   constructor(
@@ -32,6 +33,7 @@ export class ApiRouter {
     readonly tags: TagController,
     readonly clientAuth: ClientAuthController,
     readonly widgetConfig: WidgetConfigController,
-    readonly knowledgeRefresh: KnowledgeRefreshController
+    readonly knowledgeRefresh: KnowledgeRefreshController,
+    readonly clientHealth: ClientHealthController
   ) {}
 }

@@ -134,6 +134,12 @@ export class ConversationService {
     return rows.map(toRecord);
   }
 
+  /** Real conversation count for a business — excludes Training Arena
+   * sessions, same reasoning as listAllConversations' default. */
+  async countConversations(businessId: string): Promise<number> {
+    return prisma.conversation.count({ where: { businessId, isTraining: false } });
+  }
+
   async sendAgentMessage(sessionId: string, message: string): Promise<void> {
     await prisma.message.create({
       data: { conversationId: sessionId, role: "agent", content: message },

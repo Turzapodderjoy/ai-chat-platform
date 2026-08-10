@@ -15,3 +15,4 @@ export * from "./tag-controller";
 export * from "./client-auth-controller";
 export * from "./widget-config-controller";
 export * from "./knowledge-refresh-controller";
+export * from "./client-health-controller";

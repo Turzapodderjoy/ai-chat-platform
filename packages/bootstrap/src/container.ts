@@ -42,6 +42,7 @@ import { TagController } from "@ai-chat-platform/api";
 import { ClientAuthController } from "@ai-chat-platform/api";
 import { WidgetConfigController } from "@ai-chat-platform/api";
 import { KnowledgeRefreshController } from "@ai-chat-platform/api";
+import { ClientHealthController } from "@ai-chat-platform/api";
 import { RefreshScheduleService, MasterCsvService } from "@ai-chat-platform/knowledge-refresh";
 import { ApiRouter } from "@ai-chat-platform/api";
 import { ClientAuthService } from "@ai-chat-platform/client-auth";
@@ -216,7 +217,8 @@ export class Container {
         new TagController(tagService, tagAssignments, tagAnalytics),
         new ClientAuthController(clientAuth),
         new WidgetConfigController(widgetConfig),
-        new KnowledgeRefreshController(refreshSchedule, masterCsv, tenants, crawlerService, vectorStore)
+        new KnowledgeRefreshController(refreshSchedule, masterCsv, tenants, crawlerService, vectorStore),
+        new ClientHealthController(tenants, crawlerService, masterCsv, refreshSchedule, vectorStore, embeddings, conversations)
       );
   }
 

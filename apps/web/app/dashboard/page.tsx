@@ -12,6 +12,7 @@ import { PlatformChannelAppsPanel } from "../../components/PlatformChannelAppsPa
 import { TagsPanel } from "../../components/TagsPanel";
 import { ClientAccessPanel } from "../../components/ClientAccessPanel";
 import { OverviewPanel } from "../../components/OverviewPanel";
+import { ClientHealthPanel } from "../../components/ClientHealthPanel";
 import { TrainingArenaPanel } from "../../components/TrainingArenaPanel";
 import { DashboardShell, type NavGroup } from "../../components/DashboardShell";
 import { cardStyle, cellStyle, formatBytes, subtleTextStyle, primaryButtonStyle } from "../../components/dashboard-styles";
@@ -21,10 +22,10 @@ import { cardStyle, cellStyle, formatBytes, subtleTextStyle, primaryButtonStyle 
 // client component just for one string constant.
 const PLATFORM_CONFIG_ID = "__platform__";
 
-type Tab = "overview" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "access" | "knowledge" | "allchats" | "handoffs" | "database" | "tags";
+type Tab = "overview" | "health" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "access" | "knowledge" | "allchats" | "handoffs" | "database" | "tags";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
-  { items: [{ id: "overview", label: "Overview" }] },
+  { items: [{ id: "overview", label: "Overview" }, { id: "health", label: "Client Health" }] },
   { items: [{ id: "clients", label: "Clients" }, { id: "access", label: "Client Access" }] },
   {
     label: "AI Brain",
@@ -148,6 +149,9 @@ export default function DashboardPage() {
           switching tabs never wipes a panel's local state. */}
       <div style={{ display: tab === "overview" ? "block" : "none" }}>
         <OverviewPanel active={tab === "overview"} />
+      </div>
+      <div style={{ display: tab === "health" ? "block" : "none" }}>
+        <ClientHealthPanel active={tab === "health"} />
       </div>
       <div style={{ display: tab === "ai" ? "block" : "none" }}>
         <AiProvidersPanel />

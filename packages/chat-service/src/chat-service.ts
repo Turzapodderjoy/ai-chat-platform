@@ -518,7 +518,7 @@ export class ChatService {
       request.sessionId,
       "assistant",
       cleanedAnswer,
-      wantsHandoff ? "handoff" : aiResponse.provider
+      wantsHandoff ? `${aiResponse.provider} (handoff)` : aiResponse.provider
     );
 
     this.usageLog.record({
