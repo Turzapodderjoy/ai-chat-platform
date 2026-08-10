@@ -14,6 +14,7 @@ export interface ClientHealthRow {
   businessId: string;
   businessName: string;
   crawlTargets: { total: number; done: number; stuck: number };
+  crawlProgress: { pagesDone: number; pagesEstimated: number } | null;
   documentCount: number;
   masterCsv: { updatedAt: string | null; sourceCount: number };
   lastRefreshAt: string | null;
@@ -64,6 +65,14 @@ export class ClientHealthController {
         const stuck = targets.filter(
           (t) => t.status === "crawling" && Date.now() - new Date(t.updatedAt).getTime() > STUCK_CRAWLING_MS
         ).length;
+        const crawling = targets.filter((t) => t.status === "crawling");
+        const crawlProgress =
+          crawling.length === 0
+            ? null
+            : {
+                pagesDone: crawling.reduce((sum, t) => sum + t.pagesDone, 0),
+                pagesEstimated: crawling.reduce((sum, t) => sum + (t.pagesEstimated ?? 0), 0),
+              };
 
         const scoped = allRecords.filter((r) => r.metadata?.businessId === business.id);
         const byChunk = new Map<string, typeof scoped>();
@@ -109,6 +118,7 @@ export class ClientHealthController {
           businessId: business.id,
           businessName: business.name,
           crawlTargets: { total: targets.length, done, stuck },
+          crawlProgress,
           documentCount,
           masterCsv: { updatedAt: csv?.updatedAt ?? null, sourceCount },
           lastRefreshAt: sched.lastRunAt,

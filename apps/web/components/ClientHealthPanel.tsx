@@ -8,6 +8,7 @@ interface ClientHealthRow {
   businessId: string;
   businessName: string;
   crawlTargets: { total: number; done: number; stuck: number };
+  crawlProgress: { pagesDone: number; pagesEstimated: number } | null;
   documentCount: number;
   masterCsv: { updatedAt: string | null; sourceCount: number };
   lastRefreshAt: string | null;
@@ -17,12 +18,16 @@ interface ClientHealthRow {
   providerUsage: Array<{ provider: string; count: number }>;
 }
 
+// Every query behind this endpoint does real work (crawl status, a
+// vector-table scan, message aggregation) — too expensive for a tight
+// interval. Only worth auto-polling at all while a crawl is actually
+// running (so "no Claude needed to watch it" works); idle, it stays
+// on-demand-only.
+const POLL_WHILE_CRAWLING_MS = 10_000;
+
 /** One consolidated per-client health view — knowledge base, embedding
  * coverage, handoffs, and recent AI provider usage, all in one row
- * instead of checking five separate tabs per business. Loaded on
- * demand (only while this tab is active), not polled — every query
- * behind it does real work (crawl status, a vector-table scan, message
- * aggregation), so it isn't cheap enough for a background interval. */
+ * instead of checking five separate tabs per business. */
 export function ClientHealthPanel({ active = true }: { active?: boolean }) {
   const [rows, setRows] = useState<ClientHealthRow[] | null>(null);
   const [error, setError] = useState("");
@@ -41,6 +46,13 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
   useEffect(() => {
     if (active) load();
   }, [active]);
+
+  const anyCrawling = rows?.some((r) => r.crawlProgress !== null) ?? false;
+  useEffect(() => {
+    if (!active || !anyCrawling) return;
+    const id = setInterval(load, POLL_WHILE_CRAWLING_MS);
+    return () => clearInterval(id);
+  }, [active, anyCrawling]);
 
   return (
     <section>
@@ -92,6 +104,39 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
                           {targetsOk ? "✅" : "⚠️"} {row.crawlTargets.done}/{row.crawlTargets.total}
                           {row.crawlTargets.stuck > 0 ? ` (${row.crawlTargets.stuck} stuck)` : ""}
                         </span>
+                      )}
+                      {row.crawlProgress && (
+                        <div style={{ marginTop: 4 }}>
+                          <div
+                            style={{
+                              width: 100,
+                              height: 5,
+                              borderRadius: 3,
+                              background: "var(--border, #e5e7eb)",
+                              overflow: "hidden",
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: `${
+                                  row.crawlProgress.pagesEstimated > 0
+                                    ? Math.min(
+                                        100,
+                                        Math.round(
+                                          (row.crawlProgress.pagesDone / row.crawlProgress.pagesEstimated) * 100
+                                        )
+                                      )
+                                    : 0
+                                }%`,
+                                height: "100%",
+                                background: "var(--accent, #2563eb)",
+                              }}
+                            />
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--text-faint)" }}>
+                            crawling: {row.crawlProgress.pagesDone}/{row.crawlProgress.pagesEstimated} pages
+                          </div>
+                        </div>
                       )}
                     </td>
                     <td style={cellStyle}>{row.documentCount}</td>
