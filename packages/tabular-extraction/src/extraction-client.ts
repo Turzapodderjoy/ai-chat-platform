@@ -17,6 +17,14 @@ const MODEL = "llama-3.3-70b-versatile";
 // guessing from the output shape.
 const NOT_TABULAR_SENTINEL = "NOT_TABULAR";
 
+// The Groq SDK has no default timeout — a stuck connection here hangs
+// this call (and everything awaiting it: the crawl's indexing step, the
+// whole runCrawl() loop) indefinitely with no error, no log, no retry.
+// Same reasoning as the crawler's own FETCH_TIMEOUT_MS. Bounding it does
+// NOT touch pacing/rotation/cooldowns — a timed-out call just falls
+// through to the existing catch, same as any other extraction failure.
+const EXTRACTION_TIMEOUT_MS = 30_000;
+
 const SYSTEM_PROMPT = `You extract product/item listings from raw scraped webpage or document text into CSV rows.
 The text may be flattened (HTML tags stripped, whitespace collapsed) so it can run on without clear line breaks. It may be in English, Bangla (Bengali script), Banglish (Bangla written in Latin letters), or a mix of all three within the same listing.
 
@@ -47,7 +55,7 @@ export class TabularExtractionClient {
 
     let raw: string;
     try {
-      const client = new Groq({ apiKey: this.apiKey });
+      const client = new Groq({ apiKey: this.apiKey, timeout: EXTRACTION_TIMEOUT_MS });
       const response = await client.chat.completions.create({
         model: MODEL,
         messages: [
