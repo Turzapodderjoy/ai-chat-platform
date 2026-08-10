@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { after } from "next/server";
 
 import { getApp } from "../../../../lib/app";
 
@@ -23,8 +22,13 @@ export async function POST(req: NextRequest) {
     const target = await app.container.router.crawler.queue(body.businessId, body.url);
 
     // Respond immediately with "queued"; the client polls GET for
-    // progress while this runs in the background.
-    after(() => app.container.router.crawler.runCrawl(target.id).catch(() => {}));
+    // progress while this runs in the background. Deliberately NOT
+    // awaited and NOT wrapped in after() — this is a persistent Node
+    // process (not serverless/edge), so an un-awaited promise just keeps
+    // running on the event loop after the response is sent; after() is
+    // an edge/serverless-specific API that was confirmed to silently
+    // never fire when self-hosted behind a custom server + reverse proxy.
+    app.container.router.crawler.runCrawl(target.id).catch(() => {});
 
     return NextResponse.json(target);
   } catch (err) {

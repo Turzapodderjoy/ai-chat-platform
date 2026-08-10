@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { after } from "next/server";
 
 import { getApp } from "../../../../../lib/app";
 
-// Vercel Hobby max — see refresh-now/route.ts.
+// Vercel Hobby max — only relevant if this ever runs on Vercel again; a
+// persistent host ignores it. See refresh-now/route.ts.
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
@@ -17,7 +17,9 @@ export async function POST(req: NextRequest) {
     const app = await getApp();
     const target = await app.container.router.crawler.requeue(body.id);
 
-    after(() => app.container.router.crawler.runCrawl(body.id).catch(() => {}));
+    // Not awaited, not wrapped in after() — see admin/crawler/route.ts's
+    // comment for why after() doesn't work self-hosted and isn't needed.
+    app.container.router.crawler.runCrawl(body.id).catch(() => {});
 
     return NextResponse.json(target);
   } catch (err) {

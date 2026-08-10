@@ -1,18 +1,18 @@
 import { NextResponse } from "next/server";
-import { after } from "next/server";
 
 import { getApp } from "../../../../../lib/app";
 
-// Vercel Hobby max — see refresh-now/route.ts. Each business's own refresh
-// still runs via runRefreshAll()'s internal fire-and-forget, so this mostly
-// just needs enough time to kick every business off.
+// Vercel Hobby max — only relevant if this ever runs on Vercel again; a
+// persistent host ignores it. See refresh-now/route.ts.
 export const maxDuration = 60;
 
 /** Mother-dashboard "refresh every client" button — recrawl + reprocess
  * uploads + rebuild the master CSV for every business on the platform,
- * each independently, without waiting on the user's request. */
+ * each independently, without waiting on the user's request. Not
+ * awaited, not wrapped in after() — see admin/crawler/route.ts's
+ * comment for why after() doesn't work self-hosted and isn't needed. */
 export async function POST() {
   const app = await getApp();
-  after(() => app.container.router.knowledgeRefresh.runRefreshAll().catch(() => {}));
+  app.container.router.knowledgeRefresh.runRefreshAll().catch(() => {});
   return NextResponse.json({ started: true });
 }

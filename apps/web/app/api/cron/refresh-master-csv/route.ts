@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { after } from "next/server";
 
 import { getApp } from "../../../../lib/app";
 
@@ -34,8 +33,10 @@ export async function GET(req: NextRequest) {
   const app = await getApp();
   const due = await app.container.router.knowledgeRefresh.getDue(currentHourBd);
 
+  // Not wrapped in after() — see admin/crawler/route.ts's comment for why
+  // after() doesn't work self-hosted and isn't needed on a persistent host.
   for (const businessId of due) {
-    after(() => app.container.router.knowledgeRefresh.runRefreshNow(businessId).catch(() => {}));
+    app.container.router.knowledgeRefresh.runRefreshNow(businessId).catch(() => {});
   }
 
   return NextResponse.json({ hourBd: currentHourBd, triggered: due });

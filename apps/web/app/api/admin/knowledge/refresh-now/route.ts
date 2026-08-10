@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { after } from "next/server";
 
 import { getApp } from "../../../../../lib/app";
 
-// Give the after() background work the platform's max execution window
-// (Vercel Hobby caps at 60s) instead of the default ~10s — a full refresh
-// still won't fit in one invocation for a large site, but this reduces how
-// often a crawl target gets killed mid-page; auto-heal picks up the rest.
+// Vercel Hobby max — only relevant if this ever runs on Vercel again; a
+// persistent host ignores it.
 export const maxDuration = 60;
 
 // A full refresh (recrawl every target + reprocess every uploaded
-// document) can genuinely take minutes — the owner explicitly said
-// that's fine. Fire-and-forget via after(), same pattern as the crawler
-// recrawl route, so the request returns immediately instead of the
-// dashboard hanging on the button click. The panel polls the schedule/
-// master-csv GET routes for lastRunAt to see when it's done.
+// document) can genuinely take a long time on a large site — the owner
+// explicitly said that's fine. Fire-and-forget, so the request returns
+// immediately instead of the dashboard hanging on the button click. The
+// panel polls the schedule/master-csv GET routes for lastRunAt to see
+// when it's done. Deliberately NOT wrapped in after() — this is a
+// persistent Node process, not serverless/edge, so an un-awaited promise
+// just keeps running on the event loop after the response is sent;
+// after() is edge/serverless-specific and was confirmed to silently
+// never fire when self-hosted behind a custom server + reverse proxy.
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
 
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   const app = await getApp();
 
-  after(() => app.container.router.knowledgeRefresh.runRefreshNow(body.businessId).catch(() => {}));
+  app.container.router.knowledgeRefresh.runRefreshNow(body.businessId).catch(() => {});
 
   return NextResponse.json({ started: true });
 }
