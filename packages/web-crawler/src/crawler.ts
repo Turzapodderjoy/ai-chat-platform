@@ -143,7 +143,21 @@ export async function crawlSiteBatch(
       }
 
       for (const link of extractLinks(html, url)) {
-        if (!visited.has(link)) {
+        // Same-origin is also checked after dequeue below, but filtering
+        // here too matters: every product page on a real site links out to
+        // several share-button URLs (Facebook/LinkedIn/Pinterest/WhatsApp/
+        // Telegram/X, one per product) — left unfiltered, those flood the
+        // queue with junk that's never actually fetched, yet each one still
+        // consumes a "visited" slot when dequeued (see below), inflating
+        // pagesDone/pagesEstimated with pages that produced zero content.
+        let linkOrigin: string;
+        try {
+          linkOrigin = new URL(link).origin;
+        } catch {
+          continue;
+        }
+
+        if (linkOrigin === origin && !visited.has(link)) {
           queue.push(link);
         }
       }
