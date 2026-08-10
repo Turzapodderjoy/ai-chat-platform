@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/backfill-embeddings",
       "schedule": "15 6 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-master-csv",
+      "schedule": "0 23 * * *"
     }
   ]
 }

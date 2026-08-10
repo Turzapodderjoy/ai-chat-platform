@@ -381,7 +381,7 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
               <pre
                 style={{
                   marginTop: 8,
-                  maxHeight: 200,
+                  maxHeight: 500,
                   overflow: "auto",
                   fontSize: 11,
                   padding: 8,
@@ -390,8 +390,7 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
                   whiteSpace: "pre-wrap",
                 }}
               >
-                {masterCsvPreview.slice(0, 4000)}
-                {masterCsvPreview.length > 4000 ? "\n… (truncated preview — download for the full file)" : ""}
+                {masterCsvPreview}
               </pre>
             </>
           ) : (

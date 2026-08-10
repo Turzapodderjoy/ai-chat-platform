@@ -7,17 +7,13 @@ import type { VectorStoreManager } from "@ai-chat-platform/vector-store";
 import { crawlSite } from "./crawler";
 import { estimatePageCount } from "./estimate";
 
-// Was 25 — far below what a real client catalog site actually has
-// (confirmed against a live client's own sitemap.xml: 279 pages, of
-// which the old cap crawled ~9%). A crawl this size cannot complete
-// inside one Vercel serverless invocation regardless of this number —
-// see refresh-now/route.ts's maxDuration comment — so a site this big
-// still needs to run from a persistent process (currently: manually
-// from local dev against the shared DB; see CLAUDE.md's mini-PC
-// migration plan for the intended long-term home). Raising this cap is
-// what makes that run actually reach full coverage once it's given the
-// time to run, not a fix for the per-invocation time limit itself.
-const MAX_PAGES = 400;
+// Was 25, then 400 — the owner wants the WHOLE site crawled regardless
+// of size, no artificial ceiling. crawlSite()'s BFS loop already stops
+// on its own once the link queue is exhausted (a real, finite site
+// crawls itself out), so this number only exists as a runaway guard
+// against a pathological site with genuinely infinite crawlable URLs
+// (e.g. an infinite calendar/pagination trap) — not a real-world limit.
+const MAX_PAGES = 5000;
 
 // Small pages (under EmbeddingManager's own per-provider batch size)
 // embed almost instantly, so without an explicit pace here a crawl with
