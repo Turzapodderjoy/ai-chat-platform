@@ -25,9 +25,15 @@ const MAX_PAGES = 5000;
 // (auto-heal's stuck-crawl retry, a fresh "Run now" click, or the daily
 // cron) picks up exactly where this one left off instead of either
 // timing out mid-page or restarting from the site's root every time.
-// Tuned for ~40s worst case: ~10 pages * (~1.2s fetch+pace + up to ~3s
-// index-if-changed) stays comfortably under Vercel Hobby's 60s cap.
-const MAX_PAGES_PER_BATCH = 10;
+// Confirmed live on Vercel: a 10-page batch was still killed mid-indexing
+// (LLM tabular extraction latency is real and variable, not just ~3s in
+// the worst case) — the frontier is now persisted before indexing starts
+// specifically so a kill here doesn't lose crawl POSITION even when it
+// does happen, but a smaller batch means it happens less often and each
+// invocation makes more net forward progress. 5 pages * (~1.2s fetch+pace
+// + up to ~6s worst-case index-if-changed) leaves real margin under
+// Vercel Hobby's 60s cap.
+const MAX_PAGES_PER_BATCH = 5;
 
 // Small pages (under EmbeddingManager's own per-provider batch size)
 // embed almost instantly, so without an explicit pace here a crawl with
@@ -200,6 +206,24 @@ export class CrawlerService {
       });
 
       const pages = batchResult.pages;
+
+      // Persisted BEFORE indexing starts, not after — indexing (LLM
+      // tabular extraction + embedding per changed page) is the slow,
+      // variable-latency part, and if the platform kills this invocation
+      // partway through it, the crawl POSITION (which pages are already
+      // visited) must not be lost even though those particular pages'
+      // content won't have made it into the index yet this round. The
+      // next runCrawl() call still resumes crawling forward correctly;
+      // it just means this batch's pages get picked up by the following
+      // scheduled/daily crawl rather than being indexed immediately.
+      await prisma.crawlTarget.update({
+        where: { id },
+        data: {
+          frontierJson: batchResult.frontier ? JSON.stringify(batchResult.frontier) : null,
+          pagesDone: batchResult.totalVisitedCount,
+          pagesEstimated: Math.max(estimate, batchResult.totalVisitedCount),
+        },
+      });
 
       // One lookup of existing chunk metadata up front (not per page) so
       // we can tell new vs. updated vs. unchanged pages without embedding
