@@ -32,6 +32,7 @@ export interface CrawlTargetSummary {
   lastPageCount: number | null;
   lastChunkCount: number | null;
   lastError: string | null;
+  updatedAt: string;
 }
 
 type CrawlTargetRow = {
@@ -45,6 +46,7 @@ type CrawlTargetRow = {
   lastPageCount: number | null;
   lastChunkCount: number | null;
   lastError: string | null;
+  updatedAt: Date;
 };
 
 function toSummary(row: CrawlTargetRow): CrawlTargetSummary {
@@ -59,6 +61,7 @@ function toSummary(row: CrawlTargetRow): CrawlTargetSummary {
     lastPageCount: row.lastPageCount,
     lastChunkCount: row.lastChunkCount,
     lastError: row.lastError,
+    updatedAt: row.updatedAt.toISOString(),
   };
 }
 

@@ -40,9 +40,16 @@ interface CrawlTarget {
   lastPageCount: number | null;
   lastChunkCount: number | null;
   lastError: string | null;
+  updatedAt: string;
 }
 
 const ACTIVE_STATUSES = new Set(["queued", "crawling"]);
+
+// Matches auto-heal's STUCK_CRAWLING_MS — a target sitting in "crawling"
+// this long with no progress write is dead (the function running it was
+// killed mid-crawl), not just slow. Auto-heal retries it automatically
+// within this window; this only affects what the panel shows meanwhile.
+const STUCK_CRAWLING_MS = 15 * 60 * 1000;
 
 /** Why a provider isn't at 100% coverage — checked in the order that
  * actually blocks embedding (a disabled provider never gets tried at
@@ -359,6 +366,12 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
               <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
                 Updated {new Date(masterCsvUpdatedAt).toLocaleString()}
               </p>
+              <MasterCsvCoverage
+                masterCsvUpdatedAt={masterCsvUpdatedAt}
+                masterCsvContent={masterCsvPreview}
+                documents={documents}
+                targets={targets}
+              />
               <a
                 href={`/api/admin/knowledge/master-csv?businessId=${encodeURIComponent(businessId)}&download=true`}
                 style={{ fontSize: 13 }}
@@ -672,6 +685,50 @@ function DocumentChunksView({ chunks }: { chunks: DocumentChunk[] }) {
   );
 }
 
+/** Answers the question a "trust me" timestamp can't: does this CSV
+ * actually cover everything currently indexed, right now, at a glance —
+ * not "does the code claim it ran". Counts "# Source: " section headers
+ * in the CSV itself against the indexed-documents list (same per-document
+ * granularity buildCsv() groups by), and flags any document or crawl
+ * target that changed AFTER the CSV was last built. */
+function MasterCsvCoverage({
+  masterCsvUpdatedAt,
+  masterCsvContent,
+  documents,
+  targets,
+}: {
+  masterCsvUpdatedAt: string;
+  masterCsvContent: string;
+  documents: KnowledgeDocument[] | null;
+  targets: CrawlTarget[] | null;
+}) {
+  const sourceCount = (masterCsvContent.match(/^# Source: /gm) ?? []).length;
+  const totalDocuments = documents?.length ?? 0;
+  const csvBuiltAt = new Date(masterCsvUpdatedAt).getTime();
+
+  const staleDocs = (documents ?? []).filter(
+    (d) => d.lastUpdated && new Date(d.lastUpdated).getTime() > csvBuiltAt
+  ).length;
+
+  const stuckTargets = (targets ?? []).filter(
+    (t) => t.status === "crawling" && Date.now() - new Date(t.updatedAt).getTime() > STUCK_CRAWLING_MS
+  ).length;
+
+  const incompleteTargets = (targets ?? []).filter((t) => t.status !== "done").length;
+
+  const ok = staleDocs === 0 && stuckTargets === 0 && incompleteTargets === 0 && sourceCount >= totalDocuments;
+
+  return (
+    <p style={{ fontSize: 12, marginTop: 4, color: ok ? "var(--success, #15803d)" : "var(--warning, #b45309)" }}>
+      {ok ? "✅" : "⚠️"} Covers {sourceCount} of {totalDocuments} indexed document(s)
+      {staleDocs > 0 && ` — ${staleDocs} document(s) changed since this was built`}
+      {stuckTargets > 0 && ` — ${stuckTargets} crawl target(s) stuck (auto-heal retries automatically)`}
+      {incompleteTargets > 0 && stuckTargets === 0 && ` — ${incompleteTargets} crawl target(s) not yet done`}
+      {!ok && ` — click "Run now" above to refresh`}
+    </p>
+  );
+}
+
 function CrawlProgress({ target }: { target: CrawlTarget }) {
   if (target.status === "error") {
     return <span title={target.lastError ?? ""}>❌ {target.lastError}</span>;
@@ -689,6 +746,15 @@ function CrawlProgress({ target }: { target: CrawlTarget }) {
   // the bar in as pages are actually crawled.
   const total = target.pagesEstimated ?? 1;
   const pct = Math.min(100, Math.round((target.pagesDone / total) * 100));
+  const stuck = Date.now() - new Date(target.updatedAt).getTime() > STUCK_CRAWLING_MS;
+
+  if (stuck) {
+    return (
+      <span style={{ color: "var(--warning, #b45309)" }} title="No progress in 15+ minutes — auto-heal will retry this automatically within 30 minutes, or click Recrawl now.">
+        ⚠️ stuck at {target.pagesDone}/{total} — auto-heal will retry
+      </span>
+    );
+  }
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
