@@ -74,18 +74,38 @@ export class PostgresProvider implements VectorStore {
     for (let i = 0; i < records.length; i += UPSERT_BATCH_SIZE) {
       const batch = records.slice(i, i + UPSERT_BATCH_SIZE);
 
-      await withSerializableRetry(() =>
-        prisma.$transaction(
-          batch.map((record) => {
-            const row = recordToRow(record);
-            return prisma.vectorRecord.upsert({
-              where: { id: row.id },
-              create: row,
-              update: row,
-            });
-          })
-        )
-      );
+      try {
+        await withSerializableRetry(() =>
+          prisma.$transaction(
+            batch.map((record) => {
+              const row = recordToRow(record);
+              return prisma.vectorRecord.upsert({
+                where: { id: row.id },
+                create: row,
+                update: row,
+              });
+            })
+          )
+        );
+      } catch (err) {
+        // The whole batch is one transaction — one malformed record (e.g.
+        // a crawled page whose text trips a Postgres text-literal edge
+        // case) would otherwise roll back every other, unrelated record
+        // in the same batch too. Fall back to one-by-one so a single bad
+        // record is skipped (and logged) instead of silently discarding
+        // up to UPSERT_BATCH_SIZE good ones — "no corner left" applies to
+        // the good pages in the batch, not just the bad one.
+        for (const record of batch) {
+          const row = recordToRow(record);
+          try {
+            await withSerializableRetry(() =>
+              prisma.vectorRecord.upsert({ where: { id: row.id }, create: row, update: row })
+            );
+          } catch (recordErr) {
+            console.error(`[PostgresProvider.upsert] record ${row.id} (${row.documentId}) failed, skipped:`, recordErr);
+          }
+        }
+      }
     }
   }
 
