@@ -2,7 +2,7 @@ import { createHash } from "crypto";
 
 import { prisma } from "@ai-chat-platform/database";
 import { IndexingService } from "@ai-chat-platform/indexing";
-import type { VectorStoreManager } from "@ai-chat-platform/vector-store";
+import type { VectorRecord, VectorStoreManager } from "@ai-chat-platform/vector-store";
 
 import { crawlSiteBatch, type CrawlFrontier } from "./crawler";
 import { estimatePageCount } from "./estimate";
@@ -237,6 +237,16 @@ export class CrawlerService {
         const existingRecords = await this.vectorStore.listAll();
         const existingHashByDoc = new Map<string, string>();
         const existingChunkCountByDoc = new Map<string, number>();
+        // A pagination/filter/sort URL trap can serve byte-identical content
+        // under many distinct URLs — with no per-path variant cap anymore
+        // (explicit "no limitations" requirement), re-running LLM extraction
+        // + embedding on every copy would waste real budget on zero new
+        // knowledge. First documentId seen for a given content hash becomes
+        // canonical; later URLs with the same hash clone its chunks instead
+        // of re-indexing from scratch. Seeded from every already-indexed
+        // record (not just this batch), so this also catches duplicates
+        // against earlier batches/crawl runs, not only same-batch ones.
+        const canonicalDocumentIdByHash = new Map<string, string>();
 
         for (const record of existingRecords) {
           existingChunkCountByDoc.set(
@@ -244,21 +254,29 @@ export class CrawlerService {
             (existingChunkCountByDoc.get(record.documentId) ?? 0) + 1
           );
 
-          if (!existingHashByDoc.has(record.documentId) && record.metadata?.contentHash) {
-            existingHashByDoc.set(record.documentId, record.metadata.contentHash as string);
+          const hash = record.metadata?.contentHash as string | undefined;
+          if (hash) {
+            if (!existingHashByDoc.has(record.documentId)) {
+              existingHashByDoc.set(record.documentId, hash);
+            }
+            if (!canonicalDocumentIdByHash.has(hash)) {
+              canonicalDocumentIdByHash.set(hash, record.documentId);
+            }
           }
         }
 
         let chunkCount = 0;
         const crawledAt = new Date().toISOString();
 
-        // Sorted into two batches instead of acting page-by-page — JsonProvider
+        // Sorted into batches instead of acting page-by-page — JsonProvider
         // rewrites its ENTIRE file on every write call, so doing this per page
         // meant up to MAX_PAGES full-file rewrites per crawl run. Unchanged
         // pages get one batched metadata patch; changed/new pages get one
-        // batched delete before being re-indexed.
+        // batched delete before being re-indexed; duplicate-content pages
+        // clone their canonical page's chunks instead of either.
         const unchangedDocumentIds: string[] = [];
         const changedPages: Array<{ page: (typeof pages)[number]; documentId: string; contentHash: string; pageStatus: string }> = [];
+        const duplicatePages: Array<{ page: (typeof pages)[number]; documentId: string; contentHash: string; canonicalDocumentId: string }> = [];
 
         for (const page of pages) {
           // Stable per-page documentId so a re-crawl replaces that page's
@@ -272,6 +290,17 @@ export class CrawlerService {
             unchangedDocumentIds.push(documentId);
             continue;
           }
+
+          const canonicalDocumentId = canonicalDocumentIdByHash.get(contentHash);
+          if (canonicalDocumentId && canonicalDocumentId !== documentId) {
+            duplicatePages.push({ page, documentId, contentHash, canonicalDocumentId });
+            continue;
+          }
+
+          // This page's content is new (or was previously the duplicate of
+          // something else, now standing on its own) — it becomes the
+          // canonical source for this hash for the rest of this batch.
+          canonicalDocumentIdByHash.set(contentHash, documentId);
 
           changedPages.push({
             page,
@@ -312,6 +341,47 @@ export class CrawlerService {
           });
 
           chunkCount += result.chunks;
+        }
+
+        // Clone each duplicate page's canonical chunks — same text, same
+        // embedding (identical content embeds identically), just a new
+        // documentId/url so the duplicate URL is still retrievable under
+        // its own identity without paying for extraction/embedding again.
+        if (duplicatePages.length > 0) {
+          await this.vectorStore.deleteByDocumentIds(duplicatePages.map((d) => d.documentId));
+
+          for (const dup of duplicatePages) {
+            const canonicalRecords = await prisma.vectorRecord.findMany({
+              where: { documentId: dup.canonicalDocumentId },
+            });
+
+            // Canonical page hasn't actually landed in the DB yet (a rare
+            // same-batch race) — leave this URL unindexed this round, it's
+            // retried on the next crawl once the canonical page is there.
+            if (canonicalRecords.length === 0) continue;
+
+            const clones: VectorRecord[] = canonicalRecords.map((r) => ({
+              id: `${dup.documentId}::${r.chunkId}::${r.embeddingProvider ?? "default"}`,
+              documentId: dup.documentId,
+              chunkId: r.chunkId,
+              text: r.text,
+              embedding: r.embedding,
+              metadata: {
+                ...((r.metadata as Record<string, unknown>) ?? {}),
+                businessId: r.businessId,
+                embeddingProvider: r.embeddingProvider,
+                source: "crawler",
+                url: dup.page.url,
+                contentHash: dup.contentHash,
+                pageStatus: "duplicate",
+                lastCrawledAt: crawledAt,
+                duplicateOf: dup.canonicalDocumentId,
+              },
+            }));
+
+            await this.vectorStore.upsert(clones);
+            chunkCount += clones.length;
+          }
         }
 
         const priorPageCount = isFreshStart ? 0 : (target.lastPageCount ?? 0);
