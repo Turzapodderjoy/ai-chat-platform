@@ -4,6 +4,7 @@ export interface ConversationMessage {
   id: string;
   role: "system" | "user" | "assistant" | "agent";
   content: string;
+  provider: string | null;
   createdAt: Date;
 }
 

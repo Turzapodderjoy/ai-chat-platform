@@ -133,6 +133,11 @@ model Message {
   conversationId String
   role           String
   content        String
+  // Which AI provider actually generated this assistant reply ("groq",
+  // "handoff", "canned", "cached", etc.) — admin/backend visibility only,
+  // shown as a subline in the dashboard's conversation view. Never sent
+  // to the customer-facing widget. Null for user/agent messages.
+  provider       String?
 
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   feedback       MessageFeedback?

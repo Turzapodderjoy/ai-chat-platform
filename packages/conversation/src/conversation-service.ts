@@ -74,10 +74,11 @@ export class ConversationService {
   async addMessage(
     sessionId: string,
     role: ConversationMessage["role"],
-    content: string
+    content: string,
+    provider?: string
   ): Promise<{ id: string }> {
     const created = await prisma.message.create({
-      data: { conversationId: sessionId, role, content },
+      data: { conversationId: sessionId, role, content, provider: provider ?? null },
     });
     return { id: created.id };
   }
@@ -96,6 +97,7 @@ export class ConversationService {
       id: row.id,
       role: row.role as ConversationMessage["role"],
       content: row.content,
+      provider: row.provider,
       createdAt: row.createdAt,
     }));
   }

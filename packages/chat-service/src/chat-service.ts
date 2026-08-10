@@ -291,7 +291,8 @@ export class ChatService {
       const savedMessage = await this.conversations.addMessage(
         request.sessionId,
         "assistant",
-        greeting
+        greeting,
+        "canned"
       );
 
       this.usageLog.record({
@@ -341,7 +342,8 @@ export class ChatService {
       const savedMessage = await this.conversations.addMessage(
         request.sessionId,
         "assistant",
-        cached.answer
+        cached.answer,
+        `${cached.provider} (cached)`
       );
 
       this.usageLog.record({
@@ -419,7 +421,7 @@ export class ChatService {
     if (!request.isTraining && retrieved.length === 0) {
       const fullHistory = [
         ...priorHistory,
-        { id: "pending", role: "user" as const, content: request.message, createdAt: new Date() },
+        { id: "pending", role: "user" as const, content: request.message, provider: null, createdAt: new Date() },
       ];
       const { summary, tokens: summaryTokens } = await this.buildHandoffSummary(fullHistory);
       await this.conversations.requestHandoff(
@@ -439,7 +441,8 @@ export class ChatService {
       const savedMessage = await this.conversations.addMessage(
         request.sessionId,
         "assistant",
-        handoffMessage
+        handoffMessage,
+        "handoff"
       );
 
       this.usageLog.record({
@@ -500,7 +503,7 @@ export class ChatService {
     if (wantsHandoff) {
       const fullHistory = [
         ...priorHistory,
-        { id: "pending", role: "user" as const, content: request.message, createdAt: new Date() },
+        { id: "pending", role: "user" as const, content: request.message, provider: null, createdAt: new Date() },
       ];
       const built = await this.buildHandoffSummary(fullHistory);
       summaryTokens = built.tokens;
@@ -514,7 +517,8 @@ export class ChatService {
     const savedMessage = await this.conversations.addMessage(
       request.sessionId,
       "assistant",
-      cleanedAnswer
+      cleanedAnswer,
+      wantsHandoff ? "handoff" : aiResponse.provider
     );
 
     this.usageLog.record({

@@ -10,6 +10,7 @@ interface Message {
   id: string;
   role: "system" | "user" | "assistant" | "agent";
   content: string;
+  provider: string | null;
   createdAt: string;
 }
 
@@ -327,6 +328,11 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
                       <strong>{m.role === "user" ? "Customer" : m.role === "agent" ? "Agent" : m.role === "assistant" ? "AI" : "System"}:</strong>{" "}
                       {m.role === "user" ? m.content : <MarkdownMessage text={m.content} />}
                     </div>
+                    {m.role === "assistant" && m.provider && (
+                      <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>
+                        answered by: {m.provider}
+                      </div>
+                    )}
                     <div style={{ marginTop: 2 }}>
                       <MessageTagControl
                         catalog={tagCatalog}
