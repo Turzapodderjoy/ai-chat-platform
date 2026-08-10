@@ -14,6 +14,12 @@ export interface CrawlOptions {
 
 const DELAY_MS_DEFAULT = 500;
 const MAX_PAGES_DEFAULT = 25;
+// A hung/slow-responding page had no bound at all — the raw fetch() below
+// could wait forever, stalling the whole crawl on one bad page (observed
+// live: a real crawl sat at the exact same page count for 6+ minutes with
+// no error, no progress, and no way to tell the difference from "just
+// slow" without this).
+const FETCH_TIMEOUT_MS = 15_000;
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -60,7 +66,10 @@ export async function crawlSite(
     }
 
     try {
-      const res = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
+      const res = await fetch(url, {
+        headers: { "User-Agent": USER_AGENT },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
 
       if (!res.ok || !(res.headers.get("content-type") ?? "").includes("html")) {
         continue;
