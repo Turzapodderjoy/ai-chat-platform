@@ -127,6 +127,18 @@ export class CrawlerService {
     private readonly vectorStore: VectorStoreManager
   ) {}
 
+  // Two overlapping runCrawl() calls for the SAME target (a double-
+  // clicked "Refresh now", auto-heal firing while a manual refresh is
+  // already running, two refresh-all triggers in quick succession) race
+  // on that target's DB row — confirmed live: one call's read of a
+  // legitimate "phase 1 just finished" transition (frontierJson already
+  // null, status write not yet landed) got misread as isFreshStart,
+  // wiping thousands of pages of real progress back to a sitemap
+  // estimate. A single Node process is the only place runCrawl() ever
+  // runs from here, so an in-memory lock is sufficient — no DB-level
+  // locking needed.
+  private readonly targetsInFlight = new Set<string>();
+
   /** Creates (or re-queues) a target. Does NOT crawl — the caller runs
    * `runCrawl` separately, typically in the background, so a live
    * request can respond immediately and the client polls for progress. */
@@ -179,10 +191,19 @@ export class CrawlerService {
    * own timeout, a process crash — the next call to runCrawl() resumes
    * this exact loop from where it left off instead of restarting. */
   async runCrawl(id: string): Promise<CrawlTargetSummary> {
-    await this.indexing.initialize();
-    await this.vectorStore.initialize();
+    if (this.targetsInFlight.has(id)) {
+      // Already being worked on by another concurrent call — don't start
+      // a second one racing the first; just report current state.
+      const current = await prisma.crawlTarget.findUniqueOrThrow({ where: { id } });
+      return toSummary(current);
+    }
+
+    this.targetsInFlight.add(id);
 
     try {
+      await this.indexing.initialize();
+      await this.vectorStore.initialize();
+
       const startingTarget = await prisma.crawlTarget.findUniqueOrThrow({ where: { id } });
 
       // Resuming a process that died mid-embedding (frontier already null,
@@ -209,6 +230,8 @@ export class CrawlerService {
       });
 
       return toSummary(updated);
+    } finally {
+      this.targetsInFlight.delete(id);
     }
   }
 
@@ -307,6 +330,42 @@ export class CrawlerService {
     let chunkCount = 0;
     let pagesProcessed = target.pagesIndexed;
 
+    // Built ONCE, then maintained incrementally as each batch indexes —
+    // NOT re-fetched every batch. A large site can accumulate tens of
+    // thousands of chunks; re-running a full-table scan every
+    // INDEX_BATCH_SIZE pages repeatedly allocates and discards that whole
+    // working set, which is exactly what crashed a real run here
+    // ("memory allocation ... failed") once a business passed ~25k
+    // chunks. select excludes the embedding column — nothing below reads
+    // vectors, only documentId/chunkId/contentHash bookkeeping.
+    const existingHashByDoc = new Map<string, string>();
+    const existingChunkCountByDoc = new Map<string, number>();
+    // A pagination/filter/sort URL trap can serve byte-identical content
+    // under many distinct URLs — with no per-path variant cap anymore
+    // (explicit "no limitations" requirement), re-running LLM extraction
+    // + embedding on every copy would waste real budget on zero new
+    // knowledge. First documentId seen for a given content hash becomes
+    // canonical; later URLs with the same hash clone its chunks instead
+    // of re-indexing from scratch.
+    const canonicalDocumentIdByHash = new Map<string, string>();
+
+    {
+      const existingRecords = await prisma.vectorRecord.findMany({
+        where: { businessId: target.businessId },
+        select: { documentId: true, metadata: true },
+      });
+
+      for (const record of existingRecords) {
+        existingChunkCountByDoc.set(record.documentId, (existingChunkCountByDoc.get(record.documentId) ?? 0) + 1);
+
+        const hash = (record.metadata as Record<string, unknown> | null)?.contentHash as string | undefined;
+        if (hash) {
+          if (!existingHashByDoc.has(record.documentId)) existingHashByDoc.set(record.documentId, hash);
+          if (!canonicalDocumentIdByHash.has(hash)) canonicalDocumentIdByHash.set(hash, record.documentId);
+        }
+      }
+    }
+
     for (;;) {
       const pending = await prisma.crawledPage.findMany({
         where: { crawlTargetId: id },
@@ -314,31 +373,6 @@ export class CrawlerService {
       });
 
       if (pending.length === 0) break;
-
-      // Re-fetched every batch (not once up front) so a long phase-2 run
-      // sees its own progress — otherwise every page in a big site would
-      // look "new" against a snapshot taken before any of them indexed.
-      const existingRecords = await this.vectorStore.listAll();
-      const existingHashByDoc = new Map<string, string>();
-      const existingChunkCountByDoc = new Map<string, number>();
-      // A pagination/filter/sort URL trap can serve byte-identical content
-      // under many distinct URLs — with no per-path variant cap anymore
-      // (explicit "no limitations" requirement), re-running LLM extraction
-      // + embedding on every copy would waste real budget on zero new
-      // knowledge. First documentId seen for a given content hash becomes
-      // canonical; later URLs with the same hash clone its chunks instead
-      // of re-indexing from scratch.
-      const canonicalDocumentIdByHash = new Map<string, string>();
-
-      for (const record of existingRecords) {
-        existingChunkCountByDoc.set(record.documentId, (existingChunkCountByDoc.get(record.documentId) ?? 0) + 1);
-
-        const hash = record.metadata?.contentHash as string | undefined;
-        if (hash) {
-          if (!existingHashByDoc.has(record.documentId)) existingHashByDoc.set(record.documentId, hash);
-          if (!canonicalDocumentIdByHash.has(hash)) canonicalDocumentIdByHash.set(hash, record.documentId);
-        }
-      }
 
       const crawledAt = new Date().toISOString();
       const unchangedDocumentIds: string[] = [];
@@ -391,6 +425,13 @@ export class CrawlerService {
         });
 
         chunkCount += result.chunks;
+
+        // Keep the maps current for the REST of this run (later batches,
+        // and any duplicate in this same batch pointing at this page as
+        // canonical) without re-querying the DB.
+        existingHashByDoc.set(documentId, page.contentHash);
+        existingChunkCountByDoc.set(documentId, result.chunks);
+        canonicalDocumentIdByHash.set(page.contentHash, documentId);
       }
 
       const canonicalMissing = new Set<string>();
@@ -431,6 +472,9 @@ export class CrawlerService {
 
           await this.vectorStore.upsert(clones);
           chunkCount += clones.length;
+
+          existingHashByDoc.set(dup.documentId, dup.page.contentHash);
+          existingChunkCountByDoc.set(dup.documentId, clones.length);
         }
       }
 

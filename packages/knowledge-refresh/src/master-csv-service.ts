@@ -138,7 +138,16 @@ export class MasterCsvService {
    * stays consistently CSV-structured throughout, not a mix of CSV and
    * raw text. */
   private async buildCsv(businessId: string): Promise<string> {
-    const chunks = await this.vectorStore.listAllChunksForBusiness(businessId);
+    const allChunks = await this.vectorStore.listAllChunksForBusiness(businessId);
+
+    // Duplicate-content pages (the crawler dedups by actual page text, not
+    // URL/documentId — see CrawlerService.indexPhase) are excluded here
+    // too: their content is byte-identical to their canonical page's, so
+    // including both would repeat the same block twice in the CSV for no
+    // reason. The duplicate URL is still fully indexed/retrievable for
+    // chat — this only trims the CSV, which is what "save time" means for
+    // a human/export artifact, not a data-completeness cut.
+    const chunks = allChunks.filter((c) => c.metadata?.pageStatus !== "duplicate");
 
     const byDocument = new Map<string, { label: string; blocks: string[] }>();
     for (const chunk of chunks) {
