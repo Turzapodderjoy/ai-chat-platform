@@ -22,7 +22,6 @@ export interface CrawlOptions {
 export interface CrawlFrontier {
   queue: string[];
   visited: string[];
-  pathVariantCount: Record<string, number>;
 }
 
 export interface CrawlBatchOptions {
@@ -56,15 +55,6 @@ const MAX_PAGES_DEFAULT = 25;
 // no error, no progress, and no way to tell the difference from "just
 // slow" without this).
 const FETCH_TIMEOUT_MS = 15_000;
-// A category page with combinable filters/sort/pagination can generate
-// near-unlimited distinct query-string URLs for what's largely the same
-// underlying listing — observed live: a real crawl passed 2500 pages with
-// zero sign of slowing, all off the same handful of category paths.
-// Capping how many query-string VARIANTS of the same path get crawled
-// bounds that blowup without needing to know which specific params are
-// "real" content (a genuinely different sub-category) vs noise (a sort
-// order) for any given site.
-const MAX_VARIANTS_PER_PATH = 5;
 // The regexes in html-to-text.ts are all linear (no catastrophic
 // backtracking), but a genuinely huge response body — a multi-MB page,
 // or a non-HTML resource mislabeled as HTML — still takes real,
@@ -100,9 +90,6 @@ export async function crawlSiteBatch(
 
   const visited = new Set<string>(priorFrontier?.visited ?? []);
   const queue: string[] = priorFrontier ? [...priorFrontier.queue] : [startUrl];
-  const pathVariantCount = new Map<string, number>(
-    priorFrontier ? Object.entries(priorFrontier.pathVariantCount) : []
-  );
   const pages: CrawledPage[] = [];
 
   while (
@@ -127,12 +114,6 @@ export async function crawlSiteBatch(
     if (parsed.origin !== origin || !isPathAllowed(parsed.pathname, disallowed)) {
       continue;
     }
-
-    const variantCount = pathVariantCount.get(parsed.pathname) ?? 0;
-    if (variantCount >= MAX_VARIANTS_PER_PATH) {
-      continue;
-    }
-    pathVariantCount.set(parsed.pathname, variantCount + 1);
 
     try {
       const res = await fetch(url, {
@@ -182,7 +163,6 @@ export async function crawlSiteBatch(
       : {
           queue,
           visited: Array.from(visited),
-          pathVariantCount: Object.fromEntries(pathVariantCount),
         },
     totalVisitedCount: visited.size,
   };

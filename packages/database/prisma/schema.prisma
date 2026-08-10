@@ -3,13 +3,12 @@ generator client {
 }
 
 datasource db {
-  provider = "cockroachdb"
-  // DATABASE_URL/DIRECT_URL: CockroachDB Serverless connection strings.
-  // CockroachDB's own pooling (behind the scenes) makes the
-  // pooled-vs-direct split less critical than it was on Neon, but both
-  // vars are kept for parity with `prisma db push`/`migrate` expecting
-  // directUrl. Locally, both env vars can point at the same connection
-  // string.
+  provider = "postgresql"
+  // DATABASE_URL/DIRECT_URL: standard Postgres connection strings. Both
+  // vars are kept for parity with hosted-Postgres setups that need a
+  // separate pooled-vs-direct connection (e.g. via PgBouncer) — for a
+  // plain local/VPS Postgres instance, both can point at the same
+  // connection string.
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
