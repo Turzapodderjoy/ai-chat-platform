@@ -78,10 +78,45 @@ export class EmbeddingManager {
    * if its starting provider errors, so wrapping back around to a
    * provider that succeeded on a previous call is expected, not a bug. */
   private nextStartIndex = 0;
+  private readonly resyncDisabled?: () => Promise<string[]>;
+  private readonly resyncIntervalMs: number;
+  private lastResyncAt = 0;
 
-  constructor(options: { keyCooldownMs?: number; maxRetriesPerKey?: number } = {}) {
+  constructor(
+    options: {
+      keyCooldownMs?: number;
+      maxRetriesPerKey?: number;
+      /** Same cross-instance staleness fix as AIManager — see its
+       * constructor option comment. */
+      resyncDisabled?: () => Promise<string[]>;
+      resyncIntervalMs?: number;
+    } = {}
+  ) {
     this.keyCooldownMs = options.keyCooldownMs ?? 30_000;
     this.maxRetriesPerKey = options.maxRetriesPerKey ?? 1;
+    this.resyncDisabled = options.resyncDisabled;
+    this.resyncIntervalMs = options.resyncIntervalMs ?? 10_000;
+  }
+
+  private async maybeResync(): Promise<void> {
+    if (!this.resyncDisabled) return;
+    if (Date.now() - this.lastResyncAt < this.resyncIntervalMs) return;
+
+    this.lastResyncAt = Date.now();
+
+    try {
+      const disabled = new Set(await this.resyncDisabled());
+      for (const key of this.providers.keys()) {
+        const shouldBeDisabled = disabled.has(key);
+        if (shouldBeDisabled) {
+          this.disabledProviders.add(key);
+        } else {
+          this.disabledProviders.delete(key);
+        }
+      }
+    } catch {
+      // A resync failure (DB hiccup) shouldn't block an embed call.
+    }
   }
 
   getUsage(): Record<string, ProviderUsage> {
@@ -321,6 +356,8 @@ export class EmbeddingManager {
     if (this.providers.size === 0) {
       throw new Error("No embedding providers registered.");
     }
+
+    await this.maybeResync();
 
     const failures: Error[] = [];
 

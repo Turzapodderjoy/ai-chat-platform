@@ -216,7 +216,7 @@ export class Container {
         new TagController(tagService, tagAssignments, tagAnalytics),
         new ClientAuthController(clientAuth),
         new WidgetConfigController(widgetConfig),
-        new KnowledgeRefreshController(refreshSchedule, masterCsv)
+        new KnowledgeRefreshController(refreshSchedule, masterCsv, tenants, crawlerService, vectorStore)
       );
   }
 

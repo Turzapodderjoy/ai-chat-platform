@@ -22,7 +22,17 @@ export class EmbeddingController {
     private readonly providerState: ProviderStateStore
   ) {}
 
-  providers() {
+  // Same cross-instance staleness fix as AdminController.providers() —
+  // see its comment for why every read re-syncs from the DB truth first.
+  async providers() {
+    const disabled = await this.providerState.getDisabled("embedding");
+
+    for (const status of this.embeddings.getProviderStatus()) {
+      if (this.embeddings.isProviderEnabled(status.name) === disabled.includes(status.name)) {
+        this.embeddings.setProviderEnabled(status.name, !disabled.includes(status.name));
+      }
+    }
+
     return {
       active: this.embeddings.getProviders().map((p) => p.name),
       status: this.embeddings.getProviderStatus(),

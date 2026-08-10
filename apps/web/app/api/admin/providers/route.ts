@@ -7,7 +7,7 @@ export async function GET() {
   const admin = app.container.router.admin;
 
   return NextResponse.json({
-    ...admin.providers(),
+    ...(await admin.providers()),
     catalog: admin.catalog(),
   });
 }

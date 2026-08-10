@@ -7,7 +7,7 @@ export async function GET() {
   const embedding = app.container.router.embedding;
 
   return NextResponse.json({
-    ...embedding.providers(),
+    ...(await embedding.providers()),
     catalog: embedding.catalog(),
   });
 }

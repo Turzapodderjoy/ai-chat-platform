@@ -19,6 +19,19 @@ interface AIManagerOptions {
   failoverOrder?: string[];
   keyCooldownMs?: number;
   maxRetriesPerKey?: number;
+  /** Returns the currently-persisted disabled provider ids. On Vercel,
+   * each warm serverless instance holds its OWN copy of `disabledProviders`
+   * — a dashboard toggle only patches the instance that served that one
+   * request, so every other already-warm instance keeps routing (or not
+   * routing) by whatever it thought was true at its last cold start,
+   * indefinitely. Real incident: a provider re-enabled from the dashboard
+   * kept getting silently skipped by chat requests landing on a different
+   * instance, which fell through to Gemini alone and failed once Gemini's
+   * free-tier quota was hit. Polled at most once per resyncIntervalMs so
+   * a burst of calls within one request (query rewrite + answer) doesn't
+   * turn into repeated DB reads. */
+  resyncDisabled?: () => Promise<string[]>;
+  resyncIntervalMs?: number;
 }
 
 interface RegisteredProvider {
@@ -38,6 +51,9 @@ export class AIManager {
   private readonly failoverOrder: string[];
   private readonly keyCooldownMs: number;
   private readonly maxRetriesPerKey: number;
+  private readonly resyncDisabled?: () => Promise<string[]>;
+  private readonly resyncIntervalMs: number;
+  private lastResyncAt = 0;
 
   constructor(options: AIManagerOptions = {}) {
     this.failoverOrder =
@@ -46,6 +62,32 @@ export class AIManager {
     this.maxRetriesPerKey = options.maxRetriesPerKey ?? 1;
     this.healthTracker = new HealthTracker();
     this.usageTracker = new UsageTracker();
+    this.resyncDisabled = options.resyncDisabled;
+    this.resyncIntervalMs = options.resyncIntervalMs ?? 10_000;
+  }
+
+  private async maybeResync(): Promise<void> {
+    if (!this.resyncDisabled) return;
+    if (Date.now() - this.lastResyncAt < this.resyncIntervalMs) return;
+
+    this.lastResyncAt = Date.now();
+
+    try {
+      const disabled = new Set(this.resyncDisabled ? await this.resyncDisabled() : []);
+      for (const key of this.providers.keys()) {
+        const shouldBeDisabled = disabled.has(key);
+        if (this.disabledProviders.has(key) !== shouldBeDisabled) {
+          if (shouldBeDisabled) {
+            this.disabledProviders.add(key);
+          } else {
+            this.disabledProviders.delete(key);
+          }
+        }
+      }
+    } catch {
+      // A resync failure (DB hiccup) shouldn't block/break a chat request —
+      // keep whatever state this instance already had and try again next call.
+    }
   }
 
   getUsage(): Record<string, ProviderUsage> {
@@ -147,6 +189,8 @@ export class AIManager {
     if (this.providers.size === 0) {
       throw new Error("No AI providers registered.");
     }
+
+    await this.maybeResync();
 
     const failures: Error[] = [];
 

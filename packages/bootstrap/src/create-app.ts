@@ -23,7 +23,7 @@ export async function createApp(): Promise<Application> {
   const providerKeys = new ProviderKeyStore();
   const providerState = new ProviderStateStore();
 
-  const ai = new AIManager();
+  const ai = new AIManager({ resyncDisabled: () => providerState.getDisabled("ai") });
   const disabledAi = await providerState.getDisabled("ai");
   registerProviders(ai, await providerKeys.getAll("ai"), disabledAi);
 
@@ -44,7 +44,7 @@ export async function createApp(): Promise<Application> {
     }
   }
 
-  const embeddings = new EmbeddingManager();
+  const embeddings = new EmbeddingManager({ resyncDisabled: () => providerState.getDisabled("embedding") });
   registerEmbeddingProviders(
     embeddings,
     await providerKeys.getAll("embedding"),

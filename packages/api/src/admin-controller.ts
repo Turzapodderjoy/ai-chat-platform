@@ -36,7 +36,23 @@ export class AdminController {
     private readonly providerState: ProviderStateStore
   ) {}
 
-  providers() {
+  /** A toggle made on one serverless instance only mutates THAT
+   * instance's in-memory AIManager + the DB — every other already-warm
+   * instance keeps its own stale in-memory enabled/disabled state
+   * indefinitely (only a cold start re-hydrates from providerState, see
+   * create-app.ts). So every read here re-syncs from the DB truth first —
+   * both to report it accurately and so this instance's own AIManager
+   * (which decides real chat routing) self-heals to match, not just the
+   * response shown to the dashboard. */
+  async providers() {
+    const disabled = await this.providerState.getDisabled("ai");
+
+    for (const status of this.ai.getProviderStatus()) {
+      if (this.ai.isProviderEnabled(status.name) === disabled.includes(status.name)) {
+        this.ai.setProviderEnabled(status.name, !disabled.includes(status.name));
+      }
+    }
+
     return {
       active: this.ai.getProviders().map((p) => p.name),
       status: this.ai.getProviderStatus(),

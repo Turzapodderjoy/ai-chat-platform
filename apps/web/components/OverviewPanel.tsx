@@ -3,7 +3,16 @@
 import { useEffect, useState } from "react";
 
 import { StatCard, StatCardRow } from "./StatCard";
-import { subtleTextStyle } from "./dashboard-styles";
+import { subtleTextStyle, cardStyle, cellStyle, primaryButtonStyle } from "./dashboard-styles";
+
+interface BusinessKnowledgeStatus {
+  businessId: string;
+  businessName: string;
+  crawlTargets: { total: number; done: number; stuck: number };
+  documentCount: number;
+  masterCsv: { updatedAt: string | null; sourceCount: number };
+  lastRunAt: string | null;
+}
 
 interface Counts {
   clients: number | null;
@@ -37,6 +46,35 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
     embeddingHealthy: null,
     embeddingTotal: null,
   });
+  const [knowledgeStatus, setKnowledgeStatus] = useState<BusinessKnowledgeStatus[] | null>(null);
+  const [refreshingAll, setRefreshingAll] = useState(false);
+  const [refreshAllMessage, setRefreshAllMessage] = useState("");
+
+  function refreshKnowledgeStatus() {
+    fetch("/api/admin/knowledge/status-all")
+      .then((r) => r.json())
+      .then((d: { status: BusinessKnowledgeStatus[] }) => setKnowledgeStatus(d.status));
+  }
+
+  async function runRefreshAll() {
+    setRefreshingAll(true);
+    setRefreshAllMessage("Started — recrawling and rebuilding the master CSV for every client, this runs in the background and can take several minutes per client…");
+
+    try {
+      await fetch("/api/admin/knowledge/refresh-all", { method: "POST" });
+
+      const poll = setInterval(refreshKnowledgeStatus, 8000);
+      setTimeout(() => {
+        clearInterval(poll);
+        setRefreshingAll(false);
+        refreshKnowledgeStatus();
+      }, 60000);
+    } catch {
+      setRefreshingAll(false);
+      setRefreshAllMessage("Failed to start.");
+    }
+  }
+
   // Refetches every time this tab becomes active (not just on first
   // mount) — panels stay permanently mounted across tab switches (so
   // Chat Demo's conversation survives), which previously meant this
@@ -92,6 +130,8 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
           embeddingHealthy: d.status.filter((p) => p.enabled && p.healthy).length,
         }))
       );
+
+    refreshKnowledgeStatus();
   }, [active]);
 
   const val = (n: number | null) => (n === null ? "…" : String(n));
@@ -130,6 +170,75 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
           }
         />
       </StatCardRow>
+
+      <div style={cardStyle}>
+        <h3 style={{ marginTop: 0 }}>Knowledge base — all clients</h3>
+        <p style={subtleTextStyle}>
+          Recrawls every site, re-processes every uploaded document, and rebuilds one master CSV per
+          client, for every business at once. Each client's refresh runs independently and can take
+          several minutes — that's expected. On the platform's current hosting, a single run may not
+          finish a large site in one pass; auto-heal (every 30 minutes) picks up anything left stuck.
+        </p>
+        <button onClick={runRefreshAll} disabled={refreshingAll} style={primaryButtonStyle}>
+          {refreshingAll ? "Running…" : "Refresh all clients now"}
+        </button>
+        {refreshAllMessage && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{refreshAllMessage}</p>}
+
+        {!knowledgeStatus && <p style={subtleTextStyle}>Loading…</p>}
+
+        {knowledgeStatus && (
+          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12 }}>
+            <thead>
+              <tr>
+                <th style={cellStyle}>Client</th>
+                <th style={cellStyle}>Crawl targets</th>
+                <th style={cellStyle}>Documents indexed</th>
+                <th style={cellStyle}>Master CSV</th>
+                <th style={cellStyle}>Last refresh</th>
+              </tr>
+            </thead>
+            <tbody>
+              {knowledgeStatus.map((s) => {
+                const csvOk = s.masterCsv.updatedAt !== null && s.masterCsv.sourceCount >= s.documentCount;
+                const targetsOk = s.crawlTargets.total === 0 || (s.crawlTargets.done === s.crawlTargets.total && s.crawlTargets.stuck === 0);
+                return (
+                  <tr key={s.businessId}>
+                    <td style={cellStyle}>{s.businessName}</td>
+                    <td style={cellStyle}>
+                      {s.crawlTargets.total === 0 ? (
+                        "—"
+                      ) : (
+                        <span style={{ color: targetsOk ? "var(--success, #15803d)" : "var(--warning, #b45309)" }}>
+                          {targetsOk ? "✅" : "⚠️"} {s.crawlTargets.done}/{s.crawlTargets.total} done
+                          {s.crawlTargets.stuck > 0 ? ` (${s.crawlTargets.stuck} stuck)` : ""}
+                        </span>
+                      )}
+                    </td>
+                    <td style={cellStyle}>{s.documentCount}</td>
+                    <td style={cellStyle}>
+                      {s.masterCsv.updatedAt ? (
+                        <span style={{ color: csvOk ? "var(--success, #15803d)" : "var(--warning, #b45309)" }}>
+                          {csvOk ? "✅" : "⚠️"} {s.masterCsv.sourceCount}/{s.documentCount} sources
+                        </span>
+                      ) : (
+                        <span style={subtleTextStyle}>not generated</span>
+                      )}
+                    </td>
+                    <td style={cellStyle}>
+                      {s.lastRunAt ? new Date(s.lastRunAt).toLocaleString() : "never"}
+                    </td>
+                  </tr>
+                );
+              })}
+              {knowledgeStatus.length === 0 && (
+                <tr>
+                  <td style={cellStyle} colSpan={5}>No clients yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
     </section>
   );
 }
