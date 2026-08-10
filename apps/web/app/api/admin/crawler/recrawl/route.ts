@@ -3,6 +3,9 @@ import { after } from "next/server";
 
 import { getApp } from "../../../../../lib/app";
 
+// Vercel Hobby max — see refresh-now/route.ts.
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
 

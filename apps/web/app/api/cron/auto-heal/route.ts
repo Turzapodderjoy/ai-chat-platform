@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getApp } from "../../../../lib/app";
 
+// Vercel Hobby max — see refresh-now/route.ts. This route can retry a
+// crawl target inline (healCrawlTargets), which needs real time to run.
+export const maxDuration = 60;
+
 /**
  * Deliberately NOT listed in vercel.json's crons array — Vercel's free/
  * Hobby plan doesn't just silently cap a sub-daily schedule to once/day,

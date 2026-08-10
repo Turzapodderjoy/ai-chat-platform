@@ -7,6 +7,12 @@ import { CrawlerService } from "@ai-chat-platform/web-crawler";
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const MAX_BACKOFF_MS = 24 * ONE_HOUR_MS;
 
+// A target stuck in "crawling" this long with no progress write is dead —
+// the process that was running it (a serverless function killed mid-crawl
+// by its own execution-time limit) is gone and will never reach "done" or
+// "error" on its own; nothing else marks it stale.
+const STUCK_CRAWLING_MS = 15 * 60 * 1000;
+
 function nextBackoff(retryCount: number): Date {
   const delay = Math.min(ONE_HOUR_MS * 2 ** retryCount, MAX_BACKOFF_MS);
   return new Date(Date.now() + delay);
@@ -157,14 +163,18 @@ export class AutoHealService {
   }
 
   /** Retries any crawl target in status:"error" whose cooldown has
-   * passed. Deliberately queries only status:"error" targets, not
+   * passed, plus any target stuck in status:"crawling" for too long (the
+   * function running it died mid-crawl without ever writing "done" or
+   * "error" — see STUCK_CRAWLING_MS). Deliberately doesn't use
    * CrawlerService.crawlAll() (which re-crawls everything regardless of
    * status — that's the separate daily crawl cron's job). */
   private async healCrawlTargets(): Promise<number> {
     const targets = await prisma.crawlTarget.findMany({
       where: {
-        status: "error",
-        OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: new Date() } }],
+        OR: [
+          { status: "error", OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: new Date() } }] },
+          { status: "crawling", updatedAt: { lte: new Date(Date.now() - STUCK_CRAWLING_MS) } },
+        ],
       },
     });
 

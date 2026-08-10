@@ -3,6 +3,9 @@ import { after } from "next/server";
 
 import { getApp } from "../../../../lib/app";
 
+// Vercel Hobby max — see refresh-now/route.ts.
+export const maxDuration = 60;
+
 /**
  * Same reasoning as apps/web/app/api/cron/auto-heal/route.ts — Vercel's
  * Hobby plan rejects any cron entry running more than once a day, and a

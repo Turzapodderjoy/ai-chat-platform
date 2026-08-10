@@ -35,9 +35,13 @@ export class RefreshScheduleService {
   }
 
   async markRun(businessId: string): Promise<void> {
-    await prisma.knowledgeRefreshSchedule.update({
+    // "Run now" can fire before any schedule time was ever saved for this
+    // business — upsert so lastRunAt still gets stamped instead of throwing
+    // "Record not found" and silently vanishing two layers up.
+    await prisma.knowledgeRefreshSchedule.upsert({
       where: { businessId },
-      data: { lastRunAt: new Date() },
+      create: { businessId, hourBd: 23, lastRunAt: new Date() },
+      update: { lastRunAt: new Date() },
     });
   }
 

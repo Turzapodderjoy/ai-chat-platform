@@ -3,6 +3,12 @@ import { after } from "next/server";
 
 import { getApp } from "../../../../../lib/app";
 
+// Give the after() background work the platform's max execution window
+// (Vercel Hobby caps at 60s) instead of the default ~10s — a full refresh
+// still won't fit in one invocation for a large site, but this reduces how
+// often a crawl target gets killed mid-page; auto-heal picks up the rest.
+export const maxDuration = 60;
+
 // A full refresh (recrawl every target + reprocess every uploaded
 // document) can genuinely take minutes — the owner explicitly said
 // that's fine. Fire-and-forget via after(), same pattern as the crawler

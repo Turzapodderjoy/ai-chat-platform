@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getApp } from "../../../../lib/app";
 
+// Vercel Hobby max — see refresh-now/route.ts.
+export const maxDuration = 60;
+
 /**
  * Vercel Cron hits this daily (see vercel.json). Vercel automatically sends
  * `Authorization: Bearer $CRON_SECRET` when that env var is set — set it in
