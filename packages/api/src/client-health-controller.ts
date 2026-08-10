@@ -14,7 +14,13 @@ export interface ClientHealthRow {
   businessId: string;
   businessName: string;
   crawlTargets: { total: number; done: number; stuck: number };
-  crawlProgress: { pagesDone: number; pagesEstimated: number } | null;
+  // The live "crawled done / embedding / building csv" status a refresh
+  // run moves through, in order — null when nothing is in progress.
+  refreshPhase:
+    | { phase: "crawling"; pagesDone: number; pagesEstimated: number }
+    | { phase: "embedding"; pagesIndexed: number; pagesTotal: number }
+    | { phase: "building_csv" }
+    | null;
   documentCount: number;
   masterCsv: { updatedAt: string | null; sourceCount: number };
   lastRefreshAt: string | null;
@@ -66,13 +72,7 @@ export class ClientHealthController {
           (t) => t.status === "crawling" && Date.now() - new Date(t.updatedAt).getTime() > STUCK_CRAWLING_MS
         ).length;
         const crawling = targets.filter((t) => t.status === "crawling");
-        const crawlProgress =
-          crawling.length === 0
-            ? null
-            : {
-                pagesDone: crawling.reduce((sum, t) => sum + t.pagesDone, 0),
-                pagesEstimated: crawling.reduce((sum, t) => sum + (t.pagesEstimated ?? 0), 0),
-              };
+        const embedding = targets.filter((t) => t.status === "embedding");
 
         const scoped = allRecords.filter((r) => r.metadata?.businessId === business.id);
         const byChunk = new Map<string, typeof scoped>();
@@ -104,6 +104,27 @@ export class ClientHealthController {
 
         const sourceCount = csv ? (csv.content.match(/^# Source: /gm) ?? []).length : 0;
 
+        // Order matters: a business only ever has one phase active at a
+        // time (runCrawl() fully finishes crawling+embedding a target
+        // before refresh() moves to the next, and CSV building only
+        // starts once every target is done) — check in pipeline order.
+        const refreshPhase: ClientHealthRow["refreshPhase"] =
+          crawling.length > 0
+            ? {
+                phase: "crawling",
+                pagesDone: crawling.reduce((sum, t) => sum + t.pagesDone, 0),
+                pagesEstimated: crawling.reduce((sum, t) => sum + (t.pagesEstimated ?? 0), 0),
+              }
+            : embedding.length > 0
+              ? {
+                  phase: "embedding",
+                  pagesIndexed: embedding.reduce((sum, t) => sum + t.pagesIndexed, 0),
+                  pagesTotal: embedding.reduce((sum, t) => sum + t.pagesDone, 0),
+                }
+              : sched.buildingCsv
+                ? { phase: "building_csv" }
+                : null;
+
         const usageTally = new Map<string, number>();
         for (const m of recentAssistantMessages) {
           if (m.conversation.businessId !== business.id) continue;
@@ -118,7 +139,7 @@ export class ClientHealthController {
           businessId: business.id,
           businessName: business.name,
           crawlTargets: { total: targets.length, done, stuck },
-          crawlProgress,
+          refreshPhase,
           documentCount,
           masterCsv: { updatedAt: csv?.updatedAt ?? null, sourceCount },
           lastRefreshAt: sched.lastRunAt,

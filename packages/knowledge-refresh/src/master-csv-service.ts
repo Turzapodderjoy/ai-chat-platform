@@ -77,13 +77,22 @@ export class MasterCsvService {
       }
     }
 
-    const content = await this.buildCsv(businessId);
+    // Every crawl target is fully crawled AND embedded by this point
+    // (runCrawl() doesn't return until both phases finish) — CSV building
+    // is the one remaining phase with no CrawlTarget row to report status
+    // from, so it gets its own explicit flag for the dashboard to show.
+    await this.schedule.setBuildingCsv(businessId, true);
+    try {
+      const content = await this.buildCsv(businessId);
 
-    await prisma.masterCsv.upsert({
-      where: { businessId },
-      create: { businessId, content },
-      update: { content },
-    });
+      await prisma.masterCsv.upsert({
+        where: { businessId },
+        create: { businessId, content },
+        update: { content },
+      });
+    } finally {
+      await this.schedule.setBuildingCsv(businessId, false);
+    }
 
     await this.schedule.markRun(businessId);
 

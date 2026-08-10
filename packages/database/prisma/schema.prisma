@@ -177,6 +177,11 @@ model CrawlTarget {
   status         String    @default("idle")
   pagesEstimated Int?
   pagesDone      Int       @default(0)
+  // Phase-2 (embedding) progress, separate from pagesDone (phase-1
+  // crawling progress) — status distinguishes which phase pagesDone vs
+  // pagesIndexed is currently meaningful for: "crawling" -> pagesDone is
+  // live, "embedding" -> pagesIndexed is live, "done" -> both final.
+  pagesIndexed   Int       @default(0)
 
   lastCrawledAt  DateTime?
   lastPageCount  Int?
@@ -206,6 +211,25 @@ model CrawlTarget {
   createdAt      DateTime  @default(now())
 
   @@unique([businessId, url])
+}
+
+// Raw fetched page text, written during the crawl phase and consumed
+// (then deleted) during the indexing phase — the durable handoff between
+// the two so "crawl everything, THEN embed everything, THEN build the
+// CSV" survives a process restart between phases. Without this, indexing
+// held only in memory between phases would silently lose every crawled-
+// but-not-yet-indexed page if the process died before reaching phase 2,
+// even though the crawl itself had already marked those URLs visited.
+model CrawledPage {
+  id            String   @id @default(cuid())
+  crawlTargetId String
+  url           String
+  text          String
+  contentHash   String
+  fetchedAt     DateTime @default(now())
+
+  @@unique([crawlTargetId, url])
+  @@index([crawlTargetId])
 }
 
 // One row per invocation of the auto-heal job (cron every 30min, or the
@@ -629,4 +653,8 @@ model KnowledgeRefreshSchedule {
   businessId String    @id
   hourBd     Int
   lastRunAt  DateTime?
+  // True for the span between "every crawl target is done/embedded" and
+  // "the master CSV row has been rebuilt" — the one refresh phase that
+  // has no CrawlTarget row of its own to report status from.
+  buildingCsv Boolean  @default(false)
 }

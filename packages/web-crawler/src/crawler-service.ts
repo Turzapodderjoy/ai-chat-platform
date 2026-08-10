@@ -45,6 +45,11 @@ const MAX_PAGES_PER_BATCH = 5;
 // of the chunk level.
 const DELAY_BETWEEN_PAGES_MS = 1500;
 
+// How many CrawledPage rows phase 2 processes before re-checking
+// existing chunks and re-persisting pagesIndexed — same checkpointing
+// reasoning as MAX_PAGES_PER_BATCH, just for the embedding phase.
+const INDEX_BATCH_SIZE = 20;
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -56,6 +61,7 @@ export interface CrawlTargetSummary {
   status: string;
   pagesEstimated: number | null;
   pagesDone: number;
+  pagesIndexed: number;
   lastCrawledAt: string | null;
   lastPageCount: number | null;
   lastChunkCount: number | null;
@@ -70,6 +76,7 @@ type CrawlTargetRow = {
   status: string;
   pagesEstimated: number | null;
   pagesDone: number;
+  pagesIndexed: number;
   lastCrawledAt: Date | null;
   lastPageCount: number | null;
   lastChunkCount: number | null;
@@ -96,6 +103,7 @@ function toSummary(row: CrawlTargetRow): CrawlTargetSummary {
     status: row.status,
     pagesEstimated: row.pagesEstimated,
     pagesDone: row.pagesDone,
+    pagesIndexed: row.pagesIndexed,
     lastCrawledAt: row.lastCrawledAt?.toISOString() ?? null,
     lastPageCount: row.lastPageCount,
     lastChunkCount: row.lastChunkCount,
@@ -174,274 +182,288 @@ export class CrawlerService {
     await this.indexing.initialize();
     await this.vectorStore.initialize();
 
-    let lastSummary: CrawlTargetSummary | null = null;
+    try {
+      const startingTarget = await prisma.crawlTarget.findUniqueOrThrow({ where: { id } });
 
+      // Resuming a process that died mid-embedding (frontier already null,
+      // status still "embedding") skips straight back into phase 2 instead
+      // of re-crawling — the crawl itself is already fully done.
+      if (startingTarget.status !== "embedding") {
+        await this.crawlPhase(id);
+      }
+
+      return await this.indexPhase(id);
+    } catch (error) {
+      // Deliberately doesn't touch frontierJson/CrawledPage rows — a
+      // transient failure (network blip, DB hiccup) shouldn't discard
+      // whatever's already been accumulated; the next attempt resumes
+      // from the same spot (crawlPhase resumes from frontierJson,
+      // indexPhase resumes from whatever CrawledPage rows are left).
+      const updated = await prisma.crawlTarget.update({
+        where: { id },
+        data: {
+          status: "error",
+          lastCrawledAt: new Date(),
+          lastError: error instanceof Error ? error.message : String(error),
+        },
+      });
+
+      return toSummary(updated);
+    }
+  }
+
+  /** Phase 1: fetch every page on the site, no embedding yet. Loops
+   * internally, MAX_PAGES_PER_BATCH pages per batch, persisting the
+   * resumable BFS frontier AND each fetched page's raw text (to
+   * CrawledPage) before moving to the next batch — a process death here
+   * loses no crawl position and no already-fetched content. Only once
+   * the frontier is genuinely exhausted does status flip to "embedding"
+   * and control return to runCrawl() for phase 2. This separation is the
+   * whole point: embedding (slow, LLM-bound) never starts until crawling
+   * (fast, I/O-bound) is completely done, so "is the crawl done" is a
+   * real, checkable fact instead of something interleaved batch-by-batch. */
+  private async crawlPhase(id: string): Promise<void> {
     for (;;) {
       const target = await prisma.crawlTarget.findUniqueOrThrow({ where: { id } });
       const priorFrontier = parseFrontier(target.frontierJson);
       const isFreshStart = !priorFrontier;
 
-      try {
-        // Sitemaps can undercount real reachable pages (BFS finds links a
-        // sitemap doesn't list) — track the estimate in a mutable local so
-        // it can grow to match reality instead of pagesDone silently
-        // exceeding a denominator that never moves. A resume keeps the
-        // estimate already on the row rather than re-fetching the sitemap.
-        let estimate = isFreshStart
-          ? await estimatePageCount(target.url, MAX_PAGES)
-          : (target.pagesEstimated ?? MAX_PAGES);
+      // Sitemaps can undercount real reachable pages (BFS finds links a
+      // sitemap doesn't list) — track the estimate in a mutable local so
+      // it can grow to match reality instead of pagesDone silently
+      // exceeding a denominator that never moves. A resume keeps the
+      // estimate already on the row rather than re-fetching the sitemap.
+      let estimate = isFreshStart
+        ? await estimatePageCount(target.url, MAX_PAGES)
+        : (target.pagesEstimated ?? MAX_PAGES);
 
-        await prisma.crawlTarget.update({
-          where: { id },
-          data: isFreshStart
-            ? { status: "crawling", pagesEstimated: estimate, pagesDone: 0, lastPageCount: 0, lastChunkCount: 0 }
-            : { status: "crawling" },
-        });
-
-        const batchResult = await crawlSiteBatch(target.url, priorFrontier, {
-          maxPagesTotal: MAX_PAGES,
-          maxPagesThisBatch: MAX_PAGES_PER_BATCH,
-          onPage: (_pagesDoneThisBatch, totalVisitedSoFar) => {
-            if (totalVisitedSoFar > estimate) {
-              estimate = totalVisitedSoFar;
+      await prisma.crawlTarget.update({
+        where: { id },
+        data: isFreshStart
+          ? {
+              status: "crawling",
+              pagesEstimated: estimate,
+              pagesDone: 0,
+              pagesIndexed: 0,
+              lastPageCount: 0,
+              lastChunkCount: 0,
             }
+          : { status: "crawling" },
+      });
 
-            // Fire-and-forget progress update — losing one write to a
-            // transient DB hiccup shouldn't abort the crawl itself.
-            prisma.crawlTarget
-              .update({ where: { id }, data: { pagesDone: totalVisitedSoFar, pagesEstimated: estimate } })
-              .catch(() => {});
-          },
+      const batchResult = await crawlSiteBatch(target.url, priorFrontier, {
+        maxPagesTotal: MAX_PAGES,
+        maxPagesThisBatch: MAX_PAGES_PER_BATCH,
+        onPage: (_pagesDoneThisBatch, totalVisitedSoFar) => {
+          if (totalVisitedSoFar > estimate) {
+            estimate = totalVisitedSoFar;
+          }
+
+          // Fire-and-forget progress update — losing one write to a
+          // transient DB hiccup shouldn't abort the crawl itself.
+          prisma.crawlTarget
+            .update({ where: { id }, data: { pagesDone: totalVisitedSoFar, pagesEstimated: estimate } })
+            .catch(() => {});
+        },
+      });
+
+      // Raw text saved BEFORE the frontier is persisted, so a page never
+      // ends up "visited" without its content actually being durable.
+      for (const page of batchResult.pages) {
+        await prisma.crawledPage.upsert({
+          where: { crawlTargetId_url: { crawlTargetId: id, url: page.url } },
+          create: { crawlTargetId: id, url: page.url, text: page.text, contentHash: hashText(page.text) },
+          update: { text: page.text, contentHash: hashText(page.text), fetchedAt: new Date() },
         });
+      }
 
-        const pages = batchResult.pages;
+      await prisma.crawlTarget.update({
+        where: { id },
+        data: {
+          frontierJson: batchResult.frontier ? JSON.stringify(batchResult.frontier) : null,
+          pagesDone: batchResult.totalVisitedCount,
+          pagesEstimated: Math.max(estimate, batchResult.totalVisitedCount),
+        },
+      });
 
-        // Persisted BEFORE indexing starts, not after — indexing (LLM
-        // tabular extraction + embedding per changed page) is the slow,
-        // variable-latency part, and if the process dies partway through
-        // it, the crawl POSITION (which pages are already visited) must
-        // not be lost even though those particular pages' content won't
-        // have made it into the index yet this round.
-        await prisma.crawlTarget.update({
-          where: { id },
-          data: {
-            frontierJson: batchResult.frontier ? JSON.stringify(batchResult.frontier) : null,
-            pagesDone: batchResult.totalVisitedCount,
-            pagesEstimated: Math.max(estimate, batchResult.totalVisitedCount),
-          },
-        });
+      if (!batchResult.frontier) {
+        // Crawl phase genuinely done — hand off to phase 2.
+        await prisma.crawlTarget.update({ where: { id }, data: { status: "embedding" } });
+        return;
+      }
+    }
+  }
 
-        // One lookup of existing chunk metadata up front (not per page) so
-        // we can tell new vs. updated vs. unchanged pages without embedding
-        // content that hasn't actually changed since the last crawl.
-        const existingRecords = await this.vectorStore.listAll();
-        const existingHashByDoc = new Map<string, string>();
-        const existingChunkCountByDoc = new Map<string, number>();
-        // A pagination/filter/sort URL trap can serve byte-identical content
-        // under many distinct URLs — with no per-path variant cap anymore
-        // (explicit "no limitations" requirement), re-running LLM extraction
-        // + embedding on every copy would waste real budget on zero new
-        // knowledge. First documentId seen for a given content hash becomes
-        // canonical; later URLs with the same hash clone its chunks instead
-        // of re-indexing from scratch. Seeded from every already-indexed
-        // record (not just this batch), so this also catches duplicates
-        // against earlier batches/crawl runs, not only same-batch ones.
-        const canonicalDocumentIdByHash = new Map<string, string>();
+  /** Phase 2: embed every page crawlPhase fetched, reading from
+   * CrawledPage (not memory) so this survives a restart between phases —
+   * a page is only deleted from CrawledPage once it's actually indexed
+   * (or determined unchanged/duplicate), so resuming mid-phase-2 just
+   * means fewer rows left to process, nothing is lost or redone. */
+  private async indexPhase(id: string): Promise<CrawlTargetSummary> {
+    const target = await prisma.crawlTarget.findUniqueOrThrow({ where: { id } });
+    const isFreshStart = target.lastCrawledAt === null;
+    const priorPageCount = target.lastPageCount ?? 0;
+    const priorChunkCount = target.lastChunkCount ?? 0;
+    let chunkCount = 0;
+    let pagesProcessed = target.pagesIndexed;
 
-        for (const record of existingRecords) {
-          existingChunkCountByDoc.set(
-            record.documentId,
-            (existingChunkCountByDoc.get(record.documentId) ?? 0) + 1
-          );
+    for (;;) {
+      const pending = await prisma.crawledPage.findMany({
+        where: { crawlTargetId: id },
+        take: INDEX_BATCH_SIZE,
+      });
 
-          const hash = record.metadata?.contentHash as string | undefined;
-          if (hash) {
-            if (!existingHashByDoc.has(record.documentId)) {
-              existingHashByDoc.set(record.documentId, hash);
-            }
-            if (!canonicalDocumentIdByHash.has(hash)) {
-              canonicalDocumentIdByHash.set(hash, record.documentId);
-            }
-          }
+      if (pending.length === 0) break;
+
+      // Re-fetched every batch (not once up front) so a long phase-2 run
+      // sees its own progress — otherwise every page in a big site would
+      // look "new" against a snapshot taken before any of them indexed.
+      const existingRecords = await this.vectorStore.listAll();
+      const existingHashByDoc = new Map<string, string>();
+      const existingChunkCountByDoc = new Map<string, number>();
+      // A pagination/filter/sort URL trap can serve byte-identical content
+      // under many distinct URLs — with no per-path variant cap anymore
+      // (explicit "no limitations" requirement), re-running LLM extraction
+      // + embedding on every copy would waste real budget on zero new
+      // knowledge. First documentId seen for a given content hash becomes
+      // canonical; later URLs with the same hash clone its chunks instead
+      // of re-indexing from scratch.
+      const canonicalDocumentIdByHash = new Map<string, string>();
+
+      for (const record of existingRecords) {
+        existingChunkCountByDoc.set(record.documentId, (existingChunkCountByDoc.get(record.documentId) ?? 0) + 1);
+
+        const hash = record.metadata?.contentHash as string | undefined;
+        if (hash) {
+          if (!existingHashByDoc.has(record.documentId)) existingHashByDoc.set(record.documentId, hash);
+          if (!canonicalDocumentIdByHash.has(hash)) canonicalDocumentIdByHash.set(hash, record.documentId);
         }
+      }
 
-        let chunkCount = 0;
-        const crawledAt = new Date().toISOString();
+      const crawledAt = new Date().toISOString();
+      const unchangedDocumentIds: string[] = [];
+      const changedPages: Array<{ page: (typeof pending)[number]; documentId: string; pageStatus: string }> = [];
+      const duplicatePages: Array<{ page: (typeof pending)[number]; documentId: string; canonicalDocumentId: string }> = [];
 
-        // Sorted into batches instead of acting page-by-page — JsonProvider
-        // rewrites its ENTIRE file on every write call, so doing this per page
-        // meant up to MAX_PAGES full-file rewrites per crawl run. Unchanged
-        // pages get one batched metadata patch; changed/new pages get one
-        // batched delete before being re-indexed; duplicate-content pages
-        // clone their canonical page's chunks instead of either.
-        const unchangedDocumentIds: string[] = [];
-        const changedPages: Array<{ page: (typeof pages)[number]; documentId: string; contentHash: string; pageStatus: string }> = [];
-        const duplicatePages: Array<{ page: (typeof pages)[number]; documentId: string; contentHash: string; canonicalDocumentId: string }> = [];
+      for (const page of pending) {
+        const documentId = `crawl:${id}:${page.url}`;
+        const previousHash = existingHashByDoc.get(documentId);
 
-        for (const page of pages) {
-          // Stable per-page documentId so a re-crawl replaces that page's
-          // old chunks instead of piling up duplicates forever.
-          const documentId = `crawl:${id}:${page.url}`;
-          const contentHash = hashText(page.text);
-          const previousHash = existingHashByDoc.get(documentId);
-
-          if (previousHash === contentHash) {
-            chunkCount += existingChunkCountByDoc.get(documentId) ?? 0;
-            unchangedDocumentIds.push(documentId);
-            continue;
-          }
-
-          const canonicalDocumentId = canonicalDocumentIdByHash.get(contentHash);
-          if (canonicalDocumentId && canonicalDocumentId !== documentId) {
-            duplicatePages.push({ page, documentId, contentHash, canonicalDocumentId });
-            continue;
-          }
-
-          // This page's content is new (or was previously the duplicate of
-          // something else, now standing on its own) — it becomes the
-          // canonical source for this hash for the rest of this batch.
-          canonicalDocumentIdByHash.set(contentHash, documentId);
-
-          changedPages.push({
-            page,
-            documentId,
-            contentHash,
-            pageStatus: previousHash ? "updated" : "new",
-          });
-        }
-
-        // Content identical to last crawl — no need to re-embed it, just
-        // refresh the status/timestamp shown in the Knowledge Hub, for all
-        // unchanged pages in one write.
-        await this.vectorStore.updateMetadataMany(unchangedDocumentIds, {
-          pageStatus: "unchanged",
-          lastCrawledAt: crawledAt,
-        });
-
-        await this.vectorStore.deleteByDocumentIds(changedPages.map((c) => c.documentId));
-
-        for (let i = 0; i < changedPages.length; i++) {
-          if (i > 0) {
-            await sleep(DELAY_BETWEEN_PAGES_MS);
-          }
-
-          const { page, documentId, contentHash, pageStatus } = changedPages[i]!;
-          const result = await this.indexing.index({
-            filename: page.url,
-            text: page.text,
-            documentId,
-            metadata: {
-              businessId: target.businessId,
-              source: "crawler",
-              url: page.url,
-              contentHash,
-              pageStatus,
-              lastCrawledAt: crawledAt,
-            },
-          });
-
-          chunkCount += result.chunks;
-        }
-
-        // Clone each duplicate page's canonical chunks — same text, same
-        // embedding (identical content embeds identically), just a new
-        // documentId/url so the duplicate URL is still retrievable under
-        // its own identity without paying for extraction/embedding again.
-        if (duplicatePages.length > 0) {
-          await this.vectorStore.deleteByDocumentIds(duplicatePages.map((d) => d.documentId));
-
-          for (const dup of duplicatePages) {
-            const canonicalRecords = await prisma.vectorRecord.findMany({
-              where: { documentId: dup.canonicalDocumentId },
-            });
-
-            // Canonical page hasn't actually landed in the DB yet (a rare
-            // same-batch race) — leave this URL unindexed this round, it's
-            // retried on the next crawl once the canonical page is there.
-            if (canonicalRecords.length === 0) continue;
-
-            const clones: VectorRecord[] = canonicalRecords.map((r) => ({
-              id: `${dup.documentId}::${r.chunkId}::${r.embeddingProvider ?? "default"}`,
-              documentId: dup.documentId,
-              chunkId: r.chunkId,
-              text: r.text,
-              embedding: r.embedding,
-              metadata: {
-                ...((r.metadata as Record<string, unknown>) ?? {}),
-                businessId: r.businessId,
-                embeddingProvider: r.embeddingProvider,
-                source: "crawler",
-                url: dup.page.url,
-                contentHash: dup.contentHash,
-                pageStatus: "duplicate",
-                lastCrawledAt: crawledAt,
-                duplicateOf: dup.canonicalDocumentId,
-              },
-            }));
-
-            await this.vectorStore.upsert(clones);
-            chunkCount += clones.length;
-          }
-        }
-
-        const priorPageCount = isFreshStart ? 0 : (target.lastPageCount ?? 0);
-        const priorChunkCount = isFreshStart ? 0 : (target.lastChunkCount ?? 0);
-
-        if (batchResult.frontier) {
-          // Not finished — persist where this batch left off and loop
-          // straight into the next batch rather than returning. Status
-          // stays "crawling" in the DB the whole time, so if this process
-          // DOES get killed mid-loop, auto-heal's stuck-crawl retry (or a
-          // fresh "Run now") resumes from this exact frontier.
-          await prisma.crawlTarget.update({
-            where: { id },
-            data: {
-              frontierJson: JSON.stringify(batchResult.frontier),
-              pagesDone: batchResult.totalVisitedCount,
-              pagesEstimated: Math.max(estimate, batchResult.totalVisitedCount),
-              lastPageCount: priorPageCount + pages.length,
-              lastChunkCount: priorChunkCount + chunkCount,
-            },
-          });
-
+        if (previousHash === page.contentHash) {
+          chunkCount += existingChunkCountByDoc.get(documentId) ?? 0;
+          unchangedDocumentIds.push(documentId);
           continue;
         }
 
-        // Frontier exhausted — the whole site is actually crawled now.
-        const updated = await prisma.crawlTarget.update({
-          where: { id },
-          data: {
-            status: "done",
-            frontierJson: null,
-            // Self-correct the estimate to the real count so the bar reads
-            // 100%, not stuck below it if the sitemap over/under-counted.
-            pagesEstimated: batchResult.totalVisitedCount,
-            pagesDone: batchResult.totalVisitedCount,
-            lastCrawledAt: new Date(),
-            lastPageCount: priorPageCount + pages.length,
-            lastChunkCount: priorChunkCount + chunkCount,
-            lastError: null,
-          },
-        });
+        const canonicalDocumentId = canonicalDocumentIdByHash.get(page.contentHash);
+        if (canonicalDocumentId && canonicalDocumentId !== documentId) {
+          duplicatePages.push({ page, documentId, canonicalDocumentId });
+          continue;
+        }
 
-        return toSummary(updated);
-      } catch (error) {
-        // Deliberately doesn't touch frontierJson — a transient failure
-        // (network blip, DB hiccup) shouldn't discard whatever's already
-        // been accumulated; the next attempt resumes from the same spot.
-        const updated = await prisma.crawlTarget.update({
-          where: { id },
-          data: {
-            status: "error",
-            lastCrawledAt: new Date(),
-            lastError: error instanceof Error ? error.message : String(error),
-          },
-        });
-
-        lastSummary = toSummary(updated);
-        return lastSummary;
+        canonicalDocumentIdByHash.set(page.contentHash, documentId);
+        changedPages.push({ page, documentId, pageStatus: previousHash ? "updated" : "new" });
       }
+
+      await this.vectorStore.updateMetadataMany(unchangedDocumentIds, {
+        pageStatus: "unchanged",
+        lastCrawledAt: crawledAt,
+      });
+
+      await this.vectorStore.deleteByDocumentIds(changedPages.map((c) => c.documentId));
+
+      for (let i = 0; i < changedPages.length; i++) {
+        if (i > 0) await sleep(DELAY_BETWEEN_PAGES_MS);
+
+        const { page, documentId, pageStatus } = changedPages[i]!;
+        const result = await this.indexing.index({
+          filename: page.url,
+          text: page.text,
+          documentId,
+          metadata: {
+            businessId: target.businessId,
+            source: "crawler",
+            url: page.url,
+            contentHash: page.contentHash,
+            pageStatus,
+            lastCrawledAt: crawledAt,
+          },
+        });
+
+        chunkCount += result.chunks;
+      }
+
+      const canonicalMissing = new Set<string>();
+
+      if (duplicatePages.length > 0) {
+        await this.vectorStore.deleteByDocumentIds(duplicatePages.map((d) => d.documentId));
+
+        for (const dup of duplicatePages) {
+          const canonicalRecords = await prisma.vectorRecord.findMany({
+            where: { documentId: dup.canonicalDocumentId },
+          });
+
+          // Canonical page hasn't actually landed in the DB yet — leave
+          // this one in CrawledPage, it's retried next time round.
+          if (canonicalRecords.length === 0) {
+            canonicalMissing.add(dup.documentId);
+            continue;
+          }
+
+          const clones: VectorRecord[] = canonicalRecords.map((r) => ({
+            id: `${dup.documentId}::${r.chunkId}::${r.embeddingProvider ?? "default"}`,
+            documentId: dup.documentId,
+            chunkId: r.chunkId,
+            text: r.text,
+            embedding: r.embedding,
+            metadata: {
+              ...((r.metadata as Record<string, unknown>) ?? {}),
+              businessId: r.businessId,
+              embeddingProvider: r.embeddingProvider,
+              source: "crawler",
+              url: dup.page.url,
+              contentHash: dup.page.contentHash,
+              pageStatus: "duplicate",
+              lastCrawledAt: crawledAt,
+              duplicateOf: dup.canonicalDocumentId,
+            },
+          }));
+
+          await this.vectorStore.upsert(clones);
+          chunkCount += clones.length;
+        }
+      }
+
+      // Every page in this batch is now either indexed, confirmed
+      // unchanged, or cloned as a duplicate — safe to drop from
+      // CrawledPage. A duplicate skipped above (its canonical hadn't
+      // landed yet) stays put and is retried on the next batch/run.
+      const retryIds = new Set(
+        duplicatePages.filter((d) => canonicalMissing.has(d.documentId)).map((d) => d.page.id)
+      );
+      const toDelete = pending.filter((p) => !retryIds.has(p.id)).map((p) => p.id);
+      if (toDelete.length > 0) {
+        await prisma.crawledPage.deleteMany({ where: { id: { in: toDelete } } });
+      }
+
+      pagesProcessed += toDelete.length;
+      await prisma.crawlTarget.update({ where: { id }, data: { pagesIndexed: pagesProcessed } });
     }
+
+    const updated = await prisma.crawlTarget.update({
+      where: { id },
+      data: {
+        status: "done",
+        frontierJson: null,
+        pagesIndexed: pagesProcessed,
+        lastCrawledAt: new Date(),
+        lastPageCount: (isFreshStart ? 0 : priorPageCount) + pagesProcessed,
+        lastChunkCount: (isFreshStart ? 0 : priorChunkCount) + chunkCount,
+        lastError: null,
+      },
+    });
+
+    return toSummary(updated);
   }
 
   /** Re-crawls every registered site across every business — what the

@@ -8,7 +8,11 @@ interface ClientHealthRow {
   businessId: string;
   businessName: string;
   crawlTargets: { total: number; done: number; stuck: number };
-  crawlProgress: { pagesDone: number; pagesEstimated: number } | null;
+  refreshPhase:
+    | { phase: "crawling"; pagesDone: number; pagesEstimated: number }
+    | { phase: "embedding"; pagesIndexed: number; pagesTotal: number }
+    | { phase: "building_csv" }
+    | null;
   documentCount: number;
   masterCsv: { updatedAt: string | null; sourceCount: number };
   lastRefreshAt: string | null;
@@ -24,6 +28,21 @@ interface ClientHealthRow {
 // running (so "no Claude needed to watch it" works); idle, it stays
 // on-demand-only.
 const POLL_WHILE_CRAWLING_MS = 10_000;
+
+type StepState = "done" | "active" | "pending";
+
+/** One small badge per pipeline stage — done (✅), currently running (a
+ * live count, so "is it stuck" is answerable without opening logs), or
+ * pending (dimmed, hasn't started this run). */
+function StepBadge({ label, state, detail }: { label: string; state: StepState; detail?: string }) {
+  const icon = state === "done" ? "✅" : state === "active" ? "🔵" : "⚪";
+  return (
+    <div style={{ fontSize: 12, opacity: state === "pending" ? 0.45 : 1 }}>
+      {icon} {label}
+      {detail && <span style={{ color: "var(--text-faint)" }}> — {detail}</span>}
+    </div>
+  );
+}
 
 /** One consolidated per-client health view — knowledge base, embedding
  * coverage, handoffs, and recent AI provider usage, all in one row
@@ -47,12 +66,12 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
     if (active) load();
   }, [active]);
 
-  const anyCrawling = rows?.some((r) => r.crawlProgress !== null) ?? false;
+  const anyRefreshing = rows?.some((r) => r.refreshPhase !== null) ?? false;
   useEffect(() => {
-    if (!active || !anyCrawling) return;
+    if (!active || !anyRefreshing) return;
     const id = setInterval(load, POLL_WHILE_CRAWLING_MS);
     return () => clearInterval(id);
-  }, [active, anyCrawling]);
+  }, [active, anyRefreshing]);
 
   return (
     <section>
@@ -78,6 +97,7 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
               <tr>
                 <th style={cellStyle}>Client</th>
                 <th style={cellStyle}>Crawl</th>
+                <th style={cellStyle}>Refresh status</th>
                 <th style={cellStyle}>Documents</th>
                 <th style={cellStyle}>Master CSV</th>
                 <th style={cellStyle}>Embedding coverage</th>
@@ -105,7 +125,7 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
                           {row.crawlTargets.stuck > 0 ? ` (${row.crawlTargets.stuck} stuck)` : ""}
                         </span>
                       )}
-                      {row.crawlProgress && (
+                      {row.refreshPhase?.phase === "crawling" && (
                         <div style={{ marginTop: 4 }}>
                           <div
                             style={{
@@ -119,11 +139,11 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
                             <div
                               style={{
                                 width: `${
-                                  row.crawlProgress.pagesEstimated > 0
+                                  row.refreshPhase.pagesEstimated > 0
                                     ? Math.min(
                                         100,
                                         Math.round(
-                                          (row.crawlProgress.pagesDone / row.crawlProgress.pagesEstimated) * 100
+                                          (row.refreshPhase.pagesDone / row.refreshPhase.pagesEstimated) * 100
                                         )
                                       )
                                     : 0
@@ -134,10 +154,59 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
                             />
                           </div>
                           <div style={{ fontSize: 11, color: "var(--text-faint)" }}>
-                            crawling: {row.crawlProgress.pagesDone}/{row.crawlProgress.pagesEstimated} pages
+                            crawling: {row.refreshPhase.pagesDone}/{row.refreshPhase.pagesEstimated} pages
                           </div>
                         </div>
                       )}
+                    </td>
+                    <td style={cellStyle}>
+                      {(() => {
+                        // refreshPhase === null means "nothing in progress
+                        // right now" — that's "all done" if a CSV already
+                        // exists from a past run, or "never run yet" (every
+                        // step still pending) if it doesn't.
+                        const neverRun = row.refreshPhase === null && row.masterCsv.updatedAt === null;
+                        const idleState: StepState = neverRun ? "pending" : "done";
+
+                        return (
+                          <>
+                            <StepBadge
+                              label="Crawled"
+                              state={row.refreshPhase?.phase === "crawling" ? "active" : idleState}
+                              detail={
+                                row.refreshPhase?.phase === "crawling"
+                                  ? `${row.refreshPhase.pagesDone}/${row.refreshPhase.pagesEstimated}`
+                                  : undefined
+                              }
+                            />
+                            <StepBadge
+                              label="Embedded"
+                              state={
+                                row.refreshPhase?.phase === "embedding"
+                                  ? "active"
+                                  : row.refreshPhase?.phase === "crawling"
+                                    ? "pending"
+                                    : idleState
+                              }
+                              detail={
+                                row.refreshPhase?.phase === "embedding"
+                                  ? `${row.refreshPhase.pagesIndexed}/${row.refreshPhase.pagesTotal}`
+                                  : undefined
+                              }
+                            />
+                            <StepBadge
+                              label="CSV built"
+                              state={
+                                row.refreshPhase?.phase === "building_csv"
+                                  ? "active"
+                                  : row.refreshPhase?.phase === "crawling" || row.refreshPhase?.phase === "embedding"
+                                    ? "pending"
+                                    : idleState
+                              }
+                            />
+                          </>
+                        );
+                      })()}
                     </td>
                     <td style={cellStyle}>{row.documentCount}</td>
                     <td style={cellStyle}>
@@ -181,7 +250,7 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
               })}
               {rows.length === 0 && (
                 <tr>
-                  <td style={cellStyle} colSpan={8}>No clients yet.</td>
+                  <td style={cellStyle} colSpan={9}>No clients yet.</td>
                 </tr>
               )}
             </tbody>

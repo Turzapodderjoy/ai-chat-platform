@@ -4,6 +4,7 @@ export interface RefreshSchedule {
   businessId: string;
   hourBd: number | null;
   lastRunAt: string | null;
+  buildingCsv: boolean;
 }
 
 /** Same single-mutable-row-per-business shape as WidgetConfigService —
@@ -11,13 +12,25 @@ export interface RefreshSchedule {
 export class RefreshScheduleService {
   async get(businessId: string): Promise<RefreshSchedule> {
     const row = await prisma.knowledgeRefreshSchedule.findUnique({ where: { businessId } });
-    if (!row) return { businessId, hourBd: null, lastRunAt: null };
+    if (!row) return { businessId, hourBd: null, lastRunAt: null, buildingCsv: false };
 
     return {
       businessId: row.businessId,
       hourBd: row.hourBd,
       lastRunAt: row.lastRunAt?.toISOString() ?? null,
+      buildingCsv: row.buildingCsv,
     };
+  }
+
+  /** Marks the span between "every crawl target is embedded" and "the
+   * master CSV row is rebuilt" — the one refresh phase with no
+   * CrawlTarget row of its own to report status from. */
+  async setBuildingCsv(businessId: string, building: boolean): Promise<void> {
+    await prisma.knowledgeRefreshSchedule.upsert({
+      where: { businessId },
+      create: { businessId, hourBd: 23, buildingCsv: building },
+      update: { buildingCsv: building },
+    });
   }
 
   async save(businessId: string, hourBd: number): Promise<RefreshSchedule> {
