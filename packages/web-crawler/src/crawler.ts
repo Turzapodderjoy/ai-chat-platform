@@ -20,6 +20,15 @@ const MAX_PAGES_DEFAULT = 25;
 // no error, no progress, and no way to tell the difference from "just
 // slow" without this).
 const FETCH_TIMEOUT_MS = 15_000;
+// A category page with combinable filters/sort/pagination can generate
+// near-unlimited distinct query-string URLs for what's largely the same
+// underlying listing — observed live: a real crawl passed 2500 pages with
+// zero sign of slowing, all off the same handful of category paths.
+// Capping how many query-string VARIANTS of the same path get crawled
+// bounds that blowup without needing to know which specific params are
+// "real" content (a genuinely different sub-category) vs noise (a sort
+// order) for any given site.
+const MAX_VARIANTS_PER_PATH = 5;
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -45,6 +54,7 @@ export async function crawlSite(
   const visited = new Set<string>();
   const queue: string[] = [startUrl];
   const pages: CrawledPage[] = [];
+  const pathVariantCount = new Map<string, number>();
 
   while (queue.length > 0 && pages.length < maxPages) {
     const url = queue.shift()!;
@@ -64,6 +74,12 @@ export async function crawlSite(
     if (parsed.origin !== origin || !isPathAllowed(parsed.pathname, disallowed)) {
       continue;
     }
+
+    const variantCount = pathVariantCount.get(parsed.pathname) ?? 0;
+    if (variantCount >= MAX_VARIANTS_PER_PATH) {
+      continue;
+    }
+    pathVariantCount.set(parsed.pathname, variantCount + 1);
 
     try {
       const res = await fetch(url, {
