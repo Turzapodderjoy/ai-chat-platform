@@ -29,6 +29,15 @@ const FETCH_TIMEOUT_MS = 15_000;
 // "real" content (a genuinely different sub-category) vs noise (a sort
 // order) for any given site.
 const MAX_VARIANTS_PER_PATH = 5;
+// The regexes in html-to-text.ts are all linear (no catastrophic
+// backtracking), but a genuinely huge response body — a multi-MB page,
+// or a non-HTML resource mislabeled as HTML — still takes real,
+// synchronous, event-loop-blocking time to run replace()/matchAll()
+// over, and neither AbortSignal.timeout above nor a Promise.race would
+// help once that work has started (JS is single-threaded; a sync hang
+// blocks the timer callback too). Reject oversized bodies before ever
+// running text/link extraction on them.
+const MAX_HTML_BYTES = 3_000_000;
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -91,7 +100,16 @@ export async function crawlSite(
         continue;
       }
 
+      const contentLength = Number(res.headers.get("content-length") ?? 0);
+      if (contentLength > MAX_HTML_BYTES) {
+        continue;
+      }
+
       const html = await res.text();
+      if (html.length > MAX_HTML_BYTES) {
+        continue;
+      }
+
       const text = htmlToText(html);
 
       if (text.length > 0) {
