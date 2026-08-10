@@ -12,7 +12,18 @@ export async function GET(req: NextRequest) {
   }
 
   const app = await getApp();
-  const baseUrl = req.nextUrl.origin;
+  // req.nextUrl.origin reflects the raw Host header Next's own server
+  // process saw, which a reverse proxy in front of `next start` (e.g.
+  // Cloudflare Tunnel, Nginx) doesn't always forward faithfully — it
+  // showed up as the app's own bind address (localhost:3001) instead of
+  // the real public hostname when self-hosted behind cloudflared,
+  // baking the wrong domain into every business's embed snippet.
+  // X-Forwarded-Host/-Proto are the standard headers a proxy sets for
+  // exactly this, and Vercel sets them correctly too, so preferring them
+  // is safe there as well.
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const forwardedProto = req.headers.get("x-forwarded-proto") ?? "https";
+  const baseUrl = forwardedHost ? `${forwardedProto}://${forwardedHost}` : req.nextUrl.origin;
 
   const [catalog, connections, embed] = await Promise.all([
     app.container.router.channels.catalog(),
