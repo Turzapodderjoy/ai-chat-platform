@@ -12,6 +12,42 @@ export interface CrawlOptions {
   onPage?: (pagesDone: number) => void;
 }
 
+/** Everything needed to resume a BFS crawl exactly where it left off —
+ * persisted to CrawlTarget.frontierJson between invocations so a large
+ * site's crawl can span many short serverless calls instead of needing
+ * to complete inside one (Vercel's own execution-time cap makes a
+ * multi-hundred-page crawl impossible to finish in a single invocation
+ * regardless of how generous maxDuration is set). JSON-serializable —
+ * Maps/Sets aren't, hence the array/record shapes. */
+export interface CrawlFrontier {
+  queue: string[];
+  visited: string[];
+  pathVariantCount: Record<string, number>;
+}
+
+export interface CrawlBatchOptions {
+  /** Hard ceiling on the crawl's total size across every batch combined —
+   * same meaning as CrawlOptions.maxPages. */
+  maxPagesTotal?: number;
+  /** How many pages THIS invocation is allowed to fetch — bounds a single
+   * call's wall-clock time so it fits inside the platform's execution
+   * limit; the rest waits in the returned frontier for the next call. */
+  maxPagesThisBatch: number;
+  delayMs?: number;
+  onPage?: (pagesDoneThisBatch: number, totalVisitedSoFar: number) => void;
+}
+
+export interface CrawlBatchResult {
+  /** Pages actually fetched THIS batch — the caller indexes only these,
+   * not the whole site's history, on every call. */
+  pages: CrawledPage[];
+  /** Remaining state to resume with on the next call. null means the
+   * crawl reached the end of its link graph (or maxPagesTotal) and is
+   * genuinely finished, not just paused. */
+  frontier: CrawlFrontier | null;
+  totalVisitedCount: number;
+}
+
 const DELAY_MS_DEFAULT = 500;
 const MAX_PAGES_DEFAULT = 25;
 // A hung/slow-responding page had no bound at all — the raw fetch() below
@@ -45,27 +81,35 @@ function wait(ms: number) {
 
 /**
  * Same-origin breadth-first crawl starting at `startUrl`, respecting
- * robots.txt and rate-limiting itself between requests. Does not attempt
- * to defeat CAPTCHAs, WAFs, or other bot-detection — if a site blocks
- * this crawler, that's a signal to get the client to allowlist our
- * User-Agent, not to work around it.
+ * robots.txt and rate-limiting itself between requests, resumable across
+ * calls via `priorFrontier`. Does not attempt to defeat CAPTCHAs, WAFs,
+ * or other bot-detection — if a site blocks this crawler, that's a
+ * signal to get the client to allowlist our User-Agent, not to work
+ * around it.
  */
-export async function crawlSite(
+export async function crawlSiteBatch(
   startUrl: string,
-  options: CrawlOptions = {}
-): Promise<CrawledPage[]> {
-  const maxPages = options.maxPages ?? MAX_PAGES_DEFAULT;
+  priorFrontier: CrawlFrontier | null,
+  options: CrawlBatchOptions
+): Promise<CrawlBatchResult> {
+  const maxPagesTotal = options.maxPagesTotal ?? MAX_PAGES_DEFAULT;
   const delayMs = options.delayMs ?? DELAY_MS_DEFAULT;
 
   const origin = new URL(startUrl).origin;
   const disallowed = await fetchDisallowedPaths(origin);
 
-  const visited = new Set<string>();
-  const queue: string[] = [startUrl];
+  const visited = new Set<string>(priorFrontier?.visited ?? []);
+  const queue: string[] = priorFrontier ? [...priorFrontier.queue] : [startUrl];
+  const pathVariantCount = new Map<string, number>(
+    priorFrontier ? Object.entries(priorFrontier.pathVariantCount) : []
+  );
   const pages: CrawledPage[] = [];
-  const pathVariantCount = new Map<string, number>();
 
-  while (queue.length > 0 && pages.length < maxPages) {
+  while (
+    queue.length > 0 &&
+    visited.size < maxPagesTotal &&
+    pages.length < options.maxPagesThisBatch
+  ) {
     const url = queue.shift()!;
 
     if (visited.has(url)) {
@@ -114,7 +158,7 @@ export async function crawlSite(
 
       if (text.length > 0) {
         pages.push({ url, text });
-        options.onPage?.(pages.length);
+        options.onPage?.(pages.length, visited.size);
       }
 
       for (const link of extractLinks(html, url)) {
@@ -129,5 +173,35 @@ export async function crawlSite(
     await wait(delayMs);
   }
 
-  return pages;
+  const exhausted = queue.length === 0 || visited.size >= maxPagesTotal;
+
+  return {
+    pages,
+    frontier: exhausted
+      ? null
+      : {
+          queue,
+          visited: Array.from(visited),
+          pathVariantCount: Object.fromEntries(pathVariantCount),
+        },
+    totalVisitedCount: visited.size,
+  };
+}
+
+/** Convenience wrapper for a caller that just wants the whole crawl in
+ * one call with no resumption — everything fits in one batch. */
+export async function crawlSite(
+  startUrl: string,
+  options: CrawlOptions = {}
+): Promise<CrawledPage[]> {
+  const maxPages = options.maxPages ?? MAX_PAGES_DEFAULT;
+
+  const result = await crawlSiteBatch(startUrl, null, {
+    maxPagesTotal: maxPages,
+    maxPagesThisBatch: maxPages,
+    delayMs: options.delayMs,
+    onPage: options.onPage ? (pagesDoneThisBatch) => options.onPage!(pagesDoneThisBatch) : undefined,
+  });
+
+  return result.pages;
 }

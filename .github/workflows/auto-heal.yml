@@ -1,0 +1,23 @@
+name: Auto-heal
+
+# Vercel's Hobby plan only supports daily cron regardless of the schedule
+# expression in vercel.json — this repo's auto-heal route needs to run
+# much more often than that (every 15 minutes) to resume large, multi-batch
+# crawls in a reasonable time. GitHub Actions' free scheduled workflows are
+# the external trigger for that; see /api/cron/auto-heal/route.ts's own
+# comment for the full reasoning. Requires a CRON_SECRET repository secret
+# (Settings -> Secrets and variables -> Actions) matching the CRON_SECRET
+# env var set on the Vercel project.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit /api/cron/auto-heal
+        run: |
+          curl -sf -X GET "https://ai-project-v3-web.vercel.app/api/cron/auto-heal" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

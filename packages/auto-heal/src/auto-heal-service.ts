@@ -165,7 +165,13 @@ export class AutoHealService {
   /** Retries any crawl target in status:"error" whose cooldown has
    * passed, plus any target stuck in status:"crawling" for too long (the
    * function running it died mid-crawl without ever writing "done" or
-   * "error" — see STUCK_CRAWLING_MS). Deliberately doesn't use
+   * "error" — see STUCK_CRAWLING_MS). Calls runCrawl() directly rather
+   * than resetting via queueForCrawl() first — runCrawl() now resumes
+   * from CrawlTarget.frontierJson when one exists (a large site's crawl
+   * spans many batches; see MAX_PAGES_PER_BATCH), so a full reset here
+   * would wipe out however many batches of progress already landed and
+   * make this loop retry from the site's root every 15+ minutes forever
+   * instead of ever finishing. Deliberately doesn't use
    * CrawlerService.crawlAll() (which re-crawls everything regardless of
    * status — that's the separate daily crawl cron's job). */
   private async healCrawlTargets(): Promise<number> {
@@ -181,7 +187,6 @@ export class AutoHealService {
     let retried = 0;
 
     for (const target of targets) {
-      await this.crawler.queueForCrawl(target.id);
       const result = await this.crawler.runCrawl(target.id);
       retried += 1;
 

@@ -192,6 +192,16 @@ model CrawlTarget {
   // to 0 on the next successful crawl.
   retryCount     Int       @default(0)
   nextRetryAt    DateTime?
+
+  // Resumable BFS crawl state (queue/visited/path-variant-counts, JSON
+  // serialized) — a large site can't finish crawling inside one
+  // serverless invocation's execution-time cap no matter how that cap is
+  // tuned, so runCrawl() processes one bounded batch per call and
+  // persists the rest here to pick back up next time. Null when no
+  // crawl is currently mid-flight (either never started, or genuinely
+  // finished this round).
+  frontierJson   String?
+
   updatedAt      DateTime  @default(now()) @updatedAt
 
   createdAt      DateTime  @default(now())

@@ -4,16 +4,30 @@ import { prisma } from "@ai-chat-platform/database";
 import { IndexingService } from "@ai-chat-platform/indexing";
 import type { VectorStoreManager } from "@ai-chat-platform/vector-store";
 
-import { crawlSite } from "./crawler";
+import { crawlSiteBatch, type CrawlFrontier } from "./crawler";
 import { estimatePageCount } from "./estimate";
 
 // Was 25, then 400 — the owner wants the WHOLE site crawled regardless
-// of size, no artificial ceiling. crawlSite()'s BFS loop already stops
-// on its own once the link queue is exhausted (a real, finite site
-// crawls itself out), so this number only exists as a runaway guard
-// against a pathological site with genuinely infinite crawlable URLs
-// (e.g. an infinite calendar/pagination trap) — not a real-world limit.
+// of size, no artificial ceiling. crawlSiteBatch()'s BFS loop already
+// stops on its own once the link queue is exhausted (a real, finite
+// site crawls itself out), so this number only exists as a runaway
+// guard against a pathological site with genuinely infinite crawlable
+// URLs (e.g. an infinite calendar/pagination trap) — not a real-world
+// limit.
 const MAX_PAGES = 5000;
+
+// A large site cannot finish crawling inside one serverless invocation's
+// execution-time cap no matter how that cap is tuned (confirmed live:
+// even a raised 60s maxDuration isn't enough for a few hundred pages
+// once fetch + LLM tabular extraction + embedding are all counted). This
+// bounds how much ONE call to runCrawl() attempts before returning,
+// persisting the rest as CrawlTarget.frontierJson so the next call
+// (auto-heal's stuck-crawl retry, a fresh "Run now" click, or the daily
+// cron) picks up exactly where this one left off instead of either
+// timing out mid-page or restarting from the site's root every time.
+// Tuned for ~40s worst case: ~10 pages * (~1.2s fetch+pace + up to ~3s
+// index-if-changed) stays comfortably under Vercel Hobby's 60s cap.
+const MAX_PAGES_PER_BATCH = 10;
 
 // Small pages (under EmbeddingManager's own per-provider batch size)
 // embed almost instantly, so without an explicit pace here a crawl with
@@ -55,6 +69,17 @@ type CrawlTargetRow = {
   updatedAt: Date;
 };
 
+/** A malformed/corrupt frontierJson shouldn't crash the crawl — treat it
+ * the same as no frontier at all (fresh start from the site's root). */
+function parseFrontier(raw: string | null): CrawlFrontier | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as CrawlFrontier;
+  } catch {
+    return null;
+  }
+}
+
 function toSummary(row: CrawlTargetRow): CrawlTargetSummary {
   return {
     id: row.id,
@@ -92,17 +117,22 @@ export class CrawlerService {
   async addTarget(businessId: string, url: string): Promise<CrawlTargetSummary> {
     const target = await prisma.crawlTarget.upsert({
       where: { businessId_url: { businessId, url } },
-      update: { status: "queued", pagesDone: 0, lastError: null },
+      update: { status: "queued", pagesDone: 0, lastError: null, frontierJson: null },
       create: { businessId, url, status: "queued" },
     });
 
     return toSummary(target);
   }
 
+  /** A full manual reset — discards any resumable frontier, next
+   * runCrawl() starts from the site's root. Use for an explicit "start
+   * over" action; automated retries (auto-heal) should call runCrawl()
+   * directly instead so an in-progress multi-batch crawl resumes rather
+   * than restarting from scratch every retry. */
   async queueForCrawl(id: string): Promise<CrawlTargetSummary> {
     const target = await prisma.crawlTarget.update({
       where: { id },
-      data: { status: "queued", pagesDone: 0, lastError: null },
+      data: { status: "queued", pagesDone: 0, lastError: null, frontierJson: null },
     });
 
     return toSummary(target);
@@ -122,39 +152,54 @@ export class CrawlerService {
   }
 
   /** The actual work — call this from a background task (e.g. Next.js
-   * `after()`), not inline in a request handler a user is waiting on. */
+   * `after()`), not inline in a request handler a user is waiting on.
+   * Processes at most MAX_PAGES_PER_BATCH pages per call; if the site
+   * has more, persists the resumable frontier and leaves status
+   * "crawling" for the next call to continue — see MAX_PAGES_PER_BATCH's
+   * comment for why one call can't just finish a large site outright. */
   async runCrawl(id: string): Promise<CrawlTargetSummary> {
     const target = await prisma.crawlTarget.findUniqueOrThrow({ where: { id } });
 
     await this.indexing.initialize();
     await this.vectorStore.initialize();
 
+    const priorFrontier = parseFrontier(target.frontierJson);
+    const isFreshStart = !priorFrontier;
+
     try {
       // Sitemaps can undercount real reachable pages (BFS finds links a
       // sitemap doesn't list) — track the estimate in a mutable local so
       // it can grow to match reality instead of pagesDone silently
-      // exceeding a denominator that never moves.
-      let estimate = await estimatePageCount(target.url, MAX_PAGES);
+      // exceeding a denominator that never moves. A resume keeps the
+      // estimate already on the row rather than re-fetching the sitemap.
+      let estimate = isFreshStart
+        ? await estimatePageCount(target.url, MAX_PAGES)
+        : (target.pagesEstimated ?? MAX_PAGES);
 
       await prisma.crawlTarget.update({
         where: { id },
-        data: { status: "crawling", pagesEstimated: estimate, pagesDone: 0 },
+        data: isFreshStart
+          ? { status: "crawling", pagesEstimated: estimate, pagesDone: 0, lastPageCount: 0, lastChunkCount: 0 }
+          : { status: "crawling" },
       });
 
-      const pages = await crawlSite(target.url, {
-        maxPages: MAX_PAGES,
-        onPage: (pagesDone) => {
-          if (pagesDone > estimate) {
-            estimate = pagesDone;
+      const batchResult = await crawlSiteBatch(target.url, priorFrontier, {
+        maxPagesTotal: MAX_PAGES,
+        maxPagesThisBatch: MAX_PAGES_PER_BATCH,
+        onPage: (_pagesDoneThisBatch, totalVisitedSoFar) => {
+          if (totalVisitedSoFar > estimate) {
+            estimate = totalVisitedSoFar;
           }
 
           // Fire-and-forget progress update — losing one write to a
           // transient DB hiccup shouldn't abort the crawl itself.
           prisma.crawlTarget
-            .update({ where: { id }, data: { pagesDone, pagesEstimated: estimate } })
+            .update({ where: { id }, data: { pagesDone: totalVisitedSoFar, pagesEstimated: estimate } })
             .catch(() => {});
         },
       });
+
+      const pages = batchResult.pages;
 
       // One lookup of existing chunk metadata up front (not per page) so
       // we can tell new vs. updated vs. unchanged pages without embedding
@@ -239,23 +284,50 @@ export class CrawlerService {
         chunkCount += result.chunks;
       }
 
+      const priorPageCount = isFreshStart ? 0 : (target.lastPageCount ?? 0);
+      const priorChunkCount = isFreshStart ? 0 : (target.lastChunkCount ?? 0);
+
+      if (batchResult.frontier) {
+        // Not finished — persist where this batch left off. Status stays
+        // "crawling"; the next runCrawl(id) call (auto-heal's stuck-crawl
+        // retry after STUCK_CRAWLING_MS, a fresh "Run now", or the daily
+        // cron) resumes from this exact frontier instead of restarting.
+        const updated = await prisma.crawlTarget.update({
+          where: { id },
+          data: {
+            frontierJson: JSON.stringify(batchResult.frontier),
+            pagesDone: batchResult.totalVisitedCount,
+            pagesEstimated: Math.max(estimate, batchResult.totalVisitedCount),
+            lastPageCount: priorPageCount + pages.length,
+            lastChunkCount: priorChunkCount + chunkCount,
+          },
+        });
+
+        return toSummary(updated);
+      }
+
+      // Frontier exhausted — the crawl actually finished on this call.
       const updated = await prisma.crawlTarget.update({
         where: { id },
         data: {
           status: "done",
+          frontierJson: null,
           // Self-correct the estimate to the real count so the bar reads
           // 100%, not stuck below it if the sitemap over/under-counted.
-          pagesEstimated: pages.length,
-          pagesDone: pages.length,
+          pagesEstimated: batchResult.totalVisitedCount,
+          pagesDone: batchResult.totalVisitedCount,
           lastCrawledAt: new Date(),
-          lastPageCount: pages.length,
-          lastChunkCount: chunkCount,
+          lastPageCount: priorPageCount + pages.length,
+          lastChunkCount: priorChunkCount + chunkCount,
           lastError: null,
         },
       });
 
       return toSummary(updated);
     } catch (error) {
+      // Deliberately doesn't touch frontierJson — a transient failure
+      // (network blip, DB hiccup) shouldn't discard whatever's already
+      // been accumulated; the next attempt resumes from the same spot.
       const updated = await prisma.crawlTarget.update({
         where: { id },
         data: {
