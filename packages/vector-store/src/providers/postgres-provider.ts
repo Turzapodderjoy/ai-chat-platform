@@ -226,6 +226,19 @@ export class PostgresProvider implements VectorStore {
         embeddingProvider: true,
         metadata: true,
       },
+      // No index makes a leading-wildcard ILIKE cheap for a COMMON term
+      // (pg_trgm helps only genuinely selective ones — see
+      // packages/database/sql/pgvector-setup.sql) — an ordinary catalog
+      // word like "drill" at a tools business matched 32,764/61,846 rows
+      // once, a 4.9s unbounded fetch on every message. This `take` lets
+      // Postgres stop the scan once it has enough candidates instead of
+      // enumerating every match. Safe to bound: this search only
+      // supplements the real (unlimited, properly ranked) vector search
+      // run in parallel — for the case this exists for, an actual rare
+      // product code/SKU, the trgm index already makes it fast AND
+      // exhaustive (real single-digit-ms measurement), so the cap never
+      // even engages there.
+      take: Math.max(limit * 5, 25),
     });
 
     if (rows.length === 0) {

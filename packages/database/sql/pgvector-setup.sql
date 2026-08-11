@@ -46,3 +46,16 @@ DROP TRIGGER IF EXISTS trg_sync_embedding_vec ON "VectorRecord";
 CREATE TRIGGER trg_sync_embedding_vec
   BEFORE INSERT OR UPDATE OF embedding ON "VectorRecord"
   FOR EACH ROW EXECUTE FUNCTION sync_embedding_vec();
+
+-- pg_trgm: makes VectorStore.keywordSearch()'s ILIKE '%term%' scans fast
+-- for a genuinely selective term (a product code/SKU -- what this search
+-- exists for). Ships in contrib with every standard Postgres install, no
+-- compile needed (unlike pgvector above). A COMMON word (e.g. "drill" at
+-- a tools business) still costs a full seq scan even with this index --
+-- that's correct planner behavior when a term matches a large fraction
+-- of the table, not a sign the index is missing something -- the query's
+-- own `take` cap (see postgres-provider.ts) bounds that case instead.
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE INDEX IF NOT EXISTS vectorrecord_text_trgm_idx
+  ON "VectorRecord" USING gin (text gin_trgm_ops);
