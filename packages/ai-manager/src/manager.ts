@@ -194,7 +194,7 @@ export class AIManager {
 
     const failures: Error[] = [];
 
-    for (const entry of this.orderedProviders()) {
+    for (const entry of this.rotatedProviders()) {
       const provider = entry.provider;
       const providerName = provider.name;
 
@@ -351,6 +351,27 @@ export class AIManager {
       response: result.message,
       tokens: result.tokens ?? 0,
     };
+  }
+
+  /** Round-robins WHICH enabled provider gets tried first, request to
+   * request — spreads load across every active provider instead of
+   * hammering whichever one is first in failoverOrder every single
+   * time, while the rest of orderedProviders()'s fixed priority still
+   * applies as the fallback chain once that call starts (so a
+   * deliberately-preferred provider still isn't skipped over, just not
+   * always first). A per-instance counter, not persisted -- fine, since
+   * even a cold-start reset just means rotation restarts at index 0,
+   * not that it stops working. */
+  private rotationIndex = 0;
+
+  private rotatedProviders(): RegisteredProvider[] {
+    const ordered = this.orderedProviders();
+    if (ordered.length <= 1) return ordered;
+
+    const start = this.rotationIndex % ordered.length;
+    this.rotationIndex = (this.rotationIndex + 1) % ordered.length;
+
+    return [...ordered.slice(start), ...ordered.slice(0, start)];
   }
 
   private orderedProviders(): RegisteredProvider[] {

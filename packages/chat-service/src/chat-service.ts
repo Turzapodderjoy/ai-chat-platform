@@ -431,11 +431,37 @@ export class ChatService {
         ]);
     console.log(`[perf] retrieve took ${Date.now() - __tRetrieveStart}ms`);
 
-    const retrieved =
+    const retrievedRaw =
       fullContext ??
       [...(masterCsvChunk ? [masterCsvChunk] : []), ...(retrievedFromSearch ?? [])];
+
+    // Groq's per-account token-per-minute budget (12,000 on the 70B
+    // model at last check, HALF that on the 8B one) counts one large
+    // request's own tokens against it, not just cumulative usage -- a
+    // single call over budget always 413s, no amount of waiting fixes
+    // it. Sibling-chunk expansion capped per-document (see
+    // vector-store-retriever.ts) but nothing capped the TOTAL across
+    // every matched document -- a multi-clause question matching
+    // several products could still stack up 80k+ chars (~20k tokens)
+    // and blow the limit outright. fullContext/master-CSV already have
+    // their own explicit budget (FULL_CONTEXT_CHAR_BUDGET) for the same
+    // reason; this applies it to the normal top-K + sibling-expansion
+    // path too. Keeps the highest-scored chunks, drops the rest --
+    // exactly what "top-K" already means, just enforced by size as well
+    // as count.
+    const RETRIEVAL_CONTEXT_CHAR_BUDGET = 24_000;
+    let runningChars = 0;
+    const retrieved = fullContext
+      ? retrievedRaw
+      : [...retrievedRaw]
+          .sort((a, b) => b.score - a.score)
+          .filter((chunk) => {
+            if (runningChars >= RETRIEVAL_CONTEXT_CHAR_BUDGET) return false;
+            runningChars += chunk.text.length;
+            return true;
+          });
     console.log(
-      `[perf] retrieved ${retrieved.length} chunks, ${retrieved.reduce((s, c) => s + c.text.length, 0)} chars`
+      `[perf] retrieved ${retrieved.length}/${retrievedRaw.length} chunks, ${retrieved.reduce((s, c) => s + c.text.length, 0)} chars`
     );
 
     // Top retrieval score doubles as a rough "grounding confidence" for
