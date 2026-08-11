@@ -174,12 +174,27 @@ export class VectorStoreRetriever implements Retriever {
     // the bar, pull in every other chunk of that same page too — a
     // customer question about one product needs that WHOLE product's
     // facts, not whichever single chunk happened to score highest.
+    // A real single-product page has a handful of chunks (description,
+    // specs, price/SKU) — p99 across a real ~62k-chunk business measured
+    // at 18. A CATEGORY LISTING or policy page (T&C, privacy) that
+    // happens to match can have 40+ (max observed: 44), and pulling
+    // every one of those into the prompt for an unrelated product
+    // question was measured adding tens of seconds of LLM latency for
+    // zero benefit — none of "every other product on this listing page"
+    // answers the customer's question about ONE product. Capped just
+    // above that p99 so it's a no-op for every real product page and
+    // only trims the pathological long tail.
+    const MAX_SIBLINGS_PER_DOCUMENT = 20;
+
     const matchedDocumentIds = new Set(topResults.map((r) => r.documentId));
     const seenChunkIds = new Set(topResults.map((r) => r.id));
     const expanded: RetrievedChunk[] = [];
 
     for (const documentId of matchedDocumentIds) {
-      const siblings = await this.vectorStore.listChunksForDocument(documentId);
+      const siblings = (await this.vectorStore.listChunksForDocument(documentId)).slice(
+        0,
+        MAX_SIBLINGS_PER_DOCUMENT
+      );
       for (const sibling of siblings) {
         if (seenChunkIds.has(sibling.chunkId)) continue;
         seenChunkIds.add(sibling.chunkId);

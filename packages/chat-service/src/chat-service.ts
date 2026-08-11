@@ -422,16 +422,21 @@ export class ChatService {
     // its own latency on top of retrieval's. Confirmed live: awaiting
     // them one after another pushed an already-borderline-slow business
     // past this route's 12s hard timeout on every call.
+    const __tRetrieveStart = Date.now();
     const [masterCsvChunk, retrievedFromSearch] = fullContext
       ? [null, null]
       : await Promise.all([
           this.getMasterCsvChunkIfAvailable(businessId),
           this.retriever.retrieve(retrievalQuery, { businessId }),
         ]);
+    console.log(`[perf] retrieve took ${Date.now() - __tRetrieveStart}ms`);
 
     const retrieved =
       fullContext ??
       [...(masterCsvChunk ? [masterCsvChunk] : []), ...(retrievedFromSearch ?? [])];
+    console.log(
+      `[perf] retrieved ${retrieved.length} chunks, ${retrieved.reduce((s, c) => s + c.text.length, 0)} chars`
+    );
 
     // Top retrieval score doubles as a rough "grounding confidence" for
     // this answer — how well the knowledge base actually backs it. Shown
@@ -515,6 +520,10 @@ export class ChatService {
           request.message,
       });
 
+    console.log(
+      `[perf] prompt chars: system=${prompt.systemPrompt.length} user=${prompt.userPrompt.length}`
+    );
+    const __tAiStart = Date.now();
     const aiResponse =
       await this.ai.chat(
         prompt.userPrompt,
@@ -531,6 +540,7 @@ export class ChatService {
           seed: config.seed ?? undefined,
         }
       );
+    console.log(`[perf] ai.chat took ${Date.now() - __tAiStart}ms, provider=${aiResponse.provider}`);
 
     // The AI itself decided (see HANDOFF_MARKER's comment) — strip the
     // marker before the customer ever sees it either way.

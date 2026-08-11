@@ -39,7 +39,13 @@ export class MistralProvider implements AIProvider {
         ],
         temperature: request.temperature,
         max_tokens: request.maxTokens,
-        top_p: request.topP,
+        // Mistral's API rejects any top_p other than 1 once temperature
+        // is 0 (greedy sampling) -- "top_p must be 1 when using greedy
+        // sampling" -- so every business with temperature=0 (Malamal's
+        // actual config) hard-failed this provider on every call.
+        // Omitting top_p here just means "use the API's own default",
+        // same as every other optional field below.
+        ...(request.temperature === 0 ? {} : { top_p: request.topP }),
         frequency_penalty: request.frequencyPenalty,
         presence_penalty: request.presencePenalty,
         stop: request.stop,
