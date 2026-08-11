@@ -47,7 +47,13 @@ export interface CrawlBatchResult {
   totalVisitedCount: number;
 }
 
-const DELAY_MS_DEFAULT = 500;
+// Politeness pacing toward the TARGET site's own server, unrelated to
+// any LLM/embedding rate limit (those live entirely in indexPhase, a
+// separate phase now — see crawler-service.ts). 500ms was conservative;
+// every real fetch against malamal.com.bd this session came back in
+// 0.3-0.5s, so 150ms still leaves real headroom without needlessly
+// tripling crawl-phase wall-clock time.
+const DELAY_MS_DEFAULT = 150;
 const MAX_PAGES_DEFAULT = 25;
 // A hung/slow-responding page had no bound at all — the raw fetch() below
 // could wait forever, stalling the whole crawl on one bad page (observed
