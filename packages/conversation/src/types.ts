@@ -1,10 +1,16 @@
 export type HandoffStatus = "bot" | "pending" | "human";
 
+export interface MessageSource {
+  label: string;
+  score: number;
+}
+
 export interface ConversationMessage {
   id: string;
   role: "system" | "user" | "assistant" | "agent";
   content: string;
   provider: string | null;
+  sources: MessageSource[] | null;
   createdAt: Date;
 }
 

@@ -6,11 +6,17 @@ import { cardStyle, subtleTextStyle, primaryButtonStyle } from "./dashboard-styl
 import { MessageTagControl } from "./MessageTagControl";
 import { MarkdownMessage } from "./MarkdownMessage";
 
+interface MessageSource {
+  label: string;
+  score: number;
+}
+
 interface Message {
   id: string;
   role: "system" | "user" | "assistant" | "agent";
   content: string;
   provider: string | null;
+  sources: MessageSource[] | null;
   createdAt: string;
 }
 
@@ -331,6 +337,11 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
                     {m.role === "assistant" && m.provider && (
                       <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>
                         answered by: {m.provider}
+                      </div>
+                    )}
+                    {m.role === "assistant" && m.sources && m.sources.length > 0 && (
+                      <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>
+                        sources: {m.sources.map((s) => s.label).join(", ")}
                       </div>
                     )}
                     <div style={{ marginTop: 2 }}>

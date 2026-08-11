@@ -1,9 +1,10 @@
-import { prisma } from "@ai-chat-platform/database";
+import { prisma, Prisma } from "@ai-chat-platform/database";
 
 import type {
   ConversationMessage,
   ConversationRecord,
   HandoffStatus,
+  MessageSource,
 } from "./types";
 
 type ConversationRow = {
@@ -75,10 +76,17 @@ export class ConversationService {
     sessionId: string,
     role: ConversationMessage["role"],
     content: string,
-    provider?: string
+    provider?: string,
+    sources?: MessageSource[]
   ): Promise<{ id: string }> {
     const created = await prisma.message.create({
-      data: { conversationId: sessionId, role, content, provider: provider ?? null },
+      data: {
+        conversationId: sessionId,
+        role,
+        content,
+        provider: provider ?? null,
+        sources: sources && sources.length > 0 ? (sources as unknown as Prisma.InputJsonValue) : undefined,
+      },
     });
     return { id: created.id };
   }
@@ -98,6 +106,7 @@ export class ConversationService {
       role: row.role as ConversationMessage["role"],
       content: row.content,
       provider: row.provider,
+      sources: (row.sources as unknown as MessageSource[] | null) ?? null,
       createdAt: row.createdAt,
     }));
   }

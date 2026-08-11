@@ -33,6 +33,7 @@ export class RagService {
       cached: response.cached,
       handoff: response.handoff,
       messageId: response.messageId,
+      sources: response.sources,
     };
   }
 }

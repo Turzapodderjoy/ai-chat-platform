@@ -12,7 +12,36 @@ import { ResponseCache } from "./response-cache";
 import type {
   ChatRequest,
   ChatResponse,
+  ChatSource,
 } from "./types";
+
+// Admin-only provenance for an answer — which page/document it actually
+// came from, so a wrong or missing answer can be traced back to exactly
+// what the AI read (or didn't). Deduped by source label (a page can
+// contribute several chunks; only its best score matters here), capped
+// so a heavily-expanded retrieval (see VectorStoreRetriever's sibling-
+// chunk pull-in) doesn't turn this into a huge list.
+const MAX_SOURCES_SHOWN = 6;
+
+function buildSources(retrieved: RetrievedChunk[]): ChatSource[] {
+  const bestScoreByLabel = new Map<string, number>();
+
+  for (const chunk of retrieved) {
+    const label =
+      (chunk.metadata?.url as string | undefined) ??
+      (chunk.metadata?.filename as string | undefined) ??
+      "unknown source";
+    const existing = bestScoreByLabel.get(label);
+    if (existing === undefined || chunk.score > existing) {
+      bestScoreByLabel.set(label, chunk.score);
+    }
+  }
+
+  return Array.from(bestScoreByLabel.entries())
+    .map(([label, score]) => ({ label, score }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_SOURCES_SHOWN);
+}
 
 // Emitted by the LLM itself (see the system prompt's ANSWERING FROM THE
 // KNOWLEDGE BASE section) when it can't help from the knowledge base OR
@@ -152,14 +181,19 @@ function languageLockInstruction(languageMode: string): string {
 - If any earlier instruction in this prompt says to match/mirror the customer's language, that instruction is overridden by this lock and no longer applies.`;
 }
 
-// Folds the most recent turn into the string embedded for retrieval —
-// a bare "price?" carries almost no signal alone, but "is X authentic?
-// ... price?" retrieves the right chunks. Deliberately small (last 2
-// messages, not the whole history) so retrieval stays focused on what's
-// actually being asked about right now rather than diluted by older
+// Folds recent turns into the string embedded for retrieval — a bare
+// "price?" carries almost no signal alone, but "is X authentic? ...
+// price?" retrieves the right chunks. Last 4 messages (2 full turns),
+// not just 2 (1 turn) — confirmed live: a real 3-question narrowing
+// flow ("air compressor?" -> "cheapest one?" -> "anything cheaper than
+// THAT?") lost the "air compressor" category anchor by the third
+// question with only a 2-message window, and the answer came back with
+// an unrelated cheap product (a drill machine) instead. Still
+// deliberately bounded, not the whole history, so retrieval stays
+// focused on the current subject rather than diluted by genuinely old,
 // unrelated turns.
 function buildRetrievalQuery(history: ConversationMessage[], currentMessage: string): string {
-  const recent = history.slice(-2).map((m) => m.content).join(" ");
+  const recent = history.slice(-4).map((m) => m.content).join(" ");
   return recent ? `${recent} ${currentMessage}`.trim() : currentMessage;
 }
 
@@ -401,6 +435,7 @@ export class ChatService {
     // in the dashboard; no longer gates whether the AI gets to attempt
     // an answer (see the retrieved.length check below for why).
     const confidence = retrieved[0]?.score ?? 0;
+    const sources = buildSources(retrieved);
 
     // Only skip the LLM entirely when there is LITERALLY nothing indexed
     // for this business (a genuinely empty knowledge base) — this used to
@@ -421,7 +456,7 @@ export class ChatService {
     if (!request.isTraining && retrieved.length === 0) {
       const fullHistory = [
         ...priorHistory,
-        { id: "pending", role: "user" as const, content: request.message, provider: null, createdAt: new Date() },
+        { id: "pending", role: "user" as const, content: request.message, provider: null, sources: null, createdAt: new Date() },
       ];
       const { summary, tokens: summaryTokens } = await this.buildHandoffSummary(fullHistory);
       await this.conversations.requestHandoff(
@@ -442,7 +477,8 @@ export class ChatService {
         request.sessionId,
         "assistant",
         handoffMessage,
-        "handoff"
+        "handoff",
+        sources
       );
 
       this.usageLog.record({
@@ -460,6 +496,7 @@ export class ChatService {
         confidence,
         handoff: true,
         messageId: savedMessage.id,
+        sources,
       };
     }
 
@@ -503,7 +540,7 @@ export class ChatService {
     if (wantsHandoff) {
       const fullHistory = [
         ...priorHistory,
-        { id: "pending", role: "user" as const, content: request.message, provider: null, createdAt: new Date() },
+        { id: "pending", role: "user" as const, content: request.message, provider: null, sources: null, createdAt: new Date() },
       ];
       const built = await this.buildHandoffSummary(fullHistory);
       summaryTokens = built.tokens;
@@ -518,7 +555,8 @@ export class ChatService {
       request.sessionId,
       "assistant",
       cleanedAnswer,
-      wantsHandoff ? `${aiResponse.provider} (handoff)` : aiResponse.provider
+      wantsHandoff ? `${aiResponse.provider} (handoff)` : aiResponse.provider,
+      sources
     );
 
     this.usageLog.record({
@@ -557,6 +595,7 @@ export class ChatService {
       confidence,
       handoff: wantsHandoff || undefined,
       messageId: savedMessage.id,
+      sources,
     };
   }
 

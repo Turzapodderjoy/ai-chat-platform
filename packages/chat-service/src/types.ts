@@ -21,6 +21,11 @@ export interface ChatRequest {
   externalUserId?: string | null;
 }
 
+export interface ChatSource {
+  label: string;
+  score: number;
+}
+
 export interface ChatResponse {
   answer: string;
   provider: string;
@@ -33,4 +38,9 @@ export interface ChatResponse {
    * for the "already waiting on a human agent" path, which records no
    * new message. */
   messageId?: string;
+  /** Which knowledge-base source(s) this answer was actually retrieved
+   * from — admin/backend visibility only (Training Arena, backend admin
+   * chat view), for tracing a wrong/missing answer back to what the AI
+   * actually read. Never rendered by the customer-facing widget. */
+  sources?: ChatSource[];
 }
