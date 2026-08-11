@@ -24,6 +24,7 @@ export interface ChatRequest {
 export interface ChatSource {
   label: string;
   score: number;
+  embeddingProvider?: string;
 }
 
 export interface ChatResponse {

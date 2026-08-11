@@ -24,21 +24,24 @@ import type {
 const MAX_SOURCES_SHOWN = 6;
 
 function buildSources(retrieved: RetrievedChunk[]): ChatSource[] {
-  const bestScoreByLabel = new Map<string, number>();
+  const bestByLabel = new Map<string, { score: number; embeddingProvider?: string }>();
 
   for (const chunk of retrieved) {
     const label =
       (chunk.metadata?.url as string | undefined) ??
       (chunk.metadata?.filename as string | undefined) ??
       "unknown source";
-    const existing = bestScoreByLabel.get(label);
-    if (existing === undefined || chunk.score > existing) {
-      bestScoreByLabel.set(label, chunk.score);
+    const existing = bestByLabel.get(label);
+    if (!existing || chunk.score > existing.score) {
+      bestByLabel.set(label, {
+        score: chunk.score,
+        embeddingProvider: chunk.metadata?.embeddingProvider as string | undefined,
+      });
     }
   }
 
-  return Array.from(bestScoreByLabel.entries())
-    .map(([label, score]) => ({ label, score }))
+  return Array.from(bestByLabel.entries())
+    .map(([label, { score, embeddingProvider }]) => ({ label, score, embeddingProvider }))
     .sort((a, b) => b.score - a.score)
     .slice(0, MAX_SOURCES_SHOWN);
 }
@@ -456,7 +459,7 @@ export class ChatService {
     if (!request.isTraining && retrieved.length === 0) {
       const fullHistory = [
         ...priorHistory,
-        { id: "pending", role: "user" as const, content: request.message, provider: null, sources: null, createdAt: new Date() },
+        { id: "pending", role: "user" as const, content: request.message, provider: null, sources: null, confidence: null, createdAt: new Date() },
       ];
       const { summary, tokens: summaryTokens } = await this.buildHandoffSummary(fullHistory);
       await this.conversations.requestHandoff(
@@ -478,7 +481,8 @@ export class ChatService {
         "assistant",
         handoffMessage,
         "handoff",
-        sources
+        sources,
+        confidence
       );
 
       this.usageLog.record({
@@ -540,7 +544,7 @@ export class ChatService {
     if (wantsHandoff) {
       const fullHistory = [
         ...priorHistory,
-        { id: "pending", role: "user" as const, content: request.message, provider: null, sources: null, createdAt: new Date() },
+        { id: "pending", role: "user" as const, content: request.message, provider: null, sources: null, confidence: null, createdAt: new Date() },
       ];
       const built = await this.buildHandoffSummary(fullHistory);
       summaryTokens = built.tokens;
@@ -556,7 +560,8 @@ export class ChatService {
       "assistant",
       cleanedAnswer,
       wantsHandoff ? `${aiResponse.provider} (handoff)` : aiResponse.provider,
-      sources
+      sources,
+      confidence
     );
 
     this.usageLog.record({

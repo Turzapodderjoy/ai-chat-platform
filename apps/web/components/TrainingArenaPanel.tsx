@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 
 import { cardStyle, subtleTextStyle, primaryButtonStyle } from "./dashboard-styles";
 import { MarkdownMessage } from "./MarkdownMessage";
+import { ReasoningInfo } from "./ReasoningInfo";
 
 interface MessageSource {
   label: string;
   score: number;
+  embeddingProvider?: string;
 }
 
 interface Message {
@@ -16,6 +18,7 @@ interface Message {
   provider?: string;
   handoff?: boolean;
   sources?: MessageSource[] | null;
+  confidence?: number | null;
 }
 
 interface SessionSummary {
@@ -101,7 +104,7 @@ export function TrainingArenaPanel({ businessId }: { businessId: string }) {
       setMessages((prev) => [
         ...prev,
         res.ok
-          ? { role: "assistant", content: data.answer, provider: data.provider, handoff: data.handoff, sources: data.sources }
+          ? { role: "assistant", content: data.answer, provider: data.provider, handoff: data.handoff, sources: data.sources, confidence: data.confidence }
           : { role: "assistant", content: `Error: ${data.detail ?? data.error}` },
       ]);
     } catch (err) {
@@ -199,6 +202,9 @@ export function TrainingArenaPanel({ businessId }: { businessId: string }) {
                   <div key={i} style={{ marginBottom: 6 }}>
                     <strong>{m.role === "user" ? "You" : m.role === "agent" ? "Agent" : "Assistant"}:</strong>{" "}
                     {m.role === "user" ? m.content : <MarkdownMessage text={m.content} />}
+                    {m.role === "assistant" && (
+                      <ReasoningInfo provider={m.provider} confidence={m.confidence} sources={m.sources} />
+                    )}
                     {m.role === "assistant" && m.sources && m.sources.length > 0 && (
                       <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>
                         sources: {m.sources.map((s) => s.label).join(", ")}
@@ -243,6 +249,9 @@ export function TrainingArenaPanel({ businessId }: { businessId: string }) {
                         <strong>{m.role === "user" ? "You" : "Assistant"}:</strong>{" "}
                         {m.role === "user" ? m.content : <MarkdownMessage text={m.content} />}
                         {m.handoff && <span style={{ fontSize: 11, color: "var(--text-faint)", marginLeft: 6 }}>(handed off here)</span>}
+                        {m.role === "assistant" && (
+                          <ReasoningInfo provider={m.provider} confidence={m.confidence} sources={m.sources} />
+                        )}
                         {m.role === "assistant" && m.sources && m.sources.length > 0 && (
                           <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>
                             sources: {m.sources.map((s) => s.label).join(", ")}

@@ -5,10 +5,12 @@ import { useEffect, useState } from "react";
 import { cardStyle, subtleTextStyle, primaryButtonStyle } from "./dashboard-styles";
 import { MessageTagControl } from "./MessageTagControl";
 import { MarkdownMessage } from "./MarkdownMessage";
+import { ReasoningInfo } from "./ReasoningInfo";
 
 interface MessageSource {
   label: string;
   score: number;
+  embeddingProvider?: string;
 }
 
 interface Message {
@@ -17,6 +19,7 @@ interface Message {
   content: string;
   provider: string | null;
   sources: MessageSource[] | null;
+  confidence: number | null;
   createdAt: string;
 }
 
@@ -337,6 +340,7 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
                     {m.role === "assistant" && m.provider && (
                       <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>
                         answered by: {m.provider}
+                        <ReasoningInfo provider={m.provider} confidence={m.confidence} sources={m.sources} />
                       </div>
                     )}
                     {m.role === "assistant" && m.sources && m.sources.length > 0 && (

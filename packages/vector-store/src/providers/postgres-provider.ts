@@ -179,7 +179,15 @@ export class PostgresProvider implements VectorStore {
           chunkId: row.chunkId,
           text: row.text,
           embedding: [],
-          metadata: (row.metadata as Record<string, unknown> | null) ?? undefined,
+          // Every row in this result set was matched against the query
+          // scoped to `embeddingProvider` (the WHERE clause above), so
+          // it's safe to stamp it directly rather than selecting the
+          // column — callers (chat provenance display) need to know
+          // which embedding model actually produced this match.
+          metadata: {
+            ...((row.metadata as Record<string, unknown> | null) ?? {}),
+            ...(embeddingProvider ? { embeddingProvider } : {}),
+          },
           score: row.score,
         }));
       })

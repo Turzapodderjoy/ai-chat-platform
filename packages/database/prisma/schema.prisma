@@ -141,10 +141,16 @@ model Message {
   // this answer was actually retrieved from — same admin-only visibility
   // as `provider`, shown in Training Arena and the backend admin's chat
   // view so a wrong/missing answer can be traced back to exactly what
-  // the AI read (or didn't). Array of {label, score}, most relevant
-  // first. Null for user/agent messages or answers with no retrieval
-  // (canned greeting, cache hit with no fresh retrieval, etc.).
+  // the AI read (or didn't). Array of {label, score, embeddingProvider},
+  // most relevant first. Null for user/agent messages or answers with no
+  // retrieval (canned greeting, cache hit with no fresh retrieval, etc.).
   sources        Json?
+  // Top retrieval score for this answer (0-1, how well the knowledge
+  // base actually matched the question) — same admin-only visibility as
+  // provider/sources, shown behind an "i" info affordance next to the
+  // message so "why did it answer this way" is answerable without
+  // re-running the question. Null for user/agent messages.
+  confidence     Float?
 
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   feedback       MessageFeedback?

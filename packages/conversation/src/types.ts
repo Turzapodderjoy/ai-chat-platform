@@ -3,6 +3,7 @@ export type HandoffStatus = "bot" | "pending" | "human";
 export interface MessageSource {
   label: string;
   score: number;
+  embeddingProvider?: string;
 }
 
 export interface ConversationMessage {
@@ -11,6 +12,7 @@ export interface ConversationMessage {
   content: string;
   provider: string | null;
   sources: MessageSource[] | null;
+  confidence: number | null;
   createdAt: Date;
 }
 

@@ -77,7 +77,8 @@ export class ConversationService {
     role: ConversationMessage["role"],
     content: string,
     provider?: string,
-    sources?: MessageSource[]
+    sources?: MessageSource[],
+    confidence?: number
   ): Promise<{ id: string }> {
     const created = await prisma.message.create({
       data: {
@@ -86,6 +87,7 @@ export class ConversationService {
         content,
         provider: provider ?? null,
         sources: sources && sources.length > 0 ? (sources as unknown as Prisma.InputJsonValue) : undefined,
+        confidence: confidence ?? null,
       },
     });
     return { id: created.id };
@@ -107,6 +109,7 @@ export class ConversationService {
       content: row.content,
       provider: row.provider,
       sources: (row.sources as unknown as MessageSource[] | null) ?? null,
+      confidence: row.confidence,
       createdAt: row.createdAt,
     }));
   }
