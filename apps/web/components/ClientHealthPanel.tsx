@@ -9,7 +9,7 @@ interface ClientHealthRow {
   businessName: string;
   crawlTargets: { total: number; done: number; stuck: number };
   refreshPhase:
-    | { phase: "crawling"; pagesDone: number; pagesEstimated: number }
+    | { phase: "crawling"; pagesDone: number; pagesEstimated: number; queueRemaining: number | null }
     | { phase: "embedding"; pagesIndexed: number; pagesTotal: number }
     | { phase: "building_csv" }
     | null;
@@ -65,8 +65,15 @@ function computeEta(row: ClientHealthRow, track: Record<string, PhaseTrack>): st
     return `${formatDuration(Math.round((Date.now() - track[key]!.startTime) / 1000))} elapsed (no fixed size to estimate against)`;
   }
 
-  const [current, total] =
-    phase.phase === "crawling" ? [phase.pagesDone, phase.pagesEstimated] : [phase.pagesIndexed, phase.pagesTotal];
+  // For "crawling", pagesEstimated is NOT a fixed target — it's just the
+  // highest visited count seen so far, and grows in lockstep with
+  // pagesDone as BFS discovers more pages (confirmed live: this made the
+  // naive total-minus-current math always read ~0 remaining, even a
+  // fraction of the way through a multi-thousand-page crawl). The real
+  // remaining count is the frontier's own queue length.
+  const current = phase.phase === "crawling" ? phase.pagesDone : phase.pagesIndexed;
+  const remaining =
+    phase.phase === "crawling" ? phase.queueRemaining : Math.max(0, phase.pagesTotal - phase.pagesIndexed);
 
   const existing = track[key];
   if (!existing || existing.phase !== phase.phase) {
@@ -78,9 +85,9 @@ function computeEta(row: ClientHealthRow, track: Record<string, PhaseTrack>): st
   const progressed = current - existing.startCount;
 
   if (elapsedMs < 3000 || progressed <= 0) return "calculating…";
+  if (remaining === null) return "calculating…";
 
   const rate = progressed / elapsedMs; // items per ms
-  const remaining = Math.max(0, total - current);
   return `~${formatDuration(Math.round(remaining / rate / 1000))} left`;
 }
 
@@ -192,12 +199,19 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
                           >
                             <div
                               style={{
+                                // pagesEstimated tracks "highest visited so
+                                // far", not a fixed target (it grows in step
+                                // with pagesDone as BFS finds more pages) —
+                                // queueRemaining is the honest denominator
+                                // whenever it's known.
                                 width: `${
-                                  row.refreshPhase.pagesEstimated > 0
+                                  row.refreshPhase.queueRemaining !== null
                                     ? Math.min(
                                         100,
                                         Math.round(
-                                          (row.refreshPhase.pagesDone / row.refreshPhase.pagesEstimated) * 100
+                                          (row.refreshPhase.pagesDone /
+                                            (row.refreshPhase.pagesDone + row.refreshPhase.queueRemaining)) *
+                                            100
                                         )
                                       )
                                     : 0
@@ -208,7 +222,10 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
                             />
                           </div>
                           <div style={{ fontSize: 11, color: "var(--text-faint)" }}>
-                            crawling: {row.refreshPhase.pagesDone}/{row.refreshPhase.pagesEstimated} pages
+                            crawling: {row.refreshPhase.pagesDone} done
+                            {row.refreshPhase.queueRemaining !== null
+                              ? `, ~${row.refreshPhase.queueRemaining} left in queue`
+                              : ""}
                           </div>
                         </div>
                       )}
@@ -229,7 +246,9 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
                               state={row.refreshPhase?.phase === "crawling" ? "active" : idleState}
                               detail={
                                 row.refreshPhase?.phase === "crawling"
-                                  ? `${row.refreshPhase.pagesDone}/${row.refreshPhase.pagesEstimated}`
+                                  ? row.refreshPhase.queueRemaining !== null
+                                    ? `${row.refreshPhase.pagesDone} done, ~${row.refreshPhase.queueRemaining} left`
+                                    : `${row.refreshPhase.pagesDone} done`
                                   : undefined
                               }
                             />

@@ -72,6 +72,13 @@ export interface CrawlTargetSummary {
   pagesEstimated: number | null;
   pagesDone: number;
   pagesIndexed: number;
+  /** Real remaining same-origin URLs still in the BFS frontier — unlike
+   * pagesEstimated (which just tracks the highest visited count seen so
+   * far, and grows in lockstep with pagesDone as BFS discovers more
+   * pages), this is an honest "how many pages left to fetch" number. Null
+   * when there's no frontier (not crawling, or crawl phase genuinely
+   * finished). */
+  queueRemaining: number | null;
   lastCrawledAt: string | null;
   lastPageCount: number | null;
   lastChunkCount: number | null;
@@ -87,6 +94,7 @@ type CrawlTargetRow = {
   pagesEstimated: number | null;
   pagesDone: number;
   pagesIndexed: number;
+  frontierJson: string | null;
   lastCrawledAt: Date | null;
   lastPageCount: number | null;
   lastChunkCount: number | null;
@@ -106,6 +114,8 @@ function parseFrontier(raw: string | null): CrawlFrontier | null {
 }
 
 function toSummary(row: CrawlTargetRow): CrawlTargetSummary {
+  const frontier = parseFrontier(row.frontierJson);
+
   return {
     id: row.id,
     businessId: row.businessId,
@@ -114,6 +124,7 @@ function toSummary(row: CrawlTargetRow): CrawlTargetSummary {
     pagesEstimated: row.pagesEstimated,
     pagesDone: row.pagesDone,
     pagesIndexed: row.pagesIndexed,
+    queueRemaining: frontier ? frontier.queue.length : null,
     lastCrawledAt: row.lastCrawledAt?.toISOString() ?? null,
     lastPageCount: row.lastPageCount,
     lastChunkCount: row.lastChunkCount,

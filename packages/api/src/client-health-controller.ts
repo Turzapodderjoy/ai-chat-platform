@@ -17,7 +17,7 @@ export interface ClientHealthRow {
   // The live "crawled done / embedding / building csv" status a refresh
   // run moves through, in order — null when nothing is in progress.
   refreshPhase:
-    | { phase: "crawling"; pagesDone: number; pagesEstimated: number }
+    | { phase: "crawling"; pagesDone: number; pagesEstimated: number; queueRemaining: number | null }
     | { phase: "embedding"; pagesIndexed: number; pagesTotal: number }
     | { phase: "building_csv" }
     | null;
@@ -114,6 +114,12 @@ export class ClientHealthController {
                 phase: "crawling",
                 pagesDone: crawling.reduce((sum, t) => sum + t.pagesDone, 0),
                 pagesEstimated: crawling.reduce((sum, t) => sum + (t.pagesEstimated ?? 0), 0),
+                // null only if EVERY crawling target somehow has no
+                // frontier (shouldn't happen while status is "crawling",
+                // but avoids claiming "0 remaining" if it ever does).
+                queueRemaining: crawling.some((t) => t.queueRemaining !== null)
+                  ? crawling.reduce((sum, t) => sum + (t.queueRemaining ?? 0), 0)
+                  : null,
               }
             : embedding.length > 0
               ? {
