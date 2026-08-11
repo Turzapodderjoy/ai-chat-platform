@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { cardStyle, cellStyle, subtleTextStyle } from "./dashboard-styles";
 
@@ -31,6 +31,59 @@ const POLL_WHILE_CRAWLING_MS = 10_000;
 
 type StepState = "done" | "active" | "pending";
 
+type PhaseTrack = { phase: string; startTime: number; startCount: number };
+
+/** m/h/s, whichever's coarsest fits — no need for millisecond precision
+ * on a multi-minute crawl. */
+function formatDuration(totalSeconds: number): string {
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  if (mins < 60) return `${mins}m ${secs}s`;
+  const hours = Math.floor(mins / 60);
+  return `${hours}h ${mins % 60}m`;
+}
+
+/** Real-time ETA from OBSERVED throughput, not a fixed assumption — rate
+ * is measured from how far this phase has actually gotten since the
+ * moment it was first seen (in `track`, keyed per business+phase so it
+ * resets cleanly whenever the phase changes), not a per-poll instant
+ * delta (way too noisy at a 10s poll interval — a single slow page
+ * would send the estimate wild). Self-corrects as the phase progresses:
+ * the more of it that's happened, the more accurate the rate. */
+function computeEta(row: ClientHealthRow, track: Record<string, PhaseTrack>): string {
+  const phase = row.refreshPhase;
+  if (!phase) return "";
+
+  const key = row.businessId;
+
+  if (phase.phase === "building_csv") {
+    if (track[key]?.phase !== "building_csv") {
+      track[key] = { phase: "building_csv", startTime: Date.now(), startCount: 0 };
+      return "just started";
+    }
+    return `${formatDuration(Math.round((Date.now() - track[key]!.startTime) / 1000))} elapsed (no fixed size to estimate against)`;
+  }
+
+  const [current, total] =
+    phase.phase === "crawling" ? [phase.pagesDone, phase.pagesEstimated] : [phase.pagesIndexed, phase.pagesTotal];
+
+  const existing = track[key];
+  if (!existing || existing.phase !== phase.phase) {
+    track[key] = { phase: phase.phase, startTime: Date.now(), startCount: current };
+    return "calculating…";
+  }
+
+  const elapsedMs = Date.now() - existing.startTime;
+  const progressed = current - existing.startCount;
+
+  if (elapsedMs < 3000 || progressed <= 0) return "calculating…";
+
+  const rate = progressed / elapsedMs; // items per ms
+  const remaining = Math.max(0, total - current);
+  return `~${formatDuration(Math.round(remaining / rate / 1000))} left`;
+}
+
 /** One small badge per pipeline stage — done (✅), currently running (a
  * live count, so "is it stuck" is answerable without opening logs), or
  * pending (dimmed, hasn't started this run). */
@@ -51,6 +104,7 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
   const [rows, setRows] = useState<ClientHealthRow[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const phaseTrackRef = useRef<Record<string, PhaseTrack>>({});
 
   function load() {
     setLoading(true);
@@ -204,6 +258,11 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
                                     : idleState
                               }
                             />
+                            {row.refreshPhase && (
+                              <div style={{ fontSize: 11, color: "var(--accent, #2563eb)", marginTop: 2 }}>
+                                ETA: {computeEta(row, phaseTrackRef.current)}
+                              </div>
+                            )}
                           </>
                         );
                       })()}
