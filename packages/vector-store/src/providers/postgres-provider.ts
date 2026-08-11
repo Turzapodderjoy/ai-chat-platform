@@ -238,19 +238,24 @@ export class PostgresProvider implements VectorStore {
   async listAllChunksForBusiness(
     businessId: string
   ): Promise<{ documentId: string; chunkId: string; text: string; metadata?: Record<string, unknown> }[]> {
+    // Excludes the embedding column — same reasoning as listAll(). Every
+    // caller (MasterCsvService.buildCsv) only reads documentId/chunkId/
+    // text/metadata; without this select, a business with tens of
+    // thousands of chunks loads every one of their full float-array
+    // vectors into memory at once, which is exactly what pushed one real
+    // CSV build to 4GB RAM and 90% CPU on a business with 25k+ chunks.
     const rows = await prisma.vectorRecord.findMany({
       where: { businessId },
       distinct: ["chunkId"],
+      select: { documentId: true, chunkId: true, text: true, metadata: true },
     });
 
-    return rows
-      .map((row) => rowToRecord(row))
-      .map((record) => ({
-        documentId: record.documentId,
-        chunkId: record.chunkId,
-        text: record.text,
-        metadata: record.metadata,
-      }));
+    return rows.map((row) => ({
+      documentId: row.documentId,
+      chunkId: row.chunkId,
+      text: row.text,
+      metadata: (row.metadata as Record<string, unknown> | null) ?? undefined,
+    }));
   }
 
   async listUniqueChunkTexts(businessId: string): Promise<string[]> {
