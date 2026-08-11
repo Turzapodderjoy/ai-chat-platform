@@ -174,20 +174,29 @@ export class AdminController {
   }
 
   async knowledge(businessId?: string): Promise<KnowledgeDocumentSummary[]> {
-    const records = await this.vectorStore.listAll();
+    // Scoped at the DB query level when a business is known — Knowledge
+    // Hub is always opened for one business, so listAll()'s unscoped
+    // full-platform scan (then filtering in JS afterward) was loading
+    // every OTHER business's chunks too on every load. Confirmed live:
+    // froze the browser once one business's chunk count grew large,
+    // since the whole table (not just this business's slice) was
+    // fetched, serialized to JSON, and sent to the client every time.
+    const records = businessId
+      ? await prisma.vectorRecord.findMany({
+          where: { businessId },
+          select: { documentId: true, metadata: true },
+        })
+      : await this.vectorStore.listAll();
 
     const byDocument = new Map<string, KnowledgeDocumentSummary>();
 
     for (const record of records) {
-      if (businessId && record.metadata?.businessId !== businessId) {
-        continue;
-      }
-
-      const lastCrawledAt = (record.metadata?.lastCrawledAt as string | undefined) ?? null;
+      const metadata = (record.metadata as Record<string, unknown> | null) ?? {};
+      const lastCrawledAt = (metadata.lastCrawledAt as string | undefined) ?? null;
       // indexedAt is the more universal field (uploads never had a
       // timestamp before it existed) — falls back to lastCrawledAt for
       // chunks indexed before indexedAt was introduced.
-      const indexedAt = (record.metadata?.indexedAt as string | undefined) ?? lastCrawledAt;
+      const indexedAt = (metadata.indexedAt as string | undefined) ?? lastCrawledAt;
 
       const existing = byDocument.get(record.documentId);
 
@@ -204,12 +213,11 @@ export class AdminController {
 
       byDocument.set(record.documentId, {
         documentId: record.documentId,
-        filename:
-          (record.metadata?.filename as string | undefined) ?? "unknown",
+        filename: (metadata.filename as string | undefined) ?? "unknown",
         chunks: 1,
         status:
-          (record.metadata?.pageStatus as string | undefined) ??
-          (record.metadata?.source === "crawler" ? "new" : "uploaded"),
+          (metadata.pageStatus as string | undefined) ??
+          (metadata.source === "crawler" ? "new" : "uploaded"),
         lastCrawledAt,
         lastUpdated: indexedAt,
       });
