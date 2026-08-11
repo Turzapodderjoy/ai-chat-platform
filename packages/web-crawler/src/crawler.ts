@@ -98,63 +98,102 @@ export async function crawlSiteBatch(
   const queue: string[] = priorFrontier ? [...priorFrontier.queue] : [startUrl];
   const pages: CrawledPage[] = [];
 
+  // Fetches were previously strictly sequential (one page, then a fixed
+  // delay, then the next) — for a real site, network round-trip latency
+  // dominates each page's cost far more than this process's own CPU
+  // work, so pages were sitting idle waiting on I/O one at a time.
+  // Fetching a small batch concurrently (still same-origin only, still
+  // respecting robots.txt, still one pacing delay between BATCHES so the
+  // target site never sees more than this many requests in flight at
+  // once) cuts real wall-clock crawl time substantially without
+  // hammering the target any harder per unit time than before.
+  const FETCH_CONCURRENCY = 5;
+
   while (
     queue.length > 0 &&
     visited.size < maxPagesTotal &&
     pages.length < options.maxPagesThisBatch
   ) {
-    const url = queue.shift()!;
+    const batchUrls: string[] = [];
+    while (
+      batchUrls.length < FETCH_CONCURRENCY &&
+      queue.length > 0 &&
+      pages.length + batchUrls.length < options.maxPagesThisBatch
+    ) {
+      const url = queue.shift()!;
+      if (visited.has(url)) continue;
+      visited.add(url);
 
-    if (visited.has(url)) {
-      continue;
-    }
-    visited.add(url);
-
-    let parsed: URL;
-    try {
-      parsed = new URL(url);
-    } catch {
-      continue;
-    }
-
-    if (parsed.origin !== origin || !isPathAllowed(parsed.pathname, disallowed)) {
-      continue;
-    }
-
-    try {
-      const res = await fetch(url, {
-        headers: { "User-Agent": USER_AGENT },
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      });
-
-      if (!res.ok || !(res.headers.get("content-type") ?? "").includes("html")) {
+      let parsed: URL;
+      try {
+        parsed = new URL(url);
+      } catch {
         continue;
       }
 
-      const contentLength = Number(res.headers.get("content-length") ?? 0);
-      if (contentLength > MAX_HTML_BYTES) {
+      if (parsed.origin !== origin || !isPathAllowed(parsed.pathname, disallowed)) {
         continue;
       }
 
-      const html = await res.text();
-      if (html.length > MAX_HTML_BYTES) {
-        continue;
-      }
+      batchUrls.push(url);
+    }
 
-      const text = htmlToText(html);
+    if (batchUrls.length === 0) {
+      // Every candidate this round was already visited, invalid, or
+      // disallowed — nothing to fetch, but the queue (or maxPagesTotal)
+      // may still have real work left, so the outer while condition
+      // decides whether to keep going.
+      continue;
+    }
 
-      if (text.length > 0) {
-        pages.push({ url, text });
+    const fetched = await Promise.all(
+      batchUrls.map(async (url) => {
+        try {
+          const res = await fetch(url, {
+            headers: { "User-Agent": USER_AGENT },
+            signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+          });
+
+          if (!res.ok || !(res.headers.get("content-type") ?? "").includes("html")) {
+            return null;
+          }
+
+          const contentLength = Number(res.headers.get("content-length") ?? 0);
+          if (contentLength > MAX_HTML_BYTES) {
+            return null;
+          }
+
+          const html = await res.text();
+          if (html.length > MAX_HTML_BYTES) {
+            return null;
+          }
+
+          return { url, html, text: htmlToText(html) };
+        } catch {
+          // Skip pages that fail to fetch; don't let one bad page kill the crawl.
+          return null;
+        }
+      })
+    );
+
+    // Queue/visited mutation stays single-threaded (sequential over the
+    // already-fetched results) even though the fetches themselves ran
+    // concurrently — no race on which link got pushed first.
+    for (const result of fetched) {
+      if (!result) continue;
+
+      if (result.text.length > 0) {
+        pages.push({ url: result.url, text: result.text });
         options.onPage?.(pages.length, visited.size);
       }
 
-      for (const link of extractLinks(html, url)) {
-        // Same-origin is also checked after dequeue below, but filtering
+      for (const link of extractLinks(result.html, result.url)) {
+        // Same-origin is also checked after dequeue above, but filtering
         // here too matters: every product page on a real site links out to
         // several share-button URLs (Facebook/LinkedIn/Pinterest/WhatsApp/
         // Telegram/X, one per product) — left unfiltered, those flood the
         // queue with junk that's never actually fetched, yet each one still
-        // consumes a "visited" slot when dequeued (see below), inflating
+        // consumes a "visited" slot when dequeued, inflating
         // pagesDone/pagesEstimated with pages that produced zero content.
         let linkOrigin: string;
         try {
@@ -167,8 +206,6 @@ export async function crawlSiteBatch(
           queue.push(link);
         }
       }
-    } catch {
-      // Skip pages that fail to fetch; don't let one bad page kill the crawl.
     }
 
     await wait(delayMs);
