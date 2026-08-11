@@ -288,6 +288,25 @@ export class PostgresProvider implements VectorStore {
     return rows.map((row) => rowToRecord(row));
   }
 
+  async listAllForBusiness(businessId: string): Promise<VectorRecord[]> {
+    // Same embedding-column exclusion as listAll(), just scoped to one
+    // business at the DB level instead of loading every business's
+    // chunks and filtering in JS afterward.
+    const rows = await prisma.vectorRecord.findMany({
+      where: { businessId },
+      select: {
+        id: true,
+        documentId: true,
+        chunkId: true,
+        text: true,
+        businessId: true,
+        embeddingProvider: true,
+        metadata: true,
+      },
+    });
+    return rows.map((row) => rowToRecord(row));
+  }
+
   async deleteByDocumentId(documentId: string): Promise<void> {
     return this.deleteByDocumentIds([documentId]);
   }

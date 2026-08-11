@@ -82,11 +82,13 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
   const [scheduleHour, setScheduleHour] = useState("");
   const [lastRunAt, setLastRunAt] = useState<string | null>(null);
   const [masterCsvUpdatedAt, setMasterCsvUpdatedAt] = useState<string | null>(null);
-  const [masterCsvPreview, setMasterCsvPreview] = useState<string>("");
+  const [masterCsvSourceCount, setMasterCsvSourceCount] = useState(0);
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [refreshingNow, setRefreshingNow] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState("");
+  const [docPage, setDocPage] = useState(0);
   const wasActive = useRef(false);
+  const DOCS_PER_PAGE = 10;
 
   function refreshKnowledgeRefresh() {
     if (!businessId) return;
@@ -101,7 +103,7 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
       .then((r) => r.json())
       .then((data) => {
         setMasterCsvUpdatedAt(data.masterCsv?.updatedAt ?? null);
-        setMasterCsvPreview(data.masterCsv?.content ?? "");
+        setMasterCsvSourceCount(data.masterCsv?.sourceCount ?? 0);
       });
   }
 
@@ -180,7 +182,10 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
     const qs = businessId ? `?businessId=${encodeURIComponent(businessId)}` : "";
     fetch(`/api/admin/knowledge${qs}`)
       .then((r) => r.json())
-      .then((data) => setDocuments(data.documents));
+      .then((data) => {
+        setDocuments(data.documents);
+        setDocPage(0);
+      });
 
     if (businessId) {
       fetch(`/api/admin/embedding-providers/coverage?businessId=${encodeURIComponent(businessId)}`)
@@ -368,30 +373,16 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
               </p>
               <MasterCsvCoverage
                 masterCsvUpdatedAt={masterCsvUpdatedAt}
-                masterCsvContent={masterCsvPreview}
+                sourceCount={masterCsvSourceCount}
                 documents={documents}
                 targets={targets}
               />
               <a
                 href={`/api/admin/knowledge/master-csv?businessId=${encodeURIComponent(businessId)}&download=true`}
-                style={{ fontSize: 13 }}
+                style={primaryButtonStyle}
               >
                 Download CSV
               </a>
-              <pre
-                style={{
-                  marginTop: 8,
-                  maxHeight: 500,
-                  overflow: "auto",
-                  fontSize: 11,
-                  padding: 8,
-                  border: "1px solid var(--border)",
-                  borderRadius: 6,
-                  whiteSpace: "pre-wrap",
-                }}
-              >
-                {masterCsvPreview}
-              </pre>
             </>
           ) : (
             <p style={subtleTextStyle}>Not generated yet — set a time above or click "Run now".</p>
@@ -482,7 +473,7 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
             </tr>
           </thead>
           <tbody>
-            {documents.map((d) => (
+            {documents.slice(docPage * DOCS_PER_PAGE, (docPage + 1) * DOCS_PER_PAGE).map((d) => (
               <Fragment key={d.documentId}>
                 <tr>
                   <td style={cellStyle}>{d.filename}</td>
@@ -525,6 +516,22 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
             )}
           </tbody>
         </table>
+      )}
+      {documents && documents.length > DOCS_PER_PAGE && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
+          <button onClick={() => setDocPage((p) => Math.max(0, p - 1))} disabled={docPage === 0}>
+            ← Previous
+          </button>
+          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+            {docPage * DOCS_PER_PAGE + 1}–{Math.min((docPage + 1) * DOCS_PER_PAGE, documents.length)} of {documents.length}
+          </span>
+          <button
+            onClick={() => setDocPage((p) => (((p + 1) * DOCS_PER_PAGE < documents.length) ? p + 1 : p))}
+            disabled={(docPage + 1) * DOCS_PER_PAGE >= documents.length}
+          >
+            Next 10 →
+          </button>
+        </div>
       )}
       </div>
 
@@ -692,16 +699,15 @@ function DocumentChunksView({ chunks }: { chunks: DocumentChunk[] }) {
  * target that changed AFTER the CSV was last built. */
 function MasterCsvCoverage({
   masterCsvUpdatedAt,
-  masterCsvContent,
+  sourceCount,
   documents,
   targets,
 }: {
   masterCsvUpdatedAt: string;
-  masterCsvContent: string;
+  sourceCount: number;
   documents: KnowledgeDocument[] | null;
   targets: CrawlTarget[] | null;
 }) {
-  const sourceCount = (masterCsvContent.match(/^# Source: /gm) ?? []).length;
   const totalDocuments = documents?.length ?? 0;
   const csvBuiltAt = new Date(masterCsvUpdatedAt).getTime();
 

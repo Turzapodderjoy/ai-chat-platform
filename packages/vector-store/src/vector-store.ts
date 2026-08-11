@@ -73,6 +73,10 @@ export class VectorStoreManager {
     return this.provider.listAll();
   }
 
+  async listAllForBusiness(businessId: string): Promise<VectorRecord[]> {
+    return this.provider.listAllForBusiness(businessId);
+  }
+
   async deleteByDocumentId(documentId: string): Promise<void> {
     return this.provider.deleteByDocumentId(documentId);
   }

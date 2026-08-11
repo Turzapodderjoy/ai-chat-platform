@@ -22,5 +22,12 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  return NextResponse.json({ masterCsv });
+  // A large business's CSV can be tens of MB — the panel only needs to
+  // show "built at X, covers N sources", not the whole file inline.
+  // Content only ships on an explicit download.
+  const sourceCount = masterCsv ? (masterCsv.content.match(/^# Source: /gm) ?? []).length : 0;
+
+  return NextResponse.json({
+    masterCsv: masterCsv ? { businessId: masterCsv.businessId, updatedAt: masterCsv.updatedAt, sourceCount } : null,
+  });
 }

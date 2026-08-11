@@ -98,6 +98,14 @@ export interface VectorStore {
 
   listAll(): Promise<VectorRecord[]>;
 
+  /** Same as listAll() but scoped to one business at the DB query level —
+   * for a caller (Knowledge Hub's document list, coverageStatus) that
+   * only ever needs one business's chunks. listAll() + filtering by
+   * businessId in JS afterward means loading every OTHER business's
+   * chunks too on every call; on a platform with one large business,
+   * that's most of the table for no reason. */
+  listAllForBusiness(businessId: string): Promise<VectorRecord[]>;
+
   deleteByDocumentId(documentId: string): Promise<void>;
 
   /** Same as deleteByDocumentId but for many documents in one call — for

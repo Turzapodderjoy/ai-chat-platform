@@ -184,10 +184,10 @@ export class IndexingService {
     businessId: string | undefined,
     onlyProvider: string | undefined
   ): Promise<{ chunksChecked: number; chunksBackfilled: number; vectorsAdded: number }> {
-    const all = await this.vectorStore.listAll();
+    // Same DB-level scoping as coverageStatus() — see its comment.
     const scoped = businessId
-      ? all.filter((r) => r.metadata?.businessId === businessId)
-      : all;
+      ? await this.vectorStore.listAllForBusiness(businessId)
+      : await this.vectorStore.listAll();
 
     const byChunk = new Map<string, VectorRecord[]>();
     for (const record of scoped) {
@@ -277,8 +277,12 @@ export class IndexingService {
   async coverageStatus(businessId: string): Promise<
     Array<{ provider: string; chunksEmbedded: number; totalChunks: number; lastIndexedAt: string | null }>
   > {
-    const all = await this.vectorStore.listAll();
-    const scoped = all.filter((r) => r.metadata?.businessId === businessId);
+    // Scoped at the DB query level, not listAll() + JS filter — auto-heal
+    // calls this once per business in a loop, so an unscoped full-
+    // platform scan repeated per business was the real cause of a
+    // confirmed live 52s "Run now" hang (and browser tab freeze) once one
+    // business's chunk count grew large.
+    const scoped = await this.vectorStore.listAllForBusiness(businessId);
 
     const byChunk = new Map<string, VectorRecord[]>();
     for (const record of scoped) {

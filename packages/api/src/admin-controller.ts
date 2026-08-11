@@ -251,7 +251,7 @@ export class AdminController {
    * delete their content. */
   async deleteDocument(documentId: string, businessId?: string): Promise<{ deleted: string }> {
     if (businessId) {
-      const records = await this.vectorStore.listAll();
+      const records = await this.vectorStore.listAllForBusiness(businessId);
       const owned = records.some(
         (r) => r.documentId === documentId && r.metadata?.businessId === businessId
       );
@@ -284,12 +284,8 @@ export class AdminController {
    * their messages, via cascade), crawl targets, and indexed knowledge —
    * not just the Business row, so nothing is left orphaned. */
   async deleteClient(businessId: string): Promise<{ deleted: string }> {
-    const records = await this.vectorStore.listAll();
-    const documentIds = new Set(
-      records
-        .filter((r) => r.metadata?.businessId === businessId)
-        .map((r) => r.documentId)
-    );
+    const records = await this.vectorStore.listAllForBusiness(businessId);
+    const documentIds = new Set(records.map((r) => r.documentId));
 
     for (const documentId of documentIds) {
       await this.vectorStore.deleteByDocumentId(documentId);
@@ -315,8 +311,7 @@ export class AdminController {
     vectorStoreLocation: string;
     databaseLocation: string | null;
   }> {
-    const records = await this.vectorStore.listAll();
-    const forBusiness = records.filter((r) => r.metadata?.businessId === businessId);
+    const forBusiness = await this.vectorStore.listAllForBusiness(businessId);
 
     const knowledgeBytesEstimate = forBusiness.reduce(
       (sum, r) => sum + JSON.stringify(r).length,
