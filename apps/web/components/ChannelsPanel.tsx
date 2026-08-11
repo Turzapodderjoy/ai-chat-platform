@@ -38,6 +38,10 @@ export function ChannelsPanel({ businessId }: { businessId: string }) {
   const [waBusinessAccountId, setWaBusinessAccountId] = useState("");
   const [waSaving, setWaSaving] = useState(false);
 
+  const [waTestQr, setWaTestQr] = useState<string | null>(null);
+  const [waTestStatus, setWaTestStatus] = useState<string | null>(null);
+  const [waTestLoading, setWaTestLoading] = useState(false);
+
   function refresh() {
     fetch(`/api/admin/channels?businessId=${encodeURIComponent(businessId)}`)
       .then((r) => r.json())
@@ -92,6 +96,43 @@ export function ChannelsPanel({ businessId }: { businessId: string }) {
     } finally {
       setWaSaving(false);
     }
+  }
+
+  async function startTestWhatsappLink() {
+    setWaTestLoading(true);
+    setWaTestQr(null);
+    setWaTestStatus(null);
+    try {
+      await fetch("/api/admin/channels/whatsapp-test/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId }),
+      });
+      pollTestWhatsapp();
+    } finally {
+      setWaTestLoading(false);
+    }
+  }
+
+  function pollTestWhatsapp() {
+    const interval = setInterval(async () => {
+      const [qrRes, statusRes] = await Promise.all([
+        fetch(`/api/admin/channels/whatsapp-test/qr?businessId=${encodeURIComponent(businessId)}`).then((r) => r.json()),
+        fetch(`/api/admin/channels/whatsapp-test/status?businessId=${encodeURIComponent(businessId)}`).then((r) => r.json()),
+      ]);
+
+      setWaTestStatus(statusRes.status ?? null);
+      setWaTestQr(qrRes.qrCode ?? null);
+
+      if (statusRes.status === "ready" || statusRes.status === "failed") {
+        clearInterval(interval);
+        if (statusRes.status === "ready") {
+          setWaTestQr(null);
+          setMessage("WhatsApp (testing) linked.");
+          refresh();
+        }
+      }
+    }, 3000);
   }
 
   function copySnippet() {
@@ -150,7 +191,7 @@ export function ChannelsPanel({ businessId }: { businessId: string }) {
               </>
             )}
 
-            {entry.id !== "website" && entry.id !== "whatsapp" && (
+            {entry.id !== "website" && entry.id !== "whatsapp" && entry.id !== "whatsapp-test" && (
               <>
                 {connection ? (
                   <>
@@ -211,6 +252,37 @@ export function ChannelsPanel({ businessId }: { businessId: string }) {
                         {waSaving ? "Saving…" : "Save"}
                       </button>
                     </div>
+                  </>
+                )}
+              </>
+            )}
+            {entry.id === "whatsapp-test" && (
+              <>
+                <p style={{ opacity: 0.6, fontSize: 13 }}>
+                  Unofficial, testing-only — links via an OpenWA gateway instead of the Meta
+                  Business API. Real ban risk on the linked number; use a disposable/spare
+                  WhatsApp number, not the client&apos;s production one.
+                </p>
+                {connection ? (
+                  <>
+                    <p style={{ fontSize: 13 }}>
+                      🟢 Connected — <strong>{connection.externalLabel}</strong>
+                    </p>
+                    <button onClick={() => disconnect("whatsapp-test")}>Disconnect</button>
+                  </>
+                ) : waTestQr ? (
+                  <>
+                    <p style={{ fontSize: 13 }}>Scan with WhatsApp → Linked devices → Link a device.</p>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={waTestQr} alt="WhatsApp QR code" width={220} height={220} />
+                    <p style={{ opacity: 0.6, fontSize: 12 }}>Status: {waTestStatus ?? "waiting…"}</p>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={startTestWhatsappLink} disabled={waTestLoading}>
+                      {waTestLoading ? "Starting…" : "Link WhatsApp (testing)"}
+                    </button>
+                    {waTestStatus && <p style={{ opacity: 0.6, fontSize: 12 }}>Status: {waTestStatus}</p>}
                   </>
                 )}
               </>

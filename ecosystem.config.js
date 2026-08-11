@@ -17,6 +17,19 @@ module.exports = {
       restart_delay: 3000,
     },
     {
+      // Unofficial WhatsApp gateway (OpenWA), testing-only per-client channel
+      // alongside the official Meta WhatsApp Cloud API integration. Lives
+      // outside this repo (C:/Users/Admin/openwa-src, cloned from
+      // github.com/rmyndharis/OpenWA) since it's a separate service this app
+      // talks to over HTTP, not a package in the pnpm workspace.
+      name: "openwa",
+      cwd: "C:/Users/Admin/openwa-src",
+      script: "dist/main.js",
+      autorestart: true,
+      max_restarts: 20,
+      restart_delay: 3000,
+    },
+    {
       name: "cloudflared-tunnel",
       script: "C:/Program Files (x86)/cloudflared/cloudflared.exe",
       args: "tunnel run ai-chat-platform",

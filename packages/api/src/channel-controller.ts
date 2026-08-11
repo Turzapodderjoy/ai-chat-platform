@@ -1,4 +1,11 @@
-import { CHANNEL_CATALOG } from "@ai-chat-platform/channel-catalog";
+import {
+  CHANNEL_CATALOG,
+  createOrGetSession,
+  startSession,
+  getSession,
+  getQrCode,
+  registerWebhook,
+} from "@ai-chat-platform/channel-catalog";
 import { ChannelAppCredentialService, ChannelConnectionService } from "@ai-chat-platform/channel-connections";
 import { RagService } from "@ai-chat-platform/rag";
 
@@ -90,6 +97,45 @@ export class ChannelController {
     });
 
     return { connected: "whatsapp" };
+  }
+
+  /** Creates (or reuses) this business's OpenWA session, starts it, and
+   * registers the webhook that feeds inbound messages into the same RAG
+   * pipeline as every other channel. Safe to call repeatedly — session
+   * creation and webhook registration are both idempotent by name. The
+   * connection isn't persisted here: it's only saved once the session
+   * actually reaches "ready" (see confirmTestWhatsappConnected), so a
+   * QR that's never scanned doesn't leave a fake "connected" row. */
+  async createTestWhatsappSession(businessId: string, webhookBaseUrl: string) {
+    const session = await createOrGetSession(businessId);
+    await startSession(session.id).catch(() => {}); // already started is fine
+    await registerWebhook(session.id, `${webhookBaseUrl}/api/webhooks/whatsapp-test`).catch(() => {});
+    return { sessionId: session.id, status: session.status };
+  }
+
+  async testWhatsappQr(businessId: string) {
+    const session = await createOrGetSession(businessId);
+    const qrCode = await getQrCode(session.id);
+    return { sessionId: session.id, status: session.status, qrCode };
+  }
+
+  /** Polled by the dashboard while the QR is on screen. Once the OpenWA
+   * session reports "ready", persists the ChannelConnection so inbound
+   * webhook messages resolve to this business. */
+  async testWhatsappStatus(businessId: string) {
+    const session = await getSession((await createOrGetSession(businessId)).id);
+
+    if (session.status === "ready") {
+      await this.channelConnections.upsert({
+        businessId,
+        channel: "whatsapp-test",
+        externalId: session.id,
+        externalLabel: session.phone ?? session.name,
+        accessToken: process.env.OPENWA_API_KEY ?? "",
+      });
+    }
+
+    return { sessionId: session.id, status: session.status, phone: session.phone };
   }
 
   async oauthStartUrl(channel: string, businessId: string, redirectUri: string): Promise<string> {
