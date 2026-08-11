@@ -119,6 +119,16 @@ export class PostgresProvider implements VectorStore {
     return results!;
   }
 
+  /** Uses the pgvector HNSW index ("embeddingVec" column, kept in sync
+   * with the plain-array "embedding" column by a DB trigger) instead of
+   * fetching every candidate row and scoring it in JS — the old approach
+   * was a genuine, measured production incident: a business with ~30k
+   * chunks pushed a single chat request to 8GB+ RAM and 90%+ CPU
+   * (brute-force cosine over every row, per embedding, per provider,
+   * every turn). One indexed query per embedding is now sub-second
+   * regardless of how large the business's knowledge base gets — this is
+   * what makes "search everything, don't miss anything" actually
+   * feasible at this scale instead of an unbounded full-table scan. */
   async searchMany(
     embeddings: number[][],
     limit = 5,
@@ -129,48 +139,50 @@ export class PostgresProvider implements VectorStore {
       return [];
     }
 
-    // Fetched and mapped to records exactly ONCE regardless of how many
-    // embeddings are being scored against it — a multi-clause comparison
-    // question calling search() once per clause was refetching and
-    // rescanning this business's entire vector set redundantly, and that
-    // scan is synchronous JS (cosineSimilarity over every row), so it was
-    // real, measured latency blocking the whole process, not just this
-    // request.
-    const rows = await prisma.vectorRecord.findMany({
-      where: {
-        ...(businessId ? { businessId } : {}),
-        // Records indexed before the embeddingProvider tag existed have no
-        // tag at all — they were all embedded by Jina (the only provider
-        // that existed then), so untagged records must default to "jina"
-        // here or every chunk indexed before this change would silently
-        // vanish from search results. Same rule json-provider.ts applied.
-        ...(embeddingProvider
-          ? {
-              OR: [
-                { embeddingProvider },
-                ...(embeddingProvider === "jina"
-                  ? [{ embeddingProvider: null }]
-                  : []),
-              ],
-            }
-          : {}),
-      },
-    });
+    const providerFilter = embeddingProvider
+      ? Prisma.sql`AND ("embeddingProvider" = ${embeddingProvider}${
+          // Records indexed before the embeddingProvider tag existed have
+          // no tag at all — they were all embedded by Jina (the only
+          // provider that existed then), so untagged records must default
+          // to "jina" here or every chunk indexed before this change
+          // would silently vanish from search results.
+          embeddingProvider === "jina" ? Prisma.sql` OR "embeddingProvider" IS NULL` : Prisma.empty
+        })`
+      : Prisma.empty;
+    const businessFilter = businessId ? Prisma.sql`AND "businessId" = ${businessId}` : Prisma.empty;
 
-    if (rows.length === 0) {
-      return embeddings.map(() => []);
-    }
+    return Promise.all(
+      embeddings.map(async (embedding) => {
+        const vectorLiteral = `[${embedding.join(",")}]`;
 
-    const records = rows.map((row) => rowToRecord(row));
+        const rows = await prisma.$queryRaw<
+          Array<{
+            id: string;
+            documentId: string;
+            chunkId: string;
+            text: string;
+            metadata: unknown;
+            score: number;
+          }>
+        >(Prisma.sql`
+          SELECT id, "documentId", "chunkId", text, metadata,
+                 1 - ("embeddingVec" <=> ${vectorLiteral}::vector) AS score
+          FROM "VectorRecord"
+          WHERE "embeddingVec" IS NOT NULL ${businessFilter} ${providerFilter}
+          ORDER BY "embeddingVec" <=> ${vectorLiteral}::vector
+          LIMIT ${limit}
+        `);
 
-    return embeddings.map((embedding) =>
-      records
-        .map((record) => ({
-          ...record,
-          score: this.cosineSimilarity(embedding, record.embedding),
-        }))
-        .sort((a, b) => b.score - a.score)
-        .slice(0, limit)
+        return rows.map((row) => ({
+          id: row.id,
+          documentId: row.documentId,
+          chunkId: row.chunkId,
+          text: row.text,
+          embedding: [],
+          metadata: (row.metadata as Record<string, unknown> | null) ?? undefined,
+          score: row.score,
+        }));
+      })
     );
   }
 
@@ -192,9 +204,20 @@ export class PostgresProvider implements VectorStore {
           text: { contains: term, mode: "insensitive" as const },
         })),
       },
-      // Vector fetched to satisfy the SearchResult/VectorRecord shape —
-      // callers of keywordSearch only read text/metadata, never score
-      // this against another embedding, so the real column is skipped.
+      // Excludes the embedding column — callers of keywordSearch only
+      // read text/metadata, never score this against another embedding.
+      // Same reasoning as listAll(); without this a common term matching
+      // thousands of rows loads every one of their full embedding
+      // vectors into memory for nothing.
+      select: {
+        id: true,
+        documentId: true,
+        chunkId: true,
+        text: true,
+        businessId: true,
+        embeddingProvider: true,
+        metadata: true,
+      },
     });
 
     if (rows.length === 0) {
@@ -352,33 +375,5 @@ export class PostgresProvider implements VectorStore {
         })
       )
     );
-  }
-
-  private cosineSimilarity(a: number[], b: number[]): number {
-    if (a.length === 0 || b.length === 0 || a.length !== b.length) {
-      return 0;
-    }
-
-    let dotProduct = 0;
-    let magnitudeA = 0;
-    let magnitudeB = 0;
-
-    for (let i = 0; i < a.length; i++) {
-      const valA = a[i] ?? 0;
-      const valB = b[i] ?? 0;
-
-      dotProduct += valA * valB;
-      magnitudeA += valA * valA;
-      magnitudeB += valB * valB;
-    }
-
-    magnitudeA = Math.sqrt(magnitudeA);
-    magnitudeB = Math.sqrt(magnitudeB);
-
-    if (magnitudeA === 0 || magnitudeB === 0) {
-      return 0;
-    }
-
-    return dotProduct / (magnitudeA * magnitudeB);
   }
 }

@@ -276,20 +276,27 @@ model EmbeddingBackfillCooldown {
 // Replaces storage/embeddings/knowledge.json, which corrupted under
 // concurrent writes (read-whole-file/mutate/write-whole-file with no
 // row-level atomicity). One row per (document chunk x embedding
-// provider) vector. No pgvector — not installed on the local Postgres
-// and installing it on Windows needs an admin-level native extension
-// build with no clean path, so search still does brute-force cosine
-// similarity in JS, just reading from Postgres rows instead of a shared
-// file. businessId/embeddingProvider are the only two fields ever
-// filtered on directly (search/coverageStatus/backfill), so they're
+// provider) vector. businessId/embeddingProvider are the only two fields
+// ever filtered on directly (search/coverageStatus/backfill), so they're
 // dedicated columns; everything else (contentHash, pageStatus, url,
 // filename, chunkIndex, etc.) lives in metadata.
+//
+// embeddingVec mirrors `embedding` in pgvector's native type (both
+// providers currently embed at 1024 dims — see
+// packages/database/sql/pgvector-setup.sql for the one-time setup this
+// needs: CREATE EXTENSION, an HNSW index, and a trigger that keeps this
+// column in sync with `embedding` automatically on every write, so no
+// app code has to touch it). Declared Unsupported so `prisma db push`
+// leaves it alone instead of trying to manage a type it can't represent
+// natively — see that same SQL file when setting this up on a new
+// Postgres (VPS move, dev machine, etc.): run it once after `db push`.
 model VectorRecord {
-  id                String   @id
+  id                String                      @id
   documentId        String
   chunkId           String
   text              String
   embedding         Float[]
+  embeddingVec      Unsupported("vector(1024)")?
 
   businessId        String?
   embeddingProvider String?
