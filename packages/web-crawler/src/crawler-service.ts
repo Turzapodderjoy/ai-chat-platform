@@ -50,6 +50,16 @@ const DELAY_BETWEEN_PAGES_MS = 1500;
 // reasoning as MAX_PAGES_PER_BATCH, just for the embedding phase.
 const INDEX_BATCH_SIZE = 20;
 
+// Bumped whenever the extraction/chunking LOGIC changes in a way that
+// should re-process already-crawled pages even though their content
+// hasn't (a contentHash match alone used to mean "skip it" — but a
+// prompt change, e.g. now extracting single-product pages that used to
+// be skipped as NOT_TABULAR, needs those pages reprocessed too). A chunk
+// whose stored version doesn't match this is treated as needing
+// reindexing regardless of content hash. Bump this again the next time
+// extraction/chunking behavior changes.
+const EXTRACTION_VERSION = 2;
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -339,6 +349,7 @@ export class CrawlerService {
     // chunks. select excludes the embedding column — nothing below reads
     // vectors, only documentId/chunkId/contentHash bookkeeping.
     const existingHashByDoc = new Map<string, string>();
+    const existingVersionByDoc = new Map<string, number>();
     const existingChunkCountByDoc = new Map<string, number>();
     // A pagination/filter/sort URL trap can serve byte-identical content
     // under many distinct URLs — with no per-path variant cap anymore
@@ -358,10 +369,16 @@ export class CrawlerService {
       for (const record of existingRecords) {
         existingChunkCountByDoc.set(record.documentId, (existingChunkCountByDoc.get(record.documentId) ?? 0) + 1);
 
-        const hash = (record.metadata as Record<string, unknown> | null)?.contentHash as string | undefined;
+        const meta = record.metadata as Record<string, unknown> | null;
+        const hash = meta?.contentHash as string | undefined;
         if (hash) {
           if (!existingHashByDoc.has(record.documentId)) existingHashByDoc.set(record.documentId, hash);
           if (!canonicalDocumentIdByHash.has(hash)) canonicalDocumentIdByHash.set(hash, record.documentId);
+        }
+        // Untagged (pre-versioning) chunks are treated as version 0, so
+        // they always fail the version check below and get reindexed.
+        if (!existingVersionByDoc.has(record.documentId)) {
+          existingVersionByDoc.set(record.documentId, (meta?.extractionVersion as number | undefined) ?? 0);
         }
       }
     }
@@ -382,8 +399,9 @@ export class CrawlerService {
       for (const page of pending) {
         const documentId = `crawl:${id}:${page.url}`;
         const previousHash = existingHashByDoc.get(documentId);
+        const previousVersion = existingVersionByDoc.get(documentId);
 
-        if (previousHash === page.contentHash) {
+        if (previousHash === page.contentHash && previousVersion === EXTRACTION_VERSION) {
           chunkCount += existingChunkCountByDoc.get(documentId) ?? 0;
           unchangedDocumentIds.push(documentId);
           continue;
@@ -419,6 +437,7 @@ export class CrawlerService {
             source: "crawler",
             url: page.url,
             contentHash: page.contentHash,
+            extractionVersion: EXTRACTION_VERSION,
             pageStatus,
             lastCrawledAt: crawledAt,
           },
@@ -430,6 +449,7 @@ export class CrawlerService {
         // and any duplicate in this same batch pointing at this page as
         // canonical) without re-querying the DB.
         existingHashByDoc.set(documentId, page.contentHash);
+        existingVersionByDoc.set(documentId, EXTRACTION_VERSION);
         existingChunkCountByDoc.set(documentId, result.chunks);
         canonicalDocumentIdByHash.set(page.contentHash, documentId);
       }
@@ -474,6 +494,7 @@ export class CrawlerService {
           chunkCount += clones.length;
 
           existingHashByDoc.set(dup.documentId, dup.page.contentHash);
+          existingVersionByDoc.set(dup.documentId, EXTRACTION_VERSION);
           existingChunkCountByDoc.set(dup.documentId, clones.length);
         }
       }

@@ -25,12 +25,12 @@ const NOT_TABULAR_SENTINEL = "NOT_TABULAR";
 // through to the existing catch, same as any other extraction failure.
 const EXTRACTION_TIMEOUT_MS = 30_000;
 
-const SYSTEM_PROMPT = `You extract product/item listings from raw scraped webpage or document text into CSV rows.
+const SYSTEM_PROMPT = `You extract product/item facts from raw scraped webpage or document text into CSV rows — ONE row per distinct product or item, even if the page only describes a single one (a single product's own page is exactly as valid a target as a listing of many).
 The text may be flattened (HTML tags stripped, whitespace collapsed) so it can run on without clear line breaks. It may be in English, Bangla (Bengali script), Banglish (Bangla written in Latin letters), or a mix of all three within the same listing.
 
-If this text has no clear list of multiple distinct items (e.g. it's a policy page, an About Us page, a single FAQ answer, generic navigation/menu text) — output exactly the single word ${NOT_TABULAR_SENTINEL} and nothing else.
+If this text describes no identifiable product/item at all (e.g. it's a policy page, an About Us page, a single FAQ answer, generic navigation/menu text) — output exactly the single word ${NOT_TABULAR_SENTINEL} and nothing else.
 
-Otherwise, decide the CSV columns from what's ACTUALLY present in the content — every distinct piece of information about an item (name, price, stock status, size/weight, brand, description, delivery info, specs, etc.) becomes its own column. Every row must have every column that ANY row needs, even if blank for some rows. Don't invent columns that aren't backed by the text.
+Otherwise — whether this is one product's own page or a list of many — decide the CSV columns from what's ACTUALLY present in the content — every distinct piece of information about an item (name, price, stock status, size/weight, brand, SKU, description, delivery info, specs, etc.) becomes its own column. Every row must have every column that ANY row needs, even if blank for some rows. Don't invent columns that aren't backed by the text. A single-product page still gets its own one-row table — name and price are almost always present on a real product page and must not be dropped.
 
 Translate values into clear English for the column HEADERS (so "দাম"/"দাম:" -> "Price", "স্টক"/"স্টক অবস্থা" -> "Stock") but keep item names/descriptions in their original language/register if that's how a customer would recognize them. Numbers/prices: extract the number only, no currency symbols/commas, normalized to plain Western digits regardless of source script. Stock/availability status: always normalize the VALUE itself to exactly "In stock" or "Out of stock" in English, regardless of what language/wording the source used.
 

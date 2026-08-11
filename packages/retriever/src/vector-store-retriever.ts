@@ -160,15 +160,50 @@ export class VectorStoreRetriever implements Retriever {
     // sentence can't balloon the prompt unboundedly.
     const finalLimit = clauses.length > 1 ? Math.min(limit * clauses.length, 15) : limit;
 
-    return Array.from(bestById.values())
+    const topResults = Array.from(bestById.values())
       .filter((result) => result.score >= minimumScore)
       .sort((a, b) => b.score - a.score)
-      .slice(0, finalLimit)
-      .map((result) => ({
+      .slice(0, finalLimit);
+
+    // A product page gets split into several small chunks (description,
+    // specs, price/SKU line, etc.) — a query can score highly against the
+    // description chunk while never surfacing that SAME page's price
+    // chunk. Confirmed live: "which is cheapest" retrieved a product's
+    // description but not its price line, and the AI told a customer a
+    // real, listed price didn't exist. Once any chunk of a page clears
+    // the bar, pull in every other chunk of that same page too — a
+    // customer question about one product needs that WHOLE product's
+    // facts, not whichever single chunk happened to score highest.
+    const matchedDocumentIds = new Set(topResults.map((r) => r.documentId));
+    const seenChunkIds = new Set(topResults.map((r) => r.id));
+    const expanded: RetrievedChunk[] = [];
+
+    for (const documentId of matchedDocumentIds) {
+      const siblings = await this.vectorStore.listChunksForDocument(documentId);
+      for (const sibling of siblings) {
+        if (seenChunkIds.has(sibling.chunkId)) continue;
+        seenChunkIds.add(sibling.chunkId);
+        // No fresh similarity score for a sibling pulled in this way —
+        // ranked just under the page's own matched chunk(s) so genuinely
+        // stronger matches from OTHER pages still lead the context.
+        const parentScore = topResults.find((r) => r.documentId === documentId)?.score ?? minimumScore;
+        expanded.push({
+          id: sibling.chunkId,
+          text: sibling.text,
+          score: parentScore - 0.001,
+          metadata: sibling.metadata,
+        });
+      }
+    }
+
+    return [
+      ...topResults.map((result) => ({
         id: result.id,
         text: result.text,
         score: result.score,
         metadata: result.metadata,
-      }));
+      })),
+      ...expanded,
+    ];
   }
 }
