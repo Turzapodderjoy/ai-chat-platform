@@ -295,10 +295,14 @@ a {
 }
 
 .app-shell td {
-  padding: 10px 12px;
+  padding: 12px;
   border-bottom: 1px solid var(--border);
   font-size: 13px;
-  vertical-align: middle;
+  /* top, not middle -- a row with one tall cell (a long provider-usage
+   * list, a multi-line status) was centering every OTHER cell in that
+   * same row, leaving huge empty gaps above/below their actual content.
+   * Confirmed live on Client Health's Malamal row. */
+  vertical-align: top;
 }
 
 .app-shell tbody tr {
