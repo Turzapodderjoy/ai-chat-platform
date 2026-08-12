@@ -71,7 +71,8 @@ export class IndexingService {
     // instead of it — the only case that skips normal chunking is
     // request.preChunked (a real CSV/XLSX upload, where the rows already
     // ARE the complete data, nothing left over to lose).
-    const extracted = request.preChunked ? null : await this.tryExtraction(request.text);
+    const extracted =
+      request.preChunked || request.skipExtraction ? null : await this.tryExtraction(request.text);
     const charChunks = request.preChunked ? null : this.chunker.chunk(request.text);
     const chunks: TextChunk[] = request.preChunked ?? (extracted ? [...extracted, ...charChunks!] : charChunks!);
 

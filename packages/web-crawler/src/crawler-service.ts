@@ -7,6 +7,7 @@ import type { ProductSyncService } from "@ai-chat-platform/product-catalog";
 
 import { crawlSiteBatch, type CrawlFrontier } from "./crawler";
 import { estimatePageCount } from "./estimate";
+import { looksLikeProductPage } from "./page-classifier";
 
 // No real-world site should ever approach this. crawlSiteBatch()'s BFS
 // loop already stops on its own once the link queue is exhausted (a
@@ -43,8 +44,14 @@ const MAX_PAGES_PER_BATCH = 5;
 // many small pages could still fire page after page back-to-back with
 // no gap at all — same "don't burst into the ceiling" reasoning as
 // EmbeddingManager's own batch pacing, just at the page level instead
-// of the chunk level.
-const DELAY_BETWEEN_PAGES_MS = 1500;
+// of the chunk level. Also directly paces TabularExtractionClient's one
+// extraction call per page: confirmed live at 1500ms (≈40 req/min) this
+// structurally exceeded Groq's real 30 RPM cap for the extraction model
+// — every retry (see TabularExtractionClient's own backoff) kept
+// landing in an already-exhausted window instead of a momentary spike,
+// so almost nothing actually extracted despite the retry logic being
+// correct. 2200ms keeps sustained throughput under 30/min with margin.
+const DELAY_BETWEEN_PAGES_MS = 2200;
 
 // How many CrawledPage rows phase 2 processes before re-checking
 // existing chunks and re-persisting pagesIndexed — same checkpointing
@@ -59,12 +66,15 @@ const INDEX_BATCH_SIZE = 20;
 // whose stored version doesn't match this is treated as needing
 // reindexing regardless of content hash. Bump this again the next time
 // extraction/chunking behavior changes.
-// v3: extraction was found silently failing at real crawl request rates
-// (Groq 429s swallowed as "not tabular" -- see TabularExtractionClient's
-// own retry fix) -- almost the entire catalog got stuck char-chunked
-// under v2 despite the prompt itself being correct. Forces every page
-// through extraction again now that rate-limit retries are in place.
-const EXTRACTION_VERSION = 3;
+// v4: v3's retries weren't enough on their own -- the crawl's own pacing
+// (1500ms/page) sustained ~40 req/min against Groq's real 30 RPM cap for
+// the extraction model, so retries kept landing in an already-exhausted
+// window. Pacing slowed to 2200ms AND extraction is now skipped upfront
+// for pages that don't look like an individual product page (category
+// listings, policy pages, the homepage -- see page-classifier.ts),
+// which also directly cuts how many calls compete for that 30/min
+// budget. Forces a retry of everything under both fixes.
+const EXTRACTION_VERSION = 4;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -473,6 +483,7 @@ export class CrawlerService {
           filename: page.url,
           text: page.text,
           documentId,
+          skipExtraction: !looksLikeProductPage(page.url),
           metadata: {
             businessId: target.businessId,
             source: "crawler",

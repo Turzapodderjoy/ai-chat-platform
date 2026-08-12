@@ -11,6 +11,13 @@ export interface IndexRequest {
    * from its record" problem tabular chunking exists to avoid. When set,
    * `text` is ignored for chunking purposes. */
   preChunked?: TextChunk[];
+  /** Skip the LLM tabular-extraction attempt for this page (still gets
+   * normal char-chunking) — for pages the caller already knows aren't
+   * an individual product (a category listing, homepage, policy page).
+   * Lets a caller bound how much of a large crawl pays for an
+   * extraction call at all, without touching what extraction itself
+   * decides once it does run. */
+  skipExtraction?: boolean;
 }
 
 export interface IndexResult {
