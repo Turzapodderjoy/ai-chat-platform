@@ -24,6 +24,28 @@ export function htmlToText(html: string): string {
   return decoded.replace(/\s+/g, " ").trim();
 }
 
+// og:image is the de-facto standard nearly every e-commerce platform
+// (Shopify, WooCommerce, custom PHP/Next storefronts alike) sets to the
+// product's own main photo, specifically so link previews/crawlers pick
+// the right image without needing real page understanding -- exactly
+// the signal we want here too. twitter:image is the common fallback
+// when a site only bothers with the Twitter card tag. First match wins;
+// a page with neither yields no image rather than guessing at a random
+// <img> (a logo, an icon, an unrelated banner).
+const OG_IMAGE_PATTERN = /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i;
+const TWITTER_IMAGE_PATTERN = /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i;
+
+export function extractImageUrl(html: string, baseUrl: string): string | null {
+  const match = OG_IMAGE_PATTERN.exec(html) ?? TWITTER_IMAGE_PATTERN.exec(html);
+  if (!match) return null;
+
+  try {
+    return new URL(match[1]!, baseUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
 const HREF_PATTERN = /<a\s[^>]*href=["']([^"'#]+)["']/gi;
 
 export function extractLinks(html: string, baseUrl: string): string[] {

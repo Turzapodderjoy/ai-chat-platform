@@ -3,6 +3,7 @@ import { createHash } from "crypto";
 import { prisma } from "@ai-chat-platform/database";
 import { IndexingService } from "@ai-chat-platform/indexing";
 import type { VectorRecord, VectorStoreManager } from "@ai-chat-platform/vector-store";
+import type { ProductSyncService } from "@ai-chat-platform/product-catalog";
 
 import { crawlSiteBatch, type CrawlFrontier } from "./crawler";
 import { estimatePageCount } from "./estimate";
@@ -58,7 +59,12 @@ const INDEX_BATCH_SIZE = 20;
 // whose stored version doesn't match this is treated as needing
 // reindexing regardless of content hash. Bump this again the next time
 // extraction/chunking behavior changes.
-const EXTRACTION_VERSION = 2;
+// v3: extraction was found silently failing at real crawl request rates
+// (Groq 429s swallowed as "not tabular" -- see TabularExtractionClient's
+// own retry fix) -- almost the entire catalog got stuck char-chunked
+// under v2 despite the prompt itself being correct. Forces every page
+// through extraction again now that rate-limit retries are in place.
+const EXTRACTION_VERSION = 3;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -145,7 +151,8 @@ export class CrawlerService {
   // class read/wrote its own separate instance of the store.
   constructor(
     private readonly indexing: IndexingService,
-    private readonly vectorStore: VectorStoreManager
+    private readonly vectorStore: VectorStoreManager,
+    private readonly productSync: ProductSyncService
   ) {}
 
   // Two overlapping runCrawl() calls for the SAME target (a double-
@@ -234,7 +241,19 @@ export class CrawlerService {
         await this.crawlPhase(id);
       }
 
-      return await this.indexPhase(id);
+      const result = await this.indexPhase(id);
+
+      // Best-effort, never blocks the crawl itself from reporting done —
+      // a product-sync bug shouldn't turn into a crawl failure. Runs
+      // after every recrawl path (manual "Recrawl now", "Add & crawl",
+      // and the scheduled knowledge refresh all funnel through this one
+      // runCrawl()), so the Product table stays current without a
+      // separate trigger to remember.
+      await this.productSync.syncForBusiness(startingTarget.businessId).catch((err) => {
+        console.error(`[CrawlerService] product sync failed for business ${startingTarget.businessId}:`, err);
+      });
+
+      return result;
     } catch (error) {
       // Deliberately doesn't touch frontierJson/CrawledPage rows — a
       // transient failure (network blip, DB hiccup) shouldn't discard
@@ -316,8 +335,19 @@ export class CrawlerService {
       for (const page of batchResult.pages) {
         await prisma.crawledPage.upsert({
           where: { crawlTargetId_url: { crawlTargetId: id, url: page.url } },
-          create: { crawlTargetId: id, url: page.url, text: page.text, contentHash: hashText(page.text) },
-          update: { text: page.text, contentHash: hashText(page.text), fetchedAt: new Date() },
+          create: {
+            crawlTargetId: id,
+            url: page.url,
+            text: page.text,
+            imageUrl: page.imageUrl,
+            contentHash: hashText(page.text),
+          },
+          update: {
+            text: page.text,
+            imageUrl: page.imageUrl,
+            contentHash: hashText(page.text),
+            fetchedAt: new Date(),
+          },
         });
       }
 
@@ -447,6 +477,7 @@ export class CrawlerService {
             businessId: target.businessId,
             source: "crawler",
             url: page.url,
+            imageUrl: page.imageUrl,
             contentHash: page.contentHash,
             extractionVersion: EXTRACTION_VERSION,
             pageStatus,
@@ -554,5 +585,13 @@ export class CrawlerService {
     }
 
     return results;
+  }
+
+  /** Re-derives Product rows from whatever's already indexed, without
+   * running a new crawl — the normal path is automatic (see the end of
+   * runCrawl()); this is for backfilling once against content crawled
+   * before product sync existed. */
+  async syncProductsNow(businessId: string) {
+    return this.productSync.syncForBusiness(businessId);
   }
 }

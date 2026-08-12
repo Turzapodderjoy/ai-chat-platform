@@ -262,6 +262,9 @@ importers:
       '@ai-chat-platform/knowledge-refresh':
         specifier: workspace:*
         version: link:../knowledge-refresh
+      '@ai-chat-platform/product-catalog':
+        specifier: workspace:*
+        version: link:../product-catalog
       '@ai-chat-platform/prompt-engine':
         specifier: workspace:*
         version: link:../prompt-engine
@@ -333,6 +336,9 @@ importers:
       '@ai-chat-platform/embedding-manager':
         specifier: workspace:*
         version: link:../embedding-manager
+      '@ai-chat-platform/knowledge-refresh':
+        specifier: workspace:*
+        version: link:../knowledge-refresh
       '@ai-chat-platform/prompt-engine':
         specifier: workspace:*
         version: link:../prompt-engine
@@ -505,6 +511,9 @@ importers:
       '@ai-chat-platform/web-crawler':
         specifier: workspace:*
         version: link:../web-crawler
+      xlsx:
+        specifier: ^0.18.5
+        version: 0.18.5
 
   packages/mistral:
     dependencies:
@@ -520,6 +529,18 @@ importers:
       '@ai-chat-platform/types':
         specifier: workspace:^
         version: link:../types
+
+  packages/product-catalog:
+    dependencies:
+      '@ai-chat-platform/database':
+        specifier: workspace:*
+        version: link:../database
+      '@ai-chat-platform/vector-store':
+        specifier: workspace:*
+        version: link:../vector-store
+      xlsx:
+        specifier: ^0.18.5
+        version: 0.18.5
 
   packages/prompt-engine: {}
 
@@ -674,6 +695,9 @@ importers:
       '@ai-chat-platform/indexing':
         specifier: workspace:*
         version: link:../indexing
+      '@ai-chat-platform/product-catalog':
+        specifier: workspace:*
+        version: link:../product-catalog
       '@ai-chat-platform/vector-store':
         specifier: workspace:*
         version: link:../vector-store

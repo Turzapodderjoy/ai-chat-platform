@@ -1,9 +1,10 @@
 import { fetchDisallowedPaths, isPathAllowed, USER_AGENT } from "./robots";
-import { htmlToText, extractLinks } from "./html-to-text";
+import { htmlToText, extractLinks, extractImageUrl } from "./html-to-text";
 
 export interface CrawledPage {
   url: string;
   text: string;
+  imageUrl: string | null;
 }
 
 export interface CrawlOptions {
@@ -168,7 +169,7 @@ export async function crawlSiteBatch(
             return null;
           }
 
-          return { url, html, text: htmlToText(html) };
+          return { url, html, text: htmlToText(html), imageUrl: extractImageUrl(html, url) };
         } catch {
           // Skip pages that fail to fetch; don't let one bad page kill the crawl.
           return null;
@@ -183,7 +184,7 @@ export async function crawlSiteBatch(
       if (!result) continue;
 
       if (result.text.length > 0) {
-        pages.push({ url: result.url, text: result.text });
+        pages.push({ url: result.url, text: result.text, imageUrl: result.imageUrl });
         options.onPage?.(pages.length, visited.size);
       }
 

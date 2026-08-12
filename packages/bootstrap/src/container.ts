@@ -14,6 +14,7 @@ import { TabularExtractionClient } from "@ai-chat-platform/tabular-extraction";
 import { UploadService } from "@ai-chat-platform/upload";
 import { TenantService } from "@ai-chat-platform/tenant";
 import { CrawlerService } from "@ai-chat-platform/web-crawler";
+import { ProductSyncService } from "@ai-chat-platform/product-catalog";
 import {
   GeminiBatchClient,
   ConversationReviewService,
@@ -104,8 +105,11 @@ export class Container {
     const tenants =
       new TenantService();
 
+    const productSync =
+      new ProductSyncService(vectorStore);
+
     const crawlerService =
-      new CrawlerService(indexingService, vectorStore);
+      new CrawlerService(indexingService, vectorStore, productSync);
 
     const refreshSchedule =
       new RefreshScheduleService();

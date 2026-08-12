@@ -1,5 +1,5 @@
 {
-  "name": "@ai-chat-platform/web-crawler",
+  "name": "@ai-chat-platform/product-catalog",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -8,8 +8,7 @@
   },
   "dependencies": {
     "@ai-chat-platform/database": "workspace:*",
-    "@ai-chat-platform/indexing": "workspace:*",
     "@ai-chat-platform/vector-store": "workspace:*",
-    "@ai-chat-platform/product-catalog": "workspace:*"
+    "xlsx": "^0.18.5"
   }
 }

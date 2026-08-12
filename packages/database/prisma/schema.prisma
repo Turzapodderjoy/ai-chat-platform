@@ -239,6 +239,7 @@ model CrawledPage {
   crawlTargetId String
   url           String
   text          String
+  imageUrl      String?
   contentHash   String
   fetchedAt     DateTime @default(now())
 
@@ -678,4 +679,36 @@ model KnowledgeRefreshSchedule {
   // "the master CSV row has been rebuilt" — the one refresh phase that
   // has no CrawlTarget row of its own to report status from.
   buildingCsv Boolean  @default(false)
+}
+
+// One row per real product, per business — the structured browse-catalog
+// counterpart to the chat-retrieval chunks (VectorRecord) and the
+// human-readable export (MasterCsv). Same underlying crawl/extraction
+// pipeline feeds all three; this table exists because neither of the
+// other two is queryable as "every product in this category" without an
+// LLM call and a token budget in the way — a catalog UI needs a real
+// list it can page/filter directly. sourceUrl is the crawled product
+// page's own URL (or a synthetic key for an uploaded-document product)
+// — the stable identity a re-crawl upserts against, same "stable key,
+// re-run replaces" pattern as UploadedDocument/CrawledPage. price/stock
+// are kept as free text, not Decimal/Int/enum: source sites format
+// these inconsistently (ranges, "Call for price", "In stock" vs a
+// count), and forcing a strict type would drop real data rather than
+// normalize it.
+model Product {
+  id          String   @id @default(cuid())
+  businessId  String
+  name        String
+  price       String?
+  description String?
+  stock       String?
+  imageUrl    String?
+  sourceUrl   String?
+  sku         String?
+
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@unique([businessId, sourceUrl])
+  @@index([businessId])
 }

@@ -44,6 +44,37 @@ export interface ExtractedTable {
 export class TabularExtractionClient {
   constructor(private readonly apiKey: string) {}
 
+  /** A real, confirmed-live incident: extraction ran fine when tested in
+   * isolation, but across a real ~2,500-page crawl only 5 documents ever
+   * came back tabular -- every other call was silently swallowed by the
+   * single catch-and-return-null above, indistinguishable from a
+   * legitimate "this page isn't a product listing" decision. Groq's free
+   * tier rate-limits per-minute; a crawl firing one extraction call per
+   * page runs straight into that. Retrying specifically on 429 (never on
+   * other errors -- a real failure should still fall through to plain
+   * chunking, not retry a broken/misconfigured call) turns "would have
+   * failed at this crawl's request rate" into "succeeds after a short
+   * wait" for the common case. */
+  private async withRateLimitRetry<T>(call: () => Promise<T>): Promise<T> {
+    const maxAttempts = 3;
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        return await call();
+      } catch (err) {
+        lastError = err;
+        const status = (err as { status?: number })?.status;
+        if (status !== 429 || attempt === maxAttempts - 1) throw err;
+
+        const delayMs = 2000 * 2 ** attempt;
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+
+    throw lastError;
+  }
+
   /** Never throws — a failed/misconfigured/rate-limited extraction call
    * must never be able to break an upload or crawl. Returns null on any
    * failure, on the NOT_TABULAR sentinel, or on an empty result; callers
@@ -56,15 +87,17 @@ export class TabularExtractionClient {
     let raw: string;
     try {
       const client = new Groq({ apiKey: this.apiKey, timeout: EXTRACTION_TIMEOUT_MS });
-      const response = await client.chat.completions.create({
-        model: MODEL,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: text },
-        ],
-        temperature: 0,
-        max_tokens: 4000,
-      });
+      const response = await this.withRateLimitRetry(() =>
+        client.chat.completions.create({
+          model: MODEL,
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: text },
+          ],
+          temperature: 0,
+          max_tokens: 4000,
+        })
+      );
       raw = (response.choices[0]?.message?.content ?? "").trim();
     } catch {
       return null;

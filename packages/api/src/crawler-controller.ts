@@ -28,4 +28,12 @@ export class CrawlerController {
   recrawlAll() {
     return this.crawler.crawlAll();
   }
+
+  /** Manual "resync the Product table now" — normally this runs
+   * automatically at the end of every runCrawl(), this exists for
+   * re-deriving Product rows from what's already indexed without
+   * waiting on a full recrawl (e.g. right after this feature shipped). */
+  syncProducts(businessId: string) {
+    return this.crawler.syncProductsNow(businessId);
+  }
 }

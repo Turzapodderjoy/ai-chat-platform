@@ -26,6 +26,7 @@
     "@ai-chat-platform/embedding-catalog": "workspace:*",
     "@ai-chat-platform/tenant": "workspace:*",
     "@ai-chat-platform/web-crawler": "workspace:*",
+    "@ai-chat-platform/product-catalog": "workspace:*",
     "@ai-chat-platform/ai-config": "workspace:*",
     "@ai-chat-platform/provider-keys": "workspace:*",
     "@ai-chat-platform/training-pipeline": "workspace:*",
