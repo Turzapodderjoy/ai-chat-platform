@@ -293,6 +293,7 @@ function ClientsPanel() {
       {!clients && <p>Loading…</p>}
 
       {clients && (
+        <div className="table-scroll">
         <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
           <thead>
             <tr>
@@ -328,6 +329,7 @@ function ClientsPanel() {
             )}
           </tbody>
         </table>
+        </div>
       )}
     </section>
   );
@@ -499,6 +501,7 @@ function AiProvidersPanel() {
 
       {data && (
         <>
+          <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
@@ -545,6 +548,7 @@ function AiProvidersPanel() {
               )}
             </tbody>
           </table>
+          </div>
 
           <h3 style={{ marginTop: 24 }}>Add a custom provider</h3>
           <p style={subtleTextStyle}>
@@ -746,6 +750,7 @@ function EmbeddingProvidersPanel() {
 
       {data && (
         <>
+          <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
@@ -792,6 +797,7 @@ function EmbeddingProvidersPanel() {
               )}
             </tbody>
           </table>
+          </div>
 
           <h3 style={{ marginTop: 24 }}>Add / activate a provider</h3>
           <p style={subtleTextStyle}>
@@ -844,6 +850,7 @@ function EmbeddingProvidersPanel() {
             Groq&apos;s daily token cap, not a config problem — add
             another key rather than waiting it out).
           </p>
+          <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
@@ -877,6 +884,7 @@ function EmbeddingProvidersPanel() {
               )}
             </tbody>
           </table>
+          </div>
         </>
       )}
     </section>
@@ -925,6 +933,7 @@ function UsagePanel() {
       <h3 style={{ marginTop: 0 }}>By chat</h3>
       {!chats && <p>Loading…</p>}
       {chats && (
+        <div className="table-scroll">
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
@@ -956,6 +965,7 @@ function UsagePanel() {
             )}
           </tbody>
         </table>
+        </div>
       )}
       </div>
 
@@ -963,6 +973,7 @@ function UsagePanel() {
       <h3 style={{ marginTop: 0 }}>AI providers (totals)</h3>
       {!aiUsage && <p>Loading…</p>}
       {aiUsage && (
+        <div className="table-scroll">
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
@@ -992,6 +1003,7 @@ function UsagePanel() {
             )}
           </tbody>
         </table>
+        </div>
       )}
       </div>
 
@@ -999,6 +1011,7 @@ function UsagePanel() {
       <h3 style={{ marginTop: 0 }}>Embedding providers (totals)</h3>
       {!embeddingUsage && <p>Loading…</p>}
       {embeddingUsage && (
+        <div className="table-scroll">
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
@@ -1029,6 +1042,7 @@ function UsagePanel() {
             )}
           </tbody>
         </table>
+        </div>
       )}
       </div>
     </section>

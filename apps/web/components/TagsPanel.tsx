@@ -130,6 +130,7 @@ export function TagsPanel() {
       {!tags && <p>Loading…</p>}
 
       {tags && (
+        <div className="table-scroll">
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
@@ -185,6 +186,7 @@ export function TagsPanel() {
             )}
           </tbody>
         </table>
+        </div>
       )}
     </section>
   );

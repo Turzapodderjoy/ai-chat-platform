@@ -187,6 +187,7 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
         {!knowledgeStatus && <p style={subtleTextStyle}>Loading…</p>}
 
         {knowledgeStatus && (
+          <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12 }}>
             <thead>
               <tr>
@@ -237,6 +238,7 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
               )}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </section>

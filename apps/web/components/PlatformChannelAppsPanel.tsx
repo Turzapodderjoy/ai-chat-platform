@@ -80,6 +80,7 @@ export function PlatformChannelAppsPanel() {
 
       {credentials && (
         <>
+          <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
@@ -100,6 +101,7 @@ export function PlatformChannelAppsPanel() {
               ))}
             </tbody>
           </table>
+          </div>
 
           <h3 style={{ marginTop: 24 }}>Edit</h3>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>

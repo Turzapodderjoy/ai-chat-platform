@@ -258,6 +258,7 @@ export function ClientAccessPanel() {
       {!filteredAccounts && <p>Loading…</p>}
 
       {filteredAccounts && (
+        <div className="table-scroll">
         <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
           <thead>
             <tr>
@@ -338,6 +339,7 @@ export function ClientAccessPanel() {
             )}
           </tbody>
         </table>
+        </div>
       )}
     </section>
   );

@@ -269,6 +269,7 @@ export function AiParametersPanel({ businessId }: AiParametersPanelProps) {
       <h3 style={{ marginTop: 28 }}>History</h3>
       {!history && <p style={subtleTextStyle}>Loading…</p>}
       {history && (
+        <div className="table-scroll">
         <table>
           <thead>
             <tr>
@@ -308,6 +309,7 @@ export function AiParametersPanel({ businessId }: AiParametersPanelProps) {
             )}
           </tbody>
         </table>
+        </div>
       )}
     </section>
   );

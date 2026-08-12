@@ -417,6 +417,7 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
       {crawlMessage && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{crawlMessage}</p>}
 
       {targets && targets.length > 0 && (
+        <div className="table-scroll">
         <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12 }}>
           <thead>
             <tr>
@@ -452,6 +453,7 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
             ))}
           </tbody>
         </table>
+        </div>
       )}
       </div>
 
@@ -461,6 +463,7 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
       {!documents && <p style={subtleTextStyle}>Loading…</p>}
 
       {documents && (
+        <div className="table-scroll">
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
@@ -516,6 +519,7 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
             )}
           </tbody>
         </table>
+        </div>
       )}
       {documents && documents.length > DOCS_PER_PAGE && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
@@ -542,6 +546,7 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
           {backfillMessage && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{backfillMessage}</p>}
           {!coverage && <p style={subtleTextStyle}>Loading…</p>}
           {coverage && (
+            <div className="table-scroll">
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
@@ -598,6 +603,7 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
                 )}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       )}
@@ -650,7 +656,7 @@ function DocumentChunksView({ chunks }: { chunks: DocumentChunk[] }) {
           <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>
             AI-structured data ({rows.length} row{rows.length === 1 ? "" : "s"})
           </div>
-          <div style={{ overflowX: "auto" }}>
+          <div className="table-scroll">
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <thead>
                 <tr>

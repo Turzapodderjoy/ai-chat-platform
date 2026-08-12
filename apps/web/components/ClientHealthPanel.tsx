@@ -174,7 +174,17 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
         {!rows && !error && <p style={subtleTextStyle}>Loading…</p>}
 
         {rows && (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          // This table has 11 columns of genuinely wide content (a
+          // multi-line provider-usage list, long refresh-status text) --
+          // width:100% on the table itself doesn't stop it growing past
+          // its container once content needs more room (table-layout is
+          // auto, not fixed), which is exactly why the action column was
+          // rendering outside the card's visible edge. Scrolling this
+          // wrapper instead of the table keeps everything -- including
+          // "Run full update" -- inside the card, reachable by scrolling
+          // right rather than spilling into the page.
+          <div className="table-scroll">
+          <table style={{ width: "100%", minWidth: 1100, borderCollapse: "collapse" }}>
             <thead>
               <tr>
                 <th style={cellStyle}>Client</th>
@@ -384,6 +394,7 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
               )}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </section>

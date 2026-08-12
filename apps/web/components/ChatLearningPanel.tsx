@@ -372,6 +372,7 @@ export function ChatLearningPanel({ businessId }: { businessId?: string }) {
       {!runs && <p style={subtleTextStyle}>Loading…</p>}
       {runs && runs.length === 0 && <p style={subtleTextStyle}>No runs yet.</p>}
       {runs && runs.length > 0 && (
+        <div className="table-scroll">
         <table>
           <thead>
             <tr>
@@ -403,6 +404,7 @@ export function ChatLearningPanel({ businessId }: { businessId?: string }) {
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </section>
   );

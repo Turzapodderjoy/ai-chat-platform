@@ -282,6 +282,19 @@ a {
   width: 100%;
 }
 
+/* A table wide enough to need it (many columns, or one long-content
+ * cell) scrolls horizontally INSIDE this wrapper instead of pushing its
+ * last column out past the card's visible edge — confirmed live on
+ * Client Health, where the action button rendered completely outside
+ * the card. Deliberately a real wrapper element (.table-scroll, added
+ * per table in each panel) rather than a table{display:block} trick:
+ * that trick breaks header/body column sync (thead and tbody become
+ * two separate table contexts with independently-computed widths). */
+.table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
 .app-shell th {
   text-align: left;
   font-size: 11px;

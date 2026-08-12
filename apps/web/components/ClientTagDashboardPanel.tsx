@@ -336,6 +336,7 @@ export function ClientTagDashboardPanel({ businessId }: { businessId: string }) 
                 Download CSV
               </button>
             </div>
+            <div className="table-scroll">
             <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
               <thead>
                 <tr>
@@ -370,6 +371,7 @@ export function ClientTagDashboardPanel({ businessId }: { businessId: string }) 
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </>
       )}
@@ -408,6 +410,7 @@ export function ClientTagDashboardPanel({ businessId }: { businessId: string }) 
         {pivotLoading && <p style={subtleTextStyle}>Loading…</p>}
 
         {!pivotLoading && pivotResult && (
+          <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
@@ -433,6 +436,7 @@ export function ClientTagDashboardPanel({ businessId }: { businessId: string }) 
               )}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

@@ -303,6 +303,7 @@ export function AiBrainPanel({ businessId }: AiBrainPanelProps) {
       <h3 style={{ marginTop: 24 }}>History</h3>
       {!history && <p style={subtleTextStyle}>Loading…</p>}
       {history && (
+        <div className="table-scroll">
         <table>
           <thead>
             <tr>
@@ -353,6 +354,7 @@ export function AiBrainPanel({ businessId }: AiBrainPanelProps) {
             )}
           </tbody>
         </table>
+        </div>
       )}
     </section>
   );
