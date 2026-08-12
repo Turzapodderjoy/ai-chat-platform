@@ -112,7 +112,27 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
   const [rows, setRows] = useState<ClientHealthRow[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [triggering, setTriggering] = useState<string | null>(null);
   const phaseTrackRef = useRef<Record<string, PhaseTrack>>({});
+
+  // Recrawl + reembed + rebuild master CSV + resync the Product table —
+  // all one call, since runCrawl() already chains all four (see
+  // ProductSyncService's wiring into CrawlerService). Fire-and-forget,
+  // same reasoning as the Knowledge Hub's own "Run now" — this can take
+  // a genuinely long time on a large site.
+  async function runFullUpdate(businessId: string) {
+    setTriggering(businessId);
+    try {
+      await fetch("/api/admin/knowledge/refresh-now", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId }),
+      });
+      load();
+    } finally {
+      setTriggering(null);
+    }
+  }
 
   function load() {
     setLoading(true);
@@ -167,6 +187,7 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
                 <th style={cellStyle}>Open handoffs</th>
                 <th style={cellStyle}>Conversations</th>
                 <th style={cellStyle}>AI usage (7d)</th>
+                <th style={cellStyle}></th>
               </tr>
             </thead>
             <tbody>
@@ -332,12 +353,25 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
                         </div>
                       ))}
                     </td>
+                    <td style={cellStyle}>
+                      <button
+                        onClick={() => runFullUpdate(row.businessId)}
+                        disabled={triggering === row.businessId || row.refreshPhase !== null}
+                        title="Recrawl + reembed + rebuild master CSV + resync product catalog"
+                      >
+                        {triggering === row.businessId
+                          ? "Starting…"
+                          : row.refreshPhase !== null
+                            ? "Running…"
+                            : "Run full update"}
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
               {rows.length === 0 && (
                 <tr>
-                  <td style={cellStyle} colSpan={10}>No clients yet.</td>
+                  <td style={cellStyle} colSpan={11}>No clients yet.</td>
                 </tr>
               )}
             </tbody>
