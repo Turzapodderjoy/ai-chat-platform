@@ -18,6 +18,13 @@ export interface IndexRequest {
    * extraction call at all, without touching what extraction itself
    * decides once it does run. */
   skipExtraction?: boolean;
+  /** Already-extracted tabular chunks from a caller-derived template
+   * (see TemplateExtractor) — same "additive, alongside normal
+   * chunking" treatment as a real LLM extraction result (chunkingMethod
+   * still reports "llm-extracted" for these), just skips the actual
+   * network call since the caller already has the rows. Takes priority
+   * over skipExtraction/tryExtraction when set. */
+  preExtracted?: TextChunk[];
 }
 
 export interface IndexResult {
@@ -25,4 +32,9 @@ export interface IndexResult {
   chunks: number;
   vectors: number;
   createdAt: Date;
+  /** Whether this page actually got tabular-extracted (via a real LLM
+   * call OR a caller-supplied preExtracted) — lets a caller like
+   * CrawlerService know whether to bank this page as a genuine
+   * extraction-derived template sample. */
+  extracted: boolean;
 }

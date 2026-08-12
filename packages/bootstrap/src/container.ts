@@ -10,7 +10,7 @@ import { AiConfigService } from "@ai-chat-platform/ai-config";
 import { RagService } from "@ai-chat-platform/rag";
 import { IngestionPipeline } from "@ai-chat-platform/ingestion";
 import { IndexingService } from "@ai-chat-platform/indexing";
-import { TabularExtractionClient } from "@ai-chat-platform/tabular-extraction";
+import { TabularExtractionClient, TemplateExtractor } from "@ai-chat-platform/tabular-extraction";
 import { UploadService } from "@ai-chat-platform/upload";
 import { TenantService } from "@ai-chat-platform/tenant";
 import { CrawlerService } from "@ai-chat-platform/web-crawler";
@@ -85,6 +85,11 @@ export class Container {
     const tabularExtraction =
       new TabularExtractionClient(process.env.GROQ_EXTRACTION_API_KEY ?? "");
 
+    // Same dedicated extraction key — one-time-per-site pattern derivation
+    // (see TemplateExtractor's own comment), not a per-page call.
+    const templateExtractor =
+      new TemplateExtractor(process.env.GROQ_EXTRACTION_API_KEY ?? "");
+
     // Shared by both upload and crawler — each used to build its own
     // private IndexingService (and inside that, its own unconfigured
     // EmbeddingManager), meaning uploaded/crawled documents never got
@@ -112,7 +117,7 @@ export class Container {
       new ProductService();
 
     const crawlerService =
-      new CrawlerService(indexingService, vectorStore, productSync);
+      new CrawlerService(indexingService, vectorStore, productSync, templateExtractor);
 
     const refreshSchedule =
       new RefreshScheduleService();

@@ -10,6 +10,8 @@
     "@ai-chat-platform/database": "workspace:*",
     "@ai-chat-platform/indexing": "workspace:*",
     "@ai-chat-platform/vector-store": "workspace:*",
-    "@ai-chat-platform/product-catalog": "workspace:*"
+    "@ai-chat-platform/product-catalog": "workspace:*",
+    "@ai-chat-platform/tabular-extraction": "workspace:*",
+    "@ai-chat-platform/chunker": "workspace:*"
   }
 }

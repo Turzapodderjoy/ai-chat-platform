@@ -692,6 +692,9 @@ importers:
 
   packages/web-crawler:
     dependencies:
+      '@ai-chat-platform/chunker':
+        specifier: workspace:*
+        version: link:../chunker
       '@ai-chat-platform/database':
         specifier: workspace:*
         version: link:../database
@@ -701,6 +704,9 @@ importers:
       '@ai-chat-platform/product-catalog':
         specifier: workspace:*
         version: link:../product-catalog
+      '@ai-chat-platform/tabular-extraction':
+        specifier: workspace:*
+        version: link:../tabular-extraction
       '@ai-chat-platform/vector-store':
         specifier: workspace:*
         version: link:../vector-store

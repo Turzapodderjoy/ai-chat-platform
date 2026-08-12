@@ -4,10 +4,17 @@ import { prisma } from "@ai-chat-platform/database";
 import { IndexingService } from "@ai-chat-platform/indexing";
 import type { VectorRecord, VectorStoreManager } from "@ai-chat-platform/vector-store";
 import type { ProductSyncService } from "@ai-chat-platform/product-catalog";
+import { TemplateExtractor, MAX_TEMPLATE_SAMPLES, type ExtractionTemplate } from "@ai-chat-platform/tabular-extraction";
+import { chunkTabularTable } from "@ai-chat-platform/chunker";
 
 import { crawlSiteBatch, type CrawlFrontier } from "./crawler";
 import { estimatePageCount } from "./estimate";
 import { looksLikeProductPage } from "./page-classifier";
+
+// Owner's explicit call: don't trust a derived pattern until at least
+// this fraction of the site's own pages have been seen via real per-page
+// LLM extraction -- see CrawlTarget.templateSampleCount's own comment.
+const TEMPLATE_SAMPLE_FRACTION = 0.15;
 
 // No real-world site should ever approach this. crawlSiteBatch()'s BFS
 // loop already stops on its own once the link queue is exhausted (a
@@ -162,7 +169,8 @@ export class CrawlerService {
   constructor(
     private readonly indexing: IndexingService,
     private readonly vectorStore: VectorStoreManager,
-    private readonly productSync: ProductSyncService
+    private readonly productSync: ProductSyncService,
+    private readonly templateExtractor: TemplateExtractor
   ) {}
 
   // Two overlapping runCrawl() calls for the SAME target (a double-
@@ -391,6 +399,18 @@ export class CrawlerService {
     let chunkCount = 0;
     let pagesProcessed = target.pagesIndexed;
 
+    // Mutable local copies — persisted back to CrawlTarget at the end of
+    // each batch below. See the schema fields' own comments for the
+    // 15%-of-the-site gate this implements.
+    let extractionTemplate = target.extractionTemplate as ExtractionTemplate | null;
+    let templateSampleCount = target.templateSampleCount;
+    let templateSampleTexts = ((target.templateSampleTexts as string[] | null) ?? []).slice();
+    const templateSampleThreshold = Math.max(1, Math.ceil((target.pagesDone || 1) * TEMPLATE_SAMPLE_FRACTION));
+    // Paces only actual Groq calls, not every page — a template-matched
+    // or non-product page needs no rate-limit delay at all, which is
+    // most of the real speedup this feature exists for.
+    let groqCallMade = false;
+
     // Built ONCE, then maintained incrementally as each batch indexes —
     // NOT re-fetched every batch. A large site can accumulate tens of
     // thousands of chunks; re-running a full-table scan every
@@ -475,15 +495,31 @@ export class CrawlerService {
 
       await this.vectorStore.deleteByDocumentIds(changedPages.map((c) => c.documentId));
 
-      for (let i = 0; i < changedPages.length; i++) {
-        if (i > 0) await sleep(DELAY_BETWEEN_PAGES_MS);
+      let templateJustDerived = false;
 
+      for (let i = 0; i < changedPages.length; i++) {
         const { page, documentId, pageStatus } = changedPages[i]!;
+        const isProduct = looksLikeProductPage(page.url);
+
+        // A template-matched page needs no Groq call at all — only pages
+        // that are actually about to hit the extraction API need the
+        // rate-limit pacing delay.
+        let preExtracted: ReturnType<typeof chunkTabularTable> | undefined;
+        if (isProduct && extractionTemplate) {
+          const applied = this.templateExtractor.applyTemplate(extractionTemplate, page.text);
+          if (applied) preExtracted = chunkTabularTable(applied.headers, applied.rows);
+        }
+
+        const willCallGroq = isProduct && !preExtracted;
+        if (willCallGroq && groqCallMade) await sleep(DELAY_BETWEEN_PAGES_MS);
+        if (willCallGroq) groqCallMade = true;
+
         const result = await this.indexing.index({
           filename: page.url,
           text: page.text,
           documentId,
-          skipExtraction: !looksLikeProductPage(page.url),
+          skipExtraction: !isProduct,
+          preExtracted,
           metadata: {
             businessId: target.businessId,
             source: "crawler",
@@ -498,6 +534,23 @@ export class CrawlerService {
 
         chunkCount += result.chunks;
 
+        // Bank this page as a template-derivation sample only when it
+        // was a REAL per-page LLM extraction (not a template hit, not a
+        // skip) and we're still in the sampling window (no template
+        // trusted yet).
+        if (willCallGroq && result.extracted && !extractionTemplate) {
+          templateSampleCount++;
+          if (templateSampleTexts.length < MAX_TEMPLATE_SAMPLES) templateSampleTexts.push(page.text);
+
+          if (templateSampleCount >= templateSampleThreshold) {
+            const derived = await this.templateExtractor.deriveTemplate(templateSampleTexts);
+            if (derived) {
+              extractionTemplate = derived;
+              templateJustDerived = true;
+            }
+          }
+        }
+
         // Keep the maps current for the REST of this run (later batches,
         // and any duplicate in this same batch pointing at this page as
         // canonical) without re-querying the DB.
@@ -506,6 +559,15 @@ export class CrawlerService {
         existingChunkCountByDoc.set(documentId, result.chunks);
         canonicalDocumentIdByHash.set(page.contentHash, documentId);
       }
+
+      await prisma.crawlTarget.update({
+        where: { id },
+        data: {
+          templateSampleCount,
+          templateSampleTexts,
+          ...(templateJustDerived ? { extractionTemplate: extractionTemplate as object } : {}),
+        },
+      });
 
       // Incremental, not a full syncForBusiness() — only re-derives
       // products for the handful of documents THIS batch just indexed,

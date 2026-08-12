@@ -220,6 +220,29 @@ model CrawlTarget {
   // finished this round).
   frontierJson   String?
 
+  // A one-time-derived, per-site regex extraction pattern (see
+  // TabularExtractionClient.deriveTemplate) -- lets the bulk of a crawl's
+  // product pages be extracted with plain regex instead of one Groq call
+  // per page, while staying generic across every client's own site
+  // layout (the pattern itself is derived from THIS site's real sample
+  // pages, not hardcoded). Null until enough product-page samples have
+  // been seen to derive one, or if derivation was tried and failed
+  // (falls back to per-page LLM extraction unconditionally in that case
+  // -- see CrawlerService.indexPhase).
+  extractionTemplate Json?
+  // Running tally of individual product pages that have gone through a
+  // REAL per-page LLM extraction so far this crawl -- gates when the
+  // template above is allowed to be derived (owner's explicit call: at
+  // least 15% of this site's pages need to have been genuinely
+  // extracted first, so the derived pattern is backed by real breadth,
+  // not a token handful). templateSampleTexts holds up to
+  // MAX_TEMPLATE_SAMPLES of those pages' raw text (the actual input to
+  // the one derivation call) -- capped independently of the running
+  // count, which can keep growing past that cap while waiting for the
+  // 15% threshold.
+  templateSampleCount Int   @default(0)
+  templateSampleTexts Json?
+
   updatedAt      DateTime  @default(now()) @updatedAt
 
   createdAt      DateTime  @default(now())
