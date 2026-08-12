@@ -80,6 +80,46 @@ a {
   --radius-sm: 7px;
   --shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.45);
 
+  /* Material Design 3 layer — additive on top of the tokens above, which
+   * keep every existing style call site (dashboard-styles.ts, inline
+   * panel styles) working unchanged. MD3's dark-theme elevation model is
+   * TONAL: a "higher" surface gets progressively lighter/warmer, not
+   * just a bigger drop shadow — these 5 tiers are one flat white overlay
+   * of increasing opacity laid over --surface, matching the spec's own
+   * 5%/8%/11%/12%/14% overlay levels. */
+  --md-surface-1: color-mix(in srgb, var(--surface) 95%, white 5%);
+  --md-surface-2: color-mix(in srgb, var(--surface) 92%, white 8%);
+  --md-surface-3: color-mix(in srgb, var(--surface) 89%, white 11%);
+  --md-surface-4: color-mix(in srgb, var(--surface) 88%, white 12%);
+  --md-surface-5: color-mix(in srgb, var(--surface) 86%, white 14%);
+
+  /* Shape scale (MD3 §Shape): none/extra-small.../full, one variable per
+   * step so a component picks the step that matches its own size rather
+   * than every component sharing one radius. */
+  --md-shape-xs: 4px;
+  --md-shape-sm: 8px;
+  --md-shape-md: 12px;
+  --md-shape-lg: 16px;
+  --md-shape-xl: 28px;
+  --md-shape-full: 999px;
+
+  /* State layers (MD3 §Interaction states) — the standard hover/press
+   * opacity an on-surface-colored overlay gets, applied via the
+   * `.state-layer` utility below rather than hand-mixed colors per
+   * component. */
+  --md-state-hover: 0.08;
+  --md-state-press: 0.12;
+  --md-state-focus: 0.12;
+
+  /* Motion (MD3 §Motion) — the spec's own "emphasized" easing (fast out,
+   * slow in) for anything entering/leaving, "standard" for in-place
+   * state changes, plus duration tiers. */
+  --md-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --md-easing-emphasized: cubic-bezier(0.3, 0, 0, 1);
+  --md-duration-short: 150ms;
+  --md-duration-medium: 250ms;
+  --md-duration-long: 400ms;
+
   color-scheme: dark;
   min-height: 100vh;
   background: var(--bg);
@@ -87,6 +127,14 @@ a {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", Arial, sans-serif;
   font-size: 14px;
   line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 .app-shell h1,
@@ -156,32 +204,62 @@ a {
   cursor: pointer;
 }
 
-/* Buttons — a real button system (primary / plain) instead of bare
- * browser chrome, applied at the element level so every panel's
- * existing <button> picks it up with no per-file changes. */
+/* Buttons — MD3 shape (full-pill, matching the spec's "filled/outlined
+ * button" shape) and a real state layer instead of a flat color swap:
+ * hover/press lay a translucent white overlay over whatever the
+ * button's own background already is, so it reads correctly on both
+ * plain and accent-filled buttons without two separate rule sets. */
 .app-shell button {
+  position: relative;
   font: inherit;
-  border-radius: var(--radius-sm);
+  border-radius: var(--md-shape-full);
   border: 1px solid var(--border-strong);
   background: var(--surface);
   color: var(--text);
-  padding: 8px 14px;
+  padding: 9px 18px;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease, transform 0.05s ease;
+  overflow: hidden;
+  transition: background var(--md-duration-short) var(--md-easing-standard),
+    border-color var(--md-duration-short) var(--md-easing-standard),
+    opacity var(--md-duration-short) var(--md-easing-standard),
+    transform var(--md-duration-short) var(--md-easing-emphasized),
+    box-shadow var(--md-duration-short) var(--md-easing-standard);
+}
+
+.app-shell button::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+  opacity: 0;
+  transition: opacity var(--md-duration-short) var(--md-easing-standard);
+  pointer-events: none;
+}
+
+.app-shell button:hover:not(:disabled)::before {
+  opacity: var(--md-state-hover);
+}
+
+.app-shell button:active:not(:disabled)::before {
+  opacity: var(--md-state-press);
 }
 
 .app-shell button:hover:not(:disabled) {
-  background: var(--surface-hover);
   border-color: var(--border-strong);
 }
 
 .app-shell button:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 .app-shell button:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+.app-shell button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* The dashboards' "primary action" buttons never carried a distinct
@@ -223,8 +301,24 @@ a {
   vertical-align: middle;
 }
 
+.app-shell tbody tr {
+  transition: background var(--md-duration-short) var(--md-easing-standard);
+}
+
 .app-shell tbody tr:hover {
   background: var(--surface-hover);
+}
+
+/* Reusable expand/collapse chevron rotation — see Collapsible.tsx.
+ * Kept as a plain CSS class (not inline style) so the rotation
+ * transition uses the shared MD3 easing token instead of each call
+ * site re-declaring its own. */
+.md-chevron {
+  transition: transform var(--md-duration-short) var(--md-easing-standard);
+}
+
+.md-chevron[data-open="true"] {
+  transform: rotate(180deg);
 }
 
 .app-shell a:not(.plain-link) {

@@ -19,10 +19,14 @@ export function formatBytes(bytes: number): string {
 // these just give every panel the same card/badge look instead of each
 // one improvising its own <section> + ad-hoc emoji status text.
 
+// MD3 "elevation 1" surface: a card is a resting surface tonally
+// lighter than the page background, not just a bordered box — the
+// border stays (helps separation on the flattest monitors/screenshots)
+// but is no longer doing all the work.
 export const cardStyle: CSSProperties = {
-  background: "var(--bg-elevated)",
+  background: "var(--md-surface-1, var(--bg-elevated))",
   border: "1px solid var(--border)",
-  borderRadius: "var(--radius)",
+  borderRadius: "var(--md-shape-lg, var(--radius))",
   padding: 22,
   marginBottom: 20,
   boxShadow: "var(--shadow)",
@@ -42,6 +46,7 @@ export const primaryButtonStyle: CSSProperties = {
   background: "var(--accent)",
   borderColor: "var(--accent)",
   color: "#08111f",
+  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.3)",
 };
 
 export type BadgeTone = "ok" | "warn" | "error" | "neutral" | "info";

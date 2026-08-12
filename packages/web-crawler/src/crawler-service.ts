@@ -73,15 +73,12 @@ const INDEX_BATCH_SIZE = 20;
 // whose stored version doesn't match this is treated as needing
 // reindexing regardless of content hash. Bump this again the next time
 // extraction/chunking behavior changes.
-// v4: v3's retries weren't enough on their own -- the crawl's own pacing
-// (1500ms/page) sustained ~40 req/min against Groq's real 30 RPM cap for
-// the extraction model, so retries kept landing in an already-exhausted
-// window. Pacing slowed to 2200ms AND extraction is now skipped upfront
-// for pages that don't look like an individual product page (category
-// listings, policy pages, the homepage -- see page-classifier.ts),
-// which also directly cuts how many calls compete for that 30/min
-// budget. Forces a retry of everything under both fixes.
-const EXTRACTION_VERSION = 4;
+// v5: owner's explicit call to force a full reprocess again so
+// templateSampleCount can genuinely climb toward the 15% threshold --
+// v4's run mostly found itself "unchanged" on repeat (same content,
+// same version), so almost nothing fed the sample counter after the
+// initial pass. No logic change from v4, purely a forced-retry bump.
+const EXTRACTION_VERSION = 5;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     const app = await getApp();
     const session = await app.container.router.clientAuth.getSession(clientToken);
     if (session) {
-      return NextResponse.json({ role: "client", businessId: session.businessId });
+      return NextResponse.json({ role: "client", businessId: session.businessId, allowedPanels: session.allowedPanels });
     }
   }
 

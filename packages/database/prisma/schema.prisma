@@ -611,6 +611,13 @@ model ClientAccount {
   disabled     Boolean   @default(false)
   lastLoginAt  DateTime?
   createdAt    DateTime  @default(now())
+  // Which client-dashboard tabs (nav item ids, e.g. "knowledge",
+  // "allchats") this account is allowed to see -- null means every tab
+  // (the pre-existing, unrestricted default, so accounts created before
+  // this feature keep working exactly as before). An admin browsing the
+  // same dashboard via admin_session is never restricted by this --
+  // only a real client login is.
+  allowedPanels Json?
 
   sessions     ClientSession[]
 

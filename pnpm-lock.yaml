@@ -366,6 +366,9 @@ importers:
       '@ai-chat-platform/database':
         specifier: workspace:*
         version: link:../database
+      '@prisma/client':
+        specifier: ^6.15.0
+        version: 6.15.0(prisma@6.15.0(typescript@5.9.2))(typescript@5.9.2)
 
   packages/conversation:
     dependencies:

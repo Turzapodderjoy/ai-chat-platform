@@ -15,6 +15,10 @@ export class ClientAuthController {
     return this.clientAuth.setDisabled(id, disabled);
   }
 
+  setAllowedPanels(id: string, panels: string[] | null) {
+    return this.clientAuth.setAllowedPanels(id, panels);
+  }
+
   deleteAccount(id: string) {
     return this.clientAuth.remove(id);
   }

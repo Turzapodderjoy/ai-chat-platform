@@ -1,7 +1,31 @@
+/* Matches the dashboard's own dark MD3 token system (see globals.css's
+ * .app-shell) so a client's very first screen doesn't jump from a
+ * generic light form into the accent-blue dark tool they land on next.
+ * Kept as its own stylesheet (not .app-shell) since the login page is
+ * public and has no sidebar/table chrome to inherit -- just the same
+ * color/shape/motion language. */
 .page {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background-color: #f5f6f8;
-  color: #333;
+  --bg: #0a0d13;
+  --surface: #141924;
+  --surface-1: color-mix(in srgb, #141924 95%, white 5%);
+  --border: #232a38;
+  --text: #e8ecf4;
+  --text-muted: #90a0b7;
+  --text-faint: #5b6779;
+  --accent: #4c8dfa;
+  --accent-strong: #6ba3ff;
+  --accent-soft: rgba(76, 141, 250, 0.14);
+  --danger: #f16565;
+  --danger-soft: rgba(241, 101, 101, 0.14);
+  --shape-lg: 16px;
+  --shape-md: 12px;
+  --shape-full: 999px;
+  --easing: cubic-bezier(0.2, 0, 0, 1);
+
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", Arial, sans-serif;
+  background: radial-gradient(120% 100% at 50% -10%, #131a29 0%, var(--bg) 55%);
+  color: var(--text);
+  color-scheme: dark;
   min-height: 100svh;
   width: 100%;
   display: flex;
@@ -13,6 +37,24 @@
 .container {
   width: 100%;
   max-width: 400px;
+  animation: rise 500ms var(--easing) both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .container {
+    animation: none;
+  }
 }
 
 .logoSection {
@@ -21,40 +63,42 @@
 }
 
 .logoIcon {
-  width: 48px;
-  height: 48px;
-  background-color: #1a56db;
-  border-radius: 8px;
+  width: 52px;
+  height: 52px;
+  background: linear-gradient(155deg, var(--accent), #2f5fc4);
+  border-radius: var(--shape-md);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
+  box-shadow: 0 6px 20px -4px rgba(76, 141, 250, 0.5);
 }
 
 .logoIcon svg {
-  width: 24px;
-  height: 24px;
-  fill: #ffffff;
+  width: 26px;
+  height: 26px;
+  fill: #08111f;
 }
 
 .logoSection h1 {
   font-size: 22px;
-  font-weight: 600;
-  color: #111827;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--text);
   margin-bottom: 6px;
 }
 
 .logoSection p {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-muted);
 }
 
 .card {
-  background: #ffffff;
-  border-radius: 8px;
+  background: var(--surface-1);
+  border-radius: var(--shape-lg);
   padding: 32px;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.6);
 }
 
 .formGroup {
@@ -63,32 +107,32 @@
 
 .formGroup label {
   display: block;
-  font-size: 14px;
-  font-weight: 500;
-  color: #374151;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
   margin-bottom: 6px;
 }
 
 .formGroup input {
   width: 100%;
-  padding: 10px 12px;
+  padding: 11px 14px;
   font-size: 14px;
   font-family: inherit;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #111827;
-  transition: border-color 0.15s ease;
+  border: 1px solid var(--border);
+  border-radius: var(--shape-md);
+  background: var(--bg);
+  color: var(--text);
+  transition: border-color 180ms var(--easing), box-shadow 180ms var(--easing);
   outline: none;
 }
 
 .formGroup input:focus {
-  border-color: #1a56db;
-  box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.1);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .formGroup input::placeholder {
-  color: #9ca3af;
+  color: var(--text-faint);
 }
 
 .formRow {
@@ -107,23 +151,21 @@
 .checkboxGroup input[type="checkbox"] {
   width: 16px;
   height: 16px;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
+  accent-color: var(--accent);
   cursor: pointer;
-  accent-color: #1a56db;
 }
 
 .checkboxGroup label {
-  font-size: 14px;
-  color: #4b5563;
+  font-size: 13px;
+  color: var(--text-muted);
   cursor: pointer;
 }
 
 .forgotLink {
-  font-size: 14px;
-  color: #1a56db;
+  font-size: 13px;
+  color: var(--accent-strong);
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .forgotLink:hover {
@@ -131,25 +173,28 @@
 }
 
 .btnPrimary {
+  position: relative;
+  overflow: hidden;
   width: 100%;
-  padding: 11px 16px;
+  padding: 12px 16px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 650;
   font-family: inherit;
-  background-color: #1a56db;
-  color: #ffffff;
+  background: var(--accent);
+  color: #08111f;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--shape-full);
   cursor: pointer;
-  transition: background-color 0.15s ease, opacity 0.15s ease;
+  box-shadow: 0 8px 20px -8px rgba(76, 141, 250, 0.55);
+  transition: transform 150ms var(--easing), box-shadow 150ms var(--easing), opacity 150ms var(--easing);
 }
 
-.btnPrimary:hover {
-  background-color: #1648b8;
+.btnPrimary:hover:not(:disabled) {
+  box-shadow: 0 10px 24px -8px rgba(76, 141, 250, 0.7);
 }
 
-.btnPrimary:active {
-  background-color: #123d9e;
+.btnPrimary:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .btnPrimary:disabled {
@@ -158,30 +203,32 @@
 }
 
 .errorMessage {
-  background-color: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: 6px;
-  padding: 12px;
+  background: var(--danger-soft);
+  border: 1px solid rgba(241, 101, 101, 0.35);
+  border-radius: var(--shape-md);
+  padding: 12px 14px;
   margin-bottom: 20px;
   font-size: 13px;
-  color: #b91c1c;
+  color: #ff9d9d;
+  animation: rise 220ms var(--easing) both;
 }
 
 .legalText {
   text-align: center;
   margin-top: 32px;
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--text-faint);
   line-height: 1.5;
 }
 
 .legalText a {
-  color: #6b7280;
+  color: var(--text-muted);
   text-decoration: none;
 }
 
 .legalText a:hover {
   text-decoration: underline;
+  color: var(--text);
 }
 
 @media (max-width: 480px) {

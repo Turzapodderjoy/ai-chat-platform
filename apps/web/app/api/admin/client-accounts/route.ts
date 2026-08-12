@@ -30,13 +30,27 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const body = await req.json().catch(() => null);
 
-  if (!body || typeof body.id !== "string" || typeof body.disabled !== "boolean") {
-    return NextResponse.json({ error: "id and disabled are required" }, { status: 400 });
+  if (!body || typeof body.id !== "string") {
+    return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
 
   try {
     const app = await getApp();
-    await app.container.router.clientAuth.setDisabled(body.id, body.disabled);
+
+    if (typeof body.disabled === "boolean") {
+      await app.container.router.clientAuth.setDisabled(body.id, body.disabled);
+    }
+
+    if (body.allowedPanels !== undefined) {
+      const panels =
+        body.allowedPanels === null
+          ? null
+          : Array.isArray(body.allowedPanels)
+            ? body.allowedPanels.filter((p: unknown): p is string => typeof p === "string")
+            : null;
+      await app.container.router.clientAuth.setAllowedPanels(body.id, panels);
+    }
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json(

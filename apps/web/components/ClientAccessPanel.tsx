@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 
 import { cardStyle, cellStyle, subtleTextStyle, badgeStyle, primaryButtonStyle } from "./dashboard-styles";
+import { Collapsible } from "./Collapsible";
 
 interface Client {
   id: string;
@@ -17,7 +18,30 @@ interface ClientAccount {
   disabled: boolean;
   lastLoginAt: string | null;
   createdAt: string;
+  allowedPanels: string[] | null;
 }
+
+// Kept in sync by hand with the client dashboard's own NAV_GROUPS
+// ([businessId]/page.tsx) -- a shared constants module felt like
+// premature abstraction for one list neither side changes often, and
+// a mismatch here only means a newly-added client tab shows up
+// unrestricted until this list is updated, not a security hole (the
+// dashboard's own filter only ever narrows, never grants access to an
+// id it doesn't already render).
+const ALL_PANELS: { id: string; label: string }[] = [
+  { id: "overview", label: "Overview" },
+  { id: "tagdashboard", label: "Dashboard" },
+  { id: "knowledge", label: "Knowledge Hub" },
+  { id: "products", label: "Product Catalog" },
+  { id: "allchats", label: "All Chats" },
+  { id: "handoffs", label: "Handoffs" },
+  { id: "storage", label: "Storage" },
+  { id: "brain", label: "AI Brain" },
+  { id: "parameters", label: "Parameters" },
+  { id: "arena", label: "Training Arena" },
+  { id: "review", label: "Chat Learning" },
+  { id: "channels", label: "Integrations" },
+];
 
 const PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
 
@@ -44,6 +68,8 @@ export function ClientAccessPanel() {
   const [message, setMessage] = useState("");
   const [filter, setFilter] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [pendingPanels, setPendingPanels] = useState<Record<string, string[]>>({});
 
   function refresh() {
     fetch("/api/admin/clients")
@@ -99,6 +125,46 @@ export function ClientAccessPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: account.id, disabled }),
       });
+      refresh();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function togglePanelsBox(account: ClientAccount) {
+    if (expandedId === account.id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(account.id);
+    setPendingPanels((prev) => ({
+      ...prev,
+      [account.id]: prev[account.id] ?? account.allowedPanels ?? ALL_PANELS.map((p) => p.id),
+    }));
+  }
+
+  function togglePanel(accountId: string, panelId: string) {
+    setPendingPanels((prev) => {
+      const current = prev[accountId] ?? [];
+      const next = current.includes(panelId) ? current.filter((p) => p !== panelId) : [...current, panelId];
+      return { ...prev, [accountId]: next };
+    });
+  }
+
+  async function savePanels(account: ClientAccount) {
+    const selected = pendingPanels[account.id] ?? [];
+    setBusyId(account.id);
+    try {
+      // Selecting every panel is the same as no restriction at all —
+      // save null so a future new tab isn't silently hidden from an
+      // account that was really meant to see everything.
+      const allowedPanels = selected.length === ALL_PANELS.length ? null : selected;
+      await fetch("/api/admin/client-accounts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: account.id, allowedPanels }),
+      });
+      setExpandedId(null);
       refresh();
     } finally {
       setBusyId(null);
@@ -198,34 +264,74 @@ export function ClientAccessPanel() {
               <th style={cellStyle}>Username</th>
               <th style={cellStyle}>Client</th>
               <th style={cellStyle}>Status</th>
+              <th style={cellStyle}>Panels</th>
               <th style={cellStyle}>Last login</th>
               <th style={cellStyle}>Created</th>
               <th style={cellStyle}></th>
             </tr>
           </thead>
           <tbody>
-            {filteredAccounts.map((a) => (
-              <tr key={a.id}>
-                <td style={cellStyle}>{a.username}</td>
-                <td style={cellStyle}>{a.businessName}</td>
-                <td style={cellStyle}>
-                  <span style={badgeStyle(a.disabled ? "error" : "ok")}>{a.disabled ? "Restricted" : "Active"}</span>
-                </td>
-                <td style={cellStyle}>{a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString() : "Never"}</td>
-                <td style={cellStyle}>{new Date(a.createdAt).toLocaleDateString()}</td>
-                <td style={cellStyle}>
-                  <button onClick={() => setDisabled(a, !a.disabled)} disabled={busyId === a.id}>
-                    {busyId === a.id ? "…" : a.disabled ? "Re-enable" : "Restrict"}
-                  </button>{" "}
-                  <button onClick={() => deleteAccount(a)} disabled={busyId === a.id}>
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {filteredAccounts.map((a) => {
+              const panelCount = a.allowedPanels?.length ?? ALL_PANELS.length;
+              const restricted = a.allowedPanels !== null;
+              const selected = pendingPanels[a.id] ?? a.allowedPanels ?? ALL_PANELS.map((p) => p.id);
+
+              return (
+                <Fragment key={a.id}>
+                  <tr>
+                    <td style={cellStyle}>{a.username}</td>
+                    <td style={cellStyle}>{a.businessName}</td>
+                    <td style={cellStyle}>
+                      <span style={badgeStyle(a.disabled ? "error" : "ok")}>{a.disabled ? "Restricted" : "Active"}</span>
+                    </td>
+                    <td style={cellStyle}>
+                      <button onClick={() => togglePanelsBox(a)} className="plain" style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                        {restricted ? `${panelCount}/${ALL_PANELS.length} panels` : "All panels"}
+                      </button>
+                    </td>
+                    <td style={cellStyle}>{a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString() : "Never"}</td>
+                    <td style={cellStyle}>{new Date(a.createdAt).toLocaleDateString()}</td>
+                    <td style={cellStyle}>
+                      <button onClick={() => setDisabled(a, !a.disabled)} disabled={busyId === a.id}>
+                        {busyId === a.id ? "…" : a.disabled ? "Re-enable" : "Restrict"}
+                      </button>{" "}
+                      <button onClick={() => deleteAccount(a)} disabled={busyId === a.id}>
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                  {expandedId === a.id && (
+                    <tr>
+                      <td style={{ ...cellStyle, borderTop: "none" }} colSpan={6}>
+                        <Collapsible title={`Which panels can "${a.username}" see?`} defaultOpen>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
+                            {ALL_PANELS.map((p) => (
+                              <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={selected.includes(p.id)}
+                                  onChange={() => togglePanel(a.id, p.id)}
+                                />
+                                {p.label}
+                              </label>
+                            ))}
+                          </div>
+                          <div style={{ marginTop: 14, display: "flex", gap: 8 }}>
+                            <button onClick={() => savePanels(a)} disabled={busyId === a.id} style={primaryButtonStyle}>
+                              {busyId === a.id ? "Saving…" : "Save"}
+                            </button>
+                            <button onClick={() => setExpandedId(null)}>Cancel</button>
+                          </div>
+                        </Collapsible>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
             {filteredAccounts.length === 0 && (
               <tr>
-                <td style={cellStyle} colSpan={6}>
+                <td style={cellStyle} colSpan={7}>
                   {accounts?.length === 0 ? "No logins yet — create one above." : "No logins match that filter."}
                 </td>
               </tr>

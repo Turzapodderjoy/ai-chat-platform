@@ -60,6 +60,9 @@ export default function ClientDashboardPage() {
   const [tab, setTab] = useState<Tab>("overview");
   const [client, setClient] = useState<Client | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  // null = unrestricted (admin, or a client account with no restriction
+  // set) — every tab shows. A real array is the exact allow-list.
+  const [allowedPanels, setAllowedPanels] = useState<string[] | null>(null);
 
   function logout() {
     fetch("/api/auth/logout", { method: "POST" }).finally(() => router.push("/"));
@@ -68,11 +71,36 @@ export default function ClientDashboardPage() {
   // Only an admin session gets the "back to Command Center" link — a
   // real client's session can't reach /dashboard anyway (see proxy.ts),
   // so this just keeps the UI from offering a link that would bounce.
+  // A client session's own allowedPanels (set in the mother dashboard's
+  // Client Access tab) restricts which tabs render at all — an admin
+  // browsing the same URL is never restricted by this.
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => r.json())
-      .then((data) => setIsAdmin(data.role === "admin"));
+      .then((data) => {
+        setIsAdmin(data.role === "admin");
+        if (data.role === "client" && Array.isArray(data.allowedPanels)) {
+          setAllowedPanels(data.allowedPanels);
+        }
+      });
   }, []);
+
+  const visibleGroups: NavGroup<Tab>[] = allowedPanels
+    ? NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => allowedPanels.includes(i.id)) })).filter(
+        (g) => g.items.length > 0
+      )
+    : NAV_GROUPS;
+
+  // If a restriction kicks in after first paint and the currently-open
+  // tab isn't in the allow-list, jump to the first tab that is —
+  // otherwise the content pane would keep showing a panel whose own nav
+  // entry just disappeared.
+  useEffect(() => {
+    if (allowedPanels && !allowedPanels.includes(tab)) {
+      const firstAllowed = visibleGroups[0]?.items[0]?.id;
+      if (firstAllowed) setTab(firstAllowed);
+    }
+  }, [allowedPanels]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Always renders "overview" on the server/first paint to avoid a
   // hydration mismatch, then jumps to the OAuth callback's ?tab= param
@@ -116,7 +144,7 @@ export default function ClientDashboardPage() {
           </div>
         </div>
       }
-      groups={NAV_GROUPS}
+      groups={visibleGroups}
       activeTab={tab}
       onSelect={setTab}
     >

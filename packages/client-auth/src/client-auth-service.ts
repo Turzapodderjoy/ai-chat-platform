@@ -1,5 +1,6 @@
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { prisma } from "@ai-chat-platform/database";
+import { Prisma } from "@prisma/client";
 
 const SESSION_DAYS_DEFAULT = 1;
 const SESSION_DAYS_REMEMBER = 30;
@@ -27,6 +28,7 @@ export interface ClientAccountSummary {
   disabled: boolean;
   lastLoginAt: string | null;
   createdAt: string;
+  allowedPanels: string[] | null;
 }
 
 export interface LoginResult {
@@ -62,7 +64,15 @@ export class ClientAuthService {
       disabled: a.disabled,
       lastLoginAt: a.lastLoginAt?.toISOString() ?? null,
       createdAt: a.createdAt.toISOString(),
+      allowedPanels: (a.allowedPanels as string[] | null) ?? null,
     }));
+  }
+
+  /** null clears the restriction (account can see every tab again) --
+   * an empty array is a real, deliberate "show nothing" state, kept
+   * distinct from null rather than treated the same. */
+  async setAllowedPanels(id: string, panels: string[] | null) {
+    await prisma.clientAccount.update({ where: { id }, data: { allowedPanels: panels ?? Prisma.JsonNull } });
   }
 
   async create(businessId: string, username: string, password: string) {
@@ -124,7 +134,7 @@ export class ClientAuthService {
   /** Used by /api/auth/me — same validity rules as login (not expired,
    * account not disabled) so a disabled client's stale cookie doesn't
    * still read as "logged in" to the UI. */
-  async getSession(token: string): Promise<{ businessId: string } | null> {
+  async getSession(token: string): Promise<{ businessId: string; allowedPanels: string[] | null } | null> {
     const session = await prisma.clientSession.findUnique({
       where: { token },
       include: { account: true },
@@ -134,6 +144,9 @@ export class ClientAuthService {
       return null;
     }
 
-    return { businessId: session.account.businessId };
+    return {
+      businessId: session.account.businessId,
+      allowedPanels: (session.account.allowedPanels as string[] | null) ?? null,
+    };
   }
 }
