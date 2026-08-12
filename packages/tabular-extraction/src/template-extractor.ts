@@ -1,5 +1,7 @@
 import Groq from "groq-sdk";
 
+import { KeyRotator } from "./key-rotator";
+
 // Same reasoning as extraction-client.ts's own timeout/retry — this is a
 // single, rare call (once per crawl target, not once per page), but it
 // still must never hang the crawl indefinitely.
@@ -43,7 +45,12 @@ function tryCompile(pattern: string): RegExp | null {
 }
 
 export class TemplateExtractor {
-  constructor(private readonly apiKey: string) {}
+  private readonly keys: KeyRotator;
+
+  constructor(apiKeyOrKeys: string | string[]) {
+    const keys = (Array.isArray(apiKeyOrKeys) ? apiKeyOrKeys : [apiKeyOrKeys]).filter(Boolean);
+    this.keys = new KeyRotator(keys);
+  }
 
   /** One-time-per-site call: looks at a handful of real sample pages
    * (already confirmed to be individual product pages — see
@@ -57,14 +64,13 @@ export class TemplateExtractor {
    * (never throws — same contract as TabularExtractionClient.extract),
    * or if it couldn't derive at least name+price reliably. */
   async deriveTemplate(rawSamples: string[]): Promise<ExtractionTemplate | null> {
-    if (!this.apiKey || rawSamples.length === 0) return null;
+    if (!this.keys.hasKeys || rawSamples.length === 0) return null;
 
     const samples = rawSamples.slice(0, MAX_TEMPLATE_SAMPLES).map((s) => s.slice(0, SAMPLE_CHAR_CAP));
 
-    let raw: string;
-    try {
-      const client = new Groq({ apiKey: this.apiKey, timeout: TIMEOUT_MS });
-      const response = await client.chat.completions.create({
+    const response = await this.keys.run((apiKey) => {
+      const client = new Groq({ apiKey, timeout: TIMEOUT_MS });
+      return client.chat.completions.create({
         model: MODEL,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
@@ -73,10 +79,10 @@ export class TemplateExtractor {
         temperature: 0,
         max_tokens: 1000,
       });
-      raw = (response.choices[0]?.message?.content ?? "").trim();
-    } catch {
-      return null;
-    }
+    });
+
+    if (!response) return null;
+    const raw = (response.choices[0]?.message?.content ?? "").trim();
 
     const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
 

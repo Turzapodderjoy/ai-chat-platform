@@ -75,6 +75,13 @@ interface CatalogEntry {
   label: string;
 }
 
+interface ExtractionKeyStatus {
+  maskedKey: string;
+  healthy: boolean;
+  lastError: string | null;
+  lastUsedAt: string | null;
+}
+
 interface ProvidersResponse {
   active: string[];
   status: ProviderStatus[];
@@ -82,6 +89,7 @@ interface ProvidersResponse {
     available: CatalogEntry[];
     planned: CatalogEntry[];
   };
+  extraction?: { keys: ExtractionKeyStatus[] };
 }
 
 interface AiUsage {
@@ -825,6 +833,50 @@ function EmbeddingProvidersPanel() {
             EmbeddingProvider interface as Jina) before it can be
             activated here.
           </p>
+
+          <h3 style={{ marginTop: 24 }}>Extraction (Groq)</h3>
+          <p style={subtleTextStyle}>
+            A separate key pool, not the embedding step above — used by
+            the crawler to turn a product page into structured rows
+            (name/price/stock) and to derive each site&apos;s own
+            extraction pattern. Rotates to the next key on a 429; a key
+            marked unhealthy failed its most recent attempt (often
+            Groq&apos;s daily token cap, not a config problem — add
+            another key rather than waiting it out).
+          </p>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={cellStyle}>Key</th>
+                <th style={cellStyle}>Healthy</th>
+                <th style={cellStyle}>Last used</th>
+                <th style={cellStyle}>Last error</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(data.extraction?.keys ?? []).map((k, i) => (
+                <tr key={i}>
+                  <td style={cellStyle}>
+                    <code style={{ fontSize: 12 }}>{k.maskedKey}</code>
+                  </td>
+                  <td style={cellStyle}>{k.healthy ? "✅" : "❌"}</td>
+                  <td style={cellStyle}>
+                    {k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : "—"}
+                  </td>
+                  <td style={{ ...cellStyle, fontSize: 12, color: "var(--text-muted)" }}>
+                    {k.lastError ?? "—"}
+                  </td>
+                </tr>
+              ))}
+              {(data.extraction?.keys ?? []).length === 0 && (
+                <tr>
+                  <td style={cellStyle} colSpan={4}>
+                    No GROQ_EXTRACTION_API_KEY configured.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </>
       )}
     </section>

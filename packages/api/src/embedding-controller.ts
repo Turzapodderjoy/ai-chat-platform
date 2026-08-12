@@ -5,6 +5,7 @@ import {
 } from "@ai-chat-platform/embedding-catalog";
 import { ProviderKeyStore, ProviderStateStore } from "@ai-chat-platform/provider-keys";
 import { IndexingService } from "@ai-chat-platform/indexing";
+import type { TabularExtractionClient } from "@ai-chat-platform/tabular-extraction";
 
 /**
  * Same shape as AdminController's provider-management methods (providers/
@@ -19,8 +20,18 @@ export class EmbeddingController {
     private readonly embeddings: EmbeddingManager,
     private readonly providerKeys: ProviderKeyStore,
     private readonly indexing: IndexingService,
-    private readonly providerState: ProviderStateStore
+    private readonly providerState: ProviderStateStore,
+    private readonly tabularExtraction: TabularExtractionClient
   ) {}
+
+  /** Per-key health for the Groq extraction key pool (used by the
+   * crawler's tabular extraction and per-site template derivation, not
+   * the embedding step itself) — shown in the same Embedding Providers
+   * tab since it's the other "runs during a crawl, has its own quota"
+   * key pool an operator needs to watch. */
+  extractionProviders() {
+    return { keys: this.tabularExtraction.getKeyStatus() };
+  }
 
   // Same cross-instance staleness fix as AdminController.providers() —
   // see its comment for why every read re-syncs from the DB truth first.

@@ -175,6 +175,9 @@ importers:
       '@ai-chat-platform/rag':
         specifier: workspace:*
         version: link:../rag
+      '@ai-chat-platform/tabular-extraction':
+        specifier: workspace:*
+        version: link:../tabular-extraction
       '@ai-chat-platform/tagging-pipeline':
         specifier: workspace:*
         version: link:../tagging-pipeline

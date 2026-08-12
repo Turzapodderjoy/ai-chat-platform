@@ -9,5 +9,6 @@ export async function GET() {
   return NextResponse.json({
     ...(await embedding.providers()),
     catalog: embedding.catalog(),
+    extraction: embedding.extractionProviders(),
   });
 }

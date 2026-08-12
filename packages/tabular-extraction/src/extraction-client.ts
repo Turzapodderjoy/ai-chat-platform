@@ -1,6 +1,8 @@
 import Groq from "groq-sdk";
 import * as XLSX from "xlsx";
 
+import { KeyRotator } from "./key-rotator";
+
 // Own dedicated key (GROQ_EXTRACTION_API_KEY) — runs on every crawl and
 // every document upload, for every business, so it must never compete
 // with live-chat or Chat Learning's quota. Groq, not Gemini — a real
@@ -42,37 +44,25 @@ export interface ExtractedTable {
 }
 
 export class TabularExtractionClient {
-  constructor(private readonly apiKey: string) {}
+  private readonly keys: KeyRotator;
 
-  /** A real, confirmed-live incident: extraction ran fine when tested in
-   * isolation, but across a real ~2,500-page crawl only 5 documents ever
-   * came back tabular -- every other call was silently swallowed by the
-   * single catch-and-return-null above, indistinguishable from a
-   * legitimate "this page isn't a product listing" decision. Groq's free
-   * tier rate-limits per-minute; a crawl firing one extraction call per
-   * page runs straight into that. Retrying specifically on 429 (never on
-   * other errors -- a real failure should still fall through to plain
-   * chunking, not retry a broken/misconfigured call) turns "would have
-   * failed at this crawl's request rate" into "succeeds after a short
-   * wait" for the common case. */
-  private async withRateLimitRetry<T>(call: () => Promise<T>): Promise<T> {
-    const maxAttempts = 3;
-    let lastError: unknown;
+  /** Accepts one key or several — a real, confirmed-live incident found
+   * a single key's 429s were the account's DAILY token cap (Groq free
+   * tier: 100,000 tokens/day), not a per-minute spike ("try again in
+   * 31m" in the actual error), so no amount of same-key backoff/retry
+   * helps mid-crawl. Several keys let KeyRotator hop to a genuinely
+   * fresh quota the moment one is exhausted instead of stalling
+   * extraction for the rest of the day. */
+  constructor(apiKeyOrKeys: string | string[]) {
+    const keys = (Array.isArray(apiKeyOrKeys) ? apiKeyOrKeys : [apiKeyOrKeys]).filter(Boolean);
+    this.keys = new KeyRotator(keys);
+  }
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      try {
-        return await call();
-      } catch (err) {
-        lastError = err;
-        const status = (err as { status?: number })?.status;
-        if (status !== 429 || attempt === maxAttempts - 1) throw err;
-
-        const delayMs = 2000 * 2 ** attempt;
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
-      }
-    }
-
-    throw lastError;
+  /** Per-key health, for the Embedding Providers dashboard tab — see
+   * KeyRotator.getStatus's own comment on what "healthy" means here
+   * (last-attempt outcome, not a live probe). */
+  getKeyStatus() {
+    return this.keys.getStatus();
   }
 
   /** Never throws — a failed/misconfigured/rate-limited extraction call
@@ -80,28 +70,23 @@ export class TabularExtractionClient {
    * failure, on the NOT_TABULAR sentinel, or on an empty result; callers
    * fall back to normal chunking in that case. */
   async extract(text: string): Promise<ExtractedTable | null> {
-    if (!this.apiKey) {
-      return null;
-    }
+    if (!this.keys.hasKeys) return null;
 
-    let raw: string;
-    try {
-      const client = new Groq({ apiKey: this.apiKey, timeout: EXTRACTION_TIMEOUT_MS });
-      const response = await this.withRateLimitRetry(() =>
-        client.chat.completions.create({
-          model: MODEL,
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: text },
-          ],
-          temperature: 0,
-          max_tokens: 4000,
-        })
-      );
-      raw = (response.choices[0]?.message?.content ?? "").trim();
-    } catch {
-      return null;
-    }
+    const response = await this.keys.run((apiKey) => {
+      const client = new Groq({ apiKey, timeout: EXTRACTION_TIMEOUT_MS });
+      return client.chat.completions.create({
+        model: MODEL,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: text },
+        ],
+        temperature: 0,
+        max_tokens: 4000,
+      });
+    });
+
+    if (!response) return null;
+    const raw = (response.choices[0]?.message?.content ?? "").trim();
 
     if (!raw || raw === NOT_TABULAR_SENTINEL || raw.includes(NOT_TABULAR_SENTINEL)) {
       return null;
