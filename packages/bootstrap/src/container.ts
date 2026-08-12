@@ -129,7 +129,6 @@ export class Container {
     const chat =
       new ChatService(
         conversations,
-        retriever,
         prompts,
         ai,
         embeddings,

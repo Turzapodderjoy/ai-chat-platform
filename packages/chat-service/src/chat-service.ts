@@ -1,6 +1,6 @@
 import { AIManager } from "@ai-chat-platform/ai-manager";
 import { PromptEngine } from "@ai-chat-platform/prompt-engine";
-import { Retriever, RetrievedChunk } from "@ai-chat-platform/retriever";
+import { RetrievedChunk } from "@ai-chat-platform/retriever";
 import { ConversationService, ConversationMessage } from "@ai-chat-platform/conversation";
 import { EmbeddingManager } from "@ai-chat-platform/embedding-manager";
 import { AiConfigService } from "@ai-chat-platform/ai-config";
@@ -203,7 +203,6 @@ function buildRetrievalQuery(history: ConversationMessage[], currentMessage: str
 export class ChatService {
   constructor(
     private readonly conversations: ConversationService,
-    private readonly retriever: Retriever,
     private readonly prompts: PromptEngine,
     private readonly ai: AIManager,
     private readonly embeddings: EmbeddingManager,
@@ -240,23 +239,66 @@ export class ChatService {
     return texts.map((text, i) => ({ id: `full-context-${i}`, text, score: 1 }));
   }
 
-  /** The scheduled knowledge-refresh job's consolidated CSV — every
-   * product/price/spec across every crawled page and uploaded document
-   * for this business, in one place. Owner's own words: the AI should
-   * scan this when answering, not just whatever a handful of top-K
-   * chunks happened to surface. Always tried first and merged ALONGSIDE
-   * (never instead of) normal retrieval/full-context below — the master
-   * CSV only updates on its schedule, so live retrieval still covers
-   * anything newer, and prose content the CSV doesn't include at all.
-   * Null if none exists yet or it's grown past a sane single-prompt
-   * budget (same reasoning/size as FULL_CONTEXT_CHAR_BUDGET). */
-  private async getMasterCsvChunkIfAvailable(businessId: string): Promise<RetrievedChunk | null> {
+  // Same "short/common words add noise instead of signal" reasoning as
+  // the vector retriever's own extractKeywordTerms — duplicated locally
+  // rather than shared since this is now the ONLY retrieval path (see
+  // searchMasterCsv below), not a supplement to it.
+  private static readonly STOPWORDS = new Set([
+    "the", "and", "for", "with", "this", "that", "what", "which", "how",
+    "does", "have", "your", "you", "are", "amar", "amader", "apni", "apnar",
+    "ki", "kotodin", "kemon", "koto", "ache", "nei", "chai", "chan",
+  ]);
+
+  private extractKeywordTerms(query: string): string[] {
+    return Array.from(
+      new Set(
+        query
+          .split(/[^\p{L}\p{N}]+/u)
+          .map((t) => t.trim())
+          .filter((t) => t.length >= 3 && !ChatService.STOPWORDS.has(t.toLowerCase()))
+      )
+    ).slice(0, 8);
+  }
+
+  /** The owner's explicit choice of retrieval strategy for chat: fast
+   * keyword search over the scheduled knowledge-refresh job's
+   * consolidated CSV (the same LLM-extracted product data
+   * ProductSyncService reads too) instead of embedding-based vector
+   * search — no embedding call, no vector-store round trip, exact
+   * matching against real extracted rows rather than semantic
+   * similarity. Sections the CSV by its own "# Source: <url>" markers
+   * (see MasterCsvService.buildCsv), scores each by how many query
+   * terms it contains, returns the highest-scoring sections up to
+   * `limit`. Trade-off accepted by the owner: only as current as the
+   * last scheduled refresh, and only covers content that made it into
+   * the CSV (extraction-eligible pages) — not a live index of
+   * everything ever crawled. */
+  private async searchMasterCsv(businessId: string, query: string): Promise<RetrievedChunk[]> {
     const csv = await this.masterCsv.get(businessId);
-    if (!csv || !csv.content || csv.content.length > ChatService.FULL_CONTEXT_CHAR_BUDGET) {
-      return null;
+    if (!csv || !csv.content) return [];
+
+    const terms = this.extractKeywordTerms(query);
+    if (terms.length === 0) return [];
+
+    const lowerTerms = terms.map((t) => t.toLowerCase());
+    const sections = csv.content.split(/\n\n(?=# Source: )/);
+
+    const scored: RetrievedChunk[] = [];
+    for (const section of sections) {
+      const lower = section.toLowerCase();
+      const score = lowerTerms.reduce((s, t) => s + (lower.includes(t) ? 1 : 0), 0);
+      if (score === 0) continue;
+
+      const urlMatch = section.match(/^# Source: (.+)$/m);
+      scored.push({
+        id: urlMatch?.[1]?.trim() ?? section.slice(0, 60),
+        text: section,
+        score: score / terms.length,
+        metadata: urlMatch ? { url: urlMatch[1]!.trim() } : undefined,
+      });
     }
 
-    return { id: "master-csv", text: csv.content, score: 1 };
+    return scored.sort((a, b) => b.score - a.score).slice(0, 20);
   }
 
   async chat(
@@ -409,31 +451,16 @@ export class ChatService {
     // VectorStoreRetriever.retrieve()'s own comment for why.
     const fullContext = await this.getFullContextIfSmallEnough(businessId);
 
-    // full-context mode already hands the model every chunk this
-    // business has (tabular included) — the master CSV would be pure
-    // duplication there. It matters for the businesses that DON'T
-    // qualify for full-context (too large): those still only get top-K
-    // retrieval by default, so prepending the master CSV is what
-    // actually gives the model the whole table at once for them.
-    //
-    // The master CSV lookup (one indexed DB read) and retrieval (multi-
-    // provider embedding + vector search) are independent — run them in
-    // parallel, not sequentially, so adding the CSV lookup doesn't add
-    // its own latency on top of retrieval's. Confirmed live: awaiting
-    // them one after another pushed an already-borderline-slow business
-    // past this route's 12s hard timeout on every call.
+    // Owner's explicit call: chat answers from the master CSV via plain
+    // keyword search (searchMasterCsv), not embedding-based vector
+    // retrieval — see that method's own comment for the trade-offs
+    // accepted. full-context mode (a business small enough to hand the
+    // model everything at once) still wins outright when it applies.
     const __tRetrieveStart = Date.now();
-    const [masterCsvChunk, retrievedFromSearch] = fullContext
-      ? [null, null]
-      : await Promise.all([
-          this.getMasterCsvChunkIfAvailable(businessId),
-          this.retriever.retrieve(retrievalQuery, { businessId }),
-        ]);
+    const retrievedFromSearch = fullContext ? null : await this.searchMasterCsv(businessId, retrievalQuery);
     console.log(`[perf] retrieve took ${Date.now() - __tRetrieveStart}ms`);
 
-    const retrievedRaw =
-      fullContext ??
-      [...(masterCsvChunk ? [masterCsvChunk] : []), ...(retrievedFromSearch ?? [])];
+    const retrievedRaw = fullContext ?? retrievedFromSearch ?? [];
 
     // Groq's per-account token-per-minute budget (12,000 on the 70B
     // model at last check, HALF that on the 8B one) counts one large
