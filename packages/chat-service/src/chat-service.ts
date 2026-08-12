@@ -449,7 +449,11 @@ export class ChatService {
     // path too. Keeps the highest-scored chunks, drops the rest --
     // exactly what "top-K" already means, just enforced by size as well
     // as count.
-    const RETRIEVAL_CONTEXT_CHAR_BUDGET = 24_000;
+    // Raised alongside the retriever's wider top-K (see
+    // vector-store-retriever.ts) -- still leaves headroom under Groq
+    // 70B's 12,000 TPM cap after the ~1,460-token system prompt, history,
+    // and the maxTokens generation reserve (up to 1,536) are counted in.
+    const RETRIEVAL_CONTEXT_CHAR_BUDGET = 32_000;
     let runningChars = 0;
     const retrieved = fullContext
       ? retrievedRaw

@@ -65,15 +65,18 @@ export class VectorStoreRetriever implements Retriever {
     query: string,
     options: RetrieveOptions = {}
   ): Promise<RetrievedChunk[]> {
-    // 8, not 5 — a narrower top-K makes near-boundary items flicker in
-    // and out of the result set purely based on how a question is
-    // phrased (e.g. the same product list coming back with 4 items in
-    // English vs 3 in Banglish, observed in a real training analysis
-    // report), since different phrasings of the same intent land at
-    // slightly different points in each embedding space. A wider net
-    // converges results across phrasings without needing fragile
-    // "is this a catalog/list question" intent detection.
-    const limit = options.limit ?? 8;
+    // 20, not 8 — a real category on a real catalog business can have
+    // hundreds of matching product pages (confirmed live: ~200+ drill
+    // machines alone at one business), and a single-subject question
+    // like "which drill machine is best" needs a genuine spread of
+    // candidates to compare across, not just the handful that happen to
+    // be closest in one embedding space. Also keeps the original
+    // reasoning below (a wider net converges results across phrasings)
+    // without adding fragile "is this a catalog/list question" intent
+    // detection — every query gets the same wider net, catalog question
+    // or not. The final prompt's own char budget (see chat-service.ts)
+    // still bounds how many of these actually reach the model.
+    const limit = options.limit ?? 20;
 
     // A single query's relevance score depends on which embedding model
     // produced its vector — a chunk can score high in one provider's
@@ -158,7 +161,7 @@ export class VectorStoreRetriever implements Retriever {
     // its own best match in the final set, not get crowded out by
     // another subject's stronger matches. Capped so a long, many-claused
     // sentence can't balloon the prompt unboundedly.
-    const finalLimit = clauses.length > 1 ? Math.min(limit * clauses.length, 15) : limit;
+    const finalLimit = clauses.length > 1 ? Math.min(limit * clauses.length, 40) : limit;
 
     const topResults = Array.from(bestById.values())
       .filter((result) => result.score >= minimumScore)
