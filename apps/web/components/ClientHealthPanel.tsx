@@ -346,12 +346,20 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
                     </td>
                     <td style={cellStyle}>{row.totalConversations}</td>
                     <td style={cellStyle}>
-                      {row.providerUsage.length === 0 && <span style={subtleTextStyle}>no activity</span>}
-                      {row.providerUsage.map((u) => (
-                        <div key={u.provider} style={{ fontSize: 12 }}>
-                          {u.provider}: {u.count}
-                        </div>
-                      ))}
+                      {/* Capped + scrollable, not left to grow unbounded --
+                       * a business with many providers/handoff variants
+                       * (confirmed live: 13+ lines) was stretching the
+                       * WHOLE row to match, leaving every other cell in
+                       * that row sitting on a mostly-empty 300px+ tall
+                       * row regardless of vertical-align. */}
+                      <div style={{ maxHeight: 110, overflowY: "auto" }}>
+                        {row.providerUsage.length === 0 && <span style={subtleTextStyle}>no activity</span>}
+                        {row.providerUsage.map((u) => (
+                          <div key={u.provider} style={{ fontSize: 12 }}>
+                            {u.provider}: {u.count}
+                          </div>
+                        ))}
+                      </div>
                     </td>
                     <td style={cellStyle}>
                       <button
