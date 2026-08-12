@@ -14,7 +14,7 @@ import { TabularExtractionClient } from "@ai-chat-platform/tabular-extraction";
 import { UploadService } from "@ai-chat-platform/upload";
 import { TenantService } from "@ai-chat-platform/tenant";
 import { CrawlerService } from "@ai-chat-platform/web-crawler";
-import { ProductSyncService } from "@ai-chat-platform/product-catalog";
+import { ProductSyncService, ProductService } from "@ai-chat-platform/product-catalog";
 import {
   GeminiBatchClient,
   ConversationReviewService,
@@ -43,7 +43,7 @@ import { TagController } from "@ai-chat-platform/api";
 import { ClientAuthController } from "@ai-chat-platform/api";
 import { WidgetConfigController } from "@ai-chat-platform/api";
 import { KnowledgeRefreshController } from "@ai-chat-platform/api";
-import { ClientHealthController } from "@ai-chat-platform/api";
+import { ClientHealthController, ProductController } from "@ai-chat-platform/api";
 import { RefreshScheduleService, MasterCsvService } from "@ai-chat-platform/knowledge-refresh";
 import { ApiRouter } from "@ai-chat-platform/api";
 import { ClientAuthService } from "@ai-chat-platform/client-auth";
@@ -107,6 +107,9 @@ export class Container {
 
     const productSync =
       new ProductSyncService(vectorStore);
+
+    const productService =
+      new ProductService();
 
     const crawlerService =
       new CrawlerService(indexingService, vectorStore, productSync);
@@ -222,7 +225,8 @@ export class Container {
         new ClientAuthController(clientAuth),
         new WidgetConfigController(widgetConfig),
         new KnowledgeRefreshController(refreshSchedule, masterCsv, tenants, crawlerService, vectorStore),
-        new ClientHealthController(tenants, crawlerService, masterCsv, refreshSchedule, vectorStore, embeddings, conversations)
+        new ClientHealthController(tenants, crawlerService, masterCsv, refreshSchedule, vectorStore, embeddings, conversations),
+        new ProductController(productService)
       );
   }
 

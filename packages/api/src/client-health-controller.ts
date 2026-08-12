@@ -22,6 +22,7 @@ export interface ClientHealthRow {
     | { phase: "building_csv" }
     | null;
   documentCount: number;
+  productCount: number;
   masterCsv: { updatedAt: string | null; sourceCount: number };
   lastRefreshAt: string | null;
   embeddingCoverage: Array<{ provider: string; pct: number }>;
@@ -57,6 +58,9 @@ export class ClientHealthController {
     // getAllStatus, timed out while a large crawl was writing).
     const allRecords = await this.vectorStore.listAll();
     const providerNames = this.embeddings.getProviderNames();
+
+    const productCounts = await prisma.product.groupBy({ by: ["businessId"], _count: { id: true } });
+    const productCountByBusiness = new Map(productCounts.map((p) => [p.businessId, p._count.id]));
 
     const since = new Date(Date.now() - USAGE_WINDOW_DAYS * 24 * 60 * 60 * 1000);
     const recentAssistantMessages = await prisma.message.findMany({
@@ -147,6 +151,7 @@ export class ClientHealthController {
           crawlTargets: { total: targets.length, done, stuck },
           refreshPhase,
           documentCount,
+          productCount: productCountByBusiness.get(business.id) ?? 0,
           masterCsv: { updatedAt: csv?.updatedAt ?? null, sourceCount },
           lastRefreshAt: sched.lastRunAt,
           embeddingCoverage,

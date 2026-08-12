@@ -14,6 +14,7 @@ interface ClientHealthRow {
     | { phase: "building_csv" }
     | null;
   documentCount: number;
+  productCount: number;
   masterCsv: { updatedAt: string | null; sourceCount: number };
   lastRefreshAt: string | null;
   embeddingCoverage: Array<{ provider: string; pct: number }>;
@@ -160,6 +161,7 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
                 <th style={cellStyle}>Crawl</th>
                 <th style={cellStyle}>Refresh status</th>
                 <th style={cellStyle}>Documents</th>
+                <th style={cellStyle}>Products</th>
                 <th style={cellStyle}>Master CSV</th>
                 <th style={cellStyle}>Embedding coverage</th>
                 <th style={cellStyle}>Open handoffs</th>
@@ -288,6 +290,13 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
                     </td>
                     <td style={cellStyle}>{row.documentCount}</td>
                     <td style={cellStyle}>
+                      {row.productCount > 0 ? (
+                        row.productCount
+                      ) : (
+                        <span style={subtleTextStyle}>none yet</span>
+                      )}
+                    </td>
+                    <td style={cellStyle}>
                       {row.masterCsv.updatedAt ? (
                         <span style={{ color: csvOk ? "var(--success, #15803d)" : "var(--warning, #b45309)" }}>
                           {csvOk ? "✅" : "⚠️"} {row.masterCsv.sourceCount}/{row.documentCount}
@@ -328,7 +337,7 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
               })}
               {rows.length === 0 && (
                 <tr>
-                  <td style={cellStyle} colSpan={9}>No clients yet.</td>
+                  <td style={cellStyle} colSpan={10}>No clients yet.</td>
                 </tr>
               )}
             </tbody>

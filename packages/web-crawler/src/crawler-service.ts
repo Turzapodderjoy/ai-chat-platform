@@ -496,6 +496,19 @@ export class CrawlerService {
         canonicalDocumentIdByHash.set(page.contentHash, documentId);
       }
 
+      // Incremental, not a full syncForBusiness() — only re-derives
+      // products for the handful of documents THIS batch just indexed,
+      // so the Product table fills in visibly batch-by-batch during a
+      // long crawl instead of staying empty until the whole target
+      // finishes (see ProductSyncService.syncDocuments's own comment).
+      if (changedPages.length > 0) {
+        await this.productSync
+          .syncDocuments(target.businessId, changedPages.map((c) => c.documentId))
+          .catch((err) => {
+            console.error(`[CrawlerService] incremental product sync failed for business ${target.businessId}:`, err);
+          });
+      }
+
       const canonicalMissing = new Set<string>();
 
       if (duplicatePages.length > 0) {

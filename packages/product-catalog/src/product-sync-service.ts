@@ -110,95 +110,138 @@ export interface ProductSyncResult {
  * here (a product genuinely removed from the site just stops being
  * refreshed, still visible until someone/something prunes it).
  */
+type Chunk = { documentId: string; chunkId: string; text: string; metadata?: Record<string, unknown> };
+
+const EMPTY_RESULT: ProductSyncResult = { created: 0, updated: 0, unchanged: 0 };
+
+function addResults(a: ProductSyncResult, b: ProductSyncResult): ProductSyncResult {
+  return { created: a.created + b.created, updated: a.updated + b.updated, unchanged: a.unchanged + b.unchanged };
+}
+
 export class ProductSyncService {
   constructor(private readonly vectorStore: VectorStoreManager) {}
 
+  /** Full pass — scans every chunk this business has. Correct after any
+   * recrawl, but O(whole knowledge base) each time, so CrawlerService
+   * calls this once at the very end of a target's runCrawl(), not per
+   * batch (see syncDocuments below for the incremental path used
+   * mid-crawl). */
   async syncForBusiness(businessId: string): Promise<ProductSyncResult> {
     const chunks = await this.vectorStore.listAllChunksForBusiness(businessId);
+    return this.syncFromChunks(businessId, chunks);
+  }
+
+  /** Incremental pass — only re-derives products for the specific
+   * documents that were just (re)indexed, not the whole business. Lets
+   * CrawlerService sync the Product table batch-by-batch during a long
+   * crawl (visible progress instead of an all-or-nothing wait at the
+   * end) without paying the full-scan cost on every 5-page batch. */
+  async syncDocuments(businessId: string, documentIds: string[]): Promise<ProductSyncResult> {
+    if (documentIds.length === 0) return EMPTY_RESULT;
+
+    const perDocument = await Promise.all(
+      documentIds.map((documentId) => this.vectorStore.listChunksForDocument(documentId))
+    );
+
+    const chunks: Chunk[] = perDocument.flatMap((docChunks, i) =>
+      docChunks.map((c) => ({ ...c, documentId: documentIds[i]! }))
+    );
+
+    return this.syncFromChunks(businessId, chunks);
+  }
+
+  private async syncFromChunks(businessId: string, chunks: Chunk[]): Promise<ProductSyncResult> {
     const tabular = chunks.filter((c) => {
       const method = c.metadata?.chunkingMethod;
       return method === "llm-extracted" || method === "caller-tabular";
     });
 
-    const byDocument = new Map<string, typeof tabular>();
+    const byDocument = new Map<string, Chunk[]>();
     for (const chunk of tabular) {
       const list = byDocument.get(chunk.documentId) ?? [];
       list.push(chunk);
       byDocument.set(chunk.documentId, list);
     }
 
+    let result = EMPTY_RESULT;
+    for (const docChunks of byDocument.values()) {
+      result = addResults(result, await this.syncDocument(businessId, docChunks));
+    }
+
+    return result;
+  }
+
+  private async syncDocument(businessId: string, docChunks: Chunk[]): Promise<ProductSyncResult> {
+    const pageUrl =
+      (docChunks[0]?.metadata?.url as string | undefined) ??
+      (docChunks[0]?.metadata?.filename as string | undefined) ??
+      docChunks[0]?.documentId;
+    if (!pageUrl) return EMPTY_RESULT;
+
+    // One page image applies to every row extracted from that page --
+    // exact for a real single-product page, an approximation for a
+    // multi-product listing page (no per-row image without deeper HTML
+    // parsing than the crawler does today).
+    const pageImageUrl = (docChunks[0]?.metadata?.imageUrl as string | undefined) ?? null;
+
+    const rows: ParsedProduct[] = [];
+    for (const chunk of docChunks) {
+      const parsed = parseChunkRows(chunk.text);
+      if (!parsed) continue;
+      for (const row of parsed.rows) {
+        const product = rowToProduct(parsed.headers, row);
+        if (product) rows.push(product);
+      }
+    }
+
+    // A single-product page's own URL is already a unique key. A
+    // multi-row listing page needs one per row -- SKU when present
+    // (this business's extraction always includes it), else a slug of
+    // the name, so re-syncing doesn't collide every row onto the same
+    // sourceUrl.
+    const multiRow = rows.length > 1;
+
     let created = 0;
     let updated = 0;
     let unchanged = 0;
 
-    for (const docChunks of byDocument.values()) {
-      const pageUrl =
-        (docChunks[0]?.metadata?.url as string | undefined) ??
-        (docChunks[0]?.metadata?.filename as string | undefined) ??
-        docChunks[0]?.documentId;
-      if (!pageUrl) continue;
+    for (const product of rows) {
+      const sourceUrl = multiRow ? `${pageUrl}#${product.sku || slugify(product.name)}` : pageUrl;
 
-      // One page image applies to every row extracted from that page --
-      // exact for a real single-product page, an approximation for a
-      // multi-product listing page (no per-row image without deeper HTML
-      // parsing than the crawler does today).
-      const pageImageUrl = (docChunks[0]?.metadata?.imageUrl as string | undefined) ?? null;
+      const candidate = {
+        name: product.name,
+        price: product.price,
+        description: product.description,
+        stock: product.stock,
+        imageUrl: pageImageUrl,
+        sku: product.sku,
+      };
 
-      const rows: ParsedProduct[] = [];
-      for (const chunk of docChunks) {
-        const parsed = parseChunkRows(chunk.text);
-        if (!parsed) continue;
-        for (const row of parsed.rows) {
-          const product = rowToProduct(parsed.headers, row);
-          if (product) rows.push(product);
-        }
+      const existing = await prisma.product.findUnique({
+        where: { businessId_sourceUrl: { businessId, sourceUrl } },
+      });
+
+      if (!existing) {
+        await prisma.product.create({ data: { businessId, sourceUrl, ...candidate } });
+        created++;
+        continue;
       }
 
-      // A single-product page's own URL is already a unique key. A
-      // multi-row listing page needs one per row -- SKU when present
-      // (this business's extraction always includes it), else a slug of
-      // the name, so re-syncing doesn't collide every row onto the same
-      // sourceUrl.
-      const multiRow = rows.length > 1;
+      const changed =
+        existing.name !== candidate.name ||
+        existing.price !== candidate.price ||
+        existing.description !== candidate.description ||
+        existing.stock !== candidate.stock ||
+        existing.imageUrl !== candidate.imageUrl ||
+        existing.sku !== candidate.sku;
 
-      for (const product of rows) {
-        const sourceUrl = multiRow ? `${pageUrl}#${product.sku || slugify(product.name)}` : pageUrl;
-
-        const candidate = {
-          name: product.name,
-          price: product.price,
-          description: product.description,
-          stock: product.stock,
-          imageUrl: pageImageUrl,
-          sku: product.sku,
-        };
-
-        const existing = await prisma.product.findUnique({
-          where: { businessId_sourceUrl: { businessId, sourceUrl } },
-        });
-
-        if (!existing) {
-          await prisma.product.create({ data: { businessId, sourceUrl, ...candidate } });
-          created++;
-          continue;
-        }
-
-        const changed =
-          existing.name !== candidate.name ||
-          existing.price !== candidate.price ||
-          existing.description !== candidate.description ||
-          existing.stock !== candidate.stock ||
-          existing.imageUrl !== candidate.imageUrl ||
-          existing.sku !== candidate.sku;
-
-        if (!changed) {
-          unchanged++;
-          continue;
-        }
-
-        await prisma.product.update({ where: { id: existing.id }, data: candidate });
-        updated++;
+      if (!changed) {
+        unchanged++;
+        continue;
       }
+
+      await prisma.product.update({ where: { id: existing.id }, data: candidate });
+      updated++;
     }
 
     return { created, updated, unchanged };

@@ -15,6 +15,7 @@ import { ClientAuthController } from "./client-auth-controller";
 import { WidgetConfigController } from "./widget-config-controller";
 import { KnowledgeRefreshController } from "./knowledge-refresh-controller";
 import { ClientHealthController } from "./client-health-controller";
+import { ProductController } from "./product-controller";
 
 export class ApiRouter {
   constructor(
@@ -34,6 +35,7 @@ export class ApiRouter {
     readonly clientAuth: ClientAuthController,
     readonly widgetConfig: WidgetConfigController,
     readonly knowledgeRefresh: KnowledgeRefreshController,
-    readonly clientHealth: ClientHealthController
+    readonly clientHealth: ClientHealthController,
+    readonly products: ProductController
   ) {}
 }
