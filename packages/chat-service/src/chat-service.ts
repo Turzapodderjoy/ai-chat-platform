@@ -200,6 +200,27 @@ function buildRetrievalQuery(history: ConversationMessage[], currentMessage: str
   return recent ? `${recent} ${currentMessage}`.trim() : currentMessage;
 }
 
+/** Unions two retrieval passes by chunk id, keeping the higher score when
+ * both found the same chunk. See the call site's comment for why a second,
+ * history-free pass exists at all. */
+function mergeRetrievedChunks(
+  a: RetrievedChunk[] | null,
+  b: RetrievedChunk[] | null
+): RetrievedChunk[] {
+  if (!b || b.length === 0) return a ?? [];
+  if (!a || a.length === 0) return b;
+
+  const byId = new Map<string, RetrievedChunk>();
+  for (const chunk of [...a, ...b]) {
+    const existing = byId.get(chunk.id);
+    if (!existing || chunk.score > existing.score) {
+      byId.set(chunk.id, chunk);
+    }
+  }
+
+  return Array.from(byId.values()).sort((x, y) => y.score - x.score);
+}
+
 export class ChatService {
   constructor(
     private readonly conversations: ConversationService,
@@ -423,17 +444,38 @@ export class ChatService {
     // them one after another pushed an already-borderline-slow business
     // past this route's 12s hard timeout on every call.
     const __tRetrieveStart = Date.now();
-    const [masterCsvChunk, retrievedFromSearch] = fullContext
-      ? [null, null]
+    // When there's prior history, retrievalQuery is the last few turns
+    // glued to the current message (see buildRetrievalQuery) — that helps
+    // a genuine follow-up ("price?" after "the X") but actively HURTS a
+    // clean topic switch: real case found live, "20mm stand drill machine
+    // dam koto?" then "cheapest welding machine konta?" — the combined
+    // query is dominated by drill-machine text, so the vector search
+    // returns drill chunks for a plain, unambiguous welding-machine
+    // question, and the model correctly says it has no info because the
+    // right chunks were never even in its context. Retrieving on the raw
+    // current message too and merging catches exactly this: a topic
+    // switch surfaces on its own query, a real follow-up still benefits
+    // from the history-augmented one, and unrelated-topic noise from the
+    // combined query gets outscored by the plain query's cleaner match
+    // for the same document instead of silently winning by being the
+    // only one asked. Skipped entirely when there's no history since the
+    // two queries would be identical.
+    const [masterCsvChunk, retrievedFromSearch, retrievedFromCurrentOnly] = fullContext
+      ? [null, null, null]
       : await Promise.all([
           this.getMasterCsvChunkIfAvailable(businessId),
           this.retriever.retrieve(retrievalQuery, { businessId }),
+          priorHistory.length > 0
+            ? this.retriever.retrieve(request.message, { businessId })
+            : Promise.resolve(null),
         ]);
     console.log(`[perf] retrieve took ${Date.now() - __tRetrieveStart}ms`);
 
+    const mergedSearchResults = mergeRetrievedChunks(retrievedFromSearch, retrievedFromCurrentOnly);
+
     const retrievedRaw =
       fullContext ??
-      [...(masterCsvChunk ? [masterCsvChunk] : []), ...(retrievedFromSearch ?? [])];
+      [...(masterCsvChunk ? [masterCsvChunk] : []), ...mergedSearchResults];
 
     // Groq's per-account token-per-minute budget (12,000 on the 70B
     // model at last check, HALF that on the 8B one) counts one large
@@ -454,16 +496,51 @@ export class ChatService {
     // 70B's 12,000 TPM cap after the ~1,460-token system prompt, history,
     // and the maxTokens generation reserve (up to 1,536) are counted in.
     const RETRIEVAL_CONTEXT_CHAR_BUDGET = 32_000;
+
+    // A topic switch's own best matches can legitimately score LOWER in
+    // raw cosine similarity than an old topic's near-exact match pulled
+    // in by the history-augmented query — a plain global sort-by-score
+    // then fills the whole budget with yesterday's subject and the
+    // current, perfectly answerable question never makes it into context
+    // at all. Real case found live: "20mm stand drill machine dam koto?"
+    // then "cheapest welding machine konta?" — the drill product's exact
+    // name match scored ~0.90, welding's own best match only ~0.75, so a
+    // plain sort crowded out every welding chunk and the AI said it had
+    // no information on welding machines it clearly has in stock.
+    // Reserving half the budget for the CURRENT message's own retrieval
+    // pass, filled first regardless of how it compares to the other
+    // pass's scores, guarantees today's question is always answerable;
+    // the remaining half still favors whichever chunks (from either pass)
+    // score highest, preserving the follow-up-resolution benefit history-
+    // augmentation exists for.
     let runningChars = 0;
-    const retrieved = fullContext
-      ? retrievedRaw
-      : [...retrievedRaw]
-          .sort((a, b) => b.score - a.score)
-          .filter((chunk) => {
-            if (runningChars >= RETRIEVAL_CONTEXT_CHAR_BUDGET) return false;
-            runningChars += chunk.text.length;
-            return true;
-          });
+    const includedIds = new Set<string>();
+    const retrieved: RetrievedChunk[] = [];
+
+    if (fullContext) {
+      retrieved.push(...retrievedRaw);
+    } else {
+      const RESERVED_FOR_CURRENT_MESSAGE = RETRIEVAL_CONTEXT_CHAR_BUDGET / 2;
+      const currentMessageChunks = [...(retrievedFromCurrentOnly ?? [])].sort(
+        (a, b) => b.score - a.score
+      );
+
+      for (const chunk of currentMessageChunks) {
+        if (runningChars >= RESERVED_FOR_CURRENT_MESSAGE) break;
+        includedIds.add(chunk.id);
+        retrieved.push(chunk);
+        runningChars += chunk.text.length;
+      }
+
+      const rest = [...retrievedRaw].sort((a, b) => b.score - a.score);
+      for (const chunk of rest) {
+        if (runningChars >= RETRIEVAL_CONTEXT_CHAR_BUDGET) break;
+        if (includedIds.has(chunk.id)) continue;
+        includedIds.add(chunk.id);
+        retrieved.push(chunk);
+        runningChars += chunk.text.length;
+      }
+    }
     console.log(
       `[perf] retrieved ${retrieved.length}/${retrievedRaw.length} chunks, ${retrieved.reduce((s, c) => s + c.text.length, 0)} chars`
     );
