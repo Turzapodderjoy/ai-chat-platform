@@ -8,12 +8,12 @@
     return;
   }
 
-  var sessionKey = "chatSessionId:" + businessId;
-  var sessionId = window.localStorage.getItem(sessionKey);
-  if (!sessionId) {
-    sessionId = crypto.randomUUID();
-    window.localStorage.setItem(sessionKey, sessionId);
-  }
+  // Deliberately NOT persisted (no localStorage/sessionStorage) -- a
+  // fresh conversation every page load/tab refresh, owner's explicit
+  // call. Trade-off: a customer who accidentally reloads mid-chat loses
+  // that conversation's history and starts over with the bot, even if a
+  // human had already picked it up.
+  var sessionId = crypto.randomUUID();
 
   // Every visual/copy option lives server-side (WidgetConfig, edited from
   // the client dashboard's Integrations tab) — nothing here is hardcoded
