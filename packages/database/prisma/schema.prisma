@@ -709,6 +709,10 @@ model KnowledgeRefreshSchedule {
   // "the master CSV row has been rebuilt" — the one refresh phase that
   // has no CrawlTarget row of its own to report status from.
   buildingCsv Boolean  @default(false)
+  // Lets auto-heal tell "still actively building" from "died mid-build and
+  // will stay true forever" (same STUCK_CRAWLING_MS reasoning as
+  // CrawlTarget's stuck "crawling"/"embedding" detection).
+  updatedAt   DateTime @default(now()) @updatedAt
 }
 
 // One row per real product, per business — the structured browse-catalog

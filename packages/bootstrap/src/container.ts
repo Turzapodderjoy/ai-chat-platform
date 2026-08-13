@@ -181,7 +181,7 @@ export class Container {
       new ChannelAppCredentialService();
 
     const autoHeal =
-      new AutoHealService(crawlerService, indexingService, embeddings, tenants);
+      new AutoHealService(crawlerService, indexingService, embeddings, tenants, masterCsv, refreshSchedule);
 
     const tagService =
       new TagService();

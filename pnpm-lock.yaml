@@ -211,6 +211,9 @@ importers:
       '@ai-chat-platform/indexing':
         specifier: workspace:*
         version: link:../indexing
+      '@ai-chat-platform/knowledge-refresh':
+        specifier: workspace:*
+        version: link:../knowledge-refresh
       '@ai-chat-platform/tenant':
         specifier: workspace:*
         version: link:../tenant

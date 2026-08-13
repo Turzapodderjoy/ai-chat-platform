@@ -67,4 +67,17 @@ export class RefreshScheduleService {
     });
     return rows.map((r) => r.businessId);
   }
+
+  /** businessIds whose CSV rebuild has been "in progress" longer than
+   * staleMs with no write to prove it — the process that was building it
+   * died (crash, pm2 restart) and buildingCsv would otherwise stay true
+   * forever, since only the finally-block in MasterCsvService.refresh()
+   * ever clears it. Backs auto-heal's resume check. */
+  async getStuckBuildingCsv(staleMs: number): Promise<string[]> {
+    const rows = await prisma.knowledgeRefreshSchedule.findMany({
+      where: { buildingCsv: true, updatedAt: { lte: new Date(Date.now() - staleMs) } },
+      select: { businessId: true },
+    });
+    return rows.map((r) => r.businessId);
+  }
 }
