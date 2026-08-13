@@ -53,10 +53,23 @@ function parseChunkRows(csvText: string): { headers: string[]; rows: string[][] 
  * information (Brand, Original Price, Rating, Warranty, ...) -- folded
  * into description as "Key: value" pairs rather than dropped, same
  * reasoning as the extraction prompt itself using dynamic columns. */
+// A real product name is never this long or multi-line — this is what a
+// malformed source table looks like once it hits the CSV parser: a row
+// whose cell boundaries didn't survive round-tripping through
+// chunkTabularTable (an unescaped quote/comma in the original page
+// content), so XLSX folds several rows' worth of text into one cell.
+// Confirmed live: a shared "related products" widget rendered on many
+// unrelated product pages produced exactly this — one page's copy of it
+// failed to parse cleanly and left a Product row whose name was a raw
+// multi-line CSV dump with price:null. Rejecting at the source instead
+// of storing garbage and hoping downstream code tolerates it.
+const MAX_PLAUSIBLE_NAME_LENGTH = 200;
+
 function rowToProduct(headers: string[], row: string[]): ParsedProduct | null {
   const nameIdx = findColumn(headers, NAME_ALIASES);
   const name = nameIdx >= 0 ? row[nameIdx]?.trim() : undefined;
   if (!name) return null;
+  if (name.length > MAX_PLAUSIBLE_NAME_LENGTH || name.includes("\n")) return null;
 
   const priceIdx = findColumn(headers, PRICE_ALIASES);
   const skuIdx = findColumn(headers, SKU_ALIASES);
@@ -217,9 +230,21 @@ export class ProductSyncService {
         sku: product.sku,
       };
 
-      const existing = await prisma.product.findUnique({
-        where: { businessId_sourceUrl: { businessId, sourceUrl } },
-      });
+      // Prefer matching by SKU when one is present -- the same physical
+      // product legitimately gets extracted from more than one page (a
+      // "related products" widget, several category listings, the
+      // product's own page), and matching only by sourceUrl gave each of
+      // those its own row: one real product, several duplicate Product
+      // entries. Confirmed live: one drill machine had 4 separate rows
+      // from 4 different pages, all with the same SKU. Falls back to the
+      // sourceUrl match (a real single-product page's own URL, or a
+      // slugged-name key when no SKU exists) so a genuinely SKU-less
+      // product still dedupes against itself on re-sync.
+      const existing = product.sku
+        ? await prisma.product.findFirst({ where: { businessId, sku: product.sku } })
+        : await prisma.product.findUnique({
+            where: { businessId_sourceUrl: { businessId, sourceUrl } },
+          });
 
       if (!existing) {
         await prisma.product.create({ data: { businessId, sourceUrl, ...candidate } });
