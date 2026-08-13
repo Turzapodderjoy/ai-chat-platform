@@ -49,7 +49,17 @@ interface RegisteredProvider {
 // answer nobody ever sees. Bounding every provider call here — the one
 // place all six funnel through — means a hung provider fails fast enough
 // for rotation to actually reach a working one inside the outer timeout.
-const PROVIDER_TIMEOUT_MS = 25_000;
+//
+// 15s, not 25s: rotation tries providers SEQUENTIALLY, and real logs show
+// a single request can legitimately need 2+ attempts (one slow-but-not-
+// hung provider, then the one that actually answers) — 25s per attempt
+// let two ordinary-slow attempts alone (50s) blow past the 45s outer
+// budget even with nothing actually broken (confirmed live: "ai.chat took
+// 47667ms, provider=openrouter" on a request that still hit the outer
+// timeout). Most real replies finish in well under 10s per the same logs;
+// 15s still gives a genuinely-working-but-slow provider real room while
+// leaving space for a second attempt inside the outer budget.
+const PROVIDER_TIMEOUT_MS = 15_000;
 
 class ProviderTimeoutError extends Error {}
 

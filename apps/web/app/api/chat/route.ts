@@ -32,21 +32,23 @@ export async function POST(req: NextRequest) {
     const app = await getApp();
     const answer = await withTimeout(
       app.container.router.chat.post(sessionId, body.message, businessId),
-      45_000
+      55_000
     );
     return NextResponse.json(answer, { headers: CORS_HEADERS });
   } catch (err) {
-    // 45s, not the old 12s: retrieval alone has taken up to ~12s under
-    // load, and a single AI provider can legitimately take 8-9s even when
-    // healthy — 12s left almost no room and was firing on completely
-    // normal, slow-but-successful replies, returning this canned message
-    // to the customer while the real answer kept computing in the
-    // background and got saved with nobody left listening for it (the
-    // widget had already shown this error and moved on). 45s comfortably
-    // covers one provider timing out (see ai-manager's PROVIDER_TIMEOUT_MS)
-    // and rotating to a second healthy one. Still bounded — a genuinely
-    // dead backend (DB down, every provider unreachable) must never hang
-    // the customer's widget forever. Log the real error for us to see,
+    // 55s, not the old 12s: retrieval alone has taken up to ~12s under
+    // load, and rotation tries AI providers SEQUENTIALLY — real logs
+    // showed a single request legitimately needing 2 attempts (one slow-
+    // but-not-hung provider, then the one that answers), and even at
+    // ai-manager's PROVIDER_TIMEOUT_MS=15s per attempt that's up to 30s on
+    // generation alone before retrieval. 12s left almost no room and was
+    // firing on completely normal, slow-but-successful replies, returning
+    // this canned message to the customer while the real answer kept
+    // computing in the background and got saved with nobody left
+    // listening for it (the widget had already shown this error and moved
+    // on). Still bounded — a genuinely dead backend (DB down, every
+    // provider unreachable) must never hang the customer's widget
+    // forever. Log the real error for us to see,
     // but the customer gets a normal-looking reply instead of a broken
     // error state — same shape ChatResponse always returns, so the
     // widget needs no special-case handling for this.
