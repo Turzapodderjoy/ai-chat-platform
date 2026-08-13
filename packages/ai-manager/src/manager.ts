@@ -39,6 +39,29 @@ interface RegisteredProvider {
   keyManager: KeyManager;
 }
 
+// No individual provider (groq/gemini/openrouter/cerebras/mistral/custom)
+// sets its own fetch timeout, so a slow/hung upstream can take minutes —
+// one real request observed took 174 seconds on openrouter. Without a cap
+// here, that provider is never failed over away from, and the chat route's
+// own outer timeout (apps/web/app/api/chat/route.ts) fires first and
+// returns the customer a canned "trouble connecting" reply while this
+// promise keeps running in the background and eventually saves the REAL
+// answer nobody ever sees. Bounding every provider call here — the one
+// place all six funnel through — means a hung provider fails fast enough
+// for rotation to actually reach a working one inside the outer timeout.
+const PROVIDER_TIMEOUT_MS = 25_000;
+
+class ProviderTimeoutError extends Error {}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, providerName: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new ProviderTimeoutError(`${providerName} timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 export class AIManager {
   private readonly providers = new Map<string, RegisteredProvider>();
   /** Manually disabled providers — separate from health/key state, so an
@@ -222,7 +245,7 @@ export class AIManager {
 
         try {
           const response = await retryWithBackoff(
-            () => provider.generate(request, currentKey.value),
+            () => withTimeout(provider.generate(request, currentKey.value), PROVIDER_TIMEOUT_MS, providerName),
             {
               attempts: this.maxRetriesPerKey + 1,
               baseDelayMs: 100,
