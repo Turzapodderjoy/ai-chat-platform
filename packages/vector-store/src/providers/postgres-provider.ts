@@ -47,6 +47,18 @@ function rowToRecord(row: Row): VectorRecord {
   };
 }
 
+// Crawled/extracted text occasionally carries a raw literal backslash
+// (a mis-decoded JSON-LD blob, an inline-script unicode escape scraped as
+// plain text, etc.). Prisma's Postgres driver embeds long string values as
+// SQL text literals rather than bound params past a size threshold, and a
+// lone "\x" not followed by two hex digits then blows up Postgres's
+// hex-escape parser ("unexpected end of hex escape") -- silently dropping
+// that record. Scraped product text never legitimately needs a backslash,
+// so stripping them at the boundary is a safe, lossless-in-practice fix.
+function stripBackslashes(value: string): string {
+  return value.replace(/\\/g, "");
+}
+
 function recordToRow(record: VectorRecord) {
   const { businessId, embeddingProvider, ...restMetadata } =
     record.metadata ?? {};
@@ -55,7 +67,7 @@ function recordToRow(record: VectorRecord) {
     id: record.id,
     documentId: record.documentId,
     chunkId: record.chunkId,
-    text: record.text,
+    text: stripBackslashes(record.text),
     embedding: record.embedding,
     businessId: (businessId as string | undefined) ?? null,
     embeddingProvider: (embeddingProvider as string | undefined) ?? null,
