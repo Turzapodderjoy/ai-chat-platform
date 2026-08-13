@@ -7,10 +7,14 @@ import { CrawlerService } from "@ai-chat-platform/web-crawler";
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const MAX_BACKOFF_MS = 24 * ONE_HOUR_MS;
 
-// A target stuck in "crawling" this long with no progress write is dead —
-// the process that was running it (a serverless function killed mid-crawl
-// by its own execution-time limit) is gone and will never reach "done" or
-// "error" on its own; nothing else marks it stale.
+// A target stuck in "crawling" OR "embedding" this long with no progress
+// write is dead — the process that was running it (killed mid-crawl by its
+// own execution-time limit, or a pm2 restart) is gone and will never reach
+// "done" or "error" on its own; nothing else marks it stale. Both phases
+// use the same threshold and the same runCrawl() resume path — runCrawl()
+// already skips straight back into indexPhase when status is "embedding"
+// (see crawler-service.ts), so retrying either status here is the same
+// call, just gated on a different starting status.
 const STUCK_CRAWLING_MS = 15 * 60 * 1000;
 
 function nextBackoff(retryCount: number): Date {
@@ -163,9 +167,11 @@ export class AutoHealService {
   }
 
   /** Retries any crawl target in status:"error" whose cooldown has
-   * passed, plus any target stuck in status:"crawling" for too long (the
-   * function running it died mid-crawl without ever writing "done" or
-   * "error" — see STUCK_CRAWLING_MS). Calls runCrawl() directly rather
+   * passed, plus any target stuck in status:"crawling" OR "embedding" for
+   * too long (the process running it died — crashed, or a pm2 restart —
+   * without ever writing "done" or "error"; a background refresh job is
+   * in-memory only and does not survive that, see STUCK_CRAWLING_MS).
+   * Calls runCrawl() directly rather
    * than resetting via queueForCrawl() first — runCrawl() now resumes
    * from CrawlTarget.frontierJson when one exists (a large site's crawl
    * spans many batches; see MAX_PAGES_PER_BATCH), so a full reset here
@@ -180,6 +186,7 @@ export class AutoHealService {
         OR: [
           { status: "error", OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: new Date() } }] },
           { status: "crawling", updatedAt: { lte: new Date(Date.now() - STUCK_CRAWLING_MS) } },
+          { status: "embedding", updatedAt: { lte: new Date(Date.now() - STUCK_CRAWLING_MS) } },
         ],
       },
     });

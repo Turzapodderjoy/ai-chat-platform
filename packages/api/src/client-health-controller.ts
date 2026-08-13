@@ -73,7 +73,9 @@ export class ClientHealthController {
         const targets = allTargets.filter((t) => t.businessId === business.id);
         const done = targets.filter((t) => t.status === "done").length;
         const stuck = targets.filter(
-          (t) => t.status === "crawling" && Date.now() - new Date(t.updatedAt).getTime() > STUCK_CRAWLING_MS
+          (t) =>
+            (t.status === "crawling" || t.status === "embedding") &&
+            Date.now() - new Date(t.updatedAt).getTime() > STUCK_CRAWLING_MS
         ).length;
         const crawling = targets.filter((t) => t.status === "crawling");
         const embedding = targets.filter((t) => t.status === "embedding");
