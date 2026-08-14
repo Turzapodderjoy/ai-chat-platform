@@ -5,7 +5,7 @@ import {
 } from "@ai-chat-platform/embedding-catalog";
 import { ProviderKeyStore, ProviderStateStore } from "@ai-chat-platform/provider-keys";
 import { IndexingService } from "@ai-chat-platform/indexing";
-import type { TabularExtractionClient } from "@ai-chat-platform/tabular-extraction";
+import type { TabularExtractionClient, ExtractionKeyService } from "@ai-chat-platform/tabular-extraction";
 
 /**
  * Same shape as AdminController's provider-management methods (providers/
@@ -21,7 +21,8 @@ export class EmbeddingController {
     private readonly providerKeys: ProviderKeyStore,
     private readonly indexing: IndexingService,
     private readonly providerState: ProviderStateStore,
-    private readonly tabularExtraction: TabularExtractionClient
+    private readonly tabularExtraction: TabularExtractionClient,
+    private readonly extractionKeys: ExtractionKeyService
   ) {}
 
   /** Per-key health for the Groq extraction key pool (used by the
@@ -31,6 +32,24 @@ export class EmbeddingController {
    * key pool an operator needs to watch. */
   extractionProviders() {
     return { keys: this.tabularExtraction.getKeyStatus() };
+  }
+
+  /** The stored extraction key pool (masked) — separate from
+   * extractionProviders() above, which shows live health/usage for keys
+   * already loaded into the running process. This is the persisted list
+   * an operator adds to / removes from; takes effect on the next
+   * restart (see ExtractionApiKey's schema comment). */
+  extractionKeyList() {
+    return this.extractionKeys.list();
+  }
+
+  async addExtractionKey(apiKey: string, label?: string) {
+    return this.extractionKeys.add(apiKey, label);
+  }
+
+  async removeExtractionKey(id: string) {
+    await this.extractionKeys.remove(id);
+    return { id };
   }
 
   // Same cross-instance staleness fix as AdminController.providers() —

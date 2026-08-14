@@ -10,7 +10,7 @@ import { AiConfigService } from "@ai-chat-platform/ai-config";
 import { RagService } from "@ai-chat-platform/rag";
 import { IngestionPipeline } from "@ai-chat-platform/ingestion";
 import { IndexingService } from "@ai-chat-platform/indexing";
-import { TabularExtractionClient, TemplateExtractor } from "@ai-chat-platform/tabular-extraction";
+import { TabularExtractionClient, TemplateExtractor, ExtractionKeyService } from "@ai-chat-platform/tabular-extraction";
 import { UploadService } from "@ai-chat-platform/upload";
 import { TenantService } from "@ai-chat-platform/tenant";
 import { CrawlerService } from "@ai-chat-platform/web-crawler";
@@ -57,7 +57,8 @@ export class Container {
     embeddings: EmbeddingManager,
     ai: AIManager,
     providerKeys: ProviderKeyStore,
-    providerState: ProviderStateStore
+    providerState: ProviderStateStore,
+    dbExtractionKeys: string[] = []
   ) {
 
     const conversations =
@@ -73,7 +74,7 @@ export class Container {
       new ResponseCache();
 
     const aiConfig =
-      new AiConfigService();
+      new AiConfigService(responseCache);
 
     // Dedicated key(s) (GROQ_EXTRACTION_API_KEY[, _2, ...]), not the
     // shared AIManager/Groq key powering live chat — this runs on every
@@ -83,9 +84,17 @@ export class Container {
     // tier cap, not a per-minute spike, so KeyRotator (see
     // TabularExtractionClient/TemplateExtractor's own comments) hops to
     // a fresh key the moment one's daily quota is actually exhausted.
-    const extractionApiKeys = [process.env.GROQ_EXTRACTION_API_KEY, process.env.GROQ_EXTRACTION_API_KEY_2].filter(
+    const extractionApiKeys = [
+      process.env.GROQ_EXTRACTION_API_KEY,
+      process.env.GROQ_EXTRACTION_API_KEY_2,
+      process.env.GROQ_EXTRACTION_API_KEY_3,
+      ...dbExtractionKeys,
+    ].filter(
       (k): k is string => Boolean(k)
     );
+
+    const extractionKeyService =
+      new ExtractionKeyService();
 
     const tabularExtraction =
       new TabularExtractionClient(extractionApiKeys);
@@ -218,7 +227,7 @@ export class Container {
         new HandoffController(conversations, channelConnections),
         new CrawlerController(crawlerService),
         new AiConfigController(aiConfig, tenants),
-        new EmbeddingController(embeddings, providerKeys, indexingService, providerState, tabularExtraction),
+        new EmbeddingController(embeddings, providerKeys, indexingService, providerState, tabularExtraction, extractionKeyService),
         new TrainingController(
           conversationReviews,
           trainingAnalysis,

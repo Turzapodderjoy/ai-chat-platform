@@ -82,6 +82,13 @@ interface ExtractionKeyStatus {
   lastUsedAt: string | null;
 }
 
+interface ExtractionKeyEntry {
+  id: string;
+  label: string | null;
+  maskedKey: string;
+  createdAt: string;
+}
+
 interface ProvidersResponse {
   active: string[];
   status: ProviderStatus[];
@@ -643,13 +650,71 @@ function EmbeddingProvidersPanel() {
   const [toggling, setToggling] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
 
+  const [extractionKeys, setExtractionKeys] = useState<ExtractionKeyEntry[] | null>(null);
+  const [newExtractionKey, setNewExtractionKey] = useState("");
+  const [newExtractionLabel, setNewExtractionLabel] = useState("");
+  const [addingExtraction, setAddingExtraction] = useState(false);
+  const [removingExtraction, setRemovingExtraction] = useState<string | null>(null);
+  const [extractionMessage, setExtractionMessage] = useState("");
+
   function refresh() {
     fetch("/api/admin/embedding-providers")
       .then((r) => r.json())
       .then(setData);
   }
 
+  function refreshExtractionKeys() {
+    fetch("/api/admin/extraction-keys")
+      .then((r) => r.json())
+      .then(setExtractionKeys);
+  }
+
   useEffect(refresh, []);
+  useEffect(refreshExtractionKeys, []);
+
+  async function addExtractionKey() {
+    if (!newExtractionKey.trim()) return;
+    setAddingExtraction(true);
+    setExtractionMessage("");
+
+    try {
+      const res = await fetch("/api/admin/extraction-keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: newExtractionKey, label: newExtractionLabel || undefined }),
+      });
+      const result = await res.json();
+
+      setExtractionMessage(
+        res.ok ? "Key added — takes effect on the next server restart." : `Error: ${result.error}`
+      );
+
+      if (res.ok) {
+        setNewExtractionKey("");
+        setNewExtractionLabel("");
+        refreshExtractionKeys();
+      }
+    } finally {
+      setAddingExtraction(false);
+    }
+  }
+
+  async function removeExtractionKey(id: string) {
+    const confirmed = window.confirm("Remove this extraction key? Takes effect on the next server restart.");
+    if (!confirmed) return;
+
+    setRemovingExtraction(id);
+    try {
+      await fetch("/api/admin/extraction-keys/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      refreshExtractionKeys();
+    } finally {
+      setRemovingExtraction(null);
+    }
+  }
 
   async function toggle(name: string, enabled: boolean) {
     setToggling(name);
@@ -885,6 +950,77 @@ function EmbeddingProvidersPanel() {
             </tbody>
           </table>
           </div>
+
+          <h3 style={{ marginTop: 24 }}>Manage extraction keys</h3>
+          <p style={subtleTextStyle}>
+            Add or remove a Groq key from the extraction pool above without a code change. Takes
+            effect on the next server restart, same as any other key rotation change.
+          </p>
+
+          {extractionKeys && (
+            <div className="table-scroll">
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={cellStyle}>Key</th>
+                  <th style={cellStyle}>Label</th>
+                  <th style={cellStyle}>Added</th>
+                  <th style={cellStyle}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {extractionKeys.map((k) => (
+                  <tr key={k.id}>
+                    <td style={cellStyle}>
+                      <code style={{ fontSize: 12 }}>{k.maskedKey}</code>
+                    </td>
+                    <td style={cellStyle}>{k.label ?? "—"}</td>
+                    <td style={cellStyle}>{new Date(k.createdAt).toLocaleString()}</td>
+                    <td style={cellStyle}>
+                      <button
+                        onClick={() => removeExtractionKey(k.id)}
+                        disabled={removingExtraction === k.id}
+                      >
+                        {removingExtraction === k.id ? "…" : "Remove"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {extractionKeys.length === 0 && (
+                  <tr>
+                    <td style={cellStyle} colSpan={4}>
+                      No keys added here yet — the table above still reflects any
+                      GROQ_EXTRACTION_API_KEY[, _2, _3] env vars.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 12 }}>
+            <input
+              style={{ padding: 8, flex: 1, minWidth: 200 }}
+              placeholder="Groq API key"
+              type="password"
+              value={newExtractionKey}
+              onChange={(e) => setNewExtractionKey(e.target.value)}
+            />
+            <input
+              style={{ padding: 8, width: 160 }}
+              placeholder="Label (optional)"
+              value={newExtractionLabel}
+              onChange={(e) => setNewExtractionLabel(e.target.value)}
+            />
+            <button onClick={addExtractionKey} disabled={addingExtraction} style={primaryButtonStyle}>
+              {addingExtraction ? "Adding…" : "Add key"}
+            </button>
+          </div>
+
+          {extractionMessage && (
+            <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{extractionMessage}</p>
+          )}
         </>
       )}
     </section>

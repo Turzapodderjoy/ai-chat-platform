@@ -7,6 +7,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@ai-chat-platform/database": "workspace:*",
     "groq-sdk": "^0.31.0",
     "xlsx": "^0.18.5"
   }

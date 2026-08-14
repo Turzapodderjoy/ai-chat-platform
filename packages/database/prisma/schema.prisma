@@ -417,6 +417,25 @@ model ProviderApiKey {
   @@unique([kind, providerId])
 }
 
+// Groq key pool for tabular extraction (crawl/upload table extraction —
+// see TabularExtractionClient/TemplateExtractor), separate from
+// ProviderApiKey above: that model is one key PER provider id, but
+// extraction genuinely needs several Groq keys rotating together (a
+// single key's real limit turned out to be Groq's 100,000-tokens/DAY free
+// tier, not per-minute -- KeyRotator hops to the next key the moment one's
+// daily quota is hit). No uniqueness beyond id -- just a flat list an
+// operator can add to or remove from via the dashboard instead of hand-
+// editing GROQ_EXTRACTION_API_KEY_N env vars and asking for a code change
+// every time. Read once at process boot (container.ts) -- adding/removing
+// a key here takes effect on the next restart, not instantly.
+model ExtractionApiKey {
+  id        String   @id @default(cuid())
+  apiKey    String
+  label     String?
+
+  createdAt DateTime @default(now())
+}
+
 // Dashboard's provider on/off toggle, persisted so it survives a
 // restart — same reasoning as ProviderApiKey above (activating a key
 // only ever patched the running AIManager/EmbeddingManager in memory).

@@ -56,7 +56,17 @@ export async function createApp(): Promise<Application> {
 
   const retriever = new VectorStoreRetriever(embeddings, vectorStore);
 
+  // Dashboard-managed Groq extraction key pool (packages/api's
+  // EmbeddingController.addExtractionKey/removeExtractionKey) — merged
+  // with the env-var keys so existing deployments don't lose their
+  // GROQ_EXTRACTION_API_KEY[, _2, _3] keys just because this table is
+  // new. Same async-DB-read-before-Container reasoning as
+  // providerKeys/providerState above.
+  const dbExtractionKeys = (await prisma.extractionApiKey.findMany({ select: { apiKey: true } })).map(
+    (r) => r.apiKey
+  );
+
   return new Application(
-    new Container(retriever, vectorStore, embeddings, ai, providerKeys, providerState)
+    new Container(retriever, vectorStore, embeddings, ai, providerKeys, providerState, dbExtractionKeys)
   );
 }

@@ -606,6 +606,9 @@ importers:
 
   packages/tabular-extraction:
     dependencies:
+      '@ai-chat-platform/database':
+        specifier: workspace:*
+        version: link:../database
       groq-sdk:
         specifier: ^0.31.0
         version: 0.31.0
