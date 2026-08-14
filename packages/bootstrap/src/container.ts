@@ -41,13 +41,14 @@ import { FeedbackController } from "@ai-chat-platform/api";
 import { AutoHealController } from "@ai-chat-platform/api";
 import { TagController } from "@ai-chat-platform/api";
 import { ClientAuthController } from "@ai-chat-platform/api";
-import { WidgetConfigController } from "@ai-chat-platform/api";
+import { WidgetConfigController, DashboardThemeController } from "@ai-chat-platform/api";
 import { KnowledgeRefreshController } from "@ai-chat-platform/api";
 import { ClientHealthController, ProductController, OrderController } from "@ai-chat-platform/api";
 import { RefreshScheduleService, MasterCsvService } from "@ai-chat-platform/knowledge-refresh";
 import { ApiRouter } from "@ai-chat-platform/api";
 import { ClientAuthService } from "@ai-chat-platform/client-auth";
 import { WidgetConfigService } from "@ai-chat-platform/widget-config";
+import { DashboardThemeService } from "@ai-chat-platform/dashboard-theme";
 
 export class Container {
 
@@ -211,6 +212,9 @@ export class Container {
     const widgetConfig =
       new WidgetConfigService();
 
+    const dashboardTheme =
+      new DashboardThemeService();
+
     this.router =
       new ApiRouter(
         new ChatController(rag),
@@ -250,7 +254,8 @@ export class Container {
         new KnowledgeRefreshController(refreshSchedule, masterCsv, tenants, crawlerService, vectorStore),
         new ClientHealthController(tenants, crawlerService, masterCsv, refreshSchedule, vectorStore, embeddings, conversations),
         new ProductController(productService),
-        new OrderController(orders)
+        new OrderController(orders),
+        new DashboardThemeController(dashboardTheme)
       );
   }
 

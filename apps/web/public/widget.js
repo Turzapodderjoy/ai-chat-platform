@@ -25,7 +25,7 @@
     .catch(function () { build({}); });
 
   function build(config) {
-    var accent = config.accentColor || "#2563eb";
+    var accent = config.accentColor || "#8b7cf6";
     var position = config.position === "bottom-left" ? "left" : "right";
     var dark = config.theme === "dark";
     var panelBg = dark ? "#161b22" : "#ffffff";

@@ -5,16 +5,16 @@
  * public and has no sidebar/table chrome to inherit -- just the same
  * color/shape/motion language. */
 .page {
-  --bg: #0a0d13;
-  --surface: #141924;
-  --surface-1: color-mix(in srgb, #141924 95%, white 5%);
-  --border: #232a38;
-  --text: #e8ecf4;
-  --text-muted: #90a0b7;
-  --text-faint: #5b6779;
-  --accent: #4c8dfa;
-  --accent-strong: #6ba3ff;
-  --accent-soft: rgba(76, 141, 250, 0.14);
+  --bg: #0b0a13;
+  --surface: #171420;
+  --surface-1: color-mix(in srgb, #171420 95%, white 5%);
+  --border: #2a2438;
+  --text: #ece9f5;
+  --text-muted: #9a92b0;
+  --text-faint: #635a7a;
+  --accent: #8b7cf6;
+  --accent-strong: #a99cff;
+  --accent-soft: rgba(139, 124, 246, 0.16);
   --danger: #f16565;
   --danger-soft: rgba(241, 101, 101, 0.14);
   --shape-lg: 16px;
@@ -22,8 +22,8 @@
   --shape-full: 999px;
   --easing: cubic-bezier(0.2, 0, 0, 1);
 
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", Arial, sans-serif;
-  background: radial-gradient(120% 100% at 50% -10%, #131a29 0%, var(--bg) 55%);
+  font-family: var(--font-geist-sans, -apple-system), BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: radial-gradient(120% 100% at 50% -10%, #1c1730 0%, var(--bg) 55%);
   color: var(--text);
   color-scheme: dark;
   min-height: 100svh;
@@ -65,13 +65,13 @@
 .logoIcon {
   width: 52px;
   height: 52px;
-  background: linear-gradient(155deg, var(--accent), #2f5fc4);
+  background: linear-gradient(155deg, var(--accent), #4b3aa8);
   border-radius: var(--shape-md);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 18px;
-  box-shadow: 0 6px 20px -4px rgba(76, 141, 250, 0.5);
+  box-shadow: 0 6px 20px -4px rgba(139, 124, 246, 0.5);
 }
 
 .logoIcon svg {
@@ -185,12 +185,12 @@
   border: none;
   border-radius: var(--shape-full);
   cursor: pointer;
-  box-shadow: 0 8px 20px -8px rgba(76, 141, 250, 0.55);
+  box-shadow: 0 8px 20px -8px rgba(139, 124, 246, 0.55);
   transition: transform 150ms var(--easing), box-shadow 150ms var(--easing), opacity 150ms var(--easing);
 }
 
 .btnPrimary:hover:not(:disabled) {
-  box-shadow: 0 10px 24px -8px rgba(76, 141, 250, 0.7);
+  box-shadow: 0 10px 24px -8px rgba(139, 124, 246, 0.7);
 }
 
 .btnPrimary:active:not(:disabled) {

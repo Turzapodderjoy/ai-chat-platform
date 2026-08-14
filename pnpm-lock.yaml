@@ -148,6 +148,9 @@ importers:
       '@ai-chat-platform/conversation':
         specifier: workspace:*
         version: link:../conversation
+      '@ai-chat-platform/dashboard-theme':
+        specifier: workspace:*
+        version: link:../dashboard-theme
       '@ai-chat-platform/database':
         specifier: workspace:*
         version: link:../database
@@ -250,6 +253,9 @@ importers:
       '@ai-chat-platform/conversation':
         specifier: workspace:*
         version: link:../conversation
+      '@ai-chat-platform/dashboard-theme':
+        specifier: workspace:*
+        version: link:../dashboard-theme
       '@ai-chat-platform/database':
         specifier: workspace:*
         version: link:../database
@@ -381,6 +387,12 @@ importers:
       '@ai-chat-platform/types':
         specifier: workspace:*
         version: link:../types
+
+  packages/dashboard-theme:
+    dependencies:
+      '@ai-chat-platform/database':
+        specifier: workspace:*
+        version: link:../database
 
   packages/database:
     dependencies:

@@ -13,7 +13,7 @@ export interface WidgetConfig {
 }
 
 const DEFAULTS: Omit<WidgetConfig, "businessId"> = {
-  accentColor: "#2563eb",
+  accentColor: "#8b7cf6",
   position: "bottom-right",
   theme: "light",
   launcherText: "Chat",

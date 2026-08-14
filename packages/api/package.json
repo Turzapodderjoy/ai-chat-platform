@@ -31,6 +31,7 @@
     "@ai-chat-platform/client-auth": "workspace:*",
     "@ai-chat-platform/widget-config": "workspace:*",
     "@ai-chat-platform/knowledge-refresh": "workspace:*",
-    "@ai-chat-platform/tabular-extraction": "workspace:*"
+    "@ai-chat-platform/tabular-extraction": "workspace:*",
+    "@ai-chat-platform/dashboard-theme": "workspace:*"
   }
 }

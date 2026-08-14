@@ -50,26 +50,30 @@ a {
 }
 
 /* ---------------------------------------------------------------------
- * Dashboard design system — scoped to `.app-shell` (both dashboards,
- * via DashboardShell) so the public login page keeps its own separate
- * light theme untouched. Deliberately always-dark, not tied to OS
- * preference: a fixed professional look, the way most CRM/admin tools
- * (Linear, Stripe dashboard, Vercel) ship one considered theme rather
- * than inheriting the visitor's OS setting.
+ * Dashboard design system — scoped to `.app-shell` (both dashboards, via
+ * DashboardShell). Ships two full themes, toggled by `data-theme` on
+ * this element (DashboardThemeService — one shared DB-backed value for
+ * every viewer, not per-browser). Dark is the default/no-attribute case
+ * so existing behavior is unchanged until someone actually flips the
+ * toggle; light is a real second theme, not an inverted afterthought —
+ * same violet accent, same shape/motion language, contrast tuned
+ * separately for a white ground (Intercom/Attio-style: soft cards,
+ * pill nav, gentle shadows instead of hard borders doing all the work).
  * ------------------------------------------------------------------- */
-.app-shell {
-  --bg: #0a0d13;
-  --bg-elevated: #10141c;
-  --surface: #141924;
-  --surface-hover: #1a2130;
-  --border: #232a38;
-  --border-strong: #313b4d;
-  --text: #e8ecf4;
-  --text-muted: #90a0b7;
-  --text-faint: #5b6779;
-  --accent: #4c8dfa;
-  --accent-strong: #6ba3ff;
-  --accent-soft: rgba(76, 141, 250, 0.14);
+.app-shell,
+.app-shell[data-theme="dark"] {
+  --bg: #0b0a13;
+  --bg-elevated: #121019;
+  --surface: #171420;
+  --surface-hover: #1f1a2c;
+  --border: #2a2438;
+  --border-strong: #3b3350;
+  --text: #ece9f5;
+  --text-muted: #9a92b0;
+  --text-faint: #635a7a;
+  --accent: #8b7cf6;
+  --accent-strong: #a99cff;
+  --accent-soft: rgba(139, 124, 246, 0.16);
   --success: #34d399;
   --success-soft: rgba(52, 211, 153, 0.14);
   --warning: #f2b84b;
@@ -79,20 +83,54 @@ a {
   --radius: 10px;
   --radius-sm: 7px;
   --shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
 
-  /* Material Design 3 layer — additive on top of the tokens above, which
-   * keep every existing style call site (dashboard-styles.ts, inline
-   * panel styles) working unchanged. MD3's dark-theme elevation model is
-   * TONAL: a "higher" surface gets progressively lighter/warmer, not
-   * just a bigger drop shadow — these 5 tiers are one flat white overlay
-   * of increasing opacity laid over --surface, matching the spec's own
-   * 5%/8%/11%/12%/14% overlay levels. */
+  /* MD3's dark-theme elevation model is TONAL: a "higher" surface gets
+   * progressively lighter, not just a bigger drop shadow — these 5
+   * tiers are a flat white overlay of increasing opacity laid over
+   * --surface, matching the spec's own 5%/8%/11%/12%/14% levels. */
   --md-surface-1: color-mix(in srgb, var(--surface) 95%, white 5%);
   --md-surface-2: color-mix(in srgb, var(--surface) 92%, white 8%);
   --md-surface-3: color-mix(in srgb, var(--surface) 89%, white 11%);
   --md-surface-4: color-mix(in srgb, var(--surface) 88%, white 12%);
   --md-surface-5: color-mix(in srgb, var(--surface) 86%, white 14%);
+}
 
+.app-shell[data-theme="light"] {
+  --bg: #f6f5fb;
+  --bg-elevated: #ffffff;
+  --surface: #ffffff;
+  --surface-hover: #f1eefa;
+  --border: #e5e1f0;
+  --border-strong: #d3cce8;
+  --text: #201c2c;
+  --text-muted: #6b6480;
+  --text-faint: #9992ab;
+  --accent: #7c6cf6;
+  --accent-strong: #6350e0;
+  --accent-soft: rgba(124, 108, 246, 0.1);
+  --success: #16a34a;
+  --success-soft: rgba(22, 163, 74, 0.1);
+  --warning: #b45309;
+  --warning-soft: rgba(180, 83, 9, 0.1);
+  --danger: #dc2626;
+  --danger-soft: rgba(220, 38, 38, 0.1);
+  --radius: 10px;
+  --radius-sm: 7px;
+  --shadow: 0 10px 30px -12px rgba(32, 28, 44, 0.14);
+  color-scheme: light;
+
+  /* On an already near-white ground, "more white" does nothing visible —
+   * light MD3 elevation instead tints progressively toward the accent,
+   * the spec's own primary-tinted overlay approach for light surfaces. */
+  --md-surface-1: color-mix(in srgb, var(--surface) 97%, var(--accent) 3%);
+  --md-surface-2: color-mix(in srgb, var(--surface) 95%, var(--accent) 5%);
+  --md-surface-3: color-mix(in srgb, var(--surface) 93%, var(--accent) 7%);
+  --md-surface-4: color-mix(in srgb, var(--surface) 92%, var(--accent) 8%);
+  --md-surface-5: color-mix(in srgb, var(--surface) 90%, var(--accent) 10%);
+}
+
+.app-shell {
   /* Shape scale (MD3 §Shape): none/extra-small.../full, one variable per
    * step so a component picks the step that matches its own size rather
    * than every component sharing one radius. */
@@ -120,11 +158,10 @@ a {
   --md-duration-medium: 250ms;
   --md-duration-long: 400ms;
 
-  color-scheme: dark;
   min-height: 100vh;
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-geist-sans, -apple-system), BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 14px;
   line-height: 1.5;
 }

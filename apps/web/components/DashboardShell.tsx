@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { NavIcon } from "./nav-icons";
+
+type ThemeMode = "dark" | "light";
 
 export interface NavItem<T extends string> {
   id: T;
@@ -42,6 +44,28 @@ export function DashboardShell<T extends string>({
   const [collapsed, setCollapsed] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<number, boolean>>({});
 
+  // A single shared value, not per-browser localStorage — the owner
+  // wants the toggle to look the same for every operator on every
+  // device, so it's read/written through the DB (DashboardThemeService)
+  // instead of a personal client-side preference.
+  const [theme, setTheme] = useState<ThemeMode>("dark");
+
+  useEffect(() => {
+    fetch("/api/dashboard-theme")
+      .then((r) => r.json())
+      .then((d) => setTheme(d.mode === "light" ? "light" : "dark"));
+  }, []);
+
+  function toggleTheme() {
+    const next: ThemeMode = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    fetch("/api/dashboard-theme", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: next }),
+    });
+  }
+
   const activeLabel = groups.flatMap((g) => g.items).find((i) => i.id === activeTab)?.label ?? "";
 
   function toggleGroup(i: number) {
@@ -49,7 +73,7 @@ export function DashboardShell<T extends string>({
   }
 
   return (
-    <div className="app-shell" style={{ display: "flex", minHeight: "100vh" }}>
+    <div className="app-shell" data-theme={theme} style={{ display: "flex", minHeight: "100vh" }}>
       <aside
         style={{
           width: collapsed ? 60 : 232,
@@ -153,12 +177,12 @@ export function DashboardShell<T extends string>({
                           justifyContent: collapsed ? "center" : "flex-start",
                           textAlign: "left",
                           padding: collapsed ? "9px 0" : "8px 14px",
-                          borderLeft: active && !collapsed ? "2px solid var(--accent)" : "2px solid transparent",
+                          border: "none",
                           background: active ? "var(--accent-soft)" : "transparent",
                           color: active ? "var(--accent-strong)" : "var(--text-muted)",
                           fontWeight: active ? 600 : 400,
                           fontSize: 13,
-                          borderRadius: collapsed ? 0 : 6,
+                          borderRadius: collapsed ? 8 : 999,
                           marginTop: 1,
                         }}
                       >
@@ -183,9 +207,39 @@ export function DashboardShell<T extends string>({
             background: "var(--bg-elevated)",
             fontSize: 13,
             color: "var(--text-muted)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
           }}
         >
-          {activeLabel}
+          <span>{activeLabel}</span>
+          <button
+            onClick={toggleTheme}
+            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            className="plain"
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: 999,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--text-muted)",
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            {theme === "dark" ? (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+              </svg>
+            ) : (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            )}
+          </button>
         </header>
         <main style={{ flex: 1, minWidth: 0, padding: "28px 32px", maxWidth: 1160, width: "100%" }}>{children}</main>
       </div>
