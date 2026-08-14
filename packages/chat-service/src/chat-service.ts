@@ -868,11 +868,24 @@ export class ChatService {
       );
     console.log(`[perf] ai.chat took ${Date.now() - __tAiStart}ms, provider=${aiResponse.provider}`);
 
+    // Confirmed live: the AI can emit BOTH the handoff marker AND real
+    // order-field progress in the exact same reply — a genuine model
+    // confusion artifact from teaching it multiple marker types for one
+    // conversation flow, not a real "I can't help, connect a human"
+    // decision (the reply was a perfectly normal order-confirmation
+    // question). If the AI made real order progress this turn, a
+    // simultaneous handoff signal is untrustworthy noise and gets
+    // suppressed rather than yanking the customer out of an order flow
+    // they're actively completing successfully.
+    const hasOrderProgressThisTurn =
+      ORDER_FIELDS_PATTERN.test(aiResponse.response) || ORDER_MARKER_PATTERN.test(aiResponse.response);
+
     // The AI itself decided (see HANDOFF_MARKER's comment) — strip the
     // marker before the customer ever sees it either way.
     const wantsHandoff =
-      aiResponse.response.includes(HANDOFF_MARKER) ||
-      HANDOFF_INTENT_FALLBACK.test(aiResponse.response);
+      !hasOrderProgressThisTurn &&
+      (aiResponse.response.includes(HANDOFF_MARKER) ||
+        HANDOFF_INTENT_FALLBACK.test(aiResponse.response));
 
     // Same marker mechanism, for a completed order instead of a handoff —
     // see ORDER_MARKER_PATTERN's own comment. Stripped before the handoff

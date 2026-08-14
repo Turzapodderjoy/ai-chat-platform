@@ -102,6 +102,32 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
 
+  // Which messageCount an agent had last seen, per conversation — a
+  // conversation is "unread" when the live list's current messageCount
+  // exceeds this. Persisted (survives a reload, unlike plain state) so
+  // reopening the dashboard doesn't mark everything unread again; scoped
+  // per business so one client's read state doesn't bleed into another's
+  // panel. Comparing counts rather than timestamps sidesteps clock-skew
+  // edge cases entirely.
+  const seenKey = `allChatsSeen:${businessId ?? "platform"}`;
+  const [seenCounts, setSeenCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    try {
+      setSeenCounts(JSON.parse(window.localStorage.getItem(seenKey) ?? "{}"));
+    } catch {
+      setSeenCounts({});
+    }
+  }, [seenKey]);
+
+  function markSeen(id: string, count: number) {
+    setSeenCounts((prev) => {
+      const next = { ...prev, [id]: count };
+      window.localStorage.setItem(seenKey, JSON.stringify(next));
+      return next;
+    });
+  }
+
   const [tagCatalog, setTagCatalog] = useState<Tag[]>([]);
   const [conversationTags, setConversationTags] = useState<Record<string, TagAssignment[]>>({});
   const [messageTags, setMessageTags] = useState<Record<string, TagAssignment[]>>({});
@@ -181,6 +207,19 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
 
   useEffect(refresh, [businessId, channelFilter, handoffOnly, sort]);
 
+  // Poll instead of a one-shot fetch — a customer's new message otherwise
+  // never appears until the agent manually reloads the page. 5s is a
+  // reasonable balance for a support inbox (fast enough that an agent
+  // isn't staring at a stale list, not so fast it hammers the DB every
+  // panel keeps open in a browser tab all day). Only the first page
+  // (newest N conversations) re-fetches, not deeper pagination — an
+  // agent scrolled further back doesn't need that page force-refreshed
+  // out from under them.
+  useEffect(() => {
+    const interval = setInterval(refresh, 5000);
+    return () => clearInterval(interval);
+  }, [businessId, channelFilter, handoffOnly, sort]);
+
   async function loadMore() {
     if (!nextCursor) return;
     setLoadingMore(true);
@@ -198,6 +237,12 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
   function openConversation(id: string) {
     setSelectedId(id);
     setMessages(null);
+    fetchMessages(id);
+    const current = conversations?.find((c) => c.id === id);
+    if (current) markSeen(id, current.messageCount);
+  }
+
+  function fetchMessages(id: string) {
     fetch(`/api/chat/messages?sessionId=${encodeURIComponent(id)}`)
       .then((r) => r.json())
       .then((data) => {
@@ -206,6 +251,23 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
         refreshMessageTags(msgs.map((m) => m.id));
       });
   }
+
+  // Keeps the open transcript itself live too — a customer's new message
+  // otherwise only shows up once the agent closes and reopens the
+  // conversation. Also re-marks it seen each poll, so a chat left open
+  // never shows as unread in the list next to it.
+  useEffect(() => {
+    if (!selectedId) return;
+
+    const interval = setInterval(() => {
+      fetchMessages(selectedId);
+      const current = conversations?.find((c) => c.id === selectedId);
+      if (current) markSeen(selectedId, current.messageCount);
+    }, 4000);
+
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
 
   async function sendReply() {
     if (!selectedId || !reply.trim()) return;
@@ -261,6 +323,7 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
           {conversations && conversations.length === 0 && <p style={{ padding: 10, ...subtleTextStyle }}>No chats yet.</p>}
           {conversations?.map((c) => {
             const ch = CHANNEL_LABEL[c.channel] ?? { color: "#8b96a8", label: c.channel };
+            const unread = selectedId !== c.id && c.messageCount > (seenCounts[c.id] ?? 0);
             return (
               <div
                 key={c.id}
@@ -274,6 +337,18 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
               >
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
                   <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {unread && (
+                      <span
+                        title="Unread"
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: 999,
+                          background: "var(--accent, #4c8dfa)",
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
                     <ChannelDot channel={c.channel} /> {ch.label}
                   </span>
                   <span style={{ color: "var(--text-muted)" }}>{STATUS_LABEL[c.handoffStatus]}</span>

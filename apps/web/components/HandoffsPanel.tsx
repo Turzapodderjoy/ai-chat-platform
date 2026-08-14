@@ -49,6 +49,16 @@ export function HandoffsPanel({ businessId }: { businessId?: string }) {
     return () => clearInterval(interval);
   }, [businessId]);
 
+  // The list above already polls, but the OPEN transcript didn't — a
+  // customer typing while an agent has their chat open never showed up
+  // until the agent closed and reopened it.
+  useEffect(() => {
+    if (!openId) return;
+    const interval = setInterval(() => openChat(openId), 4000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openId]);
+
   async function sendReply() {
     if (!openId || !reply.trim()) return;
     setSending(true);
