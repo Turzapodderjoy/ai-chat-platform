@@ -195,7 +195,7 @@
     // retrying (with the typing indicator on) for a full minute before
     // ever falling back to the same friendly line the server itself uses.
     var CONNECTION_TROUBLE_MESSAGE = "We're having trouble connecting right now — a team member will follow up with you shortly.";
-    var RETRY_BUDGET_MS = 65000;
+    var RETRY_BUDGET_MS = 75000;
     var RETRY_DELAY_MS = 2500;
 
     function postChat(text) {

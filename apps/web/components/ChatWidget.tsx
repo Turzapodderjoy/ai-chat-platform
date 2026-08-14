@@ -145,7 +145,7 @@ export function ChatWidget({
       // keeps retrying for a full minute before giving up (confirmed
       // live: a customer's "Yes" on order confirmation showed a raw
       // "TypeError: Failed to fetch" on a flaky mobile connection).
-      const retryDeadline = Date.now() + 65_000;
+      const retryDeadline = Date.now() + 75_000;
       let res: Response | null = null;
       let lastErr: unknown;
       let attempt = 0;
