@@ -136,11 +136,36 @@ export function ChatWidget({
     setLoading(true);
 
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, message, businessId }),
-      });
+      // A dropped connection fails the fetch itself, before the server
+      // ever gets a chance to return its own friendly timeout message
+      // (see /api/chat's withTimeout handling) — that's the ONE path
+      // server-side rotation/timeout logic can never cover, since the
+      // request never arrived. Owner's call: taking up to a minute with
+      // the typing indicator up is fine, a raw error is not — so this
+      // keeps retrying for a full minute before giving up (confirmed
+      // live: a customer's "Yes" on order confirmation showed a raw
+      // "TypeError: Failed to fetch" on a flaky mobile connection).
+      const retryDeadline = Date.now() + 65_000;
+      let res: Response | null = null;
+      let lastErr: unknown;
+      let attempt = 0;
+      while (!res) {
+        if (attempt > 0) {
+          if (Date.now() >= retryDeadline) break;
+          await new Promise((r) => setTimeout(r, 2500));
+        }
+        attempt++;
+        try {
+          res = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId, message, businessId }),
+          });
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      if (!res) throw lastErr;
 
       const data = await res.json();
 
@@ -160,12 +185,21 @@ export function ChatWidget({
               cached: data.cached,
               messageId: data.messageId,
             }
-          : { role: "assistant", content: `Error: ${data.detail ?? data.error}` },
+          : {
+              role: "assistant",
+              content: "We're having trouble connecting right now — a team member will follow up with you shortly.",
+            },
       ]);
-    } catch (err) {
+    } catch {
+      // Never show the raw error to a real customer — same copy the
+      // server's own timeout fallback uses, so the widget doesn't need
+      // to special-case this path either.
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: `Error: ${String(err)}` },
+        {
+          role: "assistant",
+          content: "We're having trouble connecting right now — a team member will follow up with you shortly.",
+        },
       ]);
     } finally {
       setLoading(false);

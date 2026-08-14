@@ -104,6 +104,18 @@
       panel.appendChild(branding);
     }
 
+    if (!document.getElementById("cw-typing-style")) {
+      var styleEl = document.createElement("style");
+      styleEl.id = "cw-typing-style";
+      styleEl.textContent =
+        ".cw-typing-dots span{display:inline-block;width:6px;height:6px;margin:0 2px;border-radius:50%;" +
+        "background:currentColor;opacity:.4;animation:cw-typing-bounce 1.2s infinite ease-in-out}" +
+        ".cw-typing-dots span:nth-child(2){animation-delay:.2s}" +
+        ".cw-typing-dots span:nth-child(3){animation-delay:.4s}" +
+        "@keyframes cw-typing-bounce{0%,60%,100%{opacity:.4;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}";
+      document.head.appendChild(styleEl);
+    }
+
     document.body.appendChild(panel);
     document.body.appendChild(launcher);
 
@@ -172,23 +184,79 @@
       log.scrollTop = log.scrollHeight;
     }
 
+    // A dropped mobile connection or a proxy hiccup fails the fetch itself
+    // (no response at all) — that's different from the server's own
+    // timeout/rotation handling in /api/chat, which already retries across
+    // AI providers internally and always returns a friendly canned reply
+    // with a normal 200 within its own 55s budget. This client-side retry
+    // is the one path that server-side rotation can never cover, since the
+    // request never arrived at all. Owner's call: taking up to a minute is
+    // fine, a raw error in front of a real customer is not — so this keeps
+    // retrying (with the typing indicator on) for a full minute before
+    // ever falling back to the same friendly line the server itself uses.
+    var CONNECTION_TROUBLE_MESSAGE = "We're having trouble connecting right now — a team member will follow up with you shortly.";
+    var RETRY_BUDGET_MS = 65000;
+    var RETRY_DELAY_MS = 2500;
+
+    function postChat(text) {
+      return fetch(origin + "/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: sessionId, message: text, businessId: businessId, languageHint: preferredLanguage }),
+      }).then(function (res) { return res.json(); });
+    }
+
+    function postChatWithRetries(text, deadline) {
+      return postChat(text).catch(function (err) {
+        if (Date.now() >= deadline) throw err;
+        return new Promise(function (resolve) {
+          setTimeout(function () { resolve(postChatWithRetries(text, deadline)); }, RETRY_DELAY_MS);
+        });
+      });
+    }
+
+    var typingRow = null;
+    function showTyping() {
+      typingRow = document.createElement("div");
+      typingRow.setAttribute("style", "margin-bottom:8px;");
+      var bubble = document.createElement("div");
+      bubble.className = "cw-typing-dots";
+      bubble.innerHTML = "<span></span><span></span><span></span>";
+      bubble.setAttribute("style", [
+        "display:inline-block", "padding:10px 14px", "border-radius:12px",
+        "background:" + (dark ? "#21262d" : "#f1f3f5"), "color:" + panelText, "float:left",
+      ].join(";"));
+      typingRow.appendChild(bubble);
+      var clear = document.createElement("div");
+      clear.setAttribute("style", "clear:both;");
+      typingRow.appendChild(clear);
+      log.appendChild(typingRow);
+      log.scrollTop = log.scrollHeight;
+    }
+    function hideTyping() {
+      if (typingRow && typingRow.parentNode) typingRow.parentNode.removeChild(typingRow);
+      typingRow = null;
+    }
+
     function sendMessage() {
       var text = input.value.trim();
       if (!text) return;
       input.value = "";
       addMessage("user", text);
+      showTyping();
+      send.disabled = true;
 
-      fetch(origin + "/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: sessionId, message: text, businessId: businessId, languageHint: preferredLanguage }),
-      })
-        .then(function (res) { return res.json(); })
+      postChatWithRetries(text, Date.now() + RETRY_BUDGET_MS)
         .then(function (data) {
-          addMessage("assistant", data.answer || ("Error: " + (data.detail || data.error)));
+          hideTyping();
+          addMessage("assistant", data.answer || CONNECTION_TROUBLE_MESSAGE);
         })
-        .catch(function (err) {
-          addMessage("assistant", "Error: " + err);
+        .catch(function () {
+          hideTyping();
+          addMessage("assistant", CONNECTION_TROUBLE_MESSAGE);
+        })
+        .then(function () {
+          send.disabled = false;
         });
     }
 
