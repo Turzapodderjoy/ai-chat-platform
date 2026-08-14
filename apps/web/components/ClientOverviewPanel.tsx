@@ -71,19 +71,25 @@ export function ClientOverviewPanel({ businessId, active = true }: { businessId:
           label="Knowledge base"
           value={storage ? formatBytes(storage.knowledgeBytesEstimate) : "…"}
           hint={storage ? `${storage.knowledgeDocuments} documents, ${storage.knowledgeChunks} chunks` : undefined}
+          tone="info"
         />
         <StatCard
           label="Embedding coverage"
-          value={fullyCovered === null ? "…" : fullyCovered ? "✅ Full" : "⚠️ Partial"}
+          value={fullyCovered === null ? "…" : fullyCovered ? "Full" : "Partial"}
           hint={coverage ? `across ${coverage.length} provider(s)` : undefined}
+          tone={fullyCovered === null ? "neutral" : fullyCovered ? "success" : "warning"}
         />
-        <StatCard label="Open handoffs" value={openHandoffs === null ? "…" : String(openHandoffs)} />
+        <StatCard
+          label="Open handoffs"
+          value={openHandoffs === null ? "…" : String(openHandoffs)}
+          tone={openHandoffs !== null && openHandoffs > 0 ? "warning" : "success"}
+        />
         <StatCard
           label="AI Brain last updated"
           value={aiBrainUpdatedAt ? new Date(aiBrainUpdatedAt).toLocaleDateString() : "…"}
           hint={aiBrainUpdatedAt ? new Date(aiBrainUpdatedAt).toLocaleTimeString() : undefined}
         />
-        <StatCard label="Conversations" value={storage ? String(storage.conversations) : "…"} />
+        <StatCard label="Conversations" value={storage ? String(storage.conversations) : "…"} tone="info" />
       </StatCardRow>
     </section>
   );

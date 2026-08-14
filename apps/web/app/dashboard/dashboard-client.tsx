@@ -14,6 +14,7 @@ import { ClientAccessPanel } from "../../components/ClientAccessPanel";
 import { OverviewPanel } from "../../components/OverviewPanel";
 import { ClientHealthPanel } from "../../components/ClientHealthPanel";
 import { TrainingArenaPanel } from "../../components/TrainingArenaPanel";
+import { StatusBadge } from "../../components/StatusBadge";
 import { DashboardShell, type NavGroup } from "../../components/DashboardShell";
 import { cardStyle, cellStyle, formatBytes, subtleTextStyle, primaryButtonStyle } from "../../components/dashboard-styles";
 
@@ -524,9 +525,9 @@ function AiProvidersPanel() {
               {data.status.map((p) => (
                 <tr key={p.name}>
                   <td style={cellStyle}>{customLabels[p.name] ?? p.name}</td>
-                  <td style={cellStyle}>{p.enabled ? "🟢 On" : "⚪ Off"}</td>
-                  <td style={cellStyle}>{p.healthy ? "✅" : "❌"}</td>
-                  <td style={cellStyle}>{p.hasUsableKey ? "✅" : "❌"}</td>
+                  <td style={cellStyle}><StatusBadge tone={p.enabled ? "ok" : "neutral"}>{p.enabled ? "On" : "Off"}</StatusBadge></td>
+                  <td style={cellStyle}><StatusBadge tone={p.healthy ? "ok" : "error"}>{p.healthy ? "Healthy" : "Unhealthy"}</StatusBadge></td>
+                  <td style={cellStyle}><StatusBadge tone={p.hasUsableKey ? "ok" : "neutral"}>{p.hasUsableKey ? "Yes" : "No"}</StatusBadge></td>
                   <td style={cellStyle}>
                     <code style={{ fontSize: 12 }}>{p.maskedKey ?? "—"}</code>
                   </td>
@@ -831,9 +832,9 @@ function EmbeddingProvidersPanel() {
               {data.status.map((p) => (
                 <tr key={p.name}>
                   <td style={cellStyle}>{p.name}</td>
-                  <td style={cellStyle}>{p.enabled ? "🟢 On" : "⚪ Off"}</td>
-                  <td style={cellStyle}>{p.healthy ? "✅" : "❌"}</td>
-                  <td style={cellStyle}>{p.hasUsableKey ? "✅" : "❌"}</td>
+                  <td style={cellStyle}><StatusBadge tone={p.enabled ? "ok" : "neutral"}>{p.enabled ? "On" : "Off"}</StatusBadge></td>
+                  <td style={cellStyle}><StatusBadge tone={p.healthy ? "ok" : "error"}>{p.healthy ? "Healthy" : "Unhealthy"}</StatusBadge></td>
+                  <td style={cellStyle}><StatusBadge tone={p.hasUsableKey ? "ok" : "neutral"}>{p.hasUsableKey ? "Yes" : "No"}</StatusBadge></td>
                   <td style={cellStyle}>
                     <code style={{ fontSize: 12 }}>{p.maskedKey ?? "—"}</code>
                   </td>
@@ -931,7 +932,7 @@ function EmbeddingProvidersPanel() {
                   <td style={cellStyle}>
                     <code style={{ fontSize: 12 }}>{k.maskedKey}</code>
                   </td>
-                  <td style={cellStyle}>{k.healthy ? "✅" : "❌"}</td>
+                  <td style={cellStyle}><StatusBadge tone={k.healthy ? "ok" : "error"}>{k.healthy ? "Healthy" : "Unhealthy"}</StatusBadge></td>
                   <td style={cellStyle}>
                     {k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : "—"}
                   </td>
@@ -1208,7 +1209,7 @@ function DatabasePanel() {
 
       {status && (
         <ul>
-          <li>Status: {status.connected ? "✅ Connected" : "❌ Not connected"}</li>
+          <li>Status: <StatusBadge tone={status.connected ? "ok" : "error"}>{status.connected ? "Connected" : "Not connected"}</StatusBadge></li>
           <li>Host: {status.host ?? "not set"}</li>
           {status.error && <li>Error: {status.error}</li>}
         </ul>

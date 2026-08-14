@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { cardStyle, cellStyle, subtleTextStyle } from "./dashboard-styles";
+import { StatusBadge } from "./StatusBadge";
 
 interface ClientHealthRow {
   businessId: string;
@@ -92,14 +93,24 @@ function computeEta(row: ClientHealthRow, track: Record<string, PhaseTrack>): st
   return `~${formatDuration(Math.round(remaining / rate / 1000))} left`;
 }
 
-/** One small badge per pipeline stage — done (✅), currently running (a
- * live count, so "is it stuck" is answerable without opening logs), or
- * pending (dimmed, hasn't started this run). */
+/** One small badge per pipeline stage — done (filled dot), currently
+ * running (a live count + pulsing dot, so "is it stuck" is answerable
+ * without opening logs), or pending (dimmed, hasn't started this run). */
 function StepBadge({ label, state, detail }: { label: string; state: StepState; detail?: string }) {
-  const icon = state === "done" ? "✅" : state === "active" ? "🔵" : "⚪";
+  const dotColor = state === "done" ? "var(--success)" : state === "active" ? "var(--accent)" : "var(--text-faint)";
   return (
-    <div style={{ fontSize: 12, opacity: state === "pending" ? 0.45 : 1 }}>
-      {icon} {label}
+    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: state === "pending" ? 0.45 : 1 }}>
+      <span
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: "50%",
+          background: dotColor,
+          flexShrink: 0,
+          boxShadow: state === "active" ? `0 0 5px ${dotColor}` : "none",
+        }}
+      />
+      {label}
       {detail && <span style={{ color: "var(--text-faint)" }}> — {detail}</span>}
     </div>
   );
@@ -214,10 +225,10 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
                       {row.crawlTargets.total === 0 ? (
                         "—"
                       ) : (
-                        <span style={{ color: targetsOk ? "var(--success, #15803d)" : "var(--warning, #b45309)" }}>
-                          {targetsOk ? "✅" : "⚠️"} {row.crawlTargets.done}/{row.crawlTargets.total}
+                        <StatusBadge tone={targetsOk ? "ok" : "warn"}>
+                          {row.crawlTargets.done}/{row.crawlTargets.total}
                           {row.crawlTargets.stuck > 0 ? ` (${row.crawlTargets.stuck} stuck)` : ""}
-                        </span>
+                        </StatusBadge>
                       )}
                       {row.refreshPhase?.phase === "crawling" && (
                         <div style={{ marginTop: 4 }}>
@@ -329,9 +340,9 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
                     </td>
                     <td style={cellStyle}>
                       {row.masterCsv.updatedAt ? (
-                        <span style={{ color: csvOk ? "var(--success, #15803d)" : "var(--warning, #b45309)" }}>
-                          {csvOk ? "✅" : "⚠️"} {row.masterCsv.sourceCount}/{row.documentCount}
-                        </span>
+                        <StatusBadge tone={csvOk ? "ok" : "warn"}>
+                          {row.masterCsv.sourceCount}/{row.documentCount}
+                        </StatusBadge>
                       ) : (
                         <span style={subtleTextStyle}>not generated</span>
                       )}
@@ -342,14 +353,14 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
                     <td style={cellStyle}>
                       {row.embeddingCoverage.length === 0 && "—"}
                       {row.embeddingCoverage.map((c) => (
-                        <div key={c.provider} style={{ fontSize: 12 }}>
-                          {c.provider}: {c.pct === 100 ? "✅" : "⚠️"} {c.pct}%
+                        <div key={c.provider} style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                          {c.provider}: <StatusBadge tone={c.pct === 100 ? "ok" : "warn"}>{c.pct}%</StatusBadge>
                         </div>
                       ))}
                     </td>
                     <td style={cellStyle}>
                       {row.openHandoffs > 0 ? (
-                        <span style={{ color: "var(--warning, #b45309)" }}>⚠️ {row.openHandoffs}</span>
+                        <StatusBadge tone="warn">{row.openHandoffs}</StatusBadge>
                       ) : (
                         "0"
                       )}

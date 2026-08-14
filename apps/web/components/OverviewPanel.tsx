@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { StatCard, StatCardRow } from "./StatCard";
+import { StatusBadge } from "./StatusBadge";
 import { subtleTextStyle, cardStyle, cellStyle, primaryButtonStyle } from "./dashboard-styles";
 
 interface BusinessKnowledgeStatus {
@@ -225,18 +226,18 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
                       {s.crawlTargets.total === 0 ? (
                         "—"
                       ) : (
-                        <span style={{ color: targetsOk ? "var(--success, #15803d)" : "var(--warning, #b45309)" }}>
-                          {targetsOk ? "✅" : "⚠️"} {s.crawlTargets.done}/{s.crawlTargets.total} done
+                        <StatusBadge tone={targetsOk ? "ok" : "warn"}>
+                          {s.crawlTargets.done}/{s.crawlTargets.total} done
                           {s.crawlTargets.stuck > 0 ? ` (${s.crawlTargets.stuck} stuck)` : ""}
-                        </span>
+                        </StatusBadge>
                       )}
                     </td>
                     <td style={cellStyle}>{s.documentCount}</td>
                     <td style={cellStyle}>
                       {s.masterCsv.updatedAt ? (
-                        <span style={{ color: csvOk ? "var(--success, #15803d)" : "var(--warning, #b45309)" }}>
-                          {csvOk ? "✅" : "⚠️"} {s.masterCsv.sourceCount}/{s.documentCount} sources
-                        </span>
+                        <StatusBadge tone={csvOk ? "ok" : "warn"}>
+                          {s.masterCsv.sourceCount}/{s.documentCount} sources
+                        </StatusBadge>
                       ) : (
                         <span style={subtleTextStyle}>not generated</span>
                       )}
