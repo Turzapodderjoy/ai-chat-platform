@@ -138,28 +138,37 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
 
   return (
     <section>
-      <h1 style={{ marginBottom: 4 }}>Overview</h1>
-      <p style={subtleTextStyle}>
-        Platform-wide snapshot — every number below comes from the tab it
-        summarizes, use the sidebar to drill in.
-      </p>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ marginBottom: 4 }}>Overview</h1>
+        <p style={subtleTextStyle}>
+          Platform-wide snapshot — every number below comes from the tab it
+          summarizes, use the sidebar to drill in.
+        </p>
+      </div>
 
       <StatCardRow>
-        <StatCard label="Clients" value={val(counts.clients)} />
+        <StatCard label="Clients" value={val(counts.clients)} tone="info" />
         <StatCard
           label="Open handoffs"
           value={val(counts.openHandoffs)}
           hint={counts.totalHandoffs !== null ? `${counts.totalHandoffs} total` : undefined}
+          tone={counts.openHandoffs !== null && counts.openHandoffs > 0 ? "warning" : "success"}
         />
-        <StatCard label="Pending AI Brain suggestions" value={val(counts.pendingSuggestions)} />
+        <StatCard
+          label="Pending AI Brain suggestions"
+          value={val(counts.pendingSuggestions)}
+          tone={counts.pendingSuggestions !== null && counts.pendingSuggestions > 0 ? "warning" : "success"}
+        />
         <StatCard
           label="QA feedback awaiting review"
           value={val(counts.qaUnprocessed)}
           hint={counts.qaTotal !== null ? `${counts.qaTotal} total submitted` : undefined}
+          tone={counts.qaUnprocessed !== null && counts.qaUnprocessed > 0 ? "warning" : "success"}
         />
         <StatCard
           label="AI providers healthy"
           value={counts.aiHealthy !== null && counts.aiTotal !== null ? `${counts.aiHealthy}/${counts.aiTotal}` : "…"}
+          tone={counts.aiHealthy !== null && counts.aiTotal !== null && counts.aiHealthy === counts.aiTotal ? "success" : "warning"}
         />
         <StatCard
           label="Embedding providers healthy"
@@ -167,6 +176,13 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
             counts.embeddingHealthy !== null && counts.embeddingTotal !== null
               ? `${counts.embeddingHealthy}/${counts.embeddingTotal}`
               : "…"
+          }
+          tone={
+            counts.embeddingHealthy !== null &&
+            counts.embeddingTotal !== null &&
+            counts.embeddingHealthy === counts.embeddingTotal
+              ? "success"
+              : "warning"
           }
         />
       </StatCardRow>

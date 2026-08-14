@@ -66,7 +66,8 @@ export function DashboardShell<T extends string>({
     });
   }
 
-  const activeLabel = groups.flatMap((g) => g.items).find((i) => i.id === activeTab)?.label ?? "";
+  const activeGroup = groups.find((g) => g.items.some((i) => i.id === activeTab));
+  const activeLabel = activeGroup?.items.find((i) => i.id === activeTab)?.label ?? "";
 
   function toggleGroup(i: number) {
     setCollapsedGroups((prev) => ({ ...prev, [i]: !prev[i] }));
@@ -76,11 +77,11 @@ export function DashboardShell<T extends string>({
     <div className="app-shell" data-theme={theme} style={{ display: "flex", minHeight: "100vh" }}>
       <aside
         style={{
-          width: collapsed ? 60 : 232,
+          width: collapsed ? 64 : 244,
           flexShrink: 0,
           borderRight: "1px solid var(--border)",
           background: "var(--bg-elevated)",
-          padding: "18px 0",
+          padding: "16px 0 18px",
           position: "sticky",
           top: 0,
           alignSelf: "flex-start",
@@ -95,13 +96,34 @@ export function DashboardShell<T extends string>({
             display: "flex",
             alignItems: "center",
             justifyContent: collapsed ? "center" : "space-between",
-            padding: collapsed ? "0 0 16px" : "0 14px 16px",
+            padding: collapsed ? "0 0 18px" : "0 14px 18px",
+            marginBottom: 8,
+            borderBottom: "1px solid var(--border)",
             gap: 8,
           }}
         >
           {!collapsed && (
-            <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.2, minWidth: 0 }}>
-              {sidebarLabel}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+              <div
+                style={{
+                  width: 30,
+                  height: 30,
+                  flexShrink: 0,
+                  borderRadius: 8,
+                  background: "linear-gradient(155deg, var(--accent), var(--accent-strong))",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 3px 10px -2px rgba(139, 124, 246, 0.5)",
+                }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="#08111f">
+                  <path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18L19.35 8 12 11.82 4.65 8 12 4.18zM4 9.04l7 3.5V19.5l-7-3.5V9.04zm9 10.46v-6.96l7-3.5v6.96l-7 3.5z" />
+                </svg>
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.2, minWidth: 0 }}>
+                {sidebarLabel}
+              </div>
             </div>
           )}
           <button
@@ -128,7 +150,7 @@ export function DashboardShell<T extends string>({
           {groups.map((group, i) => {
             const groupCollapsed = collapsedGroups[i];
             return (
-              <div key={i} style={{ marginBottom: 6 }}>
+              <div key={i} style={{ marginBottom: 10 }}>
                 {group.label && !collapsed && (
                   <button
                     onClick={() => toggleGroup(i)}
@@ -176,7 +198,7 @@ export function DashboardShell<T extends string>({
                           width: "100%",
                           justifyContent: collapsed ? "center" : "flex-start",
                           textAlign: "left",
-                          padding: collapsed ? "9px 0" : "8px 14px",
+                          padding: collapsed ? "10px 0" : "9px 14px",
                           border: "none",
                           background: active ? "var(--accent-soft)" : "transparent",
                           color: active ? "var(--accent-strong)" : "var(--text-muted)",
@@ -202,17 +224,23 @@ export function DashboardShell<T extends string>({
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <header
           style={{
-            padding: "14px 32px",
+            padding: "16px 32px",
             borderBottom: "1px solid var(--border)",
             background: "var(--bg-elevated)",
-            fontSize: 13,
-            color: "var(--text-muted)",
+            boxShadow: "0 1px 0 rgba(0,0,0,0.02)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
           }}
         >
-          <span>{activeLabel}</span>
+          <div>
+            {activeGroup?.label && (
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 2 }}>
+                {activeGroup.label}
+              </div>
+            )}
+            <div style={{ fontSize: 16, fontWeight: 650, letterSpacing: "-0.01em", color: "var(--text)" }}>{activeLabel}</div>
+          </div>
           <button
             onClick={toggleTheme}
             title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
