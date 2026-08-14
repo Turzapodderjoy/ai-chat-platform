@@ -19,14 +19,19 @@ export class CustomOpenAICompatibleProvider implements AIProvider {
   constructor(
     readonly name: string,
     private readonly baseUrl: string,
-    private readonly model: string
+    private readonly model: string,
+    // The id (`name`) is what routing/toggle/enable-disable key off of
+    // everywhere else — this is only what gets reported back as the
+    // "answered by" provider on a message, so the dashboard shows the
+    // human label instead of a raw cuid.
+    private readonly displayName: string = name
   ) {}
 
   async generate(request: AIRequest, apiKey?: string): Promise<AIResponse> {
     if (!apiKey) {
       return {
         success: false,
-        provider: this.name,
+        provider: this.displayName,
         message: "",
         error: "No API key provided",
       };
@@ -75,7 +80,7 @@ export class CustomOpenAICompatibleProvider implements AIProvider {
 
     return {
       success: true,
-      provider: this.name,
+      provider: this.displayName,
       message: data.choices?.[0]?.message?.content ?? "",
       tokens: data.usage?.total_tokens ?? 0,
     };

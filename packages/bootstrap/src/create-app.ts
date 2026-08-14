@@ -35,7 +35,7 @@ export async function createApp(): Promise<Application> {
   const customProviders = await prisma.customProvider.findMany();
   for (const cp of customProviders) {
     ai.registerProvider(
-      new CustomOpenAICompatibleProvider(cp.id, cp.baseUrl, cp.model),
+      new CustomOpenAICompatibleProvider(cp.id, cp.baseUrl, cp.model, cp.label),
       [{ id: `${cp.id}-persisted`, value: cp.apiKey }]
     );
 

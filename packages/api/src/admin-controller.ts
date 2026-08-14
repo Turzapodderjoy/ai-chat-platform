@@ -132,7 +132,7 @@ export class AdminController {
     });
 
     this.ai.registerProvider(
-      new CustomOpenAICompatibleProvider(row.id, baseUrl, model),
+      new CustomOpenAICompatibleProvider(row.id, baseUrl, model, label),
       [{ id: `${row.id}-ui`, value: apiKey }]
     );
 
