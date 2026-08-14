@@ -91,6 +91,16 @@ function toConfig(row: Row): AiConfig {
  * then on. Clients never write to or read each other's rows.
  */
 export class AiConfigService {
+  // Structurally typed (not importing ResponseCache directly) to avoid a
+  // circular package dependency -- chat-service already depends on
+  // ai-config for the config itself. Optional so tests/callers that don't
+  // care about cache invalidation don't need to supply one. Without this,
+  // a prompt fix meant to correct a wrong answer would keep losing to the
+  // old (wrong) cached answer for that exact question indefinitely --
+  // confirmed live: a real category-substitution bug stayed reproducible
+  // after the prompt was fixed, purely because the cache never noticed.
+  constructor(private readonly responseCache?: { clearForBusiness(businessId: string): void }) {}
+
   async getCurrent(businessId: string = PLATFORM_CONFIG_ID): Promise<AiConfig> {
     const latest = await prisma.aiConfigVersion.findFirst({
       where: { businessId },
@@ -158,6 +168,7 @@ export class AiConfigService {
       },
     });
 
+    this.responseCache?.clearForBusiness(businessId);
     return toConfig(created);
   }
 
@@ -191,6 +202,7 @@ export class AiConfigService {
       },
     });
 
+    this.responseCache?.clearForBusiness(businessId);
     return toConfig(created);
   }
 
@@ -221,6 +233,7 @@ export class AiConfigService {
       },
     });
 
+    this.responseCache?.clearForBusiness(businessId);
     return toConfig(created);
   }
 
@@ -255,6 +268,7 @@ export class AiConfigService {
       },
     });
 
+    this.responseCache?.clearForBusiness(businessId);
     return toConfig(created);
   }
 

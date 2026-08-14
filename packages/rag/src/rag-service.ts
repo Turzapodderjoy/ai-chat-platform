@@ -23,6 +23,7 @@ export class RagService {
         isTraining: request.isTraining,
         channel: request.channel,
         externalUserId: request.externalUserId,
+        languageHint: request.languageHint,
       });
 
     return {

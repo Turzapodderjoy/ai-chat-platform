@@ -19,6 +19,12 @@ export interface ChatRequest {
    * WhatsApp wa_id) — where a human agent's reply gets sent on that
    * channel. Only set for non-website channels. */
   externalUserId?: string | null;
+
+  /** "english" | "bangla" — the widget's start-of-chat language picker
+   * (see widget.js). A default to reply in, not a lock: the existing
+   * "match the customer's current message" rule still overrides this the
+   * moment they actually type in a different language. */
+  languageHint?: string;
 }
 
 export interface ChatSource {

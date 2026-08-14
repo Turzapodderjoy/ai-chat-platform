@@ -17,3 +17,4 @@ export * from "./widget-config-controller";
 export * from "./knowledge-refresh-controller";
 export * from "./client-health-controller";
 export * from "./product-controller";
+export * from "./order-controller";

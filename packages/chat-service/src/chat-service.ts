@@ -1,7 +1,7 @@
 import { AIManager } from "@ai-chat-platform/ai-manager";
 import { PromptEngine } from "@ai-chat-platform/prompt-engine";
 import { Retriever, RetrievedChunk } from "@ai-chat-platform/retriever";
-import { ConversationService, ConversationMessage } from "@ai-chat-platform/conversation";
+import { ConversationService, ConversationMessage, OrderService } from "@ai-chat-platform/conversation";
 import { EmbeddingManager } from "@ai-chat-platform/embedding-manager";
 import { AiConfigService } from "@ai-chat-platform/ai-config";
 import type { VectorStoreManager } from "@ai-chat-platform/vector-store";
@@ -75,6 +75,16 @@ const HANDOFF_MARKER = "[[NEEDS_HUMAN]]";
 // phrased this way, only the AI's own admission is.
 const HANDOFF_INTENT_FALLBACK =
   /team member|টিম মেম্বার|knowledge base|তথ্য (নেই|নাই)|tothyo[^.]*(nei|nai)|don'?t have (that|this|any) (specific )?information/i;
+
+// Same marker-based signal as HANDOFF_MARKER — the system prompt
+// instructs the AI to append this, with a JSON payload, once it has
+// conversationally collected all 5 order fields and confirmed them back
+// to the customer. Parsed out of the reply and turned into a real Order
+// row; the customer never sees the marker or the JSON. The `[^\]]*` body
+// deliberately doesn't try to validate JSON shape here — a malformed
+// payload just fails the JSON.parse below and the marker is stripped
+// with no order created, rather than crashing the whole reply.
+const ORDER_MARKER_PATTERN = /\[\[ORDER_TAKEN:([^\]]*)\]\]/;
 
 // The handoff summary is a short internal note for a human agent, not a
 // customer-facing answer — a smaller cap is appropriate and keeps this
@@ -184,6 +194,27 @@ function languageLockInstruction(languageMode: string): string {
 - If any earlier instruction in this prompt says to match/mirror the customer's language, that instruction is overridden by this lock and no longer applies.`;
 }
 
+/** The widget's start-of-chat language picker (see widget.js) — a soft
+ * starting preference, not a lock: only applied when the business hasn't
+ * hard-locked the language (languageLockInstruction above already wins if
+ * so), and explicitly subordinate to the base prompt's existing "match
+ * whatever language the customer's CURRENT message is written in" rule —
+ * the moment they type in a different language, that rule takes over,
+ * exactly as it already does for a customer who never picked at all. */
+function languageHintInstruction(languageMode: string, hint?: string): string {
+  if (languageMode !== "auto" && languageMode) return "";
+
+  const HINT_LABEL: Record<string, string> = {
+    english: "English",
+    bangla: "Bangla (Bengali script)",
+  };
+
+  const label = hint ? HINT_LABEL[hint] : undefined;
+  if (!label) return "";
+
+  return `\n\nThe customer selected "${label}" from this chat's start-of-conversation language picker — default to replying in ${label} unless/until their own message is clearly written in a different language, in which case follow this prompt's normal "match the customer's current message" rule instead, exactly as if they hadn't picked anything.`;
+}
+
 // Folds recent turns into the string embedded for retrieval — a bare
 // "price?" carries almost no signal alone, but "is X authentic? ...
 // price?" retrieves the right chunks. Last 4 messages (2 full turns),
@@ -232,8 +263,46 @@ export class ChatService {
     private readonly usageLog: ChatUsageLog,
     private readonly aiConfig: AiConfigService,
     private readonly vectorStore: VectorStoreManager,
-    private readonly masterCsv: MasterCsvService
+    private readonly masterCsv: MasterCsvService,
+    private readonly orders: OrderService
   ) {}
+
+  // Two messages from the same customer arriving close together (a
+  // WhatsApp user firing off "too expensive" then "anything cheaper?" a
+  // few seconds apart, before the first reply has landed) used to run as
+  // two fully concurrent chat() calls. Each one reads conversation
+  // history at its own start, so the second call's retrieval/prompt often
+  // couldn't see the first call's message yet — and both replies land
+  // independently, sometimes racing each other or contradicting one
+  // another (one saying "no info", the other answering correctly moments
+  // later, confirmed live on a real WhatsApp conversation). Chaining every
+  // call for the same sessionId through this queue makes them run one at
+  // a time in arrival order — same guarantee a customer typing separate
+  // messages in a live human chat already gets. Different sessions still
+  // run fully in parallel; this only serializes within one conversation.
+  private readonly conversationLocks = new Map<string, Promise<unknown>>();
+
+  private runSequentially<T>(sessionId: string, fn: () => Promise<T>): Promise<T> {
+    const previous = this.conversationLocks.get(sessionId) ?? Promise.resolve();
+    const run = previous.then(fn, fn);
+
+    // Swallow so an earlier failure doesn't poison the chain for later
+    // messages, and don't hold the map entry open once nothing is
+    // waiting on it — a long-lived process would otherwise accumulate one
+    // entry per session id forever.
+    const tracked = run.then(
+      () => {},
+      () => {}
+    );
+    this.conversationLocks.set(sessionId, tracked);
+    tracked.finally(() => {
+      if (this.conversationLocks.get(sessionId) === tracked) {
+        this.conversationLocks.delete(sessionId);
+      }
+    });
+
+    return run;
+  }
 
   // 200K chars (~50K tokens) — conservative, safely under the smallest
   // context window among every currently-rotated provider (Groq/Mistral/
@@ -280,7 +349,11 @@ export class ChatService {
     return { id: "master-csv", text: csv.content, score: 1 };
   }
 
-  async chat(
+  async chat(request: ChatRequest): Promise<ChatResponse> {
+    return this.runSequentially(request.sessionId, () => this.chatSequential(request));
+  }
+
+  private async chatSequential(
     request: ChatRequest
   ): Promise<ChatResponse> {
 
@@ -618,7 +691,10 @@ export class ChatService {
 
     const prompt =
       this.prompts.build({
-        systemPrompt: config.systemPrompt + languageLockInstruction(config.languageMode),
+        systemPrompt:
+          config.systemPrompt +
+          languageLockInstruction(config.languageMode) +
+          languageHintInstruction(config.languageMode, request.languageHint),
         context:
           retrieved.map(chunk => chunk.text),
         history:
@@ -654,7 +730,41 @@ export class ChatService {
     const wantsHandoff =
       aiResponse.response.includes(HANDOFF_MARKER) ||
       HANDOFF_INTENT_FALLBACK.test(aiResponse.response);
-    const cleanedAnswer = aiResponse.response.replaceAll(HANDOFF_MARKER, "").trim();
+
+    // Same marker mechanism, for a completed order instead of a handoff —
+    // see ORDER_MARKER_PATTERN's own comment. Stripped before the handoff
+    // stage below so an order confirmation (which never also needs a
+    // human) doesn't get double-processed.
+    const orderMatch = aiResponse.response.match(ORDER_MARKER_PATTERN);
+    if (orderMatch) {
+      try {
+        const parsed = JSON.parse(orderMatch[1]!) as Record<string, unknown>;
+        const field = (key: string) => (typeof parsed[key] === "string" ? (parsed[key] as string).trim() : "");
+        const customerName = field("customerName") || field("name");
+        const phone = field("phone");
+        const deliveryAddress = field("deliveryAddress") || field("address");
+        const products = field("products");
+        const paymentMethod = field("paymentMethod") || field("payment");
+
+        if (customerName && phone && deliveryAddress && products && paymentMethod) {
+          await this.orders.create({
+            businessId,
+            conversationId: request.sessionId,
+            customerName,
+            phone,
+            deliveryAddress,
+            products,
+            paymentMethod,
+          });
+        }
+      } catch (err) {
+        console.error("[ChatService] failed to parse ORDER_TAKEN payload:", err);
+      }
+    }
+    const cleanedAnswer = aiResponse.response
+      .replaceAll(HANDOFF_MARKER, "")
+      .replace(ORDER_MARKER_PATTERN, "")
+      .trim();
 
     let summaryTokens = 0;
 

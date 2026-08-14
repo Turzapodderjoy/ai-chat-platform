@@ -5,6 +5,7 @@ export interface AskRequest {
   isTraining?: boolean;
   channel?: string;
   externalUserId?: string | null;
+  languageHint?: string;
 }
 
 export interface AskSource {

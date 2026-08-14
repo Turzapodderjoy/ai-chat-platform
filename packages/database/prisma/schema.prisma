@@ -765,3 +765,29 @@ model Product {
   @@unique([businessId, sourceUrl])
   @@index([businessId])
 }
+
+// One row per order the AI takes directly inside a chat conversation
+// (any channel — website/WhatsApp/Messenger/Instagram all funnel through
+// the same ChatService). The AI collects all 5 fields conversationally,
+// then emits a structured [[ORDER_TAKEN:{...}]] marker (same pattern as
+// HANDOFF_MARKER — see chat-service.ts) that gets parsed out of its reply
+// and turned into this row; the customer never sees the marker itself.
+// Free-text fields throughout, not normalized (a real phone/address
+// validator is a different feature, not requested here) — this is a
+// human-readable order slip for a staff member to act on, not a
+// fulfillment system of record.
+model Order {
+  id              String   @id @default(cuid())
+  businessId      String
+  conversationId  String
+
+  customerName    String
+  phone           String
+  deliveryAddress String
+  products        String
+  paymentMethod   String
+
+  createdAt       DateTime @default(now())
+
+  @@index([businessId, createdAt])
+}

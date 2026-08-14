@@ -33,6 +33,7 @@ const ALL_PANELS: { id: string; label: string }[] = [
   { id: "tagdashboard", label: "Dashboard" },
   { id: "knowledge", label: "Knowledge Hub" },
   { id: "products", label: "Product Catalog" },
+  { id: "orders", label: "Orders" },
   { id: "allchats", label: "All Chats" },
   { id: "handoffs", label: "Handoffs" },
   { id: "storage", label: "Storage" },

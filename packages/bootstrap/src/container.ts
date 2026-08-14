@@ -1,6 +1,6 @@
 import { AIManager } from "@ai-chat-platform/ai-manager";
 import { PromptEngine } from "@ai-chat-platform/prompt-engine";
-import { ConversationService, MessageFeedbackService } from "@ai-chat-platform/conversation";
+import { ConversationService, MessageFeedbackService, OrderService } from "@ai-chat-platform/conversation";
 import type { Retriever } from "@ai-chat-platform/retriever";
 import type { VectorStoreManager } from "@ai-chat-platform/vector-store";
 import type { EmbeddingManager } from "@ai-chat-platform/embedding-manager";
@@ -43,7 +43,7 @@ import { TagController } from "@ai-chat-platform/api";
 import { ClientAuthController } from "@ai-chat-platform/api";
 import { WidgetConfigController } from "@ai-chat-platform/api";
 import { KnowledgeRefreshController } from "@ai-chat-platform/api";
-import { ClientHealthController, ProductController } from "@ai-chat-platform/api";
+import { ClientHealthController, ProductController, OrderController } from "@ai-chat-platform/api";
 import { RefreshScheduleService, MasterCsvService } from "@ai-chat-platform/knowledge-refresh";
 import { ApiRouter } from "@ai-chat-platform/api";
 import { ClientAuthService } from "@ai-chat-platform/client-auth";
@@ -145,6 +145,9 @@ export class Container {
         refreshSchedule
       );
 
+    const orders =
+      new OrderService();
+
     const chat =
       new ChatService(
         conversations,
@@ -156,7 +159,8 @@ export class Container {
         chatUsageLog,
         aiConfig,
         vectorStore,
-        masterCsv
+        masterCsv,
+        orders
       );
 
     const rag =
@@ -245,7 +249,8 @@ export class Container {
         new WidgetConfigController(widgetConfig),
         new KnowledgeRefreshController(refreshSchedule, masterCsv, tenants, crawlerService, vectorStore),
         new ClientHealthController(tenants, crawlerService, masterCsv, refreshSchedule, vectorStore, embeddings, conversations),
-        new ProductController(productService)
+        new ProductController(productService),
+        new OrderController(orders)
       );
   }
 

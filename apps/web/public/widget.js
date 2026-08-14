@@ -107,14 +107,47 @@
     document.body.appendChild(panel);
     document.body.appendChild(launcher);
 
+    // Not persisted (matches the fresh-session-per-load policy above) --
+    // a plain in-memory var for the life of this page load. Soft default
+    // only: the backend still switches to match whatever language the
+    // customer's own message is actually written in, the moment it
+    // differs (see chat-service.ts's languageHintInstruction).
+    var preferredLanguage = null;
+
     var opened = false;
     launcher.addEventListener("click", function () {
       opened = !opened;
       panel.style.display = opened ? "flex" : "none";
-      if (opened && log.children.length === 0 && greeting) {
-        addMessage("assistant", greeting);
+      if (opened && log.children.length === 0) {
+        if (greeting) addMessage("assistant", greeting);
+        addLanguagePicker();
       }
     });
+
+    function addLanguagePicker() {
+      var row = document.createElement("div");
+      row.setAttribute("style", "margin:4px 0 10px;display:flex;gap:8px;");
+
+      function makeButton(label, code) {
+        var btn = document.createElement("button");
+        btn.textContent = label;
+        btn.setAttribute("style", [
+          "padding:6px 14px", "border-radius:999px", "font-size:12px", "cursor:pointer",
+          "border:1px solid " + (dark ? "#30363d" : "#d0d7de"),
+          "background:" + (dark ? "#21262d" : "#f1f3f5"), "color:" + panelText,
+        ].join(";"));
+        btn.addEventListener("click", function () {
+          preferredLanguage = code;
+          row.remove();
+        });
+        return btn;
+      }
+
+      row.appendChild(makeButton("English", "english"));
+      row.appendChild(makeButton("বাংলা", "bangla"));
+      log.appendChild(row);
+      log.scrollTop = log.scrollHeight;
+    }
 
     function addMessage(role, text) {
       var row = document.createElement("div");
@@ -148,7 +181,7 @@
       fetch(origin + "/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: sessionId, message: text, businessId: businessId }),
+        body: JSON.stringify({ sessionId: sessionId, message: text, businessId: businessId, languageHint: preferredLanguage }),
       })
         .then(function (res) { return res.json(); })
         .then(function (data) {

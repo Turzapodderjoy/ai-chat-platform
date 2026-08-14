@@ -9,13 +9,15 @@ export class ChatController {
     sessionId: string,
     message: string,
     businessId?: string,
-    isTraining?: boolean
+    isTraining?: boolean,
+    languageHint?: string
   ) {
     return this.rag.ask({
       sessionId,
       message,
       businessId,
       isTraining,
+      languageHint,
     });
   }
 }

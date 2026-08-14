@@ -27,11 +27,12 @@ export async function POST(req: NextRequest) {
 
   const sessionId = typeof body.sessionId === "string" ? body.sessionId : "dev-session";
   const businessId = typeof body.businessId === "string" ? body.businessId : undefined;
+  const languageHint = typeof body.languageHint === "string" ? body.languageHint : undefined;
 
   try {
     const app = await getApp();
     const answer = await withTimeout(
-      app.container.router.chat.post(sessionId, body.message, businessId),
+      app.container.router.chat.post(sessionId, body.message, businessId, undefined, languageHint),
       55_000
     );
     return NextResponse.json(answer, { headers: CORS_HEADERS });

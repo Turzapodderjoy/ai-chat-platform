@@ -88,4 +88,17 @@ export class ResponseCache {
       totalHits: this.entries.reduce((sum, e) => sum + e.hits, 0),
     };
   }
+
+  /** A cached answer reflects whatever the system prompt said when it was
+   * generated — an operator fixing the prompt to correct a wrong answer
+   * (e.g. a category-substitution mistake) would otherwise keep serving
+   * that exact wrong cached answer indefinitely, since nothing else ever
+   * invalidates an entry. Called from AiConfigService on every save. */
+  clearForBusiness(businessId: string): void {
+    for (let i = this.entries.length - 1; i >= 0; i--) {
+      if (this.entries[i]!.businessId === businessId) {
+        this.entries.splice(i, 1);
+      }
+    }
+  }
 }
