@@ -60,7 +60,7 @@ export function StatCard({
       >
         {label}
       </div>
-      <div style={{ fontSize: 30, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.02em" }}>{value}</div>
+      <div style={{ fontSize: 30, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>{value}</div>
       {hint && <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 8 }}>{hint}</div>}
     </div>
   );
