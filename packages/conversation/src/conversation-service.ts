@@ -159,6 +159,36 @@ export class ConversationService {
     return rows.map(toRecord);
   }
 
+  /** Best-known customer name for a batch of conversations — an
+   * in-progress order draft (pendingOrder) if one's being collected right
+   * now, else the name from that conversation's most recent finalized
+   * Order (pendingOrder gets cleared once the order's created, so this is
+   * the only place the name survives after that point). One query for the
+   * whole batch rather than N+1. */
+  async namesForConversations(
+    conversationIds: string[],
+    pendingOrders: Map<string, Record<string, string> | null>
+  ): Promise<Map<string, string | null>> {
+    const names = new Map<string, string | null>();
+    if (conversationIds.length === 0) return names;
+
+    const orders = await prisma.order.findMany({
+      where: { conversationId: { in: conversationIds } },
+      orderBy: { createdAt: "desc" },
+      select: { conversationId: true, customerName: true },
+    });
+
+    for (const id of conversationIds) {
+      const pendingName = pendingOrders.get(id)?.customerName;
+      names.set(
+        id,
+        pendingName || orders.find((o) => o.conversationId === id)?.customerName || null
+      );
+    }
+
+    return names;
+  }
+
   /** Real conversation count for a business — excludes Training Arena
    * sessions, same reasoning as listAllConversations' default. */
   async countConversations(businessId: string): Promise<number> {
@@ -234,6 +264,8 @@ export class ConversationService {
       id: string;
       businessId: string;
       channel: string;
+      externalUserId: string | null;
+      customerName: string | null;
       handoffStatus: HandoffStatus;
       updatedAt: Date;
       messageCount: number;
@@ -262,11 +294,18 @@ export class ConversationService {
     const hasMore = rows.length > limit;
     const page = hasMore ? rows.slice(0, limit) : rows;
 
+    const pendingOrders = new Map(
+      page.map((row) => [row.id, (row.pendingOrder as Record<string, string> | null) ?? null])
+    );
+    const names = await this.namesForConversations(page.map((row) => row.id), pendingOrders);
+
     return {
       conversations: page.map((row) => ({
         id: row.id,
         businessId: row.businessId,
         channel: row.channel,
+        externalUserId: row.externalUserId,
+        customerName: names.get(row.id) ?? null,
         handoffStatus: row.handoffStatus.toLowerCase() as HandoffStatus,
         updatedAt: row.updatedAt,
         messageCount: row._count.messages,

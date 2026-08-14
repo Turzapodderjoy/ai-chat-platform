@@ -12,6 +12,8 @@ interface HandoffSummary {
   summary: string | null;
   requestedAt: string | null;
   lastMessage: string;
+  customerName: string | null;
+  externalUserId: string | null;
 }
 
 interface HandoffMessage {
@@ -102,9 +104,10 @@ export function HandoffsPanel({ businessId, active = true }: { businessId?: stri
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <code style={{ fontSize: 11 }}>{h.sessionId}</code>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{h.customerName || h.externalUserId || "Customer"}</span>
                 <span style={badgeStyle(h.status === "pending" ? "warn" : "ok")}>{h.status}</span>
               </div>
+              <code style={{ fontSize: 11, color: "var(--text-faint)" }}>{h.sessionId}</code>
               <p style={{ fontSize: 13, margin: "6px 0" }}>{h.summary}</p>
               <p style={{ fontSize: 12, color: "var(--text-faint)", margin: 0 }}>Last: {h.lastMessage}</p>
             </div>

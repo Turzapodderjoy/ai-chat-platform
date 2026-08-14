@@ -40,6 +40,8 @@ interface ConversationSummary {
   id: string;
   businessId: string;
   channel: string;
+  externalUserId: string | null;
+  customerName: string | null;
   handoffStatus: "bot" | "pending" | "human";
   updatedAt: string;
   messageCount: number;
@@ -57,6 +59,10 @@ const CHANNEL_LABEL: Record<string, { color: string; label: string }> = {
  * website white (per the client's own spec), Instagram its brand pink
  * as the one channel that wasn't specified. A thin border keeps the
  * white website dot visible against the dark dashboard background. */
+function displayName(c: { customerName: string | null; externalUserId: string | null }): string {
+  return c.customerName || c.externalUserId || "Customer";
+}
+
 function ChannelDot({ channel }: { channel: string }) {
   const color = CHANNEL_LABEL[channel]?.color ?? "#8b96a8";
   return (
@@ -354,6 +360,7 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                   </span>
                   <span style={{ color: "var(--text-muted)" }}>{STATUS_LABEL[c.handoffStatus]}</span>
                 </div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginTop: 3 }}>{displayName(c)}</div>
                 <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>{new Date(c.updatedAt).toLocaleString()}</div>
                 {c.lastMessage && (
                   <div style={{ fontSize: 12, opacity: 0.6, marginTop: 2 }}>
@@ -391,6 +398,8 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, fontSize: 13 }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <ChannelDot channel={selected.channel} />
+                  <strong>{displayName(selected)}</strong>
+                  {" · "}
                   {CHANNEL_LABEL[selected.channel]?.label ?? selected.channel}
                   {" · "}
                   {STATUS_LABEL[selected.handoffStatus]}

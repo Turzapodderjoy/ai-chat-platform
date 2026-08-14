@@ -9,6 +9,8 @@ export interface HandoffSummary {
   summary: string | null;
   requestedAt: string | null;
   lastMessage: string;
+  customerName: string | null;
+  externalUserId: string | null;
 }
 
 export class HandoffController {
@@ -19,6 +21,12 @@ export class HandoffController {
 
   async list(businessId?: string): Promise<HandoffSummary[]> {
     const conversations = await this.conversations.listHandoffs(businessId);
+
+    const pendingOrders = new Map(conversations.map((c) => [c.id, c.pendingOrder]));
+    const names = await this.conversations.namesForConversations(
+      conversations.map((c) => c.id),
+      pendingOrders
+    );
 
     return Promise.all(
       conversations.map(async (conversation) => {
@@ -31,6 +39,8 @@ export class HandoffController {
           summary: conversation.handoffSummary,
           requestedAt: conversation.handoffRequestedAt?.toISOString() ?? null,
           lastMessage: history.at(-1)?.content ?? "",
+          customerName: names.get(conversation.id) ?? null,
+          externalUserId: conversation.externalUserId,
         };
       })
     );
