@@ -84,7 +84,48 @@ const HANDOFF_INTENT_FALLBACK =
 // deliberately doesn't try to validate JSON shape here — a malformed
 // payload just fails the JSON.parse below and the marker is stripped
 // with no order created, rather than crashing the whole reply.
-const ORDER_MARKER_PATTERN = /\[\[ORDER_TAKEN:([^\]]*)\]\]/;
+// `\]{1,2}` not `\]\]` — confirmed live the model sometimes emits only a
+// single closing bracket ("...}]" instead of "...}]]"), and a strict
+// double-bracket match then fails to strip OR parse the marker at all,
+// leaking raw [[ORDER_TAKEN:{...}]] syntax straight into what the
+// customer sees. Tolerating 1-2 closing brackets fixes both problems
+// with the same change.
+const ORDER_MARKER_PATTERN = /\[\[ORDER_TAKEN:([^\]]*)\]{1,2}/;
+
+// Emitted when the AI has all 5 fields and is asking the customer to
+// confirm — stored on Conversation.pendingOrder (never in message
+// history, see its own schema comment) so a plain "yes"/"thik ache" next
+// turn can finalize the order deterministically in code (see
+// AFFIRMATIVE_PATTERN below) instead of asking the AI to re-derive
+// everything from the transcript again, which a real conversation showed
+// can fail when that turn's own retrieval pulls in unrelated context.
+// Same `\]{1,2}` tolerance as ORDER_MARKER_PATTERN above, same reason.
+const ORDER_PENDING_PATTERN = /\[\[ORDER_PENDING:([^\]]*)\]{1,2}/;
+
+// Deliberately narrow and multilingual-anchored, not a general sentiment
+// classifier — only fires the deterministic finalize-order shortcut for
+// an unambiguous, short confirmation. Anything longer or more specific
+// (a correction, a question) falls through to the normal AI path so the
+// customer can still amend a detail before confirming. Token-based, not
+// one big regex — a real customer wrote "Hae, confirm" (two affirmative
+// words with a comma), which a single anchored alternation rejects
+// outright; splitting on whitespace/punctuation and requiring every
+// token to be a known affirmative word covers that without turning into
+// a general sentiment classifier.
+const AFFIRMATIVE_WORDS = new Set([
+  "yes", "yep", "yeah", "yup", "ok", "okay", "correct", "confirm", "confirmed",
+  "right", "thik", "ache", "হ্যাঁ", "ঠিক", "আছে", "hae", "ji", "jee",
+]);
+
+function isAffirmative(message: string): boolean {
+  const tokens = message
+    .trim()
+    .toLowerCase()
+    .split(/[\s,!.]+/)
+    .filter(Boolean);
+
+  return tokens.length > 0 && tokens.length <= 4 && tokens.every((t) => AFFIRMATIVE_WORDS.has(t));
+}
 
 // The handoff summary is a short internal note for a human agent, not a
 // customer-facing answer — a smaller cap is appropriate and keeps this
@@ -102,6 +143,10 @@ const ALREADY_WAITING_MESSAGE_EN =
 
 const ALREADY_WAITING_MESSAGE_BN =
   "আপনি একজন মানব এজেন্টের সাথে সংযুক্ত আছেন — তিনি শীঘ্রই এখানে আপনার বার্তা দেখে উত্তর দেবেন।";
+
+const ORDER_CONFIRMED_MESSAGE_EN = "Your order is confirmed and will be delivered soon. Thank you!";
+const ORDER_CONFIRMED_MESSAGE_BN = "আপনার অর্ডারটি নিশ্চিত করা হয়েছে এবং শীঘ্রই ডেলিভারি করা হবে। ধন্যবাদ!";
+const ORDER_CONFIRMED_MESSAGE_BANGLISH = "Apnar order confirm kora hoyeche, shigroi deliver kore deya hobe. Dhonnobad!";
 
 const HANDOFF_MESSAGE_BANGLISH =
   "Dukkhito, amader knowledge base e ei bishoye kono tothyo nei. Ami apnake ekjon team member-er sathe connect kore dicchi — uni ei conversation ja jekhane sesh hoyeche sekhan theke shuru korben.";
@@ -388,6 +433,50 @@ export class ChatService {
       "user",
       request.message
     );
+
+    // A pending order (all 5 fields collected, waiting on the customer's
+    // confirmation — see ORDER_PENDING_PATTERN's comment) finalizes right
+    // here in code the moment the customer sends a plain "yes"/"thik
+    // ache", skipping the AI/retrieval pipeline entirely for this turn.
+    // Anything else (a correction, a question) falls through to the
+    // normal path below, leaving pendingOrder untouched in case a later
+    // message does confirm it.
+    if (conversation.pendingOrder && isAffirmative(request.message)) {
+      const pending = conversation.pendingOrder;
+      await this.orders.create({
+        businessId,
+        conversationId: request.sessionId,
+        customerName: pending.customerName ?? "",
+        phone: pending.phone ?? "",
+        deliveryAddress: pending.deliveryAddress ?? "",
+        products: pending.products ?? "",
+        paymentMethod: pending.paymentMethod ?? "",
+      });
+      await this.conversations.setPendingOrder(request.sessionId, null);
+
+      const orderLang = cannedMessageLanguage(config.languageMode, request.message);
+      const orderMessage =
+        orderLang === "bangla"
+          ? ORDER_CONFIRMED_MESSAGE_BN
+          : orderLang === "banglish"
+            ? ORDER_CONFIRMED_MESSAGE_BANGLISH
+            : ORDER_CONFIRMED_MESSAGE_EN;
+
+      const savedMessage = await this.conversations.addMessage(
+        request.sessionId,
+        "assistant",
+        orderMessage,
+        "order"
+      );
+
+      return {
+        answer: orderMessage,
+        provider: "order",
+        tokens: 0,
+        confidence: 1,
+        messageId: savedMessage.id,
+      };
+    }
 
     // Already being handled by a human — don't let the bot jump back in.
     // (Doesn't record this as a message: the customer's real messages
@@ -756,15 +845,60 @@ export class ChatService {
             products,
             paymentMethod,
           });
+          // Clears whatever ORDER_PENDING this same-message finalize may
+          // have superseded — otherwise a stale pendingOrder from an
+          // earlier turn could get finalized a second time by an
+          // unrelated later "yes".
+          await this.conversations.setPendingOrder(request.sessionId, null);
         }
       } catch (err) {
         console.error("[ChatService] failed to parse ORDER_TAKEN payload:", err);
       }
     }
-    const cleanedAnswer = aiResponse.response
+
+    // The AI is asking the customer to confirm all 5 collected fields —
+    // stash them so a plain "yes" next turn finalizes deterministically
+    // (see the pendingOrder check near the top of this method) instead of
+    // relying on the AI to correctly re-derive everything again.
+    const orderPendingMatch = aiResponse.response.match(ORDER_PENDING_PATTERN);
+    if (orderPendingMatch) {
+      try {
+        const parsed = JSON.parse(orderPendingMatch[1]!) as Record<string, unknown>;
+        const field = (key: string) => (typeof parsed[key] === "string" ? (parsed[key] as string).trim() : "");
+        const pending = {
+          customerName: field("customerName") || field("name"),
+          phone: field("phone"),
+          deliveryAddress: field("deliveryAddress") || field("address"),
+          products: field("products"),
+          paymentMethod: field("paymentMethod") || field("payment"),
+        };
+
+        if (pending.customerName && pending.phone && pending.deliveryAddress && pending.products && pending.paymentMethod) {
+          await this.conversations.setPendingOrder(request.sessionId, pending);
+        }
+      } catch (err) {
+        console.error("[ChatService] failed to parse ORDER_PENDING payload:", err);
+      }
+    }
+
+    const strippedAnswer = aiResponse.response
       .replaceAll(HANDOFF_MARKER, "")
       .replace(ORDER_MARKER_PATTERN, "")
+      .replace(ORDER_PENDING_PATTERN, "")
       .trim();
+
+    // Confirmed live: when an order finalizes via the AI's own same-
+    // message ORDER_TAKEN path, its whole reply can end up being JUST the
+    // marker (nothing else) -- stripping it then leaves the customer
+    // staring at a blank bubble even though the order really was created.
+    // A plain confirmation reads fine here regardless of which marker
+    // emptied the message out.
+    let cleanedAnswer = strippedAnswer;
+    if (!cleanedAnswer && (orderMatch || orderPendingMatch)) {
+      const lang = cannedMessageLanguage(config.languageMode, request.message);
+      cleanedAnswer =
+        lang === "bangla" ? ORDER_CONFIRMED_MESSAGE_BN : lang === "banglish" ? ORDER_CONFIRMED_MESSAGE_BANGLISH : ORDER_CONFIRMED_MESSAGE_EN;
+    }
 
     let summaryTokens = 0;
 

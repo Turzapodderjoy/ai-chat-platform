@@ -27,4 +27,5 @@ export interface ConversationRecord {
   handoffSummary: string | null;
   handoffRequestedAt: Date | null;
   isTraining: boolean;
+  pendingOrder: Record<string, string> | null;
 }

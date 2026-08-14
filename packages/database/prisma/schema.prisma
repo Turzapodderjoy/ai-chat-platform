@@ -101,6 +101,18 @@ model Conversation {
   handoffSummary     String?
   handoffRequestedAt DateTime?
 
+  // The 5 order fields once the AI has collected all of them and is
+  // waiting on the customer's confirmation (see ChatService's
+  // ORDER_PENDING marker) — stored here, not in message history, so a
+  // bare "yes"/"thik ache" reply can finalize the order deterministically
+  // in code without asking the AI to re-derive everything from a chat
+  // transcript again (that re-derivation was the real bug: a generic
+  // confirmation message's own retrieval pass could pull in unrelated
+  // knowledge-base chunks and derail the model into losing the order
+  // context entirely, confirmed live). Cleared once the order is created
+  // or once the customer says something that isn't a plain confirmation.
+  pendingOrder       Json?
+
   // Training Arena sessions (dashboard tab where an admin deliberately
   // provokes/corrects the AI, e.g. triggers a handoff then argues with
   // it) — set once at creation, never changes. Two effects: ChatService

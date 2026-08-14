@@ -18,6 +18,7 @@ type ConversationRow = {
   handoffSummary: string | null;
   handoffRequestedAt: Date | null;
   isTraining: boolean;
+  pendingOrder: unknown;
 };
 
 function toRecord(row: ConversationRow): ConversationRecord {
@@ -32,6 +33,7 @@ function toRecord(row: ConversationRow): ConversationRecord {
     handoffSummary: row.handoffSummary,
     handoffRequestedAt: row.handoffRequestedAt,
     isTraining: row.isTraining,
+    pendingOrder: (row.pendingOrder as Record<string, string> | null) ?? null,
   };
 }
 
@@ -127,6 +129,17 @@ export class ConversationService {
         handoffSummary: summary,
         handoffRequestedAt: new Date(),
       },
+    });
+  }
+
+  /** See Conversation.pendingOrder's own schema comment — the 5 order
+   * fields once collected, waiting on the customer's plain confirmation.
+   * null clears it (order finalized, or the customer said something that
+   * wasn't a confirmation). */
+  async setPendingOrder(sessionId: string, order: Record<string, string> | null): Promise<void> {
+    await prisma.conversation.update({
+      where: { id: sessionId },
+      data: { pendingOrder: order ?? Prisma.JsonNull },
     });
   }
 
