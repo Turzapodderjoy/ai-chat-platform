@@ -88,7 +88,7 @@ type SortOption = "newest" | "oldest";
  * Reuses the existing /api/chat/messages (transcript) and
  * /api/admin/handoffs/reply (reply — now channel-aware, see
  * HandoffController.reply) endpoints rather than inventing new ones. */
-export function AllChatsPanel({ businessId }: { businessId?: string }) {
+export function AllChatsPanel({ businessId, active = true }: { businessId?: string; active?: boolean }) {
   const [conversations, setConversations] = useState<ConversationSummary[] | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -216,9 +216,10 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
   // agent scrolled further back doesn't need that page force-refreshed
   // out from under them.
   useEffect(() => {
+    if (!active) return;
     const interval = setInterval(refresh, 5000);
     return () => clearInterval(interval);
-  }, [businessId, channelFilter, handoffOnly, sort]);
+  }, [businessId, channelFilter, handoffOnly, sort, active]);
 
   async function loadMore() {
     if (!nextCursor) return;
@@ -257,7 +258,7 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
   // conversation. Also re-marks it seen each poll, so a chat left open
   // never shows as unread in the list next to it.
   useEffect(() => {
-    if (!selectedId) return;
+    if (!active || !selectedId) return;
 
     const interval = setInterval(() => {
       fetchMessages(selectedId);
@@ -267,7 +268,7 @@ export function AllChatsPanel({ businessId }: { businessId?: string }) {
 
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId]);
+  }, [selectedId, active]);
 
   async function sendReply() {
     if (!selectedId || !reply.trim()) return;

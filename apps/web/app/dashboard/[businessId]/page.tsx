@@ -157,7 +157,7 @@ export default function ClientDashboardPage() {
         <ClientTagDashboardPanel businessId={businessId} />
       </div>
       <div style={{ display: tab === "knowledge" ? "block" : "none" }}>
-        <KnowledgeHubPanel businessId={businessId} />
+        <KnowledgeHubPanel businessId={businessId} active={tab === "knowledge"} />
       </div>
       <div style={{ display: tab === "products" ? "block" : "none" }}>
         <ProductCatalogPanel businessId={businessId} />
@@ -166,10 +166,10 @@ export default function ClientDashboardPage() {
         <OrdersPanel businessId={businessId} />
       </div>
       <div style={{ display: tab === "allchats" ? "block" : "none" }}>
-        <AllChatsPanel businessId={businessId} />
+        <AllChatsPanel businessId={businessId} active={tab === "allchats"} />
       </div>
       <div style={{ display: tab === "handoffs" ? "block" : "none" }}>
-        <HandoffsPanel businessId={businessId} />
+        <HandoffsPanel businessId={businessId} active={tab === "handoffs"} />
       </div>
       <div style={{ display: tab === "storage" ? "block" : "none" }}>
         <StoragePanel businessId={businessId} />

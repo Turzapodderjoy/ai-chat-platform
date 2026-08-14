@@ -65,7 +65,7 @@ function coverageGapReason(c: CoverageEntry, pct: number): string | null {
 /** Reused as-is by both the mother dashboard (no businessId = everything)
  * and every per-client dashboard (/dashboard/[businessId]) — one component,
  * so any change here applies everywhere at once. */
-export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
+export function KnowledgeHubPanel({ businessId, active = true }: { businessId?: string; active?: boolean }) {
   const [documents, setDocuments] = useState<KnowledgeDocument[] | null>(null);
   const [coverage, setCoverage] = useState<CoverageEntry[] | null>(null);
   const [targets, setTargets] = useState<CrawlTarget[] | null>(null);
@@ -210,15 +210,18 @@ export function KnowledgeHubPanel({ businessId }: { businessId?: string }) {
   }
 
   useEffect(() => {
+    if (!active) return;
     refreshDocuments();
     refreshTargets();
     refreshKnowledgeRefresh();
 
     // Poll every 2s while anything is crawling so the progress bar moves;
-    // the interval is cheap to leave running since it's just one query.
+    // gated on `active` since this panel stays mounted (hidden) on other
+    // dashboard tabs — a 2s interval left running unconditionally hammers
+    // the DB for a tab nobody's looking at.
     const interval = setInterval(refreshTargets, 2000);
     return () => clearInterval(interval);
-  }, [businessId]);
+  }, [businessId, active]);
 
   async function addSite() {
     if (!url.trim()) return;

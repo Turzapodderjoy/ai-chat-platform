@@ -199,13 +199,13 @@ export default function DashboardPage() {
         <ClientAccessPanel />
       </div>
       <div style={{ display: tab === "knowledge" ? "block" : "none" }}>
-        <KnowledgeHubPanel />
+        <KnowledgeHubPanel active={tab === "knowledge"} />
       </div>
       <div style={{ display: tab === "allchats" ? "block" : "none" }}>
-        <AllChatsPanel />
+        <AllChatsPanel active={tab === "allchats"} />
       </div>
       <div style={{ display: tab === "handoffs" ? "block" : "none" }}>
-        <HandoffsPanel />
+        <HandoffsPanel active={tab === "handoffs"} />
       </div>
       <div style={{ display: tab === "tags" ? "block" : "none" }}>
         <TagsPanel />

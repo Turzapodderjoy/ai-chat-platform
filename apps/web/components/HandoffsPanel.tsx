@@ -22,7 +22,7 @@ interface HandoffMessage {
 
 /** Same component for the mother dashboard (no businessId = every client's
  * handoffs) and each per-client dashboard (scoped). One place to change. */
-export function HandoffsPanel({ businessId }: { businessId?: string }) {
+export function HandoffsPanel({ businessId, active = true }: { businessId?: string; active?: boolean }) {
   const [handoffs, setHandoffs] = useState<HandoffSummary[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [messages, setMessages] = useState<HandoffMessage[] | null>(null);
@@ -44,20 +44,21 @@ export function HandoffsPanel({ businessId }: { businessId?: string }) {
   }
 
   useEffect(() => {
+    if (!active) return;
     refreshList();
     const interval = setInterval(refreshList, 5000);
     return () => clearInterval(interval);
-  }, [businessId]);
+  }, [businessId, active]);
 
   // The list above already polls, but the OPEN transcript didn't — a
   // customer typing while an agent has their chat open never showed up
   // until the agent closed and reopened it.
   useEffect(() => {
-    if (!openId) return;
+    if (!active || !openId) return;
     const interval = setInterval(() => openChat(openId), 4000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openId]);
+  }, [openId, active]);
 
   async function sendReply() {
     if (!openId || !reply.trim()) return;
