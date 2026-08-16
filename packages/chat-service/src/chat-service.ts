@@ -146,14 +146,34 @@ function isOrderComplete(fields: Record<string, string> | null): fields is Order
   return !!fields && ORDER_FIELD_KEYS.every((k) => !!fields[k]);
 }
 
+// Sums every ৳ amount found in the products text (code-computed, not
+// left to the AI's own arithmetic — same "don't trust the model for
+// correctness-critical state" reasoning as the rest of this order
+// flow). Requires the system prompt to actually put a price on each
+// item in the products field (see TAKING AN ORDER's own rule for
+// this) — returns null rather than a misleading "Total: ৳0" when no
+// prices are present in the text at all.
+function computeOrderTotal(productsText: string): number | null {
+  const matches = [...productsText.matchAll(/৳\s?([\d,]+)/g)];
+  if (matches.length === 0) return null;
+  return matches.reduce((sum, m) => sum + Number(m[1]!.replace(/,/g, "")), 0);
+}
+
 function orderSummaryMessage(fields: OrderFields, lang: "bangla" | "banglish" | "english"): string {
+  const total = computeOrderTotal(fields.products);
+  const totalLine = {
+    bangla: total !== null ? `\nসর্বমোট: ৳${total.toLocaleString("en-US")}` : "",
+    banglish: total !== null ? `\nMot: ৳${total.toLocaleString("en-US")}` : "",
+    english: total !== null ? `\nTotal: ৳${total.toLocaleString("en-US")}` : "",
+  };
+
   if (lang === "bangla") {
-    return `আপনার অর্ডার নিশ্চিত করতে বিস্তারিত দেখুন:\n\nনাম: ${fields.customerName}\nফোন: ${fields.phone}\nঠিকানা: ${fields.deliveryAddress}\nপণ্য: ${fields.products}\nপেমেন্ট: ${fields.paymentMethod}\n\nসব তথ্য ঠিক থাকলে "confirm" লিখুন।`;
+    return `আপনার অর্ডার নিশ্চিত করতে বিস্তারিত দেখুন:\n\nনাম: ${fields.customerName}\nফোন: ${fields.phone}\nঠিকানা: ${fields.deliveryAddress}\nপণ্য: ${fields.products}${totalLine.bangla}\nপেমেন্ট: ${fields.paymentMethod}\n\nসব তথ্য ঠিক থাকলে "confirm" লিখুন।`;
   }
   if (lang === "banglish") {
-    return `Order confirm korar age details dekhe nin:\n\nNaam: ${fields.customerName}\nPhone: ${fields.phone}\nAddress: ${fields.deliveryAddress}\nProduct: ${fields.products}\nPayment: ${fields.paymentMethod}\n\nShob thik thakle "confirm" likhun.`;
+    return `Order confirm korar age details dekhe nin:\n\nNaam: ${fields.customerName}\nPhone: ${fields.phone}\nAddress: ${fields.deliveryAddress}\nProduct: ${fields.products}${totalLine.banglish}\nPayment: ${fields.paymentMethod}\n\nShob thik thakle "confirm" likhun.`;
   }
-  return `Please confirm your order details:\n\nName: ${fields.customerName}\nPhone: ${fields.phone}\nAddress: ${fields.deliveryAddress}\nProduct: ${fields.products}\nPayment: ${fields.paymentMethod}\n\nReply "confirm" if everything is correct.`;
+  return `Please confirm your order details:\n\nName: ${fields.customerName}\nPhone: ${fields.phone}\nAddress: ${fields.deliveryAddress}\nProduct: ${fields.products}${totalLine.english}\nPayment: ${fields.paymentMethod}\n\nReply "confirm" if everything is correct.`;
 }
 
 // Deliberately narrow and multilingual-anchored, not a general sentiment
