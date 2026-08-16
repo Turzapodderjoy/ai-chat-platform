@@ -144,6 +144,85 @@ interface Client {
   createdAt: string;
 }
 
+/** One provider = one card, not a spreadsheet row — a raw <table> for a
+ * handful of entities (5-8 providers) reads as a database browser; a
+ * small grid of cards reads as a product. Same information, organized
+ * as a scannable identity (initial badge + name) with status and
+ * actions grouped underneath, instead of six flat columns. */
+function ProviderCard({
+  name,
+  enabled,
+  healthy,
+  hasUsableKey,
+  maskedKey,
+  onToggle,
+  toggling,
+  onRemove,
+  removing,
+}: {
+  name: string;
+  enabled: boolean;
+  healthy: boolean;
+  hasUsableKey: boolean;
+  maskedKey: string | null;
+  onToggle: () => void;
+  toggling: boolean;
+  onRemove: () => void;
+  removing: boolean;
+}) {
+  const initial = name.charAt(0).toUpperCase();
+  return (
+    <div
+      style={{
+        background: "var(--md-surface-1, var(--bg-elevated))",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--md-shape-lg, var(--radius))",
+        padding: 16,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <div
+          style={{
+            width: 34,
+            height: 34,
+            flexShrink: 0,
+            borderRadius: 9,
+            background: enabled ? "var(--accent-soft)" : "var(--surface)",
+            color: enabled ? "var(--accent-strong)" : "var(--text-faint)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontWeight: 700,
+            fontSize: 14,
+          }}
+        >
+          {initial}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 600, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
+          <code style={{ fontSize: 11, color: "var(--text-faint)", background: "none", border: "none", padding: 0 }}>
+            {maskedKey ?? "no key"}
+          </code>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+        <StatusBadge tone={enabled ? "ok" : "neutral"}>{enabled ? "On" : "Off"}</StatusBadge>
+        <StatusBadge tone={healthy ? "ok" : "error"}>{healthy ? "Healthy" : "Unhealthy"}</StatusBadge>
+      </div>
+
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={onToggle} disabled={toggling} style={{ flex: 1, fontSize: 12, padding: "6px 10px" }}>
+          {toggling ? "…" : enabled ? "Turn off" : "Turn on"}
+        </button>
+        <button onClick={onRemove} disabled={removing || !hasUsableKey} style={{ flex: 1, fontSize: 12, padding: "6px 10px" }}>
+          {removing ? "…" : "Remove key"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardClient() {
   const [tab, setTab] = useState<Tab>("overview");
 
@@ -509,53 +588,23 @@ function AiProvidersPanel() {
 
       {data && (
         <>
-          <div className="table-scroll">
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={cellStyle}>Provider</th>
-                <th style={cellStyle}>Enabled</th>
-                <th style={cellStyle}>Healthy</th>
-                <th style={cellStyle}>Has API key</th>
-                <th style={cellStyle}>API key</th>
-                <th style={cellStyle}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.status.map((p) => (
-                <tr key={p.name}>
-                  <td style={cellStyle}>{customLabels[p.name] ?? p.name}</td>
-                  <td style={cellStyle}><StatusBadge tone={p.enabled ? "ok" : "neutral"}>{p.enabled ? "On" : "Off"}</StatusBadge></td>
-                  <td style={cellStyle}><StatusBadge tone={p.healthy ? "ok" : "error"}>{p.healthy ? "Healthy" : "Unhealthy"}</StatusBadge></td>
-                  <td style={cellStyle}><StatusBadge tone={p.hasUsableKey ? "ok" : "neutral"}>{p.hasUsableKey ? "Yes" : "No"}</StatusBadge></td>
-                  <td style={cellStyle}>
-                    <code style={{ fontSize: 12 }}>{p.maskedKey ?? "—"}</code>
-                  </td>
-                  <td style={cellStyle}>
-                    <button
-                      onClick={() => toggle(p.name, !p.enabled)}
-                      disabled={toggling === p.name}
-                    >
-                      {toggling === p.name ? "…" : p.enabled ? "Turn off" : "Turn on"}
-                    </button>{" "}
-                    <button
-                      onClick={() => remove(p.name)}
-                      disabled={removing === p.name || !p.hasUsableKey}
-                    >
-                      {removing === p.name ? "…" : "Remove key"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {data.status.length === 0 && (
-                <tr>
-                  <td style={cellStyle} colSpan={6}>
-                    No providers active yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          {data.status.length === 0 && <p style={subtleTextStyle}>No providers active yet.</p>}
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 12 }}>
+            {data.status.map((p) => (
+              <ProviderCard
+                key={p.name}
+                name={customLabels[p.name] ?? p.name}
+                enabled={p.enabled}
+                healthy={p.healthy}
+                hasUsableKey={p.hasUsableKey}
+                maskedKey={p.maskedKey}
+                onToggle={() => toggle(p.name, !p.enabled)}
+                toggling={toggling === p.name}
+                onRemove={() => remove(p.name)}
+                removing={removing === p.name}
+              />
+            ))}
           </div>
 
           <h3 style={{ marginTop: 24 }}>Add a custom provider</h3>
@@ -816,53 +865,23 @@ function EmbeddingProvidersPanel() {
 
       {data && (
         <>
-          <div className="table-scroll">
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={cellStyle}>Provider</th>
-                <th style={cellStyle}>Enabled</th>
-                <th style={cellStyle}>Healthy</th>
-                <th style={cellStyle}>Has API key</th>
-                <th style={cellStyle}>API key</th>
-                <th style={cellStyle}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.status.map((p) => (
-                <tr key={p.name}>
-                  <td style={cellStyle}>{p.name}</td>
-                  <td style={cellStyle}><StatusBadge tone={p.enabled ? "ok" : "neutral"}>{p.enabled ? "On" : "Off"}</StatusBadge></td>
-                  <td style={cellStyle}><StatusBadge tone={p.healthy ? "ok" : "error"}>{p.healthy ? "Healthy" : "Unhealthy"}</StatusBadge></td>
-                  <td style={cellStyle}><StatusBadge tone={p.hasUsableKey ? "ok" : "neutral"}>{p.hasUsableKey ? "Yes" : "No"}</StatusBadge></td>
-                  <td style={cellStyle}>
-                    <code style={{ fontSize: 12 }}>{p.maskedKey ?? "—"}</code>
-                  </td>
-                  <td style={cellStyle}>
-                    <button
-                      onClick={() => toggle(p.name, !p.enabled)}
-                      disabled={toggling === p.name}
-                    >
-                      {toggling === p.name ? "…" : p.enabled ? "Turn off" : "Turn on"}
-                    </button>{" "}
-                    <button
-                      onClick={() => remove(p.name)}
-                      disabled={removing === p.name || !p.hasUsableKey}
-                    >
-                      {removing === p.name ? "…" : "Remove key"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {data.status.length === 0 && (
-                <tr>
-                  <td style={cellStyle} colSpan={6}>
-                    No embedding providers active yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          {data.status.length === 0 && <p style={subtleTextStyle}>No embedding providers active yet.</p>}
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 12 }}>
+            {data.status.map((p) => (
+              <ProviderCard
+                key={p.name}
+                name={p.name}
+                enabled={p.enabled}
+                healthy={p.healthy}
+                hasUsableKey={p.hasUsableKey}
+                maskedKey={p.maskedKey}
+                onToggle={() => toggle(p.name, !p.enabled)}
+                toggling={toggling === p.name}
+                onRemove={() => remove(p.name)}
+                removing={removing === p.name}
+              />
+            ))}
           </div>
 
           <h3 style={{ marginTop: 24 }}>Add / activate a provider</h3>

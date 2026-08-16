@@ -2,8 +2,19 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { cardStyle, cellStyle, subtleTextStyle } from "./dashboard-styles";
+import type { CSSProperties } from "react";
+
+import { cardStyle, subtleTextStyle } from "./dashboard-styles";
 import { StatusBadge } from "./StatusBadge";
+
+const fieldLabelStyle: CSSProperties = {
+  fontSize: 11,
+  fontWeight: 600,
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
+  color: "var(--text-faint)",
+  marginBottom: 8,
+};
 
 interface ClientHealthRow {
   businessId: string;
@@ -181,233 +192,166 @@ export function ClientHealthPanel({ active = true }: { active?: boolean }) {
         {error && <span style={{ marginLeft: 8, fontSize: 13, color: "var(--warning, #b45309)" }}>{error}</span>}
       </div>
 
-      <div style={cardStyle}>
-        {!rows && !error && <p style={subtleTextStyle}>Loading…</p>}
+      {!rows && !error && <p style={subtleTextStyle}>Loading…</p>}
 
-        {rows && (
-          // This table has 11 columns of genuinely wide content (a
-          // multi-line provider-usage list, long refresh-status text) --
-          // width:100% on the table itself doesn't stop it growing past
-          // its container once content needs more room (table-layout is
-          // auto, not fixed), which is exactly why the action column was
-          // rendering outside the card's visible edge. Scrolling this
-          // wrapper instead of the table keeps everything -- including
-          // "Run full update" -- inside the card, reachable by scrolling
-          // right rather than spilling into the page.
-          <div className="table-scroll">
-          <table style={{ width: "100%", minWidth: 1100, borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={cellStyle}>Client</th>
-                <th style={cellStyle}>Crawl</th>
-                <th style={cellStyle}>Refresh status</th>
-                <th style={cellStyle}>Documents</th>
-                <th style={cellStyle}>Products</th>
-                <th style={cellStyle}>Master CSV</th>
-                <th style={cellStyle}>Embedding coverage</th>
-                <th style={cellStyle}>Open handoffs</th>
-                <th style={cellStyle}>Conversations</th>
-                <th style={cellStyle}>AI usage (7d)</th>
-                <th style={cellStyle}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => {
-                const targetsOk =
-                  row.crawlTargets.total === 0 ||
-                  (row.crawlTargets.done === row.crawlTargets.total && row.crawlTargets.stuck === 0);
-                const csvOk = row.masterCsv.updatedAt !== null && row.masterCsv.sourceCount >= row.documentCount;
+      {rows && rows.length === 0 && <p style={subtleTextStyle}>No clients yet.</p>}
 
-                return (
-                  <tr key={row.businessId}>
-                    <td style={cellStyle}>{row.businessName}</td>
-                    <td style={cellStyle}>
-                      {row.crawlTargets.total === 0 ? (
-                        "—"
-                      ) : (
-                        <StatusBadge tone={targetsOk ? "ok" : "warn"}>
-                          {row.crawlTargets.done}/{row.crawlTargets.total}
-                          {row.crawlTargets.stuck > 0 ? ` (${row.crawlTargets.stuck} stuck)` : ""}
-                        </StatusBadge>
-                      )}
-                      {row.refreshPhase?.phase === "crawling" && (
-                        <div style={{ marginTop: 4 }}>
-                          <div
-                            style={{
-                              width: 100,
-                              height: 5,
-                              borderRadius: 3,
-                              background: "var(--border, #e5e7eb)",
-                              overflow: "hidden",
-                            }}
-                          >
-                            <div
-                              style={{
-                                // pagesEstimated tracks "highest visited so
-                                // far", not a fixed target (it grows in step
-                                // with pagesDone as BFS finds more pages) —
-                                // queueRemaining is the honest denominator
-                                // whenever it's known.
-                                width: `${
-                                  row.refreshPhase.queueRemaining !== null
-                                    ? Math.min(
-                                        100,
-                                        Math.round(
-                                          (row.refreshPhase.pagesDone /
-                                            (row.refreshPhase.pagesDone + row.refreshPhase.queueRemaining)) *
-                                            100
-                                        )
-                                      )
-                                    : 0
-                                }%`,
-                                height: "100%",
-                                background: "var(--accent, #2563eb)",
-                              }}
-                            />
-                          </div>
-                          <div style={{ fontSize: 11, color: "var(--text-faint)" }}>
-                            crawling: {row.refreshPhase.pagesDone} done
-                            {row.refreshPhase.queueRemaining !== null
-                              ? `, ~${row.refreshPhase.queueRemaining} left in queue`
-                              : ""}
-                          </div>
-                        </div>
-                      )}
-                    </td>
-                    <td style={cellStyle}>
-                      {(() => {
-                        // refreshPhase === null means "nothing in progress
-                        // right now" — that's "all done" if a CSV already
-                        // exists from a past run, or "never run yet" (every
-                        // step still pending) if it doesn't.
-                        const neverRun = row.refreshPhase === null && row.masterCsv.updatedAt === null;
-                        const idleState: StepState = neverRun ? "pending" : "done";
+      {/* One card per client, not a row in an 11-column spreadsheet —
+       * this used to be a table wide enough to need horizontal scrolling
+       * just to see the action button. A card groups each client's own
+       * numbers under its own name instead of making the reader track
+       * which column means what across a long row. */}
+      {rows?.map((row) => {
+        const targetsOk =
+          row.crawlTargets.total === 0 ||
+          (row.crawlTargets.done === row.crawlTargets.total && row.crawlTargets.stuck === 0);
+        const csvOk = row.masterCsv.updatedAt !== null && row.masterCsv.sourceCount >= row.documentCount;
+        const neverRun = row.refreshPhase === null && row.masterCsv.updatedAt === null;
+        const idleState: StepState = neverRun ? "pending" : "done";
 
-                        return (
-                          <>
-                            <StepBadge
-                              label="Crawled"
-                              state={row.refreshPhase?.phase === "crawling" ? "active" : idleState}
-                              detail={
-                                row.refreshPhase?.phase === "crawling"
-                                  ? row.refreshPhase.queueRemaining !== null
-                                    ? `${row.refreshPhase.pagesDone} done, ~${row.refreshPhase.queueRemaining} left`
-                                    : `${row.refreshPhase.pagesDone} done`
-                                  : undefined
-                              }
-                            />
-                            <StepBadge
-                              label="Embedded"
-                              state={
-                                row.refreshPhase?.phase === "embedding"
-                                  ? "active"
-                                  : row.refreshPhase?.phase === "crawling"
-                                    ? "pending"
-                                    : idleState
-                              }
-                              detail={
-                                row.refreshPhase?.phase === "embedding"
-                                  ? `${row.refreshPhase.pagesIndexed}/${row.refreshPhase.pagesTotal}`
-                                  : undefined
-                              }
-                            />
-                            <StepBadge
-                              label="CSV built"
-                              state={
-                                row.refreshPhase?.phase === "building_csv"
-                                  ? "active"
-                                  : row.refreshPhase?.phase === "crawling" || row.refreshPhase?.phase === "embedding"
-                                    ? "pending"
-                                    : idleState
-                              }
-                            />
-                            {row.refreshPhase && (
-                              <div style={{ fontSize: 11, color: "var(--accent, #2563eb)", marginTop: 2 }}>
-                                ETA: {computeEta(row, phaseTrackRef.current)}
-                              </div>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </td>
-                    <td style={cellStyle}>{row.documentCount}</td>
-                    <td style={cellStyle}>
-                      {row.productCount > 0 ? (
-                        row.productCount
-                      ) : (
-                        <span style={subtleTextStyle}>none yet</span>
-                      )}
-                    </td>
-                    <td style={cellStyle}>
-                      {row.masterCsv.updatedAt ? (
-                        <StatusBadge tone={csvOk ? "ok" : "warn"}>
-                          {row.masterCsv.sourceCount}/{row.documentCount}
-                        </StatusBadge>
-                      ) : (
-                        <span style={subtleTextStyle}>not generated</span>
-                      )}
-                      <div style={{ fontSize: 11, color: "var(--text-faint)" }}>
-                        last run: {row.lastRefreshAt ? new Date(row.lastRefreshAt).toLocaleString() : "never"}
-                      </div>
-                    </td>
-                    <td style={cellStyle}>
-                      {row.embeddingCoverage.length === 0 && "—"}
-                      {row.embeddingCoverage.map((c) => (
-                        <div key={c.provider} style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                          {c.provider}: <StatusBadge tone={c.pct === 100 ? "ok" : "warn"}>{c.pct}%</StatusBadge>
-                        </div>
-                      ))}
-                    </td>
-                    <td style={cellStyle}>
-                      {row.openHandoffs > 0 ? (
-                        <StatusBadge tone="warn">{row.openHandoffs}</StatusBadge>
-                      ) : (
-                        "0"
-                      )}
-                    </td>
-                    <td style={cellStyle}>{row.totalConversations}</td>
-                    <td style={cellStyle}>
-                      {/* Capped + scrollable, not left to grow unbounded --
-                       * a business with many providers/handoff variants
-                       * (confirmed live: 13+ lines) was stretching the
-                       * WHOLE row to match, leaving every other cell in
-                       * that row sitting on a mostly-empty 300px+ tall
-                       * row regardless of vertical-align. */}
-                      <div style={{ maxHeight: 110, overflowY: "auto" }}>
-                        {row.providerUsage.length === 0 && <span style={subtleTextStyle}>no activity</span>}
-                        {row.providerUsage.map((u) => (
-                          <div key={u.provider} style={{ fontSize: 12 }}>
-                            {u.provider}: {u.count}
-                          </div>
-                        ))}
-                      </div>
-                    </td>
-                    <td style={cellStyle}>
-                      <button
-                        onClick={() => runFullUpdate(row.businessId)}
-                        disabled={triggering === row.businessId || row.refreshPhase !== null}
-                        title="Recrawl + reembed + rebuild master CSV + resync product catalog"
-                      >
-                        {triggering === row.businessId
-                          ? "Starting…"
-                          : row.refreshPhase !== null
-                            ? "Running…"
-                            : "Run full update"}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {rows.length === 0 && (
-                <tr>
-                  <td style={cellStyle} colSpan={11}>No clients yet.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        return (
+          <div key={row.businessId} style={cardStyle}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
+              <div>
+                <h3 style={{ margin: 0 }}>{row.businessName}</h3>
+                {row.openHandoffs > 0 && (
+                  <div style={{ marginTop: 6 }}>
+                    <StatusBadge tone="warn">{row.openHandoffs} open handoff{row.openHandoffs === 1 ? "" : "s"}</StatusBadge>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => runFullUpdate(row.businessId)}
+                disabled={triggering === row.businessId || row.refreshPhase !== null}
+                title="Recrawl + reembed + rebuild master CSV + resync product catalog"
+              >
+                {triggering === row.businessId
+                  ? "Starting…"
+                  : row.refreshPhase !== null
+                    ? "Running…"
+                    : "Run full update"}
+              </button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 18 }}>
+              <div>
+                <div style={fieldLabelStyle}>Refresh pipeline</div>
+                <StepBadge
+                  label="Crawled"
+                  state={row.refreshPhase?.phase === "crawling" ? "active" : idleState}
+                  detail={
+                    row.refreshPhase?.phase === "crawling"
+                      ? row.refreshPhase.queueRemaining !== null
+                        ? `${row.refreshPhase.pagesDone} done, ~${row.refreshPhase.queueRemaining} left`
+                        : `${row.refreshPhase.pagesDone} done`
+                      : undefined
+                  }
+                />
+                <StepBadge
+                  label="Embedded"
+                  state={
+                    row.refreshPhase?.phase === "embedding"
+                      ? "active"
+                      : row.refreshPhase?.phase === "crawling"
+                        ? "pending"
+                        : idleState
+                  }
+                  detail={row.refreshPhase?.phase === "embedding" ? `${row.refreshPhase.pagesIndexed}/${row.refreshPhase.pagesTotal}` : undefined}
+                />
+                <StepBadge
+                  label="CSV built"
+                  state={
+                    row.refreshPhase?.phase === "building_csv"
+                      ? "active"
+                      : row.refreshPhase?.phase === "crawling" || row.refreshPhase?.phase === "embedding"
+                        ? "pending"
+                        : idleState
+                  }
+                />
+                {row.refreshPhase && (
+                  <div style={{ fontSize: 11, color: "var(--accent)", marginTop: 4 }}>ETA: {computeEta(row, phaseTrackRef.current)}</div>
+                )}
+                {row.refreshPhase?.phase === "crawling" && (
+                  <div style={{ marginTop: 6 }}>
+                    <div style={{ width: "100%", maxWidth: 140, height: 5, borderRadius: 3, background: "var(--border)", overflow: "hidden" }}>
+                      <div
+                        style={{
+                          width: `${
+                            row.refreshPhase.queueRemaining !== null
+                              ? Math.min(100, Math.round((row.refreshPhase.pagesDone / (row.refreshPhase.pagesDone + row.refreshPhase.queueRemaining)) * 100))
+                              : 0
+                          }%`,
+                          height: "100%",
+                          background: "var(--accent)",
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div style={fieldLabelStyle}>Crawl targets</div>
+                {row.crawlTargets.total === 0 ? (
+                  <span style={subtleTextStyle}>—</span>
+                ) : (
+                  <StatusBadge tone={targetsOk ? "ok" : "warn"}>
+                    {row.crawlTargets.done}/{row.crawlTargets.total}
+                    {row.crawlTargets.stuck > 0 ? ` (${row.crawlTargets.stuck} stuck)` : ""}
+                  </StatusBadge>
+                )}
+                <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8 }}>
+                  {row.documentCount} document{row.documentCount === 1 ? "" : "s"} · {row.productCount > 0 ? `${row.productCount} products` : "no products yet"}
+                </div>
+              </div>
+
+              <div>
+                <div style={fieldLabelStyle}>Master CSV</div>
+                {row.masterCsv.updatedAt ? (
+                  <StatusBadge tone={csvOk ? "ok" : "warn"}>
+                    {row.masterCsv.sourceCount}/{row.documentCount} sources
+                  </StatusBadge>
+                ) : (
+                  <span style={subtleTextStyle}>not generated</span>
+                )}
+                <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 6 }}>
+                  last run: {row.lastRefreshAt ? new Date(row.lastRefreshAt).toLocaleString() : "never"}
+                </div>
+              </div>
+
+              <div>
+                <div style={fieldLabelStyle}>Embedding coverage</div>
+                {row.embeddingCoverage.length === 0 && <span style={subtleTextStyle}>—</span>}
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {row.embeddingCoverage.map((c) => (
+                    <div key={c.provider} style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ color: "var(--text-muted)" }}>{c.provider}</span>
+                      <StatusBadge tone={c.pct === 100 ? "ok" : "warn"}>{c.pct}%</StatusBadge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div style={fieldLabelStyle}>Conversations</div>
+                <div style={{ fontSize: 20, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{row.totalConversations}</div>
+              </div>
+
+              <div>
+                <div style={fieldLabelStyle}>AI usage (7d)</div>
+                <div style={{ maxHeight: 110, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
+                  {row.providerUsage.length === 0 && <span style={subtleTextStyle}>no activity</span>}
+                  {row.providerUsage.map((u) => (
+                    <div key={u.provider} style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                      {u.provider}: <span style={{ color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>{u.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
-        )}
-      </div>
+        );
+      })}
     </section>
   );
 }
