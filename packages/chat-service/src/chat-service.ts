@@ -222,9 +222,62 @@ const GREETING_BN = /^(হ্যালো|হাই|সালাম|আসসা
 const GREETING_BANGLISH = /^(assalamu\s*[-']?\s*alaikum|salam|hi|hello|hey|heyy+|yo|ki\s*obostha|kemon\s*(acho|achen|acen)|kmn\s*(acho|achen))[.!?\s]*$/i;
 const GREETING_EN = /^(hi+|hello|hey+|hiya|yo|good\s*(morning|afternoon|evening))[.!?\s]*$/i;
 
-const GREETING_MESSAGE_EN = "Hi! How can I help you today?";
-const GREETING_MESSAGE_BN = "হ্যালো! আজ আমি আপনাকে কীভাবে সাহায্য করতে পারি?";
-const GREETING_MESSAGE_BANGLISH = "Hi! Ami apnake ki bhabe shahajjo korte pari?";
+// 10 variants per register instead of one fixed line — a customer who
+// says "hi" gets a different greeting than the last one, and a repeat
+// customer doesn't see the exact same canned sentence every visit.
+// Picked deterministically (see greetingIndex below), not randomly —
+// same reasoning as the rest of this file: a "roll of the dice" isn't
+// needed here, a stable hash already gives natural-feeling variety.
+const GREETING_MESSAGES_EN = [
+  "Hi! How can I help you today?",
+  "Hello! What can I do for you?",
+  "Hey there! How can I help?",
+  "Hi, welcome! What are you looking for today?",
+  "Hello! Ask me anything about our products.",
+  "Hi there! How can I assist you today?",
+  "Hey! What can I help you find today?",
+  "Hello, thanks for reaching out! How can I help?",
+  "Hi! What brings you here today?",
+  "Hey there, how can I be of help?",
+];
+
+const GREETING_MESSAGES_BN = [
+  "হ্যালো! আজ আমি আপনাকে কীভাবে সাহায্য করতে পারি?",
+  "আসসালামু আলাইকুম! আপনাকে কী বিষয়ে সাহায্য করতে পারি?",
+  "হাই! বলুন, কী জানতে চান?",
+  "স্বাগতম! আজ আপনার জন্য কী করতে পারি?",
+  "হ্যালো! কোনো পণ্য নিয়ে জিজ্ঞাসা থাকলে বলুন।",
+  "হাই! কীভাবে সাহায্য করতে পারি বলুন তো।",
+  "আসসালামু আলাইকুম! কী খুঁজছেন আজ?",
+  "হ্যালো! আপনার প্রশ্নটা বলুন, দেখি কী করা যায়।",
+  "হাই! কী জানতে চাচ্ছেন?",
+  "হ্যালো! আজ কীভাবে সহায়তা করতে পারি?",
+];
+
+const GREETING_MESSAGES_BANGLISH = [
+  "Hi! Ami apnake ki bhabe shahajjo korte pari?",
+  "Assalamu alaikum! Ki bishoye shahajjo lagbe?",
+  "Hi! Bolun, ki jante chan?",
+  "Welcome! Aj apnar jonno ki korte pari?",
+  "Hello! Kono product niye jiggasha thakle bolun.",
+  "Hi! Kivabe help korte pari bolun to.",
+  "Assalamu alaikum! Aj ki khujchen?",
+  "Hello! Apnar proshno ta bolun, dekhi ki kora jay.",
+  "Hi! Ki jante chachhen?",
+  "Hello! Aj kivabe shahajjo korte pari?",
+];
+
+/** Deterministic 0-9 pick from the session + message, not a random
+ * roll — same session saying "hi" twice in a row still varies (the
+ * message text differs each call), while staying reproducible rather
+ * than genuinely random. */
+function greetingIndex(seed: string): number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash) % 10;
+}
 
 /** Returns the canned greeting reply if this message is nothing but a
  * greeting, else null. Bangla-script and the common Banglish greeting
@@ -232,20 +285,21 @@ const GREETING_MESSAGE_BANGLISH = "Hi! Ami apnake ki bhabe shahajjo korte pari?"
  * language directly; a bare "hi"/"hello" defers to the business's
  * language setting/heuristic via cannedMessageLanguage, same as every
  * other canned message in this file. */
-function greetingReply(languageMode: string, userMessage: string): string | null {
+function greetingReply(languageMode: string, userMessage: string, sessionId: string): string | null {
   const trimmed = userMessage.trim();
+  const idx = greetingIndex(sessionId + trimmed);
 
   if (GREETING_BN.test(trimmed)) {
-    return GREETING_MESSAGE_BN;
+    return GREETING_MESSAGES_BN[idx]!;
   }
 
   if (GREETING_BANGLISH.test(trimmed) && !GREETING_EN.test(trimmed)) {
-    return GREETING_MESSAGE_BANGLISH;
+    return GREETING_MESSAGES_BANGLISH[idx]!;
   }
 
   if (GREETING_EN.test(trimmed)) {
     const lang = cannedMessageLanguage(languageMode, userMessage);
-    return lang === "bangla" ? GREETING_MESSAGE_BN : lang === "banglish" ? GREETING_MESSAGE_BANGLISH : GREETING_MESSAGE_EN;
+    return lang === "bangla" ? GREETING_MESSAGES_BN[idx]! : lang === "banglish" ? GREETING_MESSAGES_BANGLISH[idx]! : GREETING_MESSAGES_EN[idx]!;
   }
 
   return null;
@@ -560,7 +614,7 @@ export class ChatService {
     // comment for why. Checked after the already-waiting handoff (a
     // human taking over still wins) but before retrieval/LLM, so it's
     // instant and costs nothing.
-    const greeting = greetingReply(config.languageMode, request.message);
+    const greeting = greetingReply(config.languageMode, request.message, request.sessionId);
     if (greeting) {
       const savedMessage = await this.conversations.addMessage(
         request.sessionId,

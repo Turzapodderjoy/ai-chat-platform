@@ -99,11 +99,21 @@ export class ConversationService {
     sessionId: string,
     limit = 50
   ): Promise<ConversationMessage[]> {
+    // Most recent `limit` messages, not the oldest — `orderBy: asc` with
+    // `take` always returns the FIRST N rows ever written, so once a
+    // conversation passed historyTurns messages the model was frozen
+    // seeing only the start of the chat and never anything after,
+    // forever. Confirmed live: a multi-item order (drill + tape +
+    // screwdriver) resolved past message ~10 kept reverting to
+    // "which ones will you take?" because from the model's (wrong)
+    // point of view, that resolution had never happened. Query newest-
+    // first with `take`, then reverse back to chronological order.
     const rows = await prisma.message.findMany({
       where: { conversationId: sessionId },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
       take: limit,
     });
+    rows.reverse();
 
     return rows.map((row) => ({
       id: row.id,
