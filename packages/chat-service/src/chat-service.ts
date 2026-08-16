@@ -161,19 +161,22 @@ function computeOrderTotal(productsText: string): number | null {
 
 function orderSummaryMessage(fields: OrderFields, lang: "bangla" | "banglish" | "english"): string {
   const total = computeOrderTotal(fields.products);
-  const totalLine = {
-    bangla: total !== null ? `\nসর্বমোট: ৳${total.toLocaleString("en-US")}` : "",
-    banglish: total !== null ? `\nMot: ৳${total.toLocaleString("en-US")}` : "",
-    english: total !== null ? `\nTotal: ৳${total.toLocaleString("en-US")}` : "",
-  };
 
+  // Real markdown bullets, not \n-separated lines — a single "\n" is a
+  // soft line break in CommonMark (collapses into the same paragraph,
+  // no visible break at all), which is exactly what was happening: the
+  // whole summary rendered as one run-on line in the dashboard's
+  // transcript view. A list item always starts its own line regardless.
   if (lang === "bangla") {
-    return `আপনার অর্ডার নিশ্চিত করতে বিস্তারিত দেখুন:\n\nনাম: ${fields.customerName}\nফোন: ${fields.phone}\nঠিকানা: ${fields.deliveryAddress}\nপণ্য: ${fields.products}${totalLine.bangla}\nপেমেন্ট: ${fields.paymentMethod}\n\nসব তথ্য ঠিক থাকলে "confirm" লিখুন।`;
+    const totalLine = total !== null ? `\n- সর্বমোট: ৳${total.toLocaleString("en-US")}` : "";
+    return `আপনার অর্ডার নিশ্চিত করতে বিস্তারিত দেখুন:\n\n- নাম: ${fields.customerName}\n- ফোন: ${fields.phone}\n- ঠিকানা: ${fields.deliveryAddress}\n- পণ্য: ${fields.products}${totalLine}\n- পেমেন্ট: ${fields.paymentMethod}\n\nসব তথ্য ঠিক থাকলে "confirm" লিখুন।`;
   }
   if (lang === "banglish") {
-    return `Order confirm korar age details dekhe nin:\n\nNaam: ${fields.customerName}\nPhone: ${fields.phone}\nAddress: ${fields.deliveryAddress}\nProduct: ${fields.products}${totalLine.banglish}\nPayment: ${fields.paymentMethod}\n\nShob thik thakle "confirm" likhun.`;
+    const totalLine = total !== null ? `\n- Mot: ৳${total.toLocaleString("en-US")}` : "";
+    return `Order confirm korar age details dekhe nin:\n\n- Naam: ${fields.customerName}\n- Phone: ${fields.phone}\n- Address: ${fields.deliveryAddress}\n- Product: ${fields.products}${totalLine}\n- Payment: ${fields.paymentMethod}\n\nShob thik thakle "confirm" likhun.`;
   }
-  return `Please confirm your order details:\n\nName: ${fields.customerName}\nPhone: ${fields.phone}\nAddress: ${fields.deliveryAddress}\nProduct: ${fields.products}${totalLine.english}\nPayment: ${fields.paymentMethod}\n\nReply "confirm" if everything is correct.`;
+  const totalLine = total !== null ? `\n- Total: ৳${total.toLocaleString("en-US")}` : "";
+  return `Please confirm your order details:\n\n- Name: ${fields.customerName}\n- Phone: ${fields.phone}\n- Address: ${fields.deliveryAddress}\n- Product: ${fields.products}${totalLine}\n- Payment: ${fields.paymentMethod}\n\nReply "confirm" if everything is correct.`;
 }
 
 // Deliberately narrow and multilingual-anchored, not a general sentiment
