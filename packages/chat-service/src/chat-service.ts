@@ -927,23 +927,46 @@ export class ChatService {
       `[perf] prompt chars: system=${prompt.systemPrompt.length} user=${prompt.userPrompt.length}`
     );
     const __tAiStart = Date.now();
-    const aiResponse =
+    const aiCallOptions = {
+      temperature: config.temperature,
+      maxTokens: config.maxTokens,
+      topP: config.topP ?? undefined,
+      frequencyPenalty: config.frequencyPenalty ?? undefined,
+      presencePenalty: config.presencePenalty ?? undefined,
+      stop: config.stopSequences
+        ? config.stopSequences.split(",").map(s => s.trim()).filter(Boolean)
+        : undefined,
+      seed: config.seed ?? undefined,
+    };
+    let aiResponse =
       await this.ai.chat(
         prompt.userPrompt,
-        {
-          temperature: config.temperature,
-          systemPrompt: prompt.systemPrompt,
-          maxTokens: config.maxTokens,
-          topP: config.topP ?? undefined,
-          frequencyPenalty: config.frequencyPenalty ?? undefined,
-          presencePenalty: config.presencePenalty ?? undefined,
-          stop: config.stopSequences
-            ? config.stopSequences.split(",").map(s => s.trim()).filter(Boolean)
-            : undefined,
-          seed: config.seed ?? undefined,
-        }
+        { ...aiCallOptions, systemPrompt: prompt.systemPrompt }
       );
     console.log(`[perf] ai.chat took ${Date.now() - __tAiStart}ms, provider=${aiResponse.provider}`);
+
+    // Confirmed live: providers vary in how reliably they include the
+    // ORDER_FIELDS/ORDER_TAKEN marker, especially mid-flow (a reply that
+    // reads perfectly normal to the customer, but silently drops the one
+    // field-progress marker the whole order-taking system depends on —
+    // that turn's info never gets merged into pendingOrder at all). Only
+    // retryable/detectable once an order is ALREADY in progress
+    // (pendingOrder non-null) — before that, a marker-less reply is
+    // completely normal (most messages aren't about ordering). One retry
+    // with an explicit reminder, not a silent drop — real order accuracy
+    // is worth one extra call.
+    if (
+      conversation.pendingOrder &&
+      !ORDER_FIELDS_PATTERN.test(aiResponse.response) &&
+      !ORDER_MARKER_PATTERN.test(aiResponse.response)
+    ) {
+      console.log(`[perf] retrying: missing ORDER_FIELDS marker mid-order`);
+      const retrySystemPrompt =
+        prompt.systemPrompt +
+        `\n\nREMINDER: an order is already in progress in this conversation and your last reply forgot the required [[ORDER_FIELDS:{...}]] marker. End THIS reply with that marker on its own line, using your current best understanding of all 5 fields (customerName, phone, deliveryAddress, products, paymentMethod — "" for any still unknown), as valid JSON in English, exactly as instructed under TAKING AN ORDER.`;
+      aiResponse = await this.ai.chat(prompt.userPrompt, { ...aiCallOptions, systemPrompt: retrySystemPrompt });
+      console.log(`[perf] retry ai.chat done, provider=${aiResponse.provider}, marker present=${ORDER_FIELDS_PATTERN.test(aiResponse.response) || ORDER_MARKER_PATTERN.test(aiResponse.response)}`);
+    }
 
     // Confirmed live: the AI can emit BOTH the handoff marker AND real
     // order-field progress in the exact same reply — a genuine model

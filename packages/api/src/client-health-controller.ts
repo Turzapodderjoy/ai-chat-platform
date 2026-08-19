@@ -91,7 +91,12 @@ export class ClientHealthController {
         const documentCount = new Set(scoped.map((r) => r.documentId)).size;
         const totalChunks = byChunk.size;
 
-        const embeddingCoverage = providerNames.map((provider) => {
+        // A disabled provider was never going to embed anything and never
+        // will until re-enabled — counting it here just shows a permanent,
+        // unactionable warning (confirmed live: jina disabled, sitting at
+        // 1% coverage forever) instead of reflecting the providers this
+        // business is actually relying on.
+        const embeddingCoverage = providerNames.filter((p) => this.embeddings.isProviderEnabled(p)).map((provider) => {
           let embedded = 0;
           for (const records of byChunk.values()) {
             if (records.some((r) => (r.metadata?.embeddingProvider ?? "jina") === provider)) {

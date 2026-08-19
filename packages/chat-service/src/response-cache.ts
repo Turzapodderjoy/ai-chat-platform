@@ -31,7 +31,14 @@ export class ResponseCache {
 
   constructor(
     private readonly threshold = 0.93,
-    private readonly maxEntries = 500
+    // Deliberately NOT lowering the similarity threshold to raise the hit
+    // rate — a looser match risks serving a cached answer for the wrong
+    // product (exactly the class of bug fixed elsewhere this session:
+    // "this tape" resolving to a different item). Capacity is the safe
+    // lever instead: 500 -> 2000 entries costs a few MB of memory and
+    // nothing else, so a business with a wide, frequently-repeated
+    // question set doesn't evict useful entries just to make room.
+    private readonly maxEntries = 2000
   ) {}
 
   find(embedding: number[], businessId: string, embeddingProvider: string): CachedAnswer | null {
