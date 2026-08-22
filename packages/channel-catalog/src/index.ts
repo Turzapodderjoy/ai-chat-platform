@@ -1,3 +1,3 @@
 export * from "./types";
 export * from "./catalog";
-export * from "./providers/openwa-shared";
+export * from "./providers/evolution-shared";

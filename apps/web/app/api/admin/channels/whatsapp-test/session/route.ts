@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getApp } from "../../../../../../lib/app";
 
-/** Creates/starts this business's OpenWA session and registers its
+/** Creates this business's Evolution API instance and registers its
  * webhook — call once when the dashboard's "Link WhatsApp (testing)"
  * button is pressed, before polling for the QR code. */
 export async function POST(req: NextRequest) {

@@ -1,8 +1,7 @@
 import {
   CHANNEL_CATALOG,
-  createOrGetSession,
-  startSession,
-  getSession,
+  createOrGetInstance,
+  getConnectionState,
   getQrCode,
   registerWebhook,
 } from "@ai-chat-platform/channel-catalog";
@@ -99,43 +98,49 @@ export class ChannelController {
     return { connected: "whatsapp" };
   }
 
-  /** Creates (or reuses) this business's OpenWA session, starts it, and
+  /** Creates (or reuses) this business's Evolution API instance and
    * registers the webhook that feeds inbound messages into the same RAG
-   * pipeline as every other channel. Safe to call repeatedly — session
-   * creation and webhook registration are both idempotent by name. The
-   * connection isn't persisted here: it's only saved once the session
-   * actually reaches "ready" (see confirmTestWhatsappConnected), so a
-   * QR that's never scanned doesn't leave a fake "connected" row. */
+   * pipeline as every other channel. Safe to call repeatedly — instance
+   * creation and webhook registration are both idempotent by name (no
+   * separate "start" step needed, unlike OpenWA — the QR is generated
+   * immediately on instance/create). The connection isn't persisted
+   * here: it's only saved once the instance actually reaches "open"
+   * (see testWhatsappStatus), so a QR that's never scanned doesn't leave
+   * a fake "connected" row. */
   async createTestWhatsappSession(businessId: string, webhookBaseUrl: string) {
-    const session = await createOrGetSession(businessId);
-    await startSession(session.id).catch(() => {}); // already started is fine
-    await registerWebhook(session.id, `${webhookBaseUrl}/api/webhooks/whatsapp-test`).catch(() => {});
-    return { sessionId: session.id, status: session.status };
+    const { instanceName, qrCode } = await createOrGetInstance(businessId);
+    await registerWebhook(instanceName, `${webhookBaseUrl}/api/webhooks/whatsapp-test`).catch(() => {});
+    return { sessionId: instanceName, status: qrCode ? "connecting" : "open" };
   }
 
   async testWhatsappQr(businessId: string) {
-    const session = await createOrGetSession(businessId);
-    const qrCode = await getQrCode(session.id);
-    return { sessionId: session.id, status: session.status, qrCode };
+    const { instanceName, qrCode } = await createOrGetInstance(businessId);
+    const state = await getConnectionState(instanceName);
+    return { sessionId: instanceName, status: mapEvolutionState(state), qrCode: qrCode ?? (await getQrCode(instanceName)) };
   }
 
-  /** Polled by the dashboard while the QR is on screen. Once the OpenWA
-   * session reports "ready", persists the ChannelConnection so inbound
+  /** Polled by the dashboard while the QR is on screen. Once the
+   * Evolution API instance reports "open" (Evolution's term for
+   * "paired and ready" — mapped to "ready" here so the existing
+   * dashboard polling logic, written for OpenWA's status strings,
+   * doesn't need to change), persists the ChannelConnection so inbound
    * webhook messages resolve to this business. */
   async testWhatsappStatus(businessId: string) {
-    const session = await getSession((await createOrGetSession(businessId)).id);
+    const { instanceName } = await createOrGetInstance(businessId);
+    const state = await getConnectionState(instanceName);
+    const status = mapEvolutionState(state);
 
-    if (session.status === "ready") {
+    if (status === "ready") {
       await this.channelConnections.upsert({
         businessId,
         channel: "whatsapp-test",
-        externalId: session.id,
-        externalLabel: session.phone ?? session.name,
-        accessToken: process.env.OPENWA_API_KEY ?? "",
+        externalId: instanceName,
+        externalLabel: instanceName,
+        accessToken: process.env.EVOLUTION_API_KEY ?? "",
       });
     }
 
-    return { sessionId: session.id, status: session.status, phone: session.phone };
+    return { sessionId: instanceName, status, phone: null };
   }
 
   async oauthStartUrl(channel: string, businessId: string, redirectUri: string): Promise<string> {
@@ -210,4 +215,16 @@ export class ChannelController {
       await entry.sendMessage(connection, msg.senderId, response.answer);
     }
   }
+}
+
+/** Evolution API's connection states ("connecting"/"open"/"close") mapped
+ * onto the status strings the dashboard's polling UI already knows how
+ * to render (written originally for OpenWA's "ready"/"failed"/etc) —
+ * keeps ChannelsPanel.tsx unchanged by the swap. `null` (instance not
+ * created yet, or a lookup failure) also reads as "connecting" so the
+ * UI just keeps polling rather than showing a false failure. */
+function mapEvolutionState(state: "connecting" | "open" | "close" | null): string {
+  if (state === "open") return "ready";
+  if (state === "close") return "failed";
+  return "connecting";
 }

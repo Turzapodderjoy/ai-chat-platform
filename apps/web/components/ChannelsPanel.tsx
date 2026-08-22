@@ -259,8 +259,8 @@ export function ChannelsPanel({ businessId }: { businessId: string }) {
             {entry.id === "whatsapp-test" && (
               <>
                 <p style={{ opacity: 0.6, fontSize: 13 }}>
-                  Unofficial, testing-only — links via an OpenWA gateway instead of the Meta
-                  Business API. Real ban risk on the linked number; use a disposable/spare
+                  Unofficial, testing-only — links via an Evolution API gateway instead of the
+                  Meta Business API. Real ban risk on the linked number; use a disposable/spare
                   WhatsApp number, not the client&apos;s production one.
                 </p>
                 {connection ? (
