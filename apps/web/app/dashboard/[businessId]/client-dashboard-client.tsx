@@ -130,17 +130,54 @@ export default function ClientDashboardClient() {
           <div style={{ fontSize: 14, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {client?.name ?? businessId}
           </div>
-          <div style={{ display: "flex", gap: 10, marginTop: 3 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
             {isAdmin && (
-              <a href="/dashboard" style={{ fontSize: 10.5, color: "var(--text-faint)", fontWeight: 400 }}>
-                ← Command Center
+              <a
+                href="/dashboard"
+                title="Back to Command Center"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  fontSize: 10.5,
+                  fontWeight: 500,
+                  color: "var(--text-muted)",
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 999,
+                  padding: "3px 8px",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m15 5-7 7 7 7" />
+                </svg>
+                Command Center
               </a>
             )}
             <button
               onClick={logout}
-              className="plain-link"
-              style={{ fontSize: 10.5, color: "var(--text-faint)", fontWeight: 400, background: "none", border: "none", padding: 0, cursor: "pointer" }}
+              title="Log out"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                fontSize: 10.5,
+                fontWeight: 500,
+                color: "var(--text-muted)",
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                borderRadius: 999,
+                padding: "3px 8px",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
             >
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <path d="M16 17l5-5-5-5" />
+                <path d="M21 12H9" />
+              </svg>
               Log out
             </button>
           </div>
