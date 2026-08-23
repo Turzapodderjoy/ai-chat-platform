@@ -19,5 +19,5 @@ jobs:
     steps:
       - name: Hit /api/cron/auto-heal
         run: |
-          curl -sf -X GET "https://ai-project-v3-web.vercel.app/api/cron/auto-heal" \
+          curl -sf -X GET "https://app.ieltsclarification.com/api/cron/auto-heal" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
