@@ -48,6 +48,22 @@ interface ConversationSummary {
   lastMessage: string | null;
 }
 
+interface HandoffInfo {
+  sessionId: string;
+  summary: string | null;
+}
+
+interface Order {
+  id: string;
+  conversationId: string;
+  customerName: string;
+  phone: string;
+  deliveryAddress: string;
+  products: string;
+  paymentMethod: string;
+  createdAt: string;
+}
+
 const CHANNEL_LABEL: Record<string, { color: string; label: string }> = {
   website: { color: "#ffffff", label: "Website" },
   messenger: { color: "#0084ff", label: "Messenger" },
@@ -55,14 +71,23 @@ const CHANNEL_LABEL: Record<string, { color: string; label: string }> = {
   whatsapp: { color: "#25d366", label: "WhatsApp" },
 };
 
-/** Solid colored circle per channel — Messenger blue, WhatsApp green,
- * website white (per the client's own spec), Instagram its brand pink
- * as the one channel that wasn't specified. A thin border keeps the
- * white website dot visible against the dark dashboard background. */
 function displayName(c: { customerName: string | null; externalUserId: string | null }): string {
   return c.customerName || c.externalUserId || "Customer";
 }
 
+/** "Rahim Hossain" -> "RH", "Customer" -> "C", a lone name -> first 2
+ * letters — same shape as the mockup's avatar initials, no photos to
+ * work with so this is the only real identity cue in the list. */
+function initials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length >= 2) return (words[0]!.charAt(0) + words[1]!.charAt(0)).toUpperCase();
+  return name.trim().slice(0, 2).toUpperCase() || "C";
+}
+
+/** Solid colored circle per channel — Messenger blue, WhatsApp green,
+ * website white (per the client's own spec), Instagram its brand pink
+ * as the one channel that wasn't specified. A thin border keeps the
+ * white website dot visible against the dark dashboard background. */
 function ChannelDot({ channel }: { channel: string }) {
   const color = CHANNEL_LABEL[channel]?.color ?? "#8b96a8";
   return (
@@ -80,33 +105,36 @@ function ChannelDot({ channel }: { channel: string }) {
   );
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  bot: "🤖 Bot",
-  pending: "⏳ Needs human",
-  human: "🧑 Human handling",
-};
-
 type SortOption = "newest" | "oldest";
+type StatusTab = "all" | "handoff" | "human";
+
+const STATUS_TABS: { id: StatusTab; label: string }[] = [
+  { id: "all", label: "All Chats" },
+  { id: "handoff", label: "Needs Handoff" },
+  { id: "human", label: "Human Handling" },
+];
 
 /** Intercom-style unified inbox — every real conversation regardless of
- * channel or handoff status, in one place. Sidebar list + a transcript
- * viewer beside it, same pattern as Training Arena's session sidebar.
- * Reuses the existing /api/chat/messages (transcript) and
- * /api/admin/handoffs/reply (reply — now channel-aware, see
- * HandoffController.reply) endpoints rather than inventing new ones. */
+ * channel or handoff status, in one place. Conversation list + a
+ * transcript viewer + a detail panel, same pattern as Training Arena's
+ * session sidebar. Reuses existing endpoints throughout (messages, tags,
+ * handoffs, orders) rather than inventing new ones. */
 export function AllChatsPanel({ businessId, active = true }: { businessId?: string; active?: boolean }) {
   const [conversations, setConversations] = useState<ConversationSummary[] | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
 
   const [channelFilter, setChannelFilter] = useState("");
-  const [handoffOnly, setHandoffOnly] = useState(false);
+  const [statusTab, setStatusTab] = useState<StatusTab>("all");
   const [sort, setSort] = useState<SortOption>("newest");
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
+
+  const [summaryBySession, setSummaryBySession] = useState<Record<string, string | null>>({});
+  const [orderForSelected, setOrderForSelected] = useState<Order | null | undefined>(undefined);
 
   // Which messageCount an agent had last seen, per conversation — a
   // conversation is "unread" when the live list's current messageCount
@@ -195,7 +223,6 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
     const qs = new URLSearchParams();
     if (businessId) qs.set("businessId", businessId);
     if (channelFilter) qs.set("channel", channelFilter);
-    if (handoffOnly) qs.set("needsHandoffOnly", "true");
     qs.set("sort", sort);
     if (cursor) qs.set("cursor", cursor);
     return qs.toString();
@@ -211,7 +238,7 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
       });
   }
 
-  useEffect(refresh, [businessId, channelFilter, handoffOnly, sort]);
+  useEffect(refresh, [businessId, channelFilter, sort]);
 
   // Poll instead of a one-shot fetch — a customer's new message otherwise
   // never appears until the agent manually reloads the page. 5s is a
@@ -225,7 +252,7 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
     if (!active) return;
     const interval = setInterval(refresh, 5000);
     return () => clearInterval(interval);
-  }, [businessId, channelFilter, handoffOnly, sort, active]);
+  }, [businessId, channelFilter, sort, active]);
 
   async function loadMore() {
     if (!nextCursor) return;
@@ -241,12 +268,33 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
     }
   }
 
-  function openConversation(id: string) {
-    setSelectedId(id);
+  function openConversation(c: ConversationSummary) {
+    setSelectedId(c.id);
     setMessages(null);
-    fetchMessages(id);
-    const current = conversations?.find((c) => c.id === id);
-    if (current) markSeen(id, current.messageCount);
+    fetchMessages(c.id);
+    markSeen(c.id, c.messageCount);
+
+    // Conversation Summary and Order Actions both reuse existing
+    // endpoints rather than adding new ones — the handoffs list already
+    // carries a summary per session (only set once a conversation has
+    // been in pending/human status), and the orders list already carries
+    // conversationId to filter by client-side.
+    if (!(c.id in summaryBySession)) {
+      fetch(`/api/admin/handoffs?businessId=${encodeURIComponent(c.businessId)}`)
+        .then((r) => r.json())
+        .then((d: { handoffs: { sessionId: string; summary: string | null }[] }) => {
+          setSummaryBySession((prev) => {
+            const next = { ...prev };
+            for (const h of d.handoffs) next[h.sessionId] = h.summary;
+            return next;
+          });
+        });
+    }
+
+    setOrderForSelected(undefined);
+    fetch(`/api/admin/orders?businessId=${encodeURIComponent(c.businessId)}`)
+      .then((r) => r.json())
+      .then((orders: Order[]) => setOrderForSelected(orders.find((o) => o.conversationId === c.id) ?? null));
   }
 
   function fetchMessages(id: string) {
@@ -288,7 +336,7 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
       });
       if (res.ok) {
         setReply("");
-        openConversation(selectedId);
+        fetchMessages(selectedId);
         refresh();
       }
     } finally {
@@ -298,6 +346,21 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
 
   const selected = conversations?.find((c) => c.id === selectedId) ?? null;
 
+  const visibleConversations = (conversations ?? []).filter((c) => {
+    if (statusTab === "handoff") return c.handoffStatus === "pending";
+    if (statusTab === "human") return c.handoffStatus === "human";
+    return true;
+  });
+
+  // Counts are over the currently-loaded page only, not every conversation
+  // this business has ever had — matches what "Load more" already implies
+  // (the list itself is paginated), just made visible on the tabs too.
+  const tabCounts: Record<StatusTab, number> = {
+    all: conversations?.length ?? 0,
+    handoff: conversations?.filter((c) => c.handoffStatus === "pending").length ?? 0,
+    human: conversations?.filter((c) => c.handoffStatus === "human").length ?? 0,
+  };
+
   return (
     <section style={cardStyle}>
       <h2 style={{ marginTop: 0 }}>All Chats</h2>
@@ -305,6 +368,30 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
         Every real conversation across every connected channel — Messenger, Instagram, WhatsApp, and the website
         widget — answered by the AI, with handed-off ones still replyable here.
       </p>
+
+      <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+        {STATUS_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setStatusTab(tab.id)}
+            className="plain"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 12px",
+              borderRadius: 999,
+              background: statusTab === tab.id ? "var(--accent-soft)" : "transparent",
+              color: statusTab === tab.id ? "var(--accent-strong)" : "var(--text-muted)",
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            {tab.label}
+            <span style={{ fontVariantNumeric: "tabular-nums", opacity: 0.8 }}>{tabCounts[tab.id]}</span>
+          </button>
+        ))}
+      </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
         <select value={channelFilter} onChange={(e) => setChannelFilter(e.target.value)} style={{ padding: 6 }}>
@@ -318,67 +405,76 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
         </select>
-        <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
-          <input type="checkbox" checked={handoffOnly} onChange={(e) => setHandoffOnly(e.target.checked)} />
-          Needs handoff only
-        </label>
       </div>
 
-      <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
-        <div style={{ width: 280, flexShrink: 0, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", maxHeight: 560, overflowY: "auto" }}>
+      <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+        <div style={{ width: 280, flexShrink: 0, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", maxHeight: 620, overflowY: "auto" }}>
           {!conversations && <p style={{ padding: 10, ...subtleTextStyle }}>Loading…</p>}
-          {conversations && conversations.length === 0 && <p style={{ padding: 10, ...subtleTextStyle }}>No chats yet.</p>}
-          {conversations?.map((c) => {
+          {conversations && visibleConversations.length === 0 && <p style={{ padding: 10, ...subtleTextStyle }}>No chats here.</p>}
+          {visibleConversations.map((c) => {
             const ch = CHANNEL_LABEL[c.channel] ?? { color: "#8b96a8", label: c.channel };
             const unread = selectedId !== c.id && c.messageCount > (seenCounts[c.id] ?? 0);
+            const name = displayName(c);
             return (
               <div
                 key={c.id}
-                onClick={() => openConversation(c.id)}
+                onClick={() => openConversation(c)}
                 style={{
                   padding: 10,
                   borderBottom: "1px solid var(--border)",
                   cursor: "pointer",
+                  display: "flex",
+                  gap: 10,
                   background: selectedId === c.id ? "var(--surface-hover)" : "transparent",
+                  borderLeft: selectedId === c.id ? "2px solid var(--accent)" : "2px solid transparent",
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    {unread && (
-                      <span
-                        title="Unread"
-                        style={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: 999,
-                          background: "var(--accent, #4c8dfa)",
-                          flexShrink: 0,
-                        }}
-                      />
-                    )}
-                    <ChannelDot channel={c.channel} /> {ch.label}
-                  </span>
-                  <span style={{ color: "var(--text-muted)" }}>{STATUS_LABEL[c.handoffStatus]}</span>
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 9,
+                    background: selectedId === c.id ? "var(--accent-soft)" : "var(--surface)",
+                    color: selectedId === c.id ? "var(--accent-strong)" : "var(--text-muted)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: 700,
+                    fontSize: 11,
+                    flexShrink: 0,
+                  }}
+                >
+                  {initials(name)}
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 600, marginTop: 3 }}>{displayName(c)}</div>
-                <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>{new Date(c.updatedAt).toLocaleString()}</div>
-                {c.lastMessage && (
-                  <div style={{ fontSize: 12, opacity: 0.6, marginTop: 2 }}>
-                    {c.lastMessage.length > 60 ? `${c.lastMessage.slice(0, 60)}…` : c.lastMessage}
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
+                      {unread && (
+                        <span title="Unread" style={{ width: 7, height: 7, borderRadius: 999, background: "var(--accent)", flexShrink: 0 }} />
+                      )}
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+                      <ChannelDot channel={c.channel} />
+                    </span>
+                    <span style={{ fontSize: 10.5, color: "var(--text-faint)", flexShrink: 0 }}>{new Date(c.updatedAt).toLocaleDateString()}</span>
                   </div>
-                )}
-                {(conversationTags[c.id] ?? []).length > 0 && (
-                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
-                    {(conversationTags[c.id] ?? []).map((t) => (
-                      <span
-                        key={t.tagId}
-                        style={{ fontSize: 10, padding: "1px 6px", borderRadius: 999, background: "rgba(255,255,255,0.08)" }}
-                      >
-                        {t.label}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                  {c.lastMessage && (
+                    <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {c.lastMessage}
+                    </div>
+                  )}
+                  {(conversationTags[c.id] ?? []).length > 0 && (
+                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 5 }}>
+                      {(conversationTags[c.id] ?? []).map((t) => (
+                        <span
+                          key={t.tagId}
+                          style={{ fontSize: 10, padding: "1px 7px", borderRadius: 999, background: "rgba(255,255,255,0.08)" }}
+                        >
+                          {t.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -395,68 +491,199 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
           {!selected && <p style={subtleTextStyle}>Select a chat to view the conversation.</p>}
           {selected && (
             <>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, fontSize: 13 }}>
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <ChannelDot channel={selected.channel} />
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, fontSize: 13 }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div
+                    style={{
+                      width: 30,
+                      height: 30,
+                      borderRadius: 9,
+                      background: "var(--accent-soft)",
+                      color: "var(--accent-strong)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: 700,
+                      fontSize: 11.5,
+                    }}
+                  >
+                    {initials(displayName(selected))}
+                  </div>
                   <strong>{displayName(selected)}</strong>
-                  {" · "}
-                  {CHANNEL_LABEL[selected.channel]?.label ?? selected.channel}
-                  {" · "}
-                  {STATUS_LABEL[selected.handoffStatus]}
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 9px", borderRadius: 999, background: "var(--surface)", border: "1px solid var(--border)", fontSize: 11, color: "var(--text-muted)" }}>
+                    <ChannelDot channel={selected.channel} />
+                    {CHANNEL_LABEL[selected.channel]?.label ?? selected.channel}
+                  </span>
                 </span>
-                <code style={{ fontSize: 11, color: "var(--text-faint)" }}>{selected.id}</code>
+                <span
+                  style={{
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    padding: "3px 10px",
+                    borderRadius: 999,
+                    background: selected.handoffStatus === "bot" ? "var(--success-soft)" : selected.handoffStatus === "pending" ? "var(--warning-soft)" : "var(--accent-soft)",
+                    color: selected.handoffStatus === "bot" ? "var(--success)" : selected.handoffStatus === "pending" ? "var(--warning)" : "var(--accent-strong)",
+                  }}
+                >
+                  {selected.handoffStatus === "bot" ? "AI handling" : selected.handoffStatus === "pending" ? "Needs handoff" : "Human handling"}
+                </span>
               </div>
-              <div style={{ marginBottom: 8 }}>
-                <MessageTagControl
-                  catalog={tagCatalog}
-                  applied={conversationTags[selected.id] ?? []}
-                  onAssign={(tagId) => assignConversationTag(selected.id, tagId)}
-                  onRemove={(tagId) => removeConversationTag(selected.id, tagId)}
-                />
-              </div>
-              <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", minHeight: 300, maxHeight: 420, overflowY: "auto", padding: 16 }}>
-                {!messages && <p style={subtleTextStyle}>Loading…</p>}
-                {messages?.map((m) => (
-                  <div key={m.id} style={{ marginBottom: 10 }}>
-                    <div>
-                      <strong>{m.role === "user" ? "Customer" : m.role === "agent" ? "Agent" : m.role === "assistant" ? "AI" : "System"}:</strong>{" "}
-                      {m.role === "user" ? m.content : <MarkdownMessage text={m.content} />}
+
+              <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", minHeight: 300, maxHeight: 420, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+                    {!messages && <p style={subtleTextStyle}>Loading…</p>}
+                    {messages?.map((m) => {
+                      const isCustomer = m.role === "user";
+                      return (
+                        <div key={m.id} style={{ display: "flex", gap: 8, flexDirection: isCustomer ? "row" : "row-reverse", maxWidth: "78%", alignSelf: isCustomer ? "flex-start" : "flex-end" }}>
+                          <div
+                            style={{
+                              width: 24,
+                              height: 24,
+                              borderRadius: 7,
+                              flexShrink: 0,
+                              background: isCustomer ? "var(--surface)" : "var(--accent-soft)",
+                              color: isCustomer ? "var(--text-faint)" : "var(--accent-strong)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontWeight: 700,
+                              fontSize: 9.5,
+                            }}
+                          >
+                            {isCustomer ? initials(displayName(selected)) : "AI"}
+                          </div>
+                          <div style={{ textAlign: isCustomer ? "left" : "right" }}>
+                            <div
+                              style={{
+                                background: isCustomer ? "var(--surface)" : "var(--accent)",
+                                color: isCustomer ? "var(--text)" : "var(--bg)",
+                                border: isCustomer ? "1px solid var(--border)" : "none",
+                                borderRadius: isCustomer ? "12px 12px 12px 3px" : "12px 12px 3px 12px",
+                                padding: "9px 12px",
+                                fontSize: 13,
+                                textAlign: "left",
+                                display: "inline-block",
+                              }}
+                            >
+                              {isCustomer ? m.content : <MarkdownMessage text={m.content} />}
+                            </div>
+                            {!isCustomer && m.provider && (
+                              <div style={{ fontSize: 10.5, color: "var(--text-faint)", marginTop: 3 }}>
+                                Replied by {m.provider}
+                                <ReasoningInfo provider={m.provider} confidence={m.confidence} sources={m.sources} />
+                              </div>
+                            )}
+                            {!isCustomer && m.sources && m.sources.length > 0 && (
+                              <div style={{ fontSize: 10.5, color: "var(--text-faint)", marginTop: 2 }}>
+                                sources: {m.sources.map((s) => s.label).join(", ")}
+                              </div>
+                            )}
+                            <div style={{ marginTop: 3 }}>
+                              <MessageTagControl
+                                catalog={tagCatalog}
+                                applied={messageTags[m.id] ?? []}
+                                onAssign={(tagId) => assignMessageTag(m.id, tagId)}
+                                onRemove={(tagId) => removeMessageTag(m.id, tagId)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                    <input
+                      style={{ flex: 1, padding: 8 }}
+                      value={reply}
+                      onChange={(e) => setReply(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") sendReply();
+                      }}
+                      placeholder="Reply to the customer…"
+                    />
+                    <button onClick={sendReply} disabled={sending} style={primaryButtonStyle}>
+                      {sending ? "Sending…" : "Send"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Detail panel — Contact Details / Tags / Conversation
+                 * Summary / Order Actions, all sourced from data already
+                 * fetched elsewhere in the app. "Stop AI"/"Resume AI"
+                 * match the mockup's look but aren't wired to a real
+                 * action yet — no endpoint exists to flip handoff status
+                 * outside sending a message, so they're left visual-only
+                 * rather than faking a control that doesn't do anything. */}
+                <div style={{ width: 240, flexShrink: 0 }}>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+                    <button disabled title="Not wired up yet" style={{ flex: 1, fontSize: 12, padding: "8px 10px", opacity: 0.5 }}>
+                      Stop AI
+                    </button>
+                    <button disabled title="Not wired up yet" style={{ flex: 1, fontSize: 12, padding: "8px 10px", opacity: 0.5 }}>
+                      Resume AI
+                    </button>
+                  </div>
+
+                  <div style={{ fontSize: 10.5, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 10 }}>
+                    Contact Details
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 7, fontSize: 12, marginBottom: 20 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "var(--text-faint)" }}>Name</span>
+                      <span>{displayName(selected)}</span>
                     </div>
-                    {m.role === "assistant" && m.provider && (
-                      <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>
-                        answered by: {m.provider}
-                        <ReasoningInfo provider={m.provider} confidence={m.confidence} sources={m.sources} />
-                      </div>
-                    )}
-                    {m.role === "assistant" && m.sources && m.sources.length > 0 && (
-                      <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>
-                        sources: {m.sources.map((s) => s.label).join(", ")}
-                      </div>
-                    )}
-                    <div style={{ marginTop: 2 }}>
-                      <MessageTagControl
-                        catalog={tagCatalog}
-                        applied={messageTags[m.id] ?? []}
-                        onAssign={(tagId) => assignMessageTag(m.id, tagId)}
-                        onRemove={(tagId) => removeMessageTag(m.id, tagId)}
-                      />
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "var(--text-faint)" }}>Channel ID</span>
+                      <span style={{ maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selected.externalUserId ?? "—"}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "var(--text-faint)" }}>Channel</span>
+                      <span>{CHANNEL_LABEL[selected.channel]?.label ?? selected.channel}</span>
                     </div>
                   </div>
-                ))}
-              </div>
-              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                <input
-                  style={{ flex: 1, padding: 8 }}
-                  value={reply}
-                  onChange={(e) => setReply(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") sendReply();
-                  }}
-                  placeholder="Reply to the customer…"
-                />
-                <button onClick={sendReply} disabled={sending} style={primaryButtonStyle}>
-                  {sending ? "Sending…" : "Send"}
-                </button>
+
+                  <div style={{ fontSize: 10.5, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 10 }}>
+                    Tags
+                  </div>
+                  <div style={{ marginBottom: 20 }}>
+                    <MessageTagControl
+                      catalog={tagCatalog}
+                      applied={conversationTags[selected.id] ?? []}
+                      onAssign={(tagId) => assignConversationTag(selected.id, tagId)}
+                      onRemove={(tagId) => removeConversationTag(selected.id, tagId)}
+                    />
+                  </div>
+
+                  {orderForSelected !== undefined && (
+                    <>
+                      <div style={{ fontSize: 10.5, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 10 }}>
+                        Order
+                      </div>
+                      <div style={{ marginBottom: 20 }}>
+                        {orderForSelected ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12 }}>
+                            <div>{orderForSelected.products}</div>
+                            <div style={{ color: "var(--text-muted)" }}>{orderForSelected.deliveryAddress}</div>
+                            <div style={{ color: "var(--text-muted)" }}>{orderForSelected.paymentMethod} · {orderForSelected.phone}</div>
+                          </div>
+                        ) : (
+                          <p style={subtleTextStyle}>No order for this conversation.</p>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {summaryBySession[selected.id] && (
+                    <>
+                      <div style={{ fontSize: 10.5, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 10 }}>
+                        Conversation Summary
+                      </div>
+                      <p style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.6 }}>{summaryBySession[selected.id]}</p>
+                    </>
+                  )}
+                </div>
               </div>
             </>
           )}
