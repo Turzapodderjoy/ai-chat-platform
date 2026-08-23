@@ -406,6 +406,7 @@ a {
 
 .markdown-message p {
   margin: 0 0 8px;
+  color: inherit;
 }
 
 .markdown-message p:last-child {
