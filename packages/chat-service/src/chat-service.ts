@@ -225,6 +225,26 @@ const ORDER_CONFIRMED_MESSAGE_EN = "Your order is confirmed and will be delivere
 const ORDER_CONFIRMED_MESSAGE_BN = "আপনার অর্ডারটি নিশ্চিত করা হয়েছে এবং শীঘ্রই ডেলিভারি করা হবে। ধন্যবাদ!";
 const ORDER_CONFIRMED_MESSAGE_BANGLISH = "Apnar order confirm kora hoyeche, shigroi deliver kore deya hobe. Dhonnobad!";
 
+/** Appended to the confirmation reply the moment an order row actually
+ * exists — same "code generates the correctness-critical text, not the
+ * AI" reasoning as orderSummaryMessage. Order id shortened to its last 8
+ * chars as a human-readable invoice number; full id stays in the DB. */
+function invoiceMessage(fields: OrderFields, orderId: string, lang: "bangla" | "banglish" | "english"): string {
+  const total = computeOrderTotal(fields.products);
+  const invoiceNo = orderId.slice(-8).toUpperCase();
+
+  if (lang === "bangla") {
+    const totalLine = total !== null ? `\n- সর্বমোট: ৳${total.toLocaleString("en-US")}` : "";
+    return `${ORDER_CONFIRMED_MESSAGE_BN}\n\n**ইনভয়েস #${invoiceNo}**\n- নাম: ${fields.customerName}\n- ফোন: ${fields.phone}\n- ঠিকানা: ${fields.deliveryAddress}\n- পণ্য: ${fields.products}${totalLine}\n- পেমেন্ট: ${fields.paymentMethod}`;
+  }
+  if (lang === "banglish") {
+    const totalLine = total !== null ? `\n- Mot: ৳${total.toLocaleString("en-US")}` : "";
+    return `${ORDER_CONFIRMED_MESSAGE_BANGLISH}\n\n**Invoice #${invoiceNo}**\n- Naam: ${fields.customerName}\n- Phone: ${fields.phone}\n- Address: ${fields.deliveryAddress}\n- Product: ${fields.products}${totalLine}\n- Payment: ${fields.paymentMethod}`;
+  }
+  const totalLine = total !== null ? `\n- Total: ৳${total.toLocaleString("en-US")}` : "";
+  return `${ORDER_CONFIRMED_MESSAGE_EN}\n\n**Invoice #${invoiceNo}**\n- Name: ${fields.customerName}\n- Phone: ${fields.phone}\n- Address: ${fields.deliveryAddress}\n- Product: ${fields.products}${totalLine}\n- Payment: ${fields.paymentMethod}`;
+}
+
 const HANDOFF_MESSAGE_BANGLISH =
   "Dukkhito, amader knowledge base e ei bishoye kono tothyo nei. Ami apnake ekjon team member-er sathe connect kore dicchi — uni ei conversation ja jekhane sesh hoyeche sekhan theke shuru korben.";
 
@@ -335,6 +355,52 @@ function greetingReply(languageMode: string, userMessage: string, sessionId: str
 // system prompt's job, for actual LLM-generated answers.
 function isBangla(text: string): boolean {
   return /[ঀ-৿]/.test(text);
+}
+
+// Common romanized-Bangla function words/verb forms — none of these are
+// also common English words, so a match is a reliable signal without
+// needing a real language-detection library. Not exhaustive; a message
+// with none of these just falls through to "english" below, same as the
+// canned-message path already does for anything it can't classify.
+const BANGLISH_MARKER =
+  /\b(ami|apni|apnar|amar|amader|ache|nei|koto|taka|korte|korbo|korben|korlam|korlen|korchi|lagbe|chai|chaan|chachhen|chachhi|bhai|thik|hoyeche|hobe|hocche|nibo|niben|nite|shob|shudhu|gulo|ta|deben|den|kemon|keno|kobe|kothay|jonno|theke|diye|giye|geche|bhalo|valo|vlo|hae|naki|dhonnobad|assalamu|jante|janan|bolun|bolen|pathan|pathaben|apnara)\b/i;
+
+/** Deterministic per-turn detection of the CUSTOMER's message language —
+ * unlike languageLockInstruction (an admin-set hard override) or
+ * languageHintInstruction (a soft one-time widget preference), this runs
+ * every turn against request.message itself, so "auto" mode stops being
+ * a bare "match the customer" hint the model can drift on and becomes an
+ * actual per-message check. Only applies in "auto" mode — a locked
+ * language already wins outright via languageLockInstruction. Returns ""
+ * when the message has no detectable language (empty, numbers/emoji
+ * only) rather than forcing a guess. */
+function autoLanguageCheckInstruction(languageMode: string, userMessage: string): string {
+  if (languageMode !== "auto") return "";
+
+  const detected = detectLanguage(userMessage);
+  if (!detected) return "";
+
+  const LABEL: Record<string, string> = {
+    bangla: "natural Bangla (Bengali script)",
+    banglish: "Banglish (Bangla written in Latin/Roman letters)",
+    english: "English",
+  };
+
+  return `\n\nLANGUAGE CHECK (runs every turn): the customer's most recent message is written in ${LABEL[detected]}. Reply in ${LABEL[detected]} for this turn, matching their script/register exactly — regardless of what language earlier turns in this conversation used.`;
+}
+
+/** Same three-way classification as autoLanguageCheckInstruction, reused
+ * on the CUSTOMER's message (to decide what's expected) and on the AI's
+ * own reply (to verify it actually complied) — the check this whole
+ * mechanism is named for. Exported logic kept as one function so both
+ * sides of the comparison can never drift out of sync with each other. */
+function detectLanguage(text: string): "bangla" | "banglish" | "english" | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  if (isBangla(trimmed)) return "bangla";
+  if (BANGLISH_MARKER.test(trimmed)) return "banglish";
+  if (/[a-zA-Z]{2,}/.test(trimmed)) return "english";
+  return null;
 }
 
 /** Which register to use for the canned (non-LLM) messages below — when
@@ -574,7 +640,7 @@ export class ChatService {
     // message does confirm it.
     if (isOrderComplete(conversation.pendingOrder) && isAffirmative(request.message)) {
       const pending = conversation.pendingOrder;
-      await this.orders.create({
+      const createdOrder = await this.orders.create({
         businessId,
         conversationId: request.sessionId,
         customerName: pending.customerName,
@@ -586,12 +652,7 @@ export class ChatService {
       await this.conversations.setPendingOrder(request.sessionId, null);
 
       const orderLang = cannedMessageLanguage(config.languageMode, request.message);
-      const orderMessage =
-        orderLang === "bangla"
-          ? ORDER_CONFIRMED_MESSAGE_BN
-          : orderLang === "banglish"
-            ? ORDER_CONFIRMED_MESSAGE_BANGLISH
-            : ORDER_CONFIRMED_MESSAGE_EN;
+      const orderMessage = invoiceMessage(pending, createdOrder.id, orderLang);
 
       const savedMessage = await this.conversations.addMessage(
         request.sessionId,
@@ -914,6 +975,7 @@ export class ChatService {
         systemPrompt:
           config.systemPrompt +
           languageLockInstruction(config.languageMode) +
+          autoLanguageCheckInstruction(config.languageMode, request.message) +
           languageHintInstruction(config.languageMode, request.languageHint),
         context:
           retrieved.map(chunk => chunk.text),
@@ -968,6 +1030,47 @@ export class ChatService {
       console.log(`[perf] retry ai.chat done, provider=${aiResponse.provider}, marker present=${ORDER_FIELDS_PATTERN.test(aiResponse.response) || ORDER_MARKER_PATTERN.test(aiResponse.response)}`);
     }
 
+    // Deterministic language enforcement, not just a prompt hint — the
+    // system prompt's own "match the customer's language" wording has a
+    // confirmed history of drifting (see AI Brain change log). Compute
+    // what language THIS reply is required to be in (the admin's lock if
+    // one is set, else whatever the customer's own current message is
+    // detected as), then actually check the AI's reply against it and
+    // retry once with an explicit correction if it didn't comply — same
+    // "verify, don't just ask nicely" pattern as the ORDER_FIELDS retry
+    // above.
+    // ponytail: one retry, not a guarantee — confirmed live that a
+    // provider can still miss on the corrected retry too. Upgrade path
+    // if this isn't good enough: loop the retry (bounded, e.g. 2 tries)
+    // instead of a single shot.
+    const expectedReplyLanguage: "bangla" | "banglish" | "english" | null =
+      config.languageMode === "english" || config.languageMode === "bangla" || config.languageMode === "banglish"
+        ? config.languageMode
+        : detectLanguage(request.message);
+
+    if (expectedReplyLanguage) {
+      const replyForLangCheck = aiResponse.response
+        .replaceAll(HANDOFF_MARKER, "")
+        .replace(ORDER_MARKER_PATTERN, "")
+        .replace(ORDER_FIELDS_PATTERN, "")
+        .trim();
+      const actualReplyLanguage = detectLanguage(replyForLangCheck);
+
+      if (actualReplyLanguage && actualReplyLanguage !== expectedReplyLanguage) {
+        console.log(`[perf] retrying: reply language mismatch (expected ${expectedReplyLanguage}, got ${actualReplyLanguage})`);
+        const LANGUAGE_RETRY_LABEL: Record<string, string> = {
+          bangla: "natural Bangla (Bengali script)",
+          banglish: "Banglish (Bangla written in Latin/Roman letters)",
+          english: "English",
+        };
+        const retrySystemPrompt =
+          prompt.systemPrompt +
+          `\n\nREMINDER: your last reply was NOT in the required language. Rewrite your ENTIRE reply in ${LANGUAGE_RETRY_LABEL[expectedReplyLanguage]} only, keeping the same meaning and any required markers — do not mix languages.`;
+        aiResponse = await this.ai.chat(prompt.userPrompt, { ...aiCallOptions, systemPrompt: retrySystemPrompt });
+        console.log(`[perf] language retry done, provider=${aiResponse.provider}`);
+      }
+    }
+
     // Confirmed live: the AI can emit BOTH the handoff marker AND real
     // order-field progress in the exact same reply — a genuine model
     // confusion artifact from teaching it multiple marker types for one
@@ -992,6 +1095,7 @@ export class ChatService {
     // stage below so an order confirmation (which never also needs a
     // human) doesn't get double-processed.
     const orderMatch = aiResponse.response.match(ORDER_MARKER_PATTERN);
+    let sameTurnOrder: { id: string; fields: OrderFields } | null = null;
     if (orderMatch) {
       try {
         const parsed = JSON.parse(orderMatch[1]!) as Record<string, unknown>;
@@ -1003,15 +1107,13 @@ export class ChatService {
         const paymentMethod = field("paymentMethod") || field("payment");
 
         if (customerName && phone && deliveryAddress && products && paymentMethod) {
-          await this.orders.create({
+          const fields = { customerName, phone, deliveryAddress, products, paymentMethod };
+          const createdOrder = await this.orders.create({
             businessId,
             conversationId: request.sessionId,
-            customerName,
-            phone,
-            deliveryAddress,
-            products,
-            paymentMethod,
+            ...fields,
           });
+          sameTurnOrder = { id: createdOrder.id, fields };
           // Clears whatever ORDER_PENDING this same-message finalize may
           // have superseded — otherwise a stale pendingOrder from an
           // earlier turn could get finalized a second time by an
@@ -1067,6 +1169,17 @@ export class ChatService {
       // was created.
       cleanedAnswer =
         orderLang === "bangla" ? ORDER_CONFIRMED_MESSAGE_BN : orderLang === "banglish" ? ORDER_CONFIRMED_MESSAGE_BANGLISH : ORDER_CONFIRMED_MESSAGE_EN;
+    }
+
+    // Auto-invoice: whenever this turn actually created an order (same-
+    // message ORDER_TAKEN path), append the itemized invoice regardless
+    // of whatever the AI itself said — the AI's own reply is usually a
+    // normal sentence like "your order is confirmed", not blank, so
+    // relying on the empty-reply branch above alone would silently skip
+    // the invoice most of the time.
+    if (sameTurnOrder) {
+      const invoice = invoiceMessage(sameTurnOrder.fields, sameTurnOrder.id, orderLang);
+      cleanedAnswer = cleanedAnswer ? `${cleanedAnswer}\n\n${invoice}` : invoice;
     }
 
     let summaryTokens = 0;
