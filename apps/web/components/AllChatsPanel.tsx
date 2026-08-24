@@ -69,6 +69,7 @@ const CHANNEL_LABEL: Record<string, { color: string; label: string }> = {
   messenger: { color: "#0084ff", label: "Messenger" },
   instagram: { color: "#e1306c", label: "Instagram" },
   whatsapp: { color: "#25d366", label: "WhatsApp" },
+  "repair-tracking": { color: "#f0883e", label: "Repair Tracking" },
 };
 
 function displayName(c: { customerName: string | null; externalUserId: string | null }): string {

@@ -813,3 +813,35 @@ model Order {
 
   @@index([businessId, createdAt])
 }
+
+// A repair-shop client's appointment booking + tracking record — same
+// "flat, human-readable slip" philosophy as Order above, not a
+// fulfillment system of record. `trackingToken` doubles as the id of
+// the linked Conversation (see RepairController) so the existing
+// generic messaging endpoints (/api/chat/messages, /api/admin/handoffs/
+// reply) work for the tracking page's "contact us" thread with zero new
+// messaging code — this business has no AI bot at all, so that
+// Conversation goes straight to a human handoff at creation time.
+model RepairAppointment {
+  id               String   @id @default(cuid())
+  businessId       String
+  trackingToken    String   @unique
+
+  customerName     String
+  phone            String
+  deviceType       String
+  deviceModel      String?
+  issueDescription String
+  appointmentDate  DateTime
+
+  // booked | received | in_repair | ready | completed | cancelled — a
+  // plain string, not a Prisma enum, so the workflow can be tweaked
+  // later without a migration (same convention as Conversation.channel).
+  status           String   @default("booked")
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([businessId, appointmentDate])
+  @@index([businessId, status])
+}

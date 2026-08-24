@@ -17,6 +17,7 @@ import { KnowledgeRefreshController } from "./knowledge-refresh-controller";
 import { ClientHealthController } from "./client-health-controller";
 import { ProductController } from "./product-controller";
 import { OrderController } from "./order-controller";
+import { RepairController } from "./repair-controller";
 import { DashboardThemeController } from "./dashboard-theme-controller";
 
 export class ApiRouter {
@@ -40,6 +41,7 @@ export class ApiRouter {
     readonly clientHealth: ClientHealthController,
     readonly products: ProductController,
     readonly orders: OrderController,
+    readonly repairs: RepairController,
     readonly dashboardTheme: DashboardThemeController
   ) {}
 }

@@ -13,12 +13,13 @@ import { ChatLearningPanel } from "../../../components/ChatLearningPanel";
 import { ChannelsPanel } from "../../../components/ChannelsPanel";
 import { ProductCatalogPanel } from "../../../components/ProductCatalogPanel";
 import { OrdersPanel } from "../../../components/OrdersPanel";
+import { RepairsPanel } from "../../../components/RepairsPanel";
 import { ClientOverviewPanel } from "../../../components/ClientOverviewPanel";
 import { ClientTagDashboardPanel } from "../../../components/ClientTagDashboardPanel";
 import { TrainingArenaPanel } from "../../../components/TrainingArenaPanel";
 import { DashboardShell, type NavGroup } from "../../../components/DashboardShell";
 
-type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "orders" | "allchats" | "handoffs" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels";
+type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "orders" | "repairs" | "allchats" | "handoffs" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   {
@@ -28,6 +29,7 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
       { id: "knowledge", label: "Knowledge Hub" },
       { id: "products", label: "Product Catalog" },
       { id: "orders", label: "Orders" },
+      { id: "repairs", label: "Repairs" },
       { id: "allchats", label: "All Chats" },
       { id: "handoffs", label: "Handoffs" },
       { id: "storage", label: "Storage" },
@@ -201,6 +203,9 @@ export default function ClientDashboardClient() {
       </div>
       <div style={{ display: tab === "orders" ? "block" : "none" }}>
         <OrdersPanel businessId={businessId} />
+      </div>
+      <div style={{ display: tab === "repairs" ? "block" : "none" }}>
+        <RepairsPanel businessId={businessId} active={tab === "repairs"} />
       </div>
       <div style={{ display: tab === "allchats" ? "block" : "none" }}>
         <AllChatsPanel businessId={businessId} active={tab === "allchats"} />

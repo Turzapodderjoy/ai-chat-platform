@@ -178,6 +178,9 @@ importers:
       '@ai-chat-platform/rag':
         specifier: workspace:*
         version: link:../rag
+      '@ai-chat-platform/repairs':
+        specifier: workspace:*
+        version: link:../repairs
       '@ai-chat-platform/tabular-extraction':
         specifier: workspace:*
         version: link:../tabular-extraction
@@ -292,6 +295,9 @@ importers:
       '@ai-chat-platform/rag':
         specifier: workspace:*
         version: link:../rag
+      '@ai-chat-platform/repairs':
+        specifier: workspace:*
+        version: link:../repairs
       '@ai-chat-platform/retriever':
         specifier: workspace:*
         version: link:../retriever
@@ -606,6 +612,12 @@ importers:
       '@ai-chat-platform/upload':
         specifier: workspace:*
         version: link:../upload
+
+  packages/repairs:
+    dependencies:
+      '@ai-chat-platform/database':
+        specifier: workspace:*
+        version: link:../database
 
   packages/retriever:
     dependencies:
