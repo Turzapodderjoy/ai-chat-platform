@@ -7,6 +7,7 @@ export interface RepairAppointmentInput {
   trackingToken: string;
   customerName: string;
   phone: string;
+  email?: string;
   deviceType: string;
   deviceModel?: string;
   issueDescription: string;
@@ -40,6 +41,7 @@ function toAppointment(row: {
   trackingToken: string;
   customerName: string;
   phone: string;
+  email: string | null;
   deviceType: string;
   deviceModel: string | null;
   issueDescription: string;
@@ -54,6 +56,7 @@ function toAppointment(row: {
     trackingToken: row.trackingToken,
     customerName: row.customerName,
     phone: row.phone,
+    email: row.email ?? undefined,
     deviceType: row.deviceType,
     deviceModel: row.deviceModel ?? undefined,
     issueDescription: row.issueDescription,
@@ -86,6 +89,7 @@ export class RepairAppointmentService {
         trackingToken: input.trackingToken,
         customerName: input.customerName,
         phone: input.phone,
+        email: input.email ?? null,
         deviceType: input.deviceType,
         deviceModel: input.deviceModel ?? null,
         issueDescription: input.issueDescription,

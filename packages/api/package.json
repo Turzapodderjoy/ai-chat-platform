@@ -33,6 +33,7 @@
     "@ai-chat-platform/knowledge-refresh": "workspace:*",
     "@ai-chat-platform/tabular-extraction": "workspace:*",
     "@ai-chat-platform/dashboard-theme": "workspace:*",
-    "@ai-chat-platform/repairs": "workspace:*"
+    "@ai-chat-platform/repairs": "workspace:*",
+    "@ai-chat-platform/email": "workspace:*"
   }
 }

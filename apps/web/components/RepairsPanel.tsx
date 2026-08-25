@@ -13,6 +13,7 @@ interface Appointment {
   trackingToken: string;
   customerName: string;
   phone: string;
+  email?: string;
   deviceType: string;
   deviceModel?: string;
   issueDescription: string;
@@ -99,6 +100,37 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
+
+  const [emailSettingsOpen, setEmailSettingsOpen] = useState(false);
+  const [fromName, setFromName] = useState("");
+  const [fromEmail, setFromEmail] = useState("");
+  const [trackingPageUrl, setTrackingPageUrl] = useState("");
+  const [savingEmailSettings, setSavingEmailSettings] = useState(false);
+
+  useEffect(() => {
+    if (!businessId) return;
+    fetch(`/api/admin/repairs/email-settings?businessId=${encodeURIComponent(businessId)}`)
+      .then((r) => r.json())
+      .then((d: { fromName: string | null; fromEmail: string | null; trackingPageUrl: string | null }) => {
+        setFromName(d.fromName ?? "");
+        setFromEmail(d.fromEmail ?? "");
+        setTrackingPageUrl(d.trackingPageUrl ?? "");
+      });
+  }, [businessId]);
+
+  async function saveEmailSettings() {
+    if (!businessId || !fromName.trim() || !fromEmail.trim()) return;
+    setSavingEmailSettings(true);
+    try {
+      await fetch("/api/admin/repairs/email-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, fromName, fromEmail, trackingPageUrl: trackingPageUrl || undefined }),
+      });
+    } finally {
+      setSavingEmailSettings(false);
+    }
+  }
 
   const [toast, setToast] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">(
@@ -291,6 +323,30 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
         )}
       </div>
 
+      {businessId && (
+        <div style={{ marginBottom: 20 }}>
+          <button onClick={() => setEmailSettingsOpen((o) => !o)} style={{ fontSize: 12 }}>
+            {emailSettingsOpen ? "Hide" : "Show"} Email Settings
+          </button>
+          {emailSettingsOpen && (
+            <div style={{ marginTop: 10, padding: 14, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)" }}>
+              <p style={subtleTextStyle}>
+                Booking-confirmation emails are sent through a shared service but shown as coming from this
+                business. The sending domain (the part after @ in From email) must be verified first — ask us to set that up.
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10, marginBottom: 10 }}>
+                <input placeholder="From name (e.g. PhoneRepairZoneAZ)" value={fromName} onChange={(e) => setFromName(e.target.value)} style={{ padding: 8 }} />
+                <input placeholder="From email (e.g. noreply@yourdomain.com)" value={fromEmail} onChange={(e) => setFromEmail(e.target.value)} style={{ padding: 8 }} />
+                <input placeholder="Tracking page URL (optional)" value={trackingPageUrl} onChange={(e) => setTrackingPageUrl(e.target.value)} style={{ padding: 8 }} />
+              </div>
+              <button onClick={saveEmailSettings} disabled={savingEmailSettings || !fromName.trim() || !fromEmail.trim()} style={primaryButtonStyle}>
+                {savingEmailSettings ? "Saving…" : "Save"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {stats && (
         <StatCardRow>
           <StatCard label="Total Appointments" value={String(stats.total)} tone="info" />
@@ -402,6 +458,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
             <div><span style={{ color: "var(--text-faint)" }}>Device</span><br />{selected.deviceType}{selected.deviceModel ? ` — ${selected.deviceModel}` : ""}</div>
             <div><span style={{ color: "var(--text-faint)" }}>Appointment</span><br />{new Date(selected.appointmentDate).toLocaleString()}</div>
             <div><span style={{ color: "var(--text-faint)" }}>Tracking Token</span><br />{selected.trackingToken}</div>
+            {selected.email && <div><span style={{ color: "var(--text-faint)" }}>Email</span><br />{selected.email}</div>}
             <div style={{ gridColumn: "1 / -1" }}><span style={{ color: "var(--text-faint)" }}>Issue</span><br />{selected.issueDescription}</div>
           </div>
 

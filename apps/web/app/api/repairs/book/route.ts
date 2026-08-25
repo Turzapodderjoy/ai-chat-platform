@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
       businessId: body.businessId,
       customerName: body.customerName,
       phone: body.phone,
+      email: typeof body.email === "string" ? body.email : undefined,
       deviceType: body.deviceType,
       deviceModel: typeof body.deviceModel === "string" ? body.deviceModel : undefined,
       issueDescription: body.issueDescription,

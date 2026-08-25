@@ -154,6 +154,9 @@ importers:
       '@ai-chat-platform/database':
         specifier: workspace:*
         version: link:../database
+      '@ai-chat-platform/email':
+        specifier: workspace:*
+        version: link:../email
       '@ai-chat-platform/embedding-catalog':
         specifier: workspace:*
         version: link:../embedding-catalog
@@ -262,6 +265,9 @@ importers:
       '@ai-chat-platform/database':
         specifier: workspace:*
         version: link:../database
+      '@ai-chat-platform/email':
+        specifier: workspace:*
+        version: link:../email
       '@ai-chat-platform/embedding-catalog':
         specifier: workspace:*
         version: link:../embedding-catalog
@@ -424,6 +430,12 @@ importers:
       xlsx:
         specifier: ^0.18.5
         version: 0.18.5
+
+  packages/email:
+    dependencies:
+      '@ai-chat-platform/database':
+        specifier: workspace:*
+        version: link:../database
 
   packages/embedding-catalog:
     dependencies:

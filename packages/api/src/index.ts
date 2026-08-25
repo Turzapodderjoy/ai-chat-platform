@@ -19,4 +19,5 @@ export * from "./client-health-controller";
 export * from "./product-controller";
 export * from "./order-controller";
 export * from "./repair-controller";
+export * from "./email-controller";
 export * from "./dashboard-theme-controller";

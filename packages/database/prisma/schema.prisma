@@ -829,6 +829,7 @@ model RepairAppointment {
 
   customerName     String
   phone            String
+  email            String?
   deviceType       String
   deviceModel      String?
   issueDescription String
@@ -844,4 +845,20 @@ model RepairAppointment {
 
   @@index([businessId, appointmentDate])
   @@index([businessId, status])
+}
+
+// Per-business outbound-email sender identity — same "single mutable
+// row per business" shape as WidgetConfig, not a versioned/history
+// model like AiConfigVersion, since this is simple contact info with
+// no change log needed. `fromEmail`'s domain must be DNS-verified in
+// Resend before sending from it actually works (a one-time manual step
+// per client, not something code can automate) — ResendEmailClient
+// fails gracefully rather than blocking whatever triggered the send.
+model EmailSenderConfig {
+  id              String   @id @default(cuid())
+  businessId      String   @unique
+  fromName        String
+  fromEmail       String
+  trackingPageUrl String?
+  updatedAt       DateTime @updatedAt
 }

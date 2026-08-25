@@ -43,8 +43,9 @@ import { TagController } from "@ai-chat-platform/api";
 import { ClientAuthController } from "@ai-chat-platform/api";
 import { WidgetConfigController, DashboardThemeController } from "@ai-chat-platform/api";
 import { KnowledgeRefreshController } from "@ai-chat-platform/api";
-import { ClientHealthController, ProductController, OrderController, RepairController } from "@ai-chat-platform/api";
+import { ClientHealthController, ProductController, OrderController, RepairController, EmailController } from "@ai-chat-platform/api";
 import { RepairAppointmentService } from "@ai-chat-platform/repairs";
+import { EmailSenderConfigService, ResendEmailClient } from "@ai-chat-platform/email";
 import { RefreshScheduleService, MasterCsvService } from "@ai-chat-platform/knowledge-refresh";
 import { ApiRouter } from "@ai-chat-platform/api";
 import { ClientAuthService } from "@ai-chat-platform/client-auth";
@@ -153,6 +154,12 @@ export class Container {
     const repairs =
       new RepairAppointmentService();
 
+    const emailSenderConfig =
+      new EmailSenderConfigService();
+
+    const emailClient =
+      new ResendEmailClient();
+
     const chat =
       new ChatService(
         conversations,
@@ -259,7 +266,8 @@ export class Container {
         new ClientHealthController(tenants, crawlerService, masterCsv, refreshSchedule, vectorStore, embeddings, conversations),
         new ProductController(productService),
         new OrderController(orders),
-        new RepairController(repairs, conversations),
+        new RepairController(repairs, conversations, emailSenderConfig, emailClient),
+        new EmailController(emailSenderConfig),
         new DashboardThemeController(dashboardTheme)
       );
   }
