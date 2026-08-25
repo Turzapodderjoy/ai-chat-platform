@@ -183,7 +183,8 @@ export class Container {
         vectorStore,
         masterCsv,
         orders,
-        contacts
+        contacts,
+        deals
       );
 
     const rag =
@@ -277,7 +278,7 @@ export class Container {
         new ClientHealthController(tenants, crawlerService, masterCsv, refreshSchedule, vectorStore, embeddings, conversations),
         new ProductController(productService),
         new OrderController(orders),
-        new RepairController(repairs, conversations, emailSenderConfig, emailClient, tenants, contacts),
+        new RepairController(repairs, conversations, emailSenderConfig, emailClient, tenants, contacts, deals),
         new EmailController(emailSenderConfig),
         new CrmController(contacts, companies, deals),
         new DashboardThemeController(dashboardTheme)

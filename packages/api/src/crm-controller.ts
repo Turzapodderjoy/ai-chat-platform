@@ -19,6 +19,14 @@ export class CrmController {
     return this.contacts.delete(id);
   }
 
+  getContactRecord(id: string) {
+    return this.contacts.getRecord(id);
+  }
+
+  findContactByPhone(businessId: string, phone: string) {
+    return this.contacts.findByPhone(businessId, phone);
+  }
+
   listCompanies(businessId?: string) {
     return this.companies.listForBusiness(businessId);
   }

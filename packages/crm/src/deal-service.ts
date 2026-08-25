@@ -67,6 +67,25 @@ export class DealService {
     return toDeal(row);
   }
 
+  /** Auto-creates a Deal already at its closed-won stage — a real Order
+   * being placed is itself proof a sale happened, there's no earlier
+   * pipeline stage to walk it through first. Used by ChatService right
+   * after an Order is saved, so Deals reflect what actually sold instead
+   * of only ever being created by hand. */
+  async createWon(input: CreateDealInput): Promise<Deal> {
+    const row = await prisma.deal.create({
+      data: {
+        businessId: input.businessId,
+        contactId: input.contactId,
+        title: input.title,
+        amount: input.amount,
+        stage: "won",
+        status: "won",
+      },
+    });
+    return toDeal(row);
+  }
+
   async listForBusiness(businessId?: string): Promise<Deal[]> {
     const rows = await prisma.deal.findMany({
       where: businessId ? { businessId } : {},

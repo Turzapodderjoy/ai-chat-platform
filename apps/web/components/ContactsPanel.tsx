@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 
-import { cardStyle, cellStyle, subtleTextStyle, shortId } from "./dashboard-styles";
+import { cardStyle, cellStyle, subtleTextStyle, shortId, badgeStyle, type BadgeTone } from "./dashboard-styles";
 
 interface Contact {
   id: string;
@@ -20,16 +20,30 @@ interface Company {
   name: string;
 }
 
+interface ContactRecord {
+  contact: Contact;
+  orders: { id: string; products: string; paymentMethod: string; createdAt: string }[];
+  repairs: { id: string; trackingToken: string; deviceType: string; status: string; createdAt: string }[];
+  deals: { id: string; title: string; amount: number | null; stage: string; status: string }[];
+}
+
+const DEAL_TONE: Record<string, BadgeTone> = { open: "info", won: "ok", lost: "error" };
+
 /** A real customer record, unifying what used to be resolved fresh per
  * conversation (see ConversationService.namesForConversations) — a
  * customer who orders/books more than once shows up once here, with
- * every order/repair/conversation they've ever had attached to the
- * same person instead of looking like separate customers each time. */
+ * every order/repair/deal they've ever had attached to the same
+ * person instead of looking like separate customers each time. Click a
+ * row to expand their full history — the actual "connected record"
+ * this is for, not just a flat list. */
 export function ContactsPanel({ businessId, active = true }: { businessId?: string; active?: boolean }) {
   const [contacts, setContacts] = useState<Contact[] | null>(null);
   const [companies, setCompanies] = useState<Company[] | null>(null);
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [record, setRecord] = useState<ContactRecord | null>(null);
+  const [loadingRecord, setLoadingRecord] = useState(false);
 
   function refresh() {
     const qs = businessId ? `?businessId=${encodeURIComponent(businessId)}` : "";
@@ -56,6 +70,20 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
       [c.id, c.name, c.phone ?? "", c.email ?? ""].some((f) => f.toLowerCase().includes(q))
     );
   }, [contacts, search]);
+
+  function toggleRecord(contact: Contact) {
+    if (expandedId === contact.id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(contact.id);
+    setRecord(null);
+    setLoadingRecord(true);
+    fetch(`/api/admin/crm/contacts?id=${encodeURIComponent(contact.id)}`)
+      .then((r) => r.json())
+      .then(setRecord)
+      .finally(() => setLoadingRecord(false));
+  }
 
   async function setCompany(contact: Contact, companyId: string) {
     setBusyId(contact.id);
@@ -88,7 +116,8 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
       <h2 style={{ marginTop: 0 }}>Contacts</h2>
       <p style={subtleTextStyle}>
         Every customer who has ordered, booked a repair, or messaged in — merged into one record per
-        person (matched by phone or email) instead of scattered across separate chats.
+        person (matched by phone or email) instead of scattered across separate chats. Click a row to
+        see their full history.
       </p>
 
       <input
@@ -118,29 +147,70 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
             </thead>
             <tbody>
               {filtered.map((c) => (
-                <tr key={c.id}>
-                  <td style={{ ...cellStyle, fontSize: 11, color: "var(--text-faint)" }}>{shortId(c.id)}</td>
-                  <td style={cellStyle}>{c.name}</td>
-                  <td style={cellStyle}>{c.phone ?? "—"}</td>
-                  <td style={cellStyle}>{c.email ?? "—"}</td>
-                  <td style={cellStyle}>
-                    <select
-                      value={c.companyId ?? ""}
-                      onChange={(e) => setCompany(c, e.target.value)}
-                      disabled={busyId === c.id}
-                      style={{ padding: 4, fontSize: 12 }}
-                    >
-                      <option value="">{companyById.get(c.companyId ?? "") ?? "— none —"}</option>
-                      {(companies ?? []).filter((co) => co.id !== c.companyId).map((co) => (
-                        <option key={co.id} value={co.id}>{co.name}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td style={cellStyle}>{new Date(c.updatedAt).toLocaleDateString()}</td>
-                  <td style={cellStyle}>
-                    <button onClick={() => deleteContact(c)} disabled={busyId === c.id}>Delete</button>
-                  </td>
-                </tr>
+                <Fragment key={c.id}>
+                  <tr onClick={() => toggleRecord(c)} style={{ cursor: "pointer" }}>
+                    <td style={{ ...cellStyle, fontSize: 11, color: "var(--text-faint)" }}>{shortId(c.id)}</td>
+                    <td style={cellStyle}>{c.name}</td>
+                    <td style={cellStyle}>{c.phone ?? "—"}</td>
+                    <td style={cellStyle}>{c.email ?? "—"}</td>
+                    <td style={cellStyle} onClick={(e) => e.stopPropagation()}>
+                      <select
+                        value={c.companyId ?? ""}
+                        onChange={(e) => setCompany(c, e.target.value)}
+                        disabled={busyId === c.id}
+                        style={{ padding: 4, fontSize: 12 }}
+                      >
+                        <option value="">{companyById.get(c.companyId ?? "") ?? "— none —"}</option>
+                        {(companies ?? []).filter((co) => co.id !== c.companyId).map((co) => (
+                          <option key={co.id} value={co.id}>{co.name}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td style={cellStyle}>{new Date(c.updatedAt).toLocaleDateString()}</td>
+                    <td style={cellStyle} onClick={(e) => e.stopPropagation()}>
+                      <button onClick={() => deleteContact(c)} disabled={busyId === c.id}>Delete</button>
+                    </td>
+                  </tr>
+                  {expandedId === c.id && (
+                    <tr>
+                      <td colSpan={7} style={{ ...cellStyle, background: "var(--surface)", padding: 14 }}>
+                        {loadingRecord && <p style={subtleTextStyle}>Loading history…</p>}
+                        {record && (
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, fontSize: 12.5 }}>
+                            <div>
+                              <div style={{ fontWeight: 650, marginBottom: 6 }}>Orders ({record.orders.length})</div>
+                              {record.orders.length === 0 && <span style={{ color: "var(--text-faint)" }}>None</span>}
+                              {record.orders.map((o) => (
+                                <div key={o.id} style={{ marginBottom: 4 }}>
+                                  <span style={{ color: "var(--text-faint)" }}>{new Date(o.createdAt).toLocaleDateString()}</span> — {o.products}
+                                </div>
+                              ))}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 650, marginBottom: 6 }}>Repairs ({record.repairs.length})</div>
+                              {record.repairs.length === 0 && <span style={{ color: "var(--text-faint)" }}>None</span>}
+                              {record.repairs.map((r) => (
+                                <div key={r.id} style={{ marginBottom: 4 }}>
+                                  {r.deviceType} — {r.status} <span style={{ color: "var(--text-faint)" }}>({r.trackingToken})</span>
+                                </div>
+                              ))}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 650, marginBottom: 6 }}>Deals ({record.deals.length})</div>
+                              {record.deals.length === 0 && <span style={{ color: "var(--text-faint)" }}>None</span>}
+                              {record.deals.map((d) => (
+                                <div key={d.id} style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                                  <span style={badgeStyle(DEAL_TONE[d.status] ?? "neutral")}>{d.stage}</span>
+                                  {d.title}{d.amount != null ? ` — ৳${d.amount.toLocaleString()}` : ""}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>

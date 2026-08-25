@@ -2,7 +2,7 @@ import { ConversationService } from "@ai-chat-platform/conversation";
 import { RepairAppointmentService } from "@ai-chat-platform/repairs";
 import { EmailSenderConfigService, ResendEmailClient } from "@ai-chat-platform/email";
 import { TenantService } from "@ai-chat-platform/tenant";
-import { ContactService } from "@ai-chat-platform/crm";
+import { ContactService, DealService } from "@ai-chat-platform/crm";
 
 export interface BookRepairInput {
   businessId: string;
@@ -27,7 +27,8 @@ export class RepairController {
     private readonly emailSenderConfig: EmailSenderConfigService,
     private readonly emailClient: ResendEmailClient,
     private readonly tenants: TenantService,
-    private readonly contacts: ContactService
+    private readonly contacts: ContactService,
+    private readonly deals: DealService
   ) {}
 
   async book(input: BookRepairInput): Promise<{ trackingToken: string }> {
@@ -55,7 +56,19 @@ export class RepairController {
       appointmentDate: new Date(input.appointmentDate),
     });
 
-    this.contacts.upsert({ businessId: input.businessId, name: input.customerName, phone: input.phone, email: input.email }).catch(() => {});
+    // Non-blocking — a booking every appointment naturally becomes an
+    // open sales opportunity, so this is auto-created here rather than
+    // left for staff to type in by hand.
+    this.contacts
+      .upsert({ businessId: input.businessId, name: input.customerName, phone: input.phone, email: input.email })
+      .then((contact) =>
+        this.deals.create({
+          businessId: input.businessId,
+          contactId: contact.id,
+          title: `${input.deviceType}${input.deviceModel ? ` (${input.deviceModel})` : ""} repair — ${trackingToken}`,
+        })
+      )
+      .catch(() => {});
 
     // No AI here at all — straight to a human handoff so the appointment
     // shows up under "Needs Handoff" the moment it's booked, never

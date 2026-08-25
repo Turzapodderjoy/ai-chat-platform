@@ -6,7 +6,7 @@ import { EmbeddingManager } from "@ai-chat-platform/embedding-manager";
 import { AiConfigService } from "@ai-chat-platform/ai-config";
 import type { VectorStoreManager } from "@ai-chat-platform/vector-store";
 import type { MasterCsvService } from "@ai-chat-platform/knowledge-refresh";
-import type { ContactService } from "@ai-chat-platform/crm";
+import type { ContactService, DealService } from "@ai-chat-platform/crm";
 
 import { ChatUsageLog } from "./chat-usage-log";
 import { ResponseCache } from "./response-cache";
@@ -531,7 +531,8 @@ export class ChatService {
     private readonly vectorStore: VectorStoreManager,
     private readonly masterCsv: MasterCsvService,
     private readonly orders: OrderService,
-    private readonly contacts?: ContactService
+    private readonly contacts?: ContactService,
+    private readonly deals?: DealService
   ) {}
 
   // Two messages from the same customer arriving close together (a
@@ -675,7 +676,21 @@ export class ChatService {
         paymentMethod: pending.paymentMethod,
       });
       await this.conversations.setPendingOrder(request.sessionId, null);
-      this.contacts?.upsert({ businessId, name: pending.customerName, phone: pending.phone }).catch(() => {});
+      // Non-blocking — never delay the customer's confirmation waiting
+      // on CRM bookkeeping. A real Order is itself proof of a sale, so
+      // the auto-created Deal goes straight to "won", not through the
+      // earlier pipeline stages.
+      this.contacts
+        ?.upsert({ businessId, name: pending.customerName, phone: pending.phone })
+        .then((contact) =>
+          this.deals?.createWon({
+            businessId,
+            contactId: contact.id,
+            title: pending.products,
+            amount: computeOrderTotal(pending.products) ?? undefined,
+          })
+        )
+        .catch(() => {});
 
       const orderLang = cannedMessageLanguage(config.languageMode, request.message);
       const orderMessage = invoiceMessage(pending, createdOrder.id, orderLang);
@@ -1155,7 +1170,17 @@ export class ChatService {
             ...fields,
           });
           sameTurnOrder = { id: createdOrder.id, fields };
-          this.contacts?.upsert({ businessId, name: customerName, phone }).catch(() => {});
+          this.contacts
+            ?.upsert({ businessId, name: customerName, phone })
+            .then((contact) =>
+              this.deals?.createWon({
+                businessId,
+                contactId: contact.id,
+                title: products,
+                amount: computeOrderTotal(products) ?? undefined,
+              })
+            )
+            .catch(() => {});
           // Clears whatever ORDER_PENDING this same-message finalize may
           // have superseded — otherwise a stale pendingOrder from an
           // earlier turn could get finalized a second time by an

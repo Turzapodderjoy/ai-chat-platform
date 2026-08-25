@@ -103,6 +103,18 @@ export class ContactService {
     return row ? toContact(row) : null;
   }
 
+  /** Same phone-matching upsert() uses, read-only — how a conversation
+   * (which only ever has a phone/externalUserId, never a contactId) is
+   * linked to its Contact record in the Inbox detail panel. */
+  async findByPhone(businessId: string, phone: string): Promise<Contact | null> {
+    const normalized = normalizePhone(phone);
+    if (!normalized) return null;
+    const row = await prisma.contact.findFirst({
+      where: { businessId, phone: { endsWith: normalized.slice(-10) } },
+    });
+    return row ? toContact(row) : null;
+  }
+
   async setCompany(id: string, companyId: string | null): Promise<Contact> {
     const row = await prisma.contact.update({ where: { id }, data: { companyId } });
     return toContact(row);
@@ -110,5 +122,55 @@ export class ContactService {
 
   async delete(id: string): Promise<void> {
     await prisma.contact.delete({ where: { id } });
+  }
+
+  /** The actual "connected record" — every Order, RepairAppointment,
+   * and Deal tied to this person, matched the same way upsert()
+   * dedupes them (normalized phone, then email) since none of those
+   * tables carry a contactId FK — they predate Contact and are
+   * customer-facing data entered by the AI/customer, not something
+   * that should require a schema migration just to link up. Deal DOES
+   * have a real contactId (created after Contact existed), so that one
+   * is a direct query. */
+  async getRecord(id: string): Promise<{
+    contact: Contact;
+    orders: Array<{ id: string; products: string; paymentMethod: string; createdAt: string }>;
+    repairs: Array<{ id: string; trackingToken: string; deviceType: string; status: string; createdAt: string }>;
+    deals: Array<{ id: string; title: string; amount: number | null; stage: string; status: string }>;
+  } | null> {
+    const row = await prisma.contact.findUnique({ where: { id } });
+    if (!row) return null;
+    const contact = toContact(row);
+
+    const phoneSuffix = contact.phone ? contact.phone.slice(-10) : null;
+
+    const [orders, repairs, deals] = await Promise.all([
+      phoneSuffix
+        ? prisma.order.findMany({
+            where: { businessId: contact.businessId, phone: { endsWith: phoneSuffix } },
+            orderBy: { createdAt: "desc" },
+            select: { id: true, products: true, paymentMethod: true, createdAt: true },
+          })
+        : Promise.resolve([]),
+      phoneSuffix
+        ? prisma.repairAppointment.findMany({
+            where: { businessId: contact.businessId, phone: { endsWith: phoneSuffix } },
+            orderBy: { createdAt: "desc" },
+            select: { id: true, trackingToken: true, deviceType: true, status: true, createdAt: true },
+          })
+        : Promise.resolve([]),
+      prisma.deal.findMany({
+        where: { contactId: id },
+        orderBy: { updatedAt: "desc" },
+        select: { id: true, title: true, amount: true, stage: true, status: true },
+      }),
+    ]);
+
+    return {
+      contact,
+      orders: orders.map((o) => ({ ...o, createdAt: o.createdAt.toISOString() })),
+      repairs: repairs.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
+      deals,
+    };
   }
 }

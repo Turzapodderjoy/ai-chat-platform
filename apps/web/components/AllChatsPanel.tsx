@@ -53,6 +53,13 @@ interface HandoffInfo {
   summary: string | null;
 }
 
+interface Contact {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+}
+
 interface Order {
   id: string;
   conversationId: string;
@@ -160,6 +167,7 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
   const [orderForSelected, setOrderForSelected] = useState<Order | null | undefined>(undefined);
   const [repairForSelected, setRepairForSelected] = useState<RepairAppointment | null | undefined>(undefined);
   const [savingRepairStatus, setSavingRepairStatus] = useState(false);
+  const [contactForSelected, setContactForSelected] = useState<Contact | null | undefined>(undefined);
 
   // Which messageCount an agent had last seen, per conversation — a
   // conversation is "unread" when the live list's current messageCount
@@ -334,7 +342,26 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
     } else {
       setRepairForSelected(undefined);
     }
+
+    setContactForSelected(undefined);
   }
+
+  // Contact record is resolved once we know the customer's phone — from
+  // whichever of Order/Repair Details finishes loading first (the same
+  // findByPhone matching ContactService.upsert() uses to dedupe).
+  useEffect(() => {
+    const phone = repairForSelected?.phone ?? orderForSelected?.phone;
+    if (!phone || !selected) {
+      if (orderForSelected === null && (repairForSelected === null || repairForSelected === undefined)) {
+        setContactForSelected(null);
+      }
+      return;
+    }
+    fetch(`/api/admin/crm/contacts?businessId=${encodeURIComponent(selected.businessId)}&phone=${encodeURIComponent(phone)}`)
+      .then((r) => r.json())
+      .then((d: { contact: Contact | null }) => setContactForSelected(d.contact));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderForSelected, repairForSelected, selectedId]);
 
   async function updateRepairStatus(status: string) {
     if (!repairForSelected) return;
@@ -727,6 +754,28 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                       <span>{CHANNEL_LABEL[selected.channel]?.label ?? selected.channel}</span>
                     </div>
                   </div>
+
+                  {contactForSelected !== undefined && (
+                    <>
+                      <div style={{ fontSize: 10.5, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 10 }}>
+                        CRM Contact
+                      </div>
+                      <div style={{ marginBottom: 20, fontSize: 12 }}>
+                        {contactForSelected ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                              <span style={{ color: "var(--text-faint)" }}>Contact</span>
+                              <span>{shortId(contactForSelected.id)}</span>
+                            </div>
+                            <div>{contactForSelected.name}</div>
+                            {contactForSelected.email && <div style={{ color: "var(--text-muted)" }}>{contactForSelected.email}</div>}
+                          </div>
+                        ) : (
+                          <span style={{ color: "var(--text-faint)" }}>No linked contact record.</span>
+                        )}
+                      </div>
+                    </>
+                  )}
 
                   <div style={{ fontSize: 10.5, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 10 }}>
                     Tags
