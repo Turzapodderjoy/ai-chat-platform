@@ -64,6 +64,7 @@ export default function ClientDashboardClient() {
   const [tab, setTab] = useState<Tab>("overview");
   const [client, setClient] = useState<Client | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [username, setUsername] = useState<string | null>(null);
   // null = unrestricted (admin, or a client account with no restriction
   // set) — every tab shows. A real array is the exact allow-list.
   const [allowedPanels, setAllowedPanels] = useState<string[] | null>(null);
@@ -83,6 +84,7 @@ export default function ClientDashboardClient() {
       .then((r) => r.json())
       .then((data) => {
         setIsAdmin(data.role === "admin");
+        setUsername(typeof data.username === "string" ? data.username : null);
         if (data.role === "client" && Array.isArray(data.allowedPanels)) {
           setAllowedPanels(data.allowedPanels);
         }
@@ -132,6 +134,9 @@ export default function ClientDashboardClient() {
           <div style={{ fontSize: 14, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {client?.name ?? businessId}
           </div>
+          {username && (
+            <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>Logged in as {username}</div>
+          )}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
             {isAdmin && (
               <a

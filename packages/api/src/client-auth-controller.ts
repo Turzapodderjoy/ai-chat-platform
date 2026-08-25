@@ -7,8 +7,8 @@ export class ClientAuthController {
     return this.clientAuth.list();
   }
 
-  createAccount(businessId: string, username: string, password: string) {
-    return this.clientAuth.create(businessId, username, password);
+  createAccount(businessId: string | null, username: string, password: string, isAdmin = false) {
+    return this.clientAuth.create(businessId, username, password, isAdmin);
   }
 
   setDisabled(id: string, disabled: boolean) {

@@ -12,13 +12,14 @@ interface Client {
 
 interface ClientAccount {
   id: string;
-  businessId: string;
-  businessName: string;
+  businessId: string | null;
+  businessName: string | null;
   username: string;
   disabled: boolean;
   lastLoginAt: string | null;
   createdAt: string;
   allowedPanels: string[] | null;
+  isAdmin: boolean;
 }
 
 // Kept in sync by hand with the client dashboard's own NAV_GROUPS
@@ -34,6 +35,7 @@ const ALL_PANELS: { id: string; label: string }[] = [
   { id: "knowledge", label: "Knowledge Hub" },
   { id: "products", label: "Product Catalog" },
   { id: "orders", label: "Orders" },
+  { id: "repairs", label: "Repairs" },
   { id: "allchats", label: "All Chats" },
   { id: "handoffs", label: "Handoffs" },
   { id: "storage", label: "Storage" },
@@ -64,6 +66,7 @@ export function ClientAccessPanel() {
   const [businessId, setBusinessId] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [creating, setCreating] = useState(false);
   const [message, setMessage] = useState("");
@@ -91,7 +94,7 @@ export function ClientAccessPanel() {
   }, [clients, businessId]);
 
   async function createAccount() {
-    if (!businessId || !username.trim() || !password) return;
+    if ((!isAdmin && !businessId) || !username.trim() || !password) return;
     setCreating(true);
     setMessage("");
 
@@ -99,7 +102,7 @@ export function ClientAccessPanel() {
       const res = await fetch("/api/admin/client-accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, username, password }),
+        body: JSON.stringify({ businessId: isAdmin ? undefined : businessId, username, password, isAdmin }),
       });
       const result = await res.json();
 
@@ -108,10 +111,11 @@ export function ClientAccessPanel() {
         return;
       }
 
-      setMessage(`Login created for "${username}". Share these credentials with the client now — the password won't be shown again.`);
+      setMessage(`Login created for "${username}". Share these credentials with the ${isAdmin ? "new admin" : "client"} now — the password won't be shown again.`);
       setUsername("");
       setPassword("");
       setShowPassword(false);
+      setIsAdmin(false);
       refresh();
     } finally {
       setCreating(false);
@@ -192,7 +196,7 @@ export function ClientAccessPanel() {
     const q = filter.trim().toLowerCase();
     if (!q) return accounts;
     return accounts.filter(
-      (a) => a.username.toLowerCase().includes(q) || a.businessName.toLowerCase().includes(q)
+      (a) => a.username.toLowerCase().includes(q) || (a.businessName?.toLowerCase().includes(q) ?? false)
     );
   }, [accounts, filter]);
 
@@ -210,6 +214,7 @@ export function ClientAccessPanel() {
           style={{ padding: 8 }}
           value={businessId}
           onChange={(e) => setBusinessId(e.target.value)}
+          disabled={isAdmin}
         >
           {!clients && <option>Loading…</option>}
           {clients?.length === 0 && <option>No clients yet</option>}
@@ -239,7 +244,11 @@ export function ClientAccessPanel() {
           <input type="checkbox" checked={showPassword} onChange={(e) => setShowPassword(e.target.checked)} />
           Show
         </label>
-        <button onClick={createAccount} disabled={creating || !clients?.length} style={primaryButtonStyle}>
+        <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }} title="Full platform access, same as the admin/admin login — not scoped to one client.">
+          <input type="checkbox" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} />
+          Admin (full access)
+        </label>
+        <button onClick={createAccount} disabled={creating || (!isAdmin && !clients?.length)} style={primaryButtonStyle}>
           {creating ? "Creating…" : "+ Create login"}
         </button>
       </div>
@@ -282,14 +291,20 @@ export function ClientAccessPanel() {
                 <Fragment key={a.id}>
                   <tr>
                     <td style={cellStyle}>{a.username}</td>
-                    <td style={cellStyle}>{a.businessName}</td>
+                    <td style={cellStyle}>
+                      {a.isAdmin ? <span style={badgeStyle("info")}>Admin — all clients</span> : a.businessName}
+                    </td>
                     <td style={cellStyle}>
                       <span style={badgeStyle(a.disabled ? "error" : "ok")}>{a.disabled ? "Restricted" : "Active"}</span>
                     </td>
                     <td style={cellStyle}>
-                      <button onClick={() => togglePanelsBox(a)} className="plain" style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                        {restricted ? `${panelCount}/${ALL_PANELS.length} panels` : "All panels"}
-                      </button>
+                      {a.isAdmin ? (
+                        <span style={{ fontSize: 12, color: "var(--text-faint)" }}>All panels</span>
+                      ) : (
+                        <button onClick={() => togglePanelsBox(a)} className="plain" style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                          {restricted ? `${panelCount}/${ALL_PANELS.length} panels` : "All panels"}
+                        </button>
+                      )}
                     </td>
                     <td style={cellStyle}>{a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString() : "Never"}</td>
                     <td style={cellStyle}>{new Date(a.createdAt).toLocaleDateString()}</td>

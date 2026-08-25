@@ -22,35 +22,39 @@ function verifyPassword(password: string, stored: string): boolean {
 
 export interface ClientAccountSummary {
   id: string;
-  businessId: string;
-  businessName: string;
+  businessId: string | null;
+  businessName: string | null;
   username: string;
   disabled: boolean;
   lastLoginAt: string | null;
   createdAt: string;
   allowedPanels: string[] | null;
+  isAdmin: boolean;
 }
 
 export interface LoginResult {
   token: string;
-  businessId: string;
+  businessId: string | null;
+  isAdmin: boolean;
+  username: string;
   expiresAt: Date;
 }
 
-/** Real credential-gated login for CLIENT accounts only — the mother
- * dashboard itself stays open per the platform's documented no-auth
- * stance (CLAUDE.md); this closes that gap specifically for the per-client
- * dashboards, since those are handed to outside people. Sessions are
- * DB-backed (not a signed stateless token) specifically so disabling or
- * deleting an account kicks out an already-logged-in session immediately
- * instead of waiting for a token to expire. */
+/** Real credential-gated login, for CLIENT accounts and (optionally, see
+ * isAdmin) full-access admin accounts too — the mother dashboard itself
+ * stays open to the single fixed admin/admin identity by design
+ * (admin-session.ts), this is an ADDITIONAL way to reach that same
+ * access level with its own named, disable/delete-able credential.
+ * Sessions are DB-backed (not a signed stateless token) specifically so
+ * disabling or deleting an account kicks out an already-logged-in
+ * session immediately instead of waiting for a token to expire. */
 export class ClientAuthService {
   async list(): Promise<ClientAccountSummary[]> {
     const accounts = await prisma.clientAccount.findMany({
       orderBy: { createdAt: "desc" },
     });
 
-    const businessIds = [...new Set(accounts.map((a) => a.businessId))];
+    const businessIds = [...new Set(accounts.map((a) => a.businessId).filter((id): id is string => !!id))];
     const businesses = await prisma.business.findMany({
       where: { id: { in: businessIds } },
     });
@@ -59,27 +63,32 @@ export class ClientAuthService {
     return accounts.map((a) => ({
       id: a.id,
       businessId: a.businessId,
-      businessName: nameById.get(a.businessId) ?? "(deleted client)",
+      businessName: a.businessId ? (nameById.get(a.businessId) ?? "(deleted client)") : null,
       username: a.username,
       disabled: a.disabled,
       lastLoginAt: a.lastLoginAt?.toISOString() ?? null,
       createdAt: a.createdAt.toISOString(),
       allowedPanels: (a.allowedPanels as string[] | null) ?? null,
+      isAdmin: a.isAdmin,
     }));
   }
 
   /** null clears the restriction (account can see every tab again) --
    * an empty array is a real, deliberate "show nothing" state, kept
-   * distinct from null rather than treated the same. */
+   * distinct from null rather than treated the same. Meaningless for an
+   * isAdmin account (always sees everything), but harmless to set. */
   async setAllowedPanels(id: string, panels: string[] | null) {
     await prisma.clientAccount.update({ where: { id }, data: { allowedPanels: panels ?? Prisma.JsonNull } });
   }
 
-  async create(businessId: string, username: string, password: string) {
+  async create(businessId: string | null, username: string, password: string, isAdmin = false) {
     const cleanUsername = username.trim();
 
-    if (!businessId || !cleanUsername) {
-      throw new Error("A client and a username are required.");
+    if (!isAdmin && !businessId) {
+      throw new Error("A client is required for a non-admin login.");
+    }
+    if (!cleanUsername) {
+      throw new Error("A username is required.");
     }
     if (password.length < MIN_PASSWORD_LENGTH) {
       throw new Error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
@@ -91,7 +100,12 @@ export class ClientAuthService {
     }
 
     return prisma.clientAccount.create({
-      data: { businessId, username: cleanUsername, passwordHash: hashPassword(password) },
+      data: {
+        businessId: isAdmin ? null : businessId,
+        username: cleanUsername,
+        passwordHash: hashPassword(password),
+        isAdmin,
+      },
     });
   }
 
@@ -124,7 +138,7 @@ export class ClientAuthService {
       prisma.clientAccount.update({ where: { id: account.id }, data: { lastLoginAt: new Date() } }),
     ]);
 
-    return { token, businessId: account.businessId, expiresAt };
+    return { token, businessId: account.businessId, isAdmin: account.isAdmin, username: account.username, expiresAt };
   }
 
   async logout(token: string) {
@@ -134,7 +148,9 @@ export class ClientAuthService {
   /** Used by /api/auth/me — same validity rules as login (not expired,
    * account not disabled) so a disabled client's stale cookie doesn't
    * still read as "logged in" to the UI. */
-  async getSession(token: string): Promise<{ businessId: string; allowedPanels: string[] | null } | null> {
+  async getSession(
+    token: string
+  ): Promise<{ businessId: string | null; allowedPanels: string[] | null; isAdmin: boolean; username: string } | null> {
     const session = await prisma.clientSession.findUnique({
       where: { token },
       include: { account: true },
@@ -147,6 +163,8 @@ export class ClientAuthService {
     return {
       businessId: session.account.businessId,
       allowedPanels: (session.account.allowedPanels as string[] | null) ?? null,
+      isAdmin: session.account.isAdmin,
+      username: session.account.username,
     };
   }
 }

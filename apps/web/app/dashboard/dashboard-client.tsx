@@ -225,6 +225,13 @@ function ProviderCard({
 
 export default function DashboardClient() {
   const [tab, setTab] = useState<Tab>("overview");
+  const [username, setUsername] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((data) => setUsername(typeof data.username === "string" ? data.username : null));
+  }, []);
 
   return (
     <DashboardShell
@@ -234,6 +241,9 @@ export default function DashboardClient() {
           <div style={{ fontSize: 10.5, color: "var(--text-faint)", fontWeight: 400, marginTop: 2 }}>
             AI Chat Platform
           </div>
+          {username && (
+            <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 4 }}>Logged in as {username}</div>
+          )}
         </div>
       }
       groups={NAV_GROUPS}

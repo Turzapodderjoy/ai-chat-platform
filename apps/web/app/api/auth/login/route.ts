@@ -39,7 +39,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Incorrect username or password, or this account has been disabled." }, { status: 401 });
   }
 
-  const res = NextResponse.json({ businessId: result.businessId });
+  // A DB-backed isAdmin account reaches the mother dashboard through the
+  // same client_session cookie as any other client login (proxy.ts
+  // checks the account's isAdmin flag on every request) — only the
+  // response shape changes, to match home-client.tsx's existing
+  // `data.admin ? "/dashboard" : ...` redirect.
+  const res = NextResponse.json(result.isAdmin ? { admin: true } : { businessId: result.businessId });
   res.cookies.delete(ADMIN_COOKIE);
   res.cookies.set(CLIENT_COOKIE, result.token, {
     httpOnly: true,

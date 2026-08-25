@@ -11,14 +11,23 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
 
-  if (!body || typeof body.businessId !== "string" || typeof body.username !== "string" || typeof body.password !== "string") {
-    return NextResponse.json({ error: "businessId, username, and password are required" }, { status: 400 });
+  const isAdmin = Boolean(body?.isAdmin);
+
+  if (!body || typeof body.username !== "string" || typeof body.password !== "string" || (!isAdmin && typeof body.businessId !== "string")) {
+    return NextResponse.json({ error: "username and password are required (businessId too, unless isAdmin)" }, { status: 400 });
   }
 
   try {
     const app = await getApp();
-    const account = await app.container.router.clientAuth.createAccount(body.businessId, body.username, body.password);
-    return NextResponse.json(account);
+    const account = await app.container.router.clientAuth.createAccount(
+      isAdmin ? null : body.businessId,
+      body.username,
+      body.password,
+      isAdmin
+    );
+    // Never echo passwordHash back to the client, even hashed — the
+    // caller already has the plaintext password it just submitted.
+    return NextResponse.json({ id: account.id, username: account.username, businessId: account.businessId, isAdmin: account.isAdmin });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : String(err) },

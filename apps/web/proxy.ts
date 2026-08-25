@@ -7,12 +7,10 @@ import { verifyAdminToken } from "@ai-chat-platform/client-auth";
 // gets in there. "/dashboard/{businessId}/*" accepts either: an admin
 // session (can browse into any client, same as before this feature
 // existed) or a client session that matches that exact businessId.
-// Client sessions are validated against the DB on every request (not a
-// signed stateless cookie) so a client disabled from the mother
-// dashboard's Client Access panel is locked out immediately, not just
-// after their cookie happens to expire. The admin session is a signed
-// stateless token instead — there's only one fixed admin identity, so
-// there's nothing to invalidate early for it.
+// "Admin" here means either the single fixed admin_session cookie
+// (stateless, nothing to invalidate early for it) OR a real ClientAccount
+// with isAdmin set (DB-backed, validated on every request the same as a
+// regular client session, so disabling one kicks it out immediately).
 export const config = {
   matcher: ["/dashboard", "/dashboard/:businessId/:path*"],
 };
@@ -21,7 +19,15 @@ const CLIENT_COOKIE = "client_session";
 const ADMIN_COOKIE = "admin_session";
 
 export async function proxy(req: NextRequest) {
-  const isAdmin = verifyAdminToken(req.cookies.get(ADMIN_COOKIE)?.value);
+  const fixedAdmin = verifyAdminToken(req.cookies.get(ADMIN_COOKIE)?.value);
+
+  const clientToken = req.cookies.get(CLIENT_COOKIE)?.value;
+  const session = clientToken
+    ? await prisma.clientSession.findUnique({ where: { token: clientToken }, include: { account: true } })
+    : null;
+  const validSession = !!(session && session.expiresAt > new Date() && !session.account.disabled);
+  const dbAdmin = validSession && session!.account.isAdmin;
+  const isAdmin = fixedAdmin || dbAdmin;
 
   if (req.nextUrl.pathname === "/dashboard") {
     if (isAdmin) return NextResponse.next();
@@ -31,22 +37,8 @@ export async function proxy(req: NextRequest) {
   if (isAdmin) return NextResponse.next();
 
   const businessId = req.nextUrl.pathname.split("/")[2];
-  const token = req.cookies.get(CLIENT_COOKIE)?.value;
 
-  if (!businessId || !token) {
-    return NextResponse.redirect(new URL("/", req.url));
-  }
-
-  const session = await prisma.clientSession.findUnique({
-    where: { token },
-    include: { account: true },
-  });
-
-  const valid =
-    session &&
-    session.expiresAt > new Date() &&
-    !session.account.disabled &&
-    session.account.businessId === businessId;
+  const valid = validSession && !!businessId && session!.account.businessId === businessId;
 
   if (!valid) {
     const res = NextResponse.redirect(new URL("/", req.url));

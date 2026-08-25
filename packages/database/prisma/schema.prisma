@@ -646,7 +646,9 @@ model MessageTag {
 // and managed entirely from the mother dashboard's Client Access panel.
 model ClientAccount {
   id           String    @id @default(cuid())
-  businessId   String
+  // Nullable only for an isAdmin account -- a real client login always
+  // has one. Enforced in ClientAuthService.create, not here.
+  businessId   String?
   username     String    @unique
   passwordHash String
   disabled     Boolean   @default(false)
@@ -657,8 +659,16 @@ model ClientAccount {
   // (the pre-existing, unrestricted default, so accounts created before
   // this feature keep working exactly as before). An admin browsing the
   // same dashboard via admin_session is never restricted by this --
-  // only a real client login is.
+  // only a real client login is. Meaningless when isAdmin is true (an
+  // admin account always sees every panel on every dashboard).
   allowedPanels Json?
+  // Full platform access, same as the single hardcoded admin/admin
+  // login (see admin-session.ts) -- this is an ADDITIONAL way to reach
+  // that same access level with its own named, disable/delete-able
+  // credential, not a lesser tier. See proxy.ts for how a session with
+  // this flag set is allowed onto "/dashboard" (mother) and any
+  // "/dashboard/{businessId}", exactly like the fixed admin identity.
+  isAdmin      Boolean   @default(false)
 
   sessions     ClientSession[]
 
