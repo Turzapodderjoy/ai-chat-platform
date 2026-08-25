@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 
 import { StatCard, StatCardRow } from "./StatCard";
@@ -53,6 +53,36 @@ function dateKey(iso: string): string {
   return iso.slice(0, 10);
 }
 
+// Web Audio tone, not a bundled audio file — a two-note chime needs no
+// asset and works the same everywhere. ponytail: only fires while this
+// tab is open; a staff member with the dashboard fully closed gets
+// nothing. Real background delivery needs a service worker + Web Push
+// subscription (VAPID keys, a push endpoint per device) — a genuinely
+// bigger feature, not added here.
+function playPingSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const now = ctx.currentTime;
+    [880, 1175].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = freq;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      const start = now + i * 0.12;
+      gain.gain.setValueAtTime(0.001, start);
+      gain.gain.exponentialRampToValueAtTime(0.15, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.25);
+      osc.start(start);
+      osc.stop(start + 0.25);
+    });
+  } catch {
+    // Audio can fail (autoplay policy before any user interaction) —
+    // the visible toast still lands, sound is a bonus, never the only
+    // signal.
+  }
+}
+
 /** Appointment booking + device-repair tracking for a client with no AI
  * bot (see RepairController) — stats, a status chart, a hand-rolled
  * month calendar (no calendar library in this repo), the appointment
@@ -70,11 +100,39 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
 
+  const [toast, setToast] = useState<string | null>(null);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">(
+    typeof Notification !== "undefined" ? Notification.permission : "unsupported"
+  );
+  // null until the first fetch lands — guards against every existing
+  // appointment "pinging" as new the moment the panel mounts.
+  const knownIdsRef = useRef<Set<string> | null>(null);
+
+  function notifyNewAppointments(fresh: Appointment[]) {
+    playPingSound();
+    const label = fresh.length === 1
+      ? `New appointment: ${fresh[0]!.customerName}`
+      : `${fresh.length} new appointments`;
+    setToast(label);
+    setTimeout(() => setToast((t) => (t === label ? null : t)), 6000);
+
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      new Notification("New repair appointment", { body: label });
+    }
+  }
+
   function refresh() {
     const qs = businessId ? `?businessId=${encodeURIComponent(businessId)}` : "";
     fetch(`/api/admin/repairs${qs}`)
       .then((r) => r.json())
-      .then((d) => setAppointments(d.appointments));
+      .then((d: { appointments: Appointment[] }) => {
+        if (knownIdsRef.current) {
+          const fresh = d.appointments.filter((a) => !knownIdsRef.current!.has(a.id));
+          if (fresh.length > 0) notifyNewAppointments(fresh);
+        }
+        knownIdsRef.current = new Set(d.appointments.map((a) => a.id));
+        setAppointments(d.appointments);
+      });
   }
 
   useEffect(() => {
@@ -194,9 +252,44 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
   }, [appointments, calendarDay]);
 
   return (
-    <section style={cardStyle}>
-      <h2 style={{ marginTop: 0 }}>Repairs</h2>
-      <p style={subtleTextStyle}>Appointment bookings and device-repair tracking — no AI involved, every conversation goes straight to a human.</p>
+    <section style={{ ...cardStyle, position: "relative" }}>
+      {toast && (
+        <div
+          style={{
+            position: "absolute",
+            top: 14,
+            right: 14,
+            zIndex: 5,
+            background: "var(--accent)",
+            color: "var(--bg)",
+            padding: "8px 14px",
+            borderRadius: 999,
+            fontSize: 12.5,
+            fontWeight: 600,
+            boxShadow: "var(--shadow)",
+          }}
+        >
+          {toast}
+        </div>
+      )}
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
+        <div>
+          <h2 style={{ marginTop: 0, marginBottom: 4 }}>Repairs</h2>
+          <p style={subtleTextStyle}>Appointment bookings and device-repair tracking — no AI involved, every conversation goes straight to a human.</p>
+        </div>
+        {notifPermission === "default" && (
+          <button
+            onClick={() => Notification.requestPermission().then(setNotifPermission)}
+            style={{ fontSize: 11.5, whiteSpace: "nowrap" }}
+          >
+            Enable notifications
+          </button>
+        )}
+        {notifPermission === "granted" && (
+          <span style={{ fontSize: 11, color: "var(--text-faint)" }}>Notifications on</span>
+        )}
+      </div>
 
       {stats && (
         <StatCardRow>
