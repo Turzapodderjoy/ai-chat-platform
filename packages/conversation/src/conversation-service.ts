@@ -173,8 +173,10 @@ export class ConversationService {
    * in-progress order draft (pendingOrder) if one's being collected right
    * now, else the name from that conversation's most recent finalized
    * Order (pendingOrder gets cleared once the order's created, so this is
-   * the only place the name survives after that point). One query for the
-   * whole batch rather than N+1. */
+   * the only place the name survives after that point), else — for a
+   * repair-tracking conversation, whose id IS the RepairAppointment's own
+   * trackingToken (see RepairController) — the name on that appointment.
+   * One query per source for the whole batch rather than N+1. */
   async namesForConversations(
     conversationIds: string[],
     pendingOrders: Map<string, Record<string, string> | null>
@@ -188,11 +190,19 @@ export class ConversationService {
       select: { conversationId: true, customerName: true },
     });
 
+    const repairs = await prisma.repairAppointment.findMany({
+      where: { trackingToken: { in: conversationIds } },
+      select: { trackingToken: true, customerName: true },
+    });
+
     for (const id of conversationIds) {
       const pendingName = pendingOrders.get(id)?.customerName;
       names.set(
         id,
-        pendingName || orders.find((o) => o.conversationId === id)?.customerName || null
+        pendingName ||
+          orders.find((o) => o.conversationId === id)?.customerName ||
+          repairs.find((r) => r.trackingToken === id)?.customerName ||
+          null
       );
     }
 

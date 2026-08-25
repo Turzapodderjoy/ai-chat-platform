@@ -64,6 +64,28 @@ interface Order {
   createdAt: string;
 }
 
+interface RepairAppointment {
+  id: string;
+  trackingToken: string;
+  customerName: string;
+  phone: string;
+  deviceType: string;
+  deviceModel?: string;
+  issueDescription: string;
+  appointmentDate: string;
+  status: string;
+}
+
+const REPAIR_STATUS_OPTIONS = ["booked", "received", "in_repair", "ready", "completed", "cancelled"] as const;
+const REPAIR_STATUS_LABEL: Record<string, string> = {
+  booked: "Booked",
+  received: "Received",
+  in_repair: "In Repair",
+  ready: "Ready for Pickup",
+  completed: "Completed",
+  cancelled: "Cancelled",
+};
+
 const CHANNEL_LABEL: Record<string, { color: string; label: string }> = {
   website: { color: "#ffffff", label: "Website" },
   messenger: { color: "#0084ff", label: "Messenger" },
@@ -136,6 +158,8 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
 
   const [summaryBySession, setSummaryBySession] = useState<Record<string, string | null>>({});
   const [orderForSelected, setOrderForSelected] = useState<Order | null | undefined>(undefined);
+  const [repairForSelected, setRepairForSelected] = useState<RepairAppointment | null | undefined>(undefined);
+  const [savingRepairStatus, setSavingRepairStatus] = useState(false);
 
   // Which messageCount an agent had last seen, per conversation — a
   // conversation is "unread" when the live list's current messageCount
@@ -296,6 +320,35 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
     fetch(`/api/admin/orders?businessId=${encodeURIComponent(c.businessId)}`)
       .then((r) => r.json())
       .then((orders: Order[]) => setOrderForSelected(orders.find((o) => o.conversationId === c.id) ?? null));
+
+    // repair-tracking conversations use the tracking token as their own
+    // id (see RepairController) — same lookup shape as Order Actions
+    // above, just matched on trackingToken instead of conversationId.
+    if (c.channel === "repair-tracking") {
+      setRepairForSelected(undefined);
+      fetch(`/api/admin/repairs?businessId=${encodeURIComponent(c.businessId)}`)
+        .then((r) => r.json())
+        .then((d: { appointments: RepairAppointment[] }) =>
+          setRepairForSelected(d.appointments.find((a) => a.trackingToken === c.id) ?? null)
+        );
+    } else {
+      setRepairForSelected(undefined);
+    }
+  }
+
+  async function updateRepairStatus(status: string) {
+    if (!repairForSelected) return;
+    setSavingRepairStatus(true);
+    try {
+      await fetch("/api/admin/repairs/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: repairForSelected.id, status }),
+      });
+      setRepairForSelected((prev) => (prev ? { ...prev, status } : prev));
+    } finally {
+      setSavingRepairStatus(false);
+    }
   }
 
   function fetchMessages(id: string) {
@@ -535,6 +588,13 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                   <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", minHeight: 300, maxHeight: 420, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
                     {!messages && <p style={subtleTextStyle}>Loading…</p>}
                     {messages?.map((m) => {
+                      if (m.role === "system") {
+                        return (
+                          <div key={m.id} style={{ alignSelf: "center", fontSize: 11, color: "var(--text-faint)", textAlign: "center" }}>
+                            {m.content} · {new Date(m.createdAt).toLocaleString()}
+                          </div>
+                        );
+                      }
                       const isCustomer = m.role === "user";
                       return (
                         <div key={m.id} style={{ display: "flex", gap: 8, flexDirection: isCustomer ? "row" : "row-reverse", maxWidth: "78%", alignSelf: isCustomer ? "flex-start" : "flex-end" }}>
@@ -657,7 +717,54 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                     />
                   </div>
 
-                  {orderForSelected !== undefined && (
+                  {selected.channel === "repair-tracking" && repairForSelected !== undefined && (
+                    <>
+                      <div style={{ fontSize: 10.5, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 10 }}>
+                        Repair Details
+                      </div>
+                      <div style={{ marginBottom: 20 }}>
+                        {repairForSelected ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 7, fontSize: 12 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                              <span style={{ color: "var(--text-faint)" }}>Order ID</span>
+                              <span>{repairForSelected.id}</span>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                              <span style={{ color: "var(--text-faint)" }}>Customer</span>
+                              <span>{repairForSelected.customerName}</span>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                              <span style={{ color: "var(--text-faint)" }}>Device</span>
+                              <span>{repairForSelected.deviceType}{repairForSelected.deviceModel ? ` — ${repairForSelected.deviceModel}` : ""}</span>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                              <span style={{ color: "var(--text-faint)" }}>Appointment</span>
+                              <span>{new Date(repairForSelected.appointmentDate).toLocaleString()}</span>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                              <span style={{ color: "var(--text-faint)" }}>Token</span>
+                              <span>{repairForSelected.trackingToken}</span>
+                            </div>
+                            <div style={{ color: "var(--text-muted)" }}>{repairForSelected.issueDescription}</div>
+                            <select
+                              value={repairForSelected.status}
+                              onChange={(e) => updateRepairStatus(e.target.value)}
+                              disabled={savingRepairStatus}
+                              style={{ padding: 6, marginTop: 4 }}
+                            >
+                              {REPAIR_STATUS_OPTIONS.map((s) => (
+                                <option key={s} value={s}>{REPAIR_STATUS_LABEL[s]}</option>
+                              ))}
+                            </select>
+                          </div>
+                        ) : (
+                          <p style={subtleTextStyle}>No appointment found for this conversation.</p>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {selected.channel !== "repair-tracking" && orderForSelected !== undefined && (
                     <>
                       <div style={{ fontSize: 10.5, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 10 }}>
                         Order
@@ -665,6 +772,14 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                       <div style={{ marginBottom: 20 }}>
                         {orderForSelected ? (
                           <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                              <span style={{ color: "var(--text-faint)" }}>Order ID</span>
+                              <span>{orderForSelected.id}</span>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                              <span style={{ color: "var(--text-faint)" }}>Customer</span>
+                              <span>{orderForSelected.customerName}</span>
+                            </div>
                             <div>{orderForSelected.products}</div>
                             <div style={{ color: "var(--text-muted)" }}>{orderForSelected.deliveryAddress}</div>
                             <div style={{ color: "var(--text-muted)" }}>{orderForSelected.paymentMethod} · {orderForSelected.phone}</div>

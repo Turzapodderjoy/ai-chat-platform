@@ -96,6 +96,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [calendarDay, setCalendarDay] = useState<string | null>(null);
   const [monthOffset, setMonthOffset] = useState(0);
+  const [search, setSearch] = useState("");
 
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [reply, setReply] = useState("");
@@ -207,6 +208,10 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
       body: JSON.stringify({ id, status }),
     });
     refresh();
+    // The status change is logged as a system message in the same
+    // conversation (see RepairController.updateStatus) — refetch so it
+    // shows up immediately instead of waiting for the next poll.
+    if (selected?.id === id) fetchMessages(selected.trackingToken);
   }
 
   async function sendReply() {
@@ -279,9 +284,18 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
 
   const visibleAppointments = useMemo(() => {
     if (!appointments) return [];
-    if (!calendarDay) return appointments;
-    return appointments.filter((a) => dateKey(a.appointmentDate) === calendarDay);
-  }, [appointments, calendarDay]);
+    let list = appointments;
+    if (calendarDay) list = list.filter((a) => dateKey(a.appointmentDate) === calendarDay);
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter((a) =>
+        [a.id, a.trackingToken, a.customerName, a.phone, a.deviceType, a.deviceModel ?? "", a.issueDescription].some(
+          (f) => f.toLowerCase().includes(q)
+        )
+      );
+    }
+    return list;
+  }, [appointments, calendarDay, search]);
 
   return (
     <section style={{ ...cardStyle, position: "relative" }}>
@@ -409,9 +423,16 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
           )}
         </div>
 
-        <div style={{ flex: 1, minWidth: 280, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", maxHeight: 340, overflowY: "auto" }}>
+        <div style={{ flex: 1, minWidth: 280 }}>
+          <input
+            style={{ padding: 8, width: "100%", marginBottom: 8 }}
+            placeholder="Search by name, phone, device, order ID…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", maxHeight: 300, overflowY: "auto" }}>
           {!appointments && <p style={{ padding: 10, ...subtleTextStyle }}>Loading…</p>}
-          {appointments && visibleAppointments.length === 0 && <p style={{ padding: 10, ...subtleTextStyle }}>No appointments.</p>}
+          {appointments && visibleAppointments.length === 0 && <p style={{ padding: 10, ...subtleTextStyle }}>No appointments match.</p>}
           {visibleAppointments.map((a) => (
             <div
               key={a.id}
@@ -433,6 +454,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
               <div style={{ fontSize: 10.5, color: "var(--text-faint)", marginTop: 2 }}>Token: {a.trackingToken}</div>
             </div>
           ))}
+          </div>
         </div>
       </div>
 
@@ -455,6 +477,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, fontSize: 12.5, marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
+            <div><span style={{ color: "var(--text-faint)" }}>Order ID</span><br />{selected.id}</div>
             <div><span style={{ color: "var(--text-faint)" }}>Device</span><br />{selected.deviceType}{selected.deviceModel ? ` — ${selected.deviceModel}` : ""}</div>
             <div><span style={{ color: "var(--text-faint)" }}>Appointment</span><br />{new Date(selected.appointmentDate).toLocaleString()}</div>
             <div><span style={{ color: "var(--text-faint)" }}>Tracking Token</span><br />{selected.trackingToken}</div>
@@ -466,6 +489,13 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
             {!messages && <p style={subtleTextStyle}>Loading…</p>}
             {messages?.length === 0 && <p style={subtleTextStyle}>No messages yet from the customer.</p>}
             {messages?.map((m) => {
+              if (m.role === "system") {
+                return (
+                  <div key={m.id} style={{ alignSelf: "center", fontSize: 11, color: "var(--text-faint)", textAlign: "center" }}>
+                    {m.content} · {new Date(m.createdAt).toLocaleString()}
+                  </div>
+                );
+              }
               const isCustomer = m.role === "user";
               return (
                 <div key={m.id} style={{ maxWidth: "80%", alignSelf: isCustomer ? "flex-start" : "flex-end" }}>

@@ -114,7 +114,21 @@ export class RepairController {
     return this.repairs.listForBusiness(businessId);
   }
 
-  updateStatus(id: string, status: string) {
-    return this.repairs.updateStatus(id, status);
+  async updateStatus(id: string, status: string) {
+    const appointment = await this.repairs.updateStatus(id, status);
+    // Logged as a plain system message in the SAME conversation the
+    // customer's own messages live in — shows up right in the thread
+    // with a real timestamp, no separate history table needed.
+    await this.conversations.addMessage(appointment.trackingToken, "system", `Status updated to ${REPAIR_STATUS_LABEL[status] ?? status}`);
+    return appointment;
   }
 }
+
+const REPAIR_STATUS_LABEL: Record<string, string> = {
+  booked: "Booked",
+  received: "Received",
+  in_repair: "In Repair",
+  ready: "Ready for Pickup",
+  completed: "Completed",
+  cancelled: "Cancelled",
+};
