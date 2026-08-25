@@ -266,7 +266,7 @@ export class Container {
         new ClientHealthController(tenants, crawlerService, masterCsv, refreshSchedule, vectorStore, embeddings, conversations),
         new ProductController(productService),
         new OrderController(orders),
-        new RepairController(repairs, conversations, emailSenderConfig, emailClient),
+        new RepairController(repairs, conversations, emailSenderConfig, emailClient, tenants),
         new EmailController(emailSenderConfig),
         new DashboardThemeController(dashboardTheme)
       );

@@ -1,6 +1,7 @@
 import { ConversationService } from "@ai-chat-platform/conversation";
 import { RepairAppointmentService } from "@ai-chat-platform/repairs";
 import { EmailSenderConfigService, ResendEmailClient } from "@ai-chat-platform/email";
+import { TenantService } from "@ai-chat-platform/tenant";
 
 export interface BookRepairInput {
   businessId: string;
@@ -23,10 +24,21 @@ export class RepairController {
     private readonly repairs: RepairAppointmentService,
     private readonly conversations: ConversationService,
     private readonly emailSenderConfig: EmailSenderConfigService,
-    private readonly emailClient: ResendEmailClient
+    private readonly emailClient: ResendEmailClient,
+    private readonly tenants: TenantService
   ) {}
 
   async book(input: BookRepairInput): Promise<{ trackingToken: string }> {
+    // Confirmed live: a client site sent its own slug ("phonerepairzoneaz")
+    // instead of the real businessId cuid, and this silently created
+    // appointments under a businessId that matched nothing — invisible in
+    // every dashboard, no error anywhere. Reject unknown businessId
+    // outright instead of creating an orphan.
+    const business = await this.tenants.getBusiness(input.businessId);
+    if (!business) {
+      throw new Error(`Unknown businessId: "${input.businessId}"`);
+    }
+
     const trackingToken = await this.repairs.generateTrackingToken();
 
     await this.repairs.book({
