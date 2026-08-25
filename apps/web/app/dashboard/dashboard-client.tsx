@@ -38,13 +38,16 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
     ],
   },
   {
-    label: "Content",
+    label: "Conversations",
     items: [
-      { id: "knowledge", label: "Knowledge Hub" },
-      { id: "allchats", label: "All Chats" },
+      { id: "allchats", label: "Inbox" },
       { id: "handoffs", label: "Handoffs" },
       { id: "tags", label: "Tags" },
     ],
+  },
+  {
+    label: "Content",
+    items: [{ id: "knowledge", label: "Knowledge Hub" }],
   },
   {
     label: "Providers",
@@ -237,9 +240,9 @@ export default function DashboardClient() {
     <DashboardShell
       sidebarLabel={
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700 }}>Command Center</div>
+          <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.02em" }}>AIVA</div>
           <div style={{ fontSize: 10.5, color: "var(--text-faint)", fontWeight: 400, marginTop: 2 }}>
-            AI Chat Platform
+            Command Center
           </div>
           {username && (
             <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 4 }}>Logged in as {username}</div>

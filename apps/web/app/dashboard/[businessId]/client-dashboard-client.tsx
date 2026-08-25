@@ -22,24 +22,39 @@ import { DashboardShell, type NavGroup } from "../../../components/DashboardShel
 type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "orders" | "repairs" | "allchats" | "handoffs" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
+  { items: [{ id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }] },
   {
+    label: "Conversations",
     items: [
-      { id: "overview", label: "Overview" },
-      { id: "tagdashboard", label: "Dashboard" },
-      { id: "knowledge", label: "Knowledge Hub" },
-      { id: "products", label: "Product Catalog" },
+      { id: "allchats", label: "Inbox" },
+      { id: "handoffs", label: "Handoffs" },
+    ],
+  },
+  {
+    label: "Sales",
+    items: [
       { id: "orders", label: "Orders" },
       { id: "repairs", label: "Repairs" },
-      { id: "allchats", label: "All Chats" },
-      { id: "handoffs", label: "Handoffs" },
-      { id: "storage", label: "Storage" },
+      { id: "products", label: "Product Catalog" },
+    ],
+  },
+  {
+    label: "AI Brain",
+    items: [
       { id: "brain", label: "AI Brain" },
       { id: "parameters", label: "Parameters" },
       { id: "arena", label: "Training Arena" },
       { id: "review", label: "Chat Learning" },
-      { id: "channels", label: "Integrations" },
     ],
   },
+  {
+    label: "Content",
+    items: [
+      { id: "knowledge", label: "Knowledge Hub" },
+      { id: "storage", label: "Storage" },
+    ],
+  },
+  { items: [{ id: "channels", label: "Integrations" }] },
 ];
 
 const TAB_IDS = NAV_GROUPS.flatMap((g) => g.items.map((i) => i.id));
@@ -131,6 +146,7 @@ export default function ClientDashboardClient() {
     <DashboardShell
       sidebarLabel={
         <div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", color: "var(--accent)", textTransform: "uppercase" }}>AIVA</div>
           <div style={{ fontSize: 14, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {client?.name ?? businessId}
           </div>

@@ -417,7 +417,7 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
 
   return (
     <section style={cardStyle}>
-      <h2 style={{ marginTop: 0 }}>All Chats</h2>
+      <h2 style={{ marginTop: 0 }}>Inbox</h2>
       <p style={subtleTextStyle}>
         Every real conversation across every connected channel — Messenger, Instagram, WhatsApp, and the website
         widget — answered by the AI, with handed-off ones still replyable here.

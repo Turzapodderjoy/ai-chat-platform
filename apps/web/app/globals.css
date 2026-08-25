@@ -62,18 +62,20 @@ a {
  * ------------------------------------------------------------------- */
 .app-shell,
 .app-shell[data-theme="dark"] {
-  --bg: #0b0a13;
-  --bg-elevated: #121019;
-  --surface: #171420;
-  --surface-hover: #1f1a2c;
-  --border: #2a2438;
-  --border-strong: #3b3350;
-  --text: #ece9f5;
-  --text-muted: #9a92b0;
-  --text-faint: #635a7a;
-  --accent: #ffffff;
-  --accent-strong: #ffffff;
-  --accent-soft: rgba(255, 255, 255, 0.09);
+  /* HubSpot's own sidebar navy, not a generic dark theme — same palette
+   * their app itself uses in the left rail. */
+  --bg: #1a2e43;
+  --bg-elevated: #213343;
+  --surface: #24374e;
+  --surface-hover: #2c4058;
+  --border: #33475b;
+  --border-strong: #45607a;
+  --text: #f5f8fa;
+  --text-muted: #cbd6e2;
+  --text-faint: #8697a8;
+  --accent: #ff7a59;
+  --accent-strong: #ff5c35;
+  --accent-soft: rgba(255, 122, 89, 0.16);
   --success: #34d399;
   --success-soft: rgba(52, 211, 153, 0.14);
   --warning: #f2b84b;
@@ -97,18 +99,20 @@ a {
 }
 
 .app-shell[data-theme="light"] {
-  --bg: #f6f5fb;
+  /* HubSpot's own light-mode app palette — warm off-white ground, navy
+   * text, the same orange accent as the dark/sidebar theme. */
+  --bg: #f5f8fa;
   --bg-elevated: #ffffff;
   --surface: #ffffff;
-  --surface-hover: #f1eefa;
-  --border: #e5e1f0;
-  --border-strong: #d3cce8;
-  --text: #201c2c;
-  --text-muted: #6b6480;
-  --text-faint: #9992ab;
-  --accent: #171717;
-  --accent-strong: #000000;
-  --accent-soft: rgba(23, 23, 23, 0.06);
+  --surface-hover: #f5f8fa;
+  --border: #cbd6e2;
+  --border-strong: #99acc2;
+  --text: #33475b;
+  --text-muted: #516f90;
+  --text-faint: #7c98b6;
+  --accent: #ff7a59;
+  --accent-strong: #e66e51;
+  --accent-soft: rgba(255, 122, 89, 0.12);
   --success: #16a34a;
   --success-soft: rgba(22, 163, 74, 0.1);
   --warning: #b45309;
@@ -187,6 +191,7 @@ a {
   color: var(--text);
   font-weight: 650;
   letter-spacing: -0.01em;
+  font-family: var(--font-lexend-deca), var(--font-geist-sans, -apple-system), sans-serif;
 }
 
 .app-shell h1 { font-size: 22px; }

@@ -145,7 +145,7 @@ export function DashboardShell<T extends string>({
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  boxShadow: "0 3px 10px -2px rgba(255, 255, 255, 0.25)",
+                  boxShadow: "0 3px 10px -2px rgba(255, 122, 89, 0.45)",
                 }}
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="#08111f">
