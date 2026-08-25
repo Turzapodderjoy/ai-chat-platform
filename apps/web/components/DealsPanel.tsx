@@ -14,6 +14,7 @@ interface Deal {
   stage: string;
   status: string;
   closeDate: string | null;
+  lostReason: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -120,11 +121,22 @@ export function DealsPanel({ businessId, active = true }: { businessId?: string;
   }
 
   async function moveDeal(deal: Deal, stage: string) {
-    await fetch("/api/admin/crm/deals", {
+    let lostReason: string | undefined;
+    if (stage === "lost") {
+      const entered = window.prompt("Why was this deal lost? (required)");
+      if (!entered || !entered.trim()) return;
+      lostReason = entered.trim();
+    }
+    const res = await fetch("/api/admin/crm/deals", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: deal.id, stage }),
+      body: JSON.stringify({ id: deal.id, stage, lostReason }),
     });
+    if (!res.ok) {
+      const d = await res.json().catch(() => null);
+      window.alert(d?.error ?? "Failed to update deal.");
+      return;
+    }
     refresh();
   }
 
@@ -181,6 +193,7 @@ export function DealsPanel({ businessId, active = true }: { businessId?: string;
                     <div style={{ fontSize: 13, fontWeight: 600 }}>{d.title}</div>
                     {d.amount != null && <div style={{ fontSize: 12, color: "var(--accent-strong)", marginTop: 2 }}>৳{d.amount.toLocaleString()}</div>}
                     {d.contactId && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{contactName.get(d.contactId) ?? "Unknown contact"}</div>}
+                    {d.lostReason && <div style={{ fontSize: 11, color: "var(--danger)", marginTop: 2 }}>Lost: {d.lostReason}</div>}
                     <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 4 }}>{shortId(d.id)}</div>
                     <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
                       <select value={d.stage} onChange={(e) => moveDeal(d, e.target.value)} style={{ padding: 4, fontSize: 11, flex: 1 }}>

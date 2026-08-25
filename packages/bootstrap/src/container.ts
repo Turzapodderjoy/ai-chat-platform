@@ -43,10 +43,11 @@ import { TagController } from "@ai-chat-platform/api";
 import { ClientAuthController } from "@ai-chat-platform/api";
 import { WidgetConfigController, DashboardThemeController } from "@ai-chat-platform/api";
 import { KnowledgeRefreshController } from "@ai-chat-platform/api";
-import { ClientHealthController, ProductController, OrderController, RepairController, EmailController, CrmController } from "@ai-chat-platform/api";
+import { ClientHealthController, ProductController, OrderController, RepairController, EmailController, CrmController, RevenueController } from "@ai-chat-platform/api";
 import { RepairAppointmentService } from "@ai-chat-platform/repairs";
 import { EmailSenderConfigService, ResendEmailClient } from "@ai-chat-platform/email";
 import { ContactService, CompanyService, DealService } from "@ai-chat-platform/crm";
+import { QuoteService, InvoiceService, PaymentService } from "@ai-chat-platform/revenue";
 import { RefreshScheduleService, MasterCsvService } from "@ai-chat-platform/knowledge-refresh";
 import { ApiRouter } from "@ai-chat-platform/api";
 import { ClientAuthService } from "@ai-chat-platform/client-auth";
@@ -170,6 +171,15 @@ export class Container {
     const deals =
       new DealService();
 
+    const quotes =
+      new QuoteService();
+
+    const invoices =
+      new InvoiceService();
+
+    const payments =
+      new PaymentService();
+
     const chat =
       new ChatService(
         conversations,
@@ -281,6 +291,7 @@ export class Container {
         new RepairController(repairs, conversations, emailSenderConfig, emailClient, tenants, contacts, deals),
         new EmailController(emailSenderConfig),
         new CrmController(contacts, companies, deals),
+        new RevenueController(quotes, invoices, payments),
         new DashboardThemeController(dashboardTheme)
       );
   }

@@ -25,9 +25,13 @@ interface ContactRecord {
   orders: { id: string; products: string; paymentMethod: string; createdAt: string }[];
   repairs: { id: string; trackingToken: string; deviceType: string; status: string; createdAt: string }[];
   deals: { id: string; title: string; amount: number | null; stage: string; status: string }[];
+  quotes: { id: string; title: string; status: string; total: number; currency: string }[];
+  invoices: { id: string; invoiceNumber: string; status: string; total: number; balanceDue: number; currency: string }[];
 }
 
 const DEAL_TONE: Record<string, BadgeTone> = { open: "info", won: "ok", lost: "error" };
+const QUOTE_TONE: Record<string, BadgeTone> = { draft: "neutral", sent: "info", accepted: "ok", rejected: "error", expired: "warn" };
+const INVOICE_TONE: Record<string, BadgeTone> = { draft: "neutral", issued: "info", partially_paid: "warn", paid: "ok", overdue: "error", void: "neutral" };
 
 /** A real customer record, unifying what used to be resolved fresh per
  * conversation (see ConversationService.namesForConversations) — a
@@ -177,6 +181,27 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                         {loadingRecord && <p style={subtleTextStyle}>Loading history…</p>}
                         {record && (
                           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, fontSize: 12.5 }}>
+                            <div>
+                              <div style={{ fontWeight: 650, marginBottom: 6 }}>Quotes ({record.quotes.length})</div>
+                              {record.quotes.length === 0 && <span style={{ color: "var(--text-faint)" }}>None</span>}
+                              {record.quotes.map((q) => (
+                                <div key={q.id} style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                                  <span style={badgeStyle(QUOTE_TONE[q.status] ?? "neutral")}>{q.status}</span>
+                                  {q.title} — {q.currency}{q.total.toLocaleString()}
+                                </div>
+                              ))}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 650, marginBottom: 6 }}>Invoices ({record.invoices.length})</div>
+                              {record.invoices.length === 0 && <span style={{ color: "var(--text-faint)" }}>None</span>}
+                              {record.invoices.map((inv) => (
+                                <div key={inv.id} style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                                  <span style={badgeStyle(INVOICE_TONE[inv.status] ?? "neutral")}>{inv.status}</span>
+                                  {inv.invoiceNumber} — {inv.currency}{inv.total.toLocaleString()}
+                                  {inv.balanceDue > 0 && <span style={{ color: "var(--danger)" }}>({inv.currency}{inv.balanceDue.toLocaleString()} due)</span>}
+                                </div>
+                              ))}
+                            </div>
                             <div>
                               <div style={{ fontWeight: 650, marginBottom: 6 }}>Orders ({record.orders.length})</div>
                               {record.orders.length === 0 && <span style={{ color: "var(--text-faint)" }}>None</span>}

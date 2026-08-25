@@ -44,6 +44,11 @@ const ALL_PANELS: { id: string; label: string }[] = [
   { id: "arena", label: "Training Arena" },
   { id: "review", label: "Chat Learning" },
   { id: "channels", label: "Integrations" },
+  { id: "contacts", label: "Contacts" },
+  { id: "companies", label: "Companies" },
+  { id: "deals", label: "Deals" },
+  { id: "quotes", label: "Quotes" },
+  { id: "invoices", label: "Invoices" },
 ];
 
 const PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";

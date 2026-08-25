@@ -890,6 +890,8 @@ model Contact {
 
   company    Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
   deals      Deal[]
+  quotes     Quote[]
+  invoices   Invoice[]
 
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -927,12 +929,134 @@ model Deal {
   stage      String    @default("new")
   status     String    @default("open") // open | won | lost
   closeDate  DateTime?
+  // Required by DealService.updateStage before a move into "lost" is
+  // accepted — the one stage-requirement rule this pipeline enforces
+  // (full per-stage required-field config is real scope creep past what
+  // a 3-client operation needs right now).
+  lostReason String?
 
   contact    Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  quotes     Quote[]
+  invoices   Invoice[]
 
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
   @@index([businessId])
   @@index([businessId, stage])
+}
+
+// Revenue layer (Quote -> Invoice -> Payment), built on the same
+// Contact/Deal records as the rest of the CRM instead of a separate
+// billing database. A Quote is a proposal; accepting it turns it into
+// an Invoice (InvoiceService.generateFromQuote copies the line items,
+// not a live reference — a quote can keep changing after an invoice
+// already exists off an earlier version). Money fields are Float,
+// matching Deal.amount's existing convention in this schema rather than
+// introducing Decimal for only the newest tables.
+model Quote {
+  id         String   @id @default(cuid())
+  businessId String
+  contactId  String?
+  dealId     String?
+  title      String
+  // draft | sent | accepted | rejected | expired
+  status     String   @default("draft")
+  currency   String   @default("BDT")
+  discount   Float    @default(0)
+  tax        Float    @default(0)
+  notes      String?
+  expiresAt  DateTime?
+
+  contact    Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  deal       Deal?       @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  items      QuoteItem[]
+  invoices   Invoice[]
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([businessId])
+  @@index([businessId, status])
+}
+
+model QuoteItem {
+  id        String  @id @default(cuid())
+  quoteId   String
+  name      String
+  quantity  Float   @default(1)
+  unitPrice Float
+
+  quote     Quote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
+}
+
+model Invoice {
+  id            String    @id @default(cuid())
+  businessId    String
+  contactId     String?
+  dealId        String?
+  quoteId       String?
+  // Short, human-readable per-business sequence (e.g. "INV-0007"), not
+  // the cuid id — same "simple worded short" convention the tracking
+  // tokens/order IDs already follow elsewhere in this dashboard.
+  invoiceNumber String
+  // draft | issued | partially_paid | paid | overdue | void
+  status        String    @default("draft")
+  currency      String    @default("BDT")
+  discount      Float     @default(0)
+  tax           Float     @default(0)
+  amountPaid    Float     @default(0)
+  issueDate     DateTime  @default(now())
+  dueDate       DateTime?
+
+  contact       Contact?      @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  deal          Deal?         @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  quote         Quote?        @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  items         InvoiceItem[]
+  payments      Payment[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([businessId, invoiceNumber])
+  @@index([businessId])
+  @@index([businessId, status])
+}
+
+model InvoiceItem {
+  id        String  @id @default(cuid())
+  invoiceId String
+  name      String
+  quantity  Float   @default(1)
+  unitPrice Float
+
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+// A recorded payment against an invoice — manual entry (cash/bank
+// transfer/mobile banking reference) rather than a live payment-gateway
+// integration. method is free text on purpose: this platform's real
+// clients settle via bKash/Nagad/bank transfer references, not a card
+// processor — wiring a real gateway (Stripe/SSLCommerz) is a distinct
+// follow-up that needs its own credentials, not something to fake here.
+model Payment {
+  id         String   @id @default(cuid())
+  businessId String
+  invoiceId  String
+  amount     Float
+  currency   String   @default("BDT")
+  method     String
+  note       String?
+  paidAt     DateTime @default(now())
+
+  invoice    Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime @default(now())
+
+  @@index([businessId])
+  @@index([invoiceId])
 }

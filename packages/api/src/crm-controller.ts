@@ -47,8 +47,8 @@ export class CrmController {
     return this.deals.create(input);
   }
 
-  updateDealStage(id: string, stage: string) {
-    return this.deals.updateStage(id, stage);
+  updateDealStage(id: string, stage: string, lostReason?: string) {
+    return this.deals.updateStage(id, stage, lostReason);
   }
 
   deleteDeal(id: string) {

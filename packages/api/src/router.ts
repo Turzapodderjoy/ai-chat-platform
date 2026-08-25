@@ -20,6 +20,7 @@ import { OrderController } from "./order-controller";
 import { RepairController } from "./repair-controller";
 import { EmailController } from "./email-controller";
 import { CrmController } from "./crm-controller";
+import { RevenueController } from "./revenue-controller";
 import { DashboardThemeController } from "./dashboard-theme-controller";
 
 export class ApiRouter {
@@ -46,6 +47,7 @@ export class ApiRouter {
     readonly repairs: RepairController,
     readonly email: EmailController,
     readonly crm: CrmController,
+    readonly revenue: RevenueController,
     readonly dashboardTheme: DashboardThemeController
   ) {}
 }

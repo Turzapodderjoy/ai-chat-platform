@@ -137,6 +137,8 @@ export class ContactService {
     orders: Array<{ id: string; products: string; paymentMethod: string; createdAt: string }>;
     repairs: Array<{ id: string; trackingToken: string; deviceType: string; status: string; createdAt: string }>;
     deals: Array<{ id: string; title: string; amount: number | null; stage: string; status: string }>;
+    quotes: Array<{ id: string; title: string; status: string; total: number; currency: string }>;
+    invoices: Array<{ id: string; invoiceNumber: string; status: string; total: number; balanceDue: number; currency: string }>;
   } | null> {
     const row = await prisma.contact.findUnique({ where: { id } });
     if (!row) return null;
@@ -144,7 +146,7 @@ export class ContactService {
 
     const phoneSuffix = contact.phone ? contact.phone.slice(-10) : null;
 
-    const [orders, repairs, deals] = await Promise.all([
+    const [orders, repairs, deals, quoteRows, invoiceRows] = await Promise.all([
       phoneSuffix
         ? prisma.order.findMany({
             where: { businessId: contact.businessId, phone: { endsWith: phoneSuffix } },
@@ -164,13 +166,47 @@ export class ContactService {
         orderBy: { updatedAt: "desc" },
         select: { id: true, title: true, amount: true, stage: true, status: true },
       }),
+      prisma.quote.findMany({
+        where: { contactId: id },
+        orderBy: { updatedAt: "desc" },
+        include: { items: true },
+      }),
+      prisma.invoice.findMany({
+        where: { contactId: id },
+        orderBy: { updatedAt: "desc" },
+        include: { items: true },
+      }),
     ]);
+
+    // Same subtotal/discount/tax math QuoteService/InvoiceService use —
+    // duplicated here (not imported from @ai-chat-platform/revenue) to
+    // avoid a circular workspace dependency between crm and revenue.
+    const total = (items: { quantity: number; unitPrice: number }[], discount: number, tax: number) =>
+      Math.max(0, items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0) - discount + tax);
 
     return {
       contact,
       orders: orders.map((o) => ({ ...o, createdAt: o.createdAt.toISOString() })),
       repairs: repairs.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
       deals,
+      quotes: quoteRows.map((q) => ({
+        id: q.id,
+        title: q.title,
+        status: q.status,
+        total: total(q.items, q.discount, q.tax),
+        currency: q.currency,
+      })),
+      invoices: invoiceRows.map((inv) => {
+        const invTotal = total(inv.items, inv.discount, inv.tax);
+        return {
+          id: inv.id,
+          invoiceNumber: inv.invoiceNumber,
+          status: inv.status,
+          total: invTotal,
+          balanceDue: Math.max(0, invTotal - inv.amountPaid),
+          currency: inv.currency,
+        };
+      }),
     };
   }
 }

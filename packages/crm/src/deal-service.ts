@@ -12,6 +12,7 @@ export interface Deal {
   stage: string;
   status: string;
   closeDate: string | null;
+  lostReason: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -32,6 +33,7 @@ function toDeal(row: {
   stage: string;
   status: string;
   closeDate: Date | null;
+  lostReason: string | null;
   createdAt: Date;
   updatedAt: Date;
 }): Deal {
@@ -44,6 +46,7 @@ function toDeal(row: {
     stage: row.stage,
     status: row.status,
     closeDate: row.closeDate?.toISOString() ?? null,
+    lostReason: row.lostReason,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -94,9 +97,15 @@ export class DealService {
     return rows.map(toDeal);
   }
 
-  async updateStage(id: string, stage: string): Promise<Deal> {
+  async updateStage(id: string, stage: string, lostReason?: string): Promise<Deal> {
     const status = stage === "won" ? "won" : stage === "lost" ? "lost" : "open";
-    const row = await prisma.deal.update({ where: { id }, data: { stage, status } });
+    if (status === "lost" && !lostReason) {
+      throw new Error("A loss reason is required to mark a deal lost.");
+    }
+    const row = await prisma.deal.update({
+      where: { id },
+      data: { stage, status, lostReason: status === "lost" ? lostReason : null },
+    });
     return toDeal(row);
   }
 

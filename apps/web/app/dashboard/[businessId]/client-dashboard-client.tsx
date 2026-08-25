@@ -17,12 +17,14 @@ import { RepairsPanel } from "../../../components/RepairsPanel";
 import { ContactsPanel } from "../../../components/ContactsPanel";
 import { CompaniesPanel } from "../../../components/CompaniesPanel";
 import { DealsPanel } from "../../../components/DealsPanel";
+import { QuotesPanel } from "../../../components/QuotesPanel";
+import { InvoicesPanel } from "../../../components/InvoicesPanel";
 import { ClientOverviewPanel } from "../../../components/ClientOverviewPanel";
 import { ClientTagDashboardPanel } from "../../../components/ClientTagDashboardPanel";
 import { TrainingArenaPanel } from "../../../components/TrainingArenaPanel";
 import { DashboardShell, type NavGroup } from "../../../components/DashboardShell";
 
-type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "orders" | "repairs" | "allchats" | "handoffs" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "companies" | "deals";
+type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "orders" | "repairs" | "allchats" | "handoffs" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "companies" | "deals" | "quotes" | "invoices";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }] },
@@ -47,6 +49,13 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
       { id: "orders", label: "Orders" },
       { id: "repairs", label: "Repairs" },
       { id: "products", label: "Product Catalog" },
+    ],
+  },
+  {
+    label: "Revenue",
+    items: [
+      { id: "quotes", label: "Quotes" },
+      { id: "invoices", label: "Invoices" },
     ],
   },
   {
@@ -247,6 +256,12 @@ export default function ClientDashboardClient() {
       </div>
       <div style={{ display: tab === "deals" ? "block" : "none" }}>
         <DealsPanel businessId={businessId} active={tab === "deals"} />
+      </div>
+      <div style={{ display: tab === "quotes" ? "block" : "none" }}>
+        <QuotesPanel businessId={businessId} active={tab === "quotes"} />
+      </div>
+      <div style={{ display: tab === "invoices" ? "block" : "none" }}>
+        <InvoicesPanel businessId={businessId} active={tab === "invoices"} />
       </div>
       <div style={{ display: tab === "allchats" ? "block" : "none" }}>
         <AllChatsPanel businessId={businessId} active={tab === "allchats"} />

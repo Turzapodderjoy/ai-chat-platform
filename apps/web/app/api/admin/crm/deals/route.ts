@@ -30,8 +30,12 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "id and stage are required" }, { status: 400 });
   }
   const app = await getApp();
-  const result = await app.container.router.crm.updateDealStage(body.id, body.stage);
-  return NextResponse.json(result);
+  try {
+    const result = await app.container.router.crm.updateDealStage(body.id, body.stage, body.lostReason || undefined);
+    return NextResponse.json(result);
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to update deal" }, { status: 400 });
+  }
 }
 
 export async function DELETE(req: NextRequest) {
