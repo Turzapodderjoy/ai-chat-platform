@@ -2,6 +2,7 @@ import { ConversationService } from "@ai-chat-platform/conversation";
 import { RepairAppointmentService } from "@ai-chat-platform/repairs";
 import { EmailSenderConfigService, ResendEmailClient } from "@ai-chat-platform/email";
 import { TenantService } from "@ai-chat-platform/tenant";
+import { ContactService } from "@ai-chat-platform/crm";
 
 export interface BookRepairInput {
   businessId: string;
@@ -25,7 +26,8 @@ export class RepairController {
     private readonly conversations: ConversationService,
     private readonly emailSenderConfig: EmailSenderConfigService,
     private readonly emailClient: ResendEmailClient,
-    private readonly tenants: TenantService
+    private readonly tenants: TenantService,
+    private readonly contacts: ContactService
   ) {}
 
   async book(input: BookRepairInput): Promise<{ trackingToken: string }> {
@@ -52,6 +54,8 @@ export class RepairController {
       issueDescription: input.issueDescription,
       appointmentDate: new Date(input.appointmentDate),
     });
+
+    this.contacts.upsert({ businessId: input.businessId, name: input.customerName, phone: input.phone, email: input.email }).catch(() => {});
 
     // No AI here at all — straight to a human handoff so the appointment
     // shows up under "Needs Handoff" the moment it's booked, never

@@ -1,0 +1,12 @@
+{
+  "name": "@ai-chat-platform/crm",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ai-chat-platform/database": "workspace:*"
+  }
+}

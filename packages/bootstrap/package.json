@@ -39,6 +39,7 @@
     "@ai-chat-platform/widget-config": "workspace:*",
     "@ai-chat-platform/dashboard-theme": "workspace:*",
     "@ai-chat-platform/repairs": "workspace:*",
-    "@ai-chat-platform/email": "workspace:*"
+    "@ai-chat-platform/email": "workspace:*",
+    "@ai-chat-platform/crm": "workspace:*"
   }
 }

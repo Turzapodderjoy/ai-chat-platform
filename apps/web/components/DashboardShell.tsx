@@ -65,7 +65,7 @@ export function DashboardShell<T extends string>({
   // wants the toggle to look the same for every operator on every
   // device, so it's read/written through the DB (DashboardThemeService)
   // instead of a personal client-side preference.
-  const [theme, setTheme] = useState<ThemeMode>("dark");
+  const [theme, setTheme] = useState<ThemeMode>("light");
 
   useEffect(() => {
     fetch("/api/dashboard-theme")

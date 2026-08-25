@@ -8,6 +8,15 @@ export const cellStyle: CSSProperties = {
   textAlign: "left",
 };
 
+/** Short, human-readable form of a cuid/token for display — last 6
+ * chars, uppercased. Never used as the real id in a request, only shown
+ * to a human (an agent reading it off the screen, or a customer asked
+ * to quote it on the phone) — the full id is still what's actually
+ * stored/queried everywhere. */
+export function shortId(id: string): string {
+  return id.slice(-6).toUpperCase();
+}
+
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;

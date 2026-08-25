@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { cardStyle, cellStyle, subtleTextStyle } from "./dashboard-styles";
+import { cardStyle, cellStyle, subtleTextStyle, shortId } from "./dashboard-styles";
 
 interface Order {
   id: string;
@@ -79,7 +79,7 @@ export function OrdersPanel({ businessId }: { businessId: string }) {
             <tbody>
               {filtered.map((o) => (
                 <tr key={o.id}>
-                  <td style={{ ...cellStyle, fontSize: 11, color: "var(--text-faint)" }}>{o.id}</td>
+                  <td style={{ ...cellStyle, fontSize: 11, color: "var(--text-faint)" }}>{shortId(o.id)}</td>
                   <td style={cellStyle}>{new Date(o.createdAt).toLocaleString()}</td>
                   <td style={cellStyle}>{o.customerName}</td>
                   <td style={cellStyle}>{o.phone}</td>

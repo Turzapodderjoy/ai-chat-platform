@@ -220,9 +220,29 @@ export class ConversationService {
       data: { conversationId: sessionId, role: "agent", content: message },
     });
 
+    // Refreshed on every agent reply, not just the first — an agent
+    // actively engaged with this conversation right now means it's not
+    // stale, so the 2-hour auto-resume clock (see chat-service.ts's
+    // HANDOFF_STALE_MS) restarts from here, not from whenever the
+    // handoff was first requested.
     await prisma.conversation.update({
       where: { id: sessionId },
-      data: { handoffStatus: "HUMAN" },
+      data: { handoffStatus: "HUMAN", handoffRequestedAt: new Date() },
+    });
+  }
+
+  /** Direct handoffStatus flip, no message involved — powers the
+   * dashboard's "Stop AI"/"Resume AI" buttons. "human" pins the
+   * conversation to a real agent the same way sendAgentMessage does,
+   * without requiring the agent to actually type something first;
+   * "bot" hands it back to the AI. */
+  async setHandoffStatus(sessionId: string, status: "bot" | "pending" | "human"): Promise<void> {
+    await prisma.conversation.update({
+      where: { id: sessionId },
+      data: {
+        handoffStatus: status.toUpperCase() as "BOT" | "PENDING" | "HUMAN",
+        handoffRequestedAt: status === "bot" ? null : new Date(),
+      },
     });
   }
 

@@ -6,6 +6,7 @@ import { EmbeddingManager } from "@ai-chat-platform/embedding-manager";
 import { AiConfigService } from "@ai-chat-platform/ai-config";
 import type { VectorStoreManager } from "@ai-chat-platform/vector-store";
 import type { MasterCsvService } from "@ai-chat-platform/knowledge-refresh";
+import type { ContactService } from "@ai-chat-platform/crm";
 
 import { ChatUsageLog } from "./chat-usage-log";
 import { ResponseCache } from "./response-cache";
@@ -58,6 +59,11 @@ function buildSources(retrieved: RetrievedChunk[]): ChatSource[] {
 // handoff record, invisible to the Handoffs queue, customer stuck talking
 // to the bot forever.
 const HANDOFF_MARKER = "[[NEEDS_HUMAN]]";
+
+// ponytail: a flat 2-hour timeout for every business/channel — no
+// per-business override yet. Upgrade path if that's ever needed: move
+// this into AiConfig alongside handoffFloor.
+const HANDOFF_STALE_MS = 2 * 60 * 60 * 1000;
 
 // Belt-and-suspenders for HANDOFF_MARKER: the system prompt tells the AI
 // to always append the marker when it offers a human handoff, but
@@ -524,7 +530,8 @@ export class ChatService {
     private readonly aiConfig: AiConfigService,
     private readonly vectorStore: VectorStoreManager,
     private readonly masterCsv: MasterCsvService,
-    private readonly orders: OrderService
+    private readonly orders: OrderService,
+    private readonly contacts?: ContactService
   ) {}
 
   // Two messages from the same customer arriving close together (a
@@ -668,6 +675,7 @@ export class ChatService {
         paymentMethod: pending.paymentMethod,
       });
       await this.conversations.setPendingOrder(request.sessionId, null);
+      this.contacts?.upsert({ businessId, name: pending.customerName, phone: pending.phone }).catch(() => {});
 
       const orderLang = cannedMessageLanguage(config.languageMode, request.message);
       const orderMessage = invoiceMessage(pending, createdOrder.id, orderLang);
@@ -686,6 +694,23 @@ export class ChatService {
         confidence: 1,
         messageId: savedMessage.id,
       };
+    }
+
+    // Confirmed live: a customer handed off hours ago (or a stale test
+    // conversation from before this fix) got the same "you're waiting"
+    // reply forever, even with no agent ever actually engaging — nothing
+    // ever gave the bot back control. Past HANDOFF_STALE_MS since the
+    // handoff was last requested/refreshed (see handoffRequestedAt's own
+    // comment — an agent reply resets this clock, so an actively-worked
+    // handoff never auto-expires), treat it as abandoned and let this
+    // message go through the normal AI pipeline below, same as a
+    // brand-new conversation.
+    const handoffAge = conversation.handoffRequestedAt ? Date.now() - conversation.handoffRequestedAt.getTime() : null;
+    const handoffIsStale = handoffAge !== null && handoffAge > HANDOFF_STALE_MS;
+
+    if (handoffIsStale) {
+      await this.conversations.setHandoffStatus(request.sessionId, "bot");
+      conversation.handoffStatus = "bot";
     }
 
     // Already being handled by a human — don't let the bot jump back in.
@@ -1130,6 +1155,7 @@ export class ChatService {
             ...fields,
           });
           sameTurnOrder = { id: createdOrder.id, fields };
+          this.contacts?.upsert({ businessId, name: customerName, phone }).catch(() => {});
           // Clears whatever ORDER_PENDING this same-message finalize may
           // have superseded — otherwise a stale pendingOrder from an
           // earlier turn could get finalized a second time by an

@@ -96,4 +96,13 @@ export class HandoffController {
 
     return { ok: true };
   }
+
+  /** "Stop AI"/"Resume AI" in the dashboard — a direct status flip with
+   * no message involved, unlike reply() above which always sends one.
+   * "human" pins it to a person exactly like reply() does, just without
+   * requiring the agent to type something first; "bot" hands it back. */
+  async setStatus(sessionId: string, status: "bot" | "pending" | "human"): Promise<{ ok: true }> {
+    await this.conversations.setHandoffStatus(sessionId, status);
+    return { ok: true };
+  }
 }

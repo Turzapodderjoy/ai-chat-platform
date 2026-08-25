@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 
 import { StatCard, StatCardRow } from "./StatCard";
-import { cardStyle, subtleTextStyle, primaryButtonStyle, badgeStyle, type BadgeTone } from "./dashboard-styles";
+import { cardStyle, subtleTextStyle, primaryButtonStyle, badgeStyle, shortId, type BadgeTone } from "./dashboard-styles";
 import { MarkdownMessage } from "./MarkdownMessage";
 
 interface Appointment {
@@ -493,7 +493,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, fontSize: 12.5, marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
-            <div><span style={{ color: "var(--text-faint)" }}>Order ID</span><br />{selected.id}</div>
+            <div><span style={{ color: "var(--text-faint)" }}>Order ID</span><br />{shortId(selected.id)}</div>
             <div><span style={{ color: "var(--text-faint)" }}>Device</span><br />{selected.deviceType}{selected.deviceModel ? ` — ${selected.deviceModel}` : ""}</div>
             <div><span style={{ color: "var(--text-faint)" }}>Appointment</span><br />{new Date(selected.appointmentDate).toLocaleString()}</div>
             <div><span style={{ color: "var(--text-faint)" }}>Tracking Token</span><br />{selected.trackingToken}</div>

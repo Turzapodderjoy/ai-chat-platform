@@ -148,6 +148,9 @@ importers:
       '@ai-chat-platform/conversation':
         specifier: workspace:*
         version: link:../conversation
+      '@ai-chat-platform/crm':
+        specifier: workspace:*
+        version: link:../crm
       '@ai-chat-platform/dashboard-theme':
         specifier: workspace:*
         version: link:../dashboard-theme
@@ -259,6 +262,9 @@ importers:
       '@ai-chat-platform/conversation':
         specifier: workspace:*
         version: link:../conversation
+      '@ai-chat-platform/crm':
+        specifier: workspace:*
+        version: link:../crm
       '@ai-chat-platform/dashboard-theme':
         specifier: workspace:*
         version: link:../dashboard-theme
@@ -360,6 +366,9 @@ importers:
       '@ai-chat-platform/conversation':
         specifier: workspace:*
         version: link:../conversation
+      '@ai-chat-platform/crm':
+        specifier: workspace:*
+        version: link:../crm
       '@ai-chat-platform/embedding-manager':
         specifier: workspace:*
         version: link:../embedding-manager
@@ -399,6 +408,12 @@ importers:
       '@ai-chat-platform/types':
         specifier: workspace:*
         version: link:../types
+
+  packages/crm:
+    dependencies:
+      '@ai-chat-platform/database':
+        specifier: workspace:*
+        version: link:../database
 
   packages/dashboard-theme:
     dependencies:

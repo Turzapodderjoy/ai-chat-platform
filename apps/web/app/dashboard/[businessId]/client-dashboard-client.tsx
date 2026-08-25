@@ -14,12 +14,15 @@ import { ChannelsPanel } from "../../../components/ChannelsPanel";
 import { ProductCatalogPanel } from "../../../components/ProductCatalogPanel";
 import { OrdersPanel } from "../../../components/OrdersPanel";
 import { RepairsPanel } from "../../../components/RepairsPanel";
+import { ContactsPanel } from "../../../components/ContactsPanel";
+import { CompaniesPanel } from "../../../components/CompaniesPanel";
+import { DealsPanel } from "../../../components/DealsPanel";
 import { ClientOverviewPanel } from "../../../components/ClientOverviewPanel";
 import { ClientTagDashboardPanel } from "../../../components/ClientTagDashboardPanel";
 import { TrainingArenaPanel } from "../../../components/TrainingArenaPanel";
 import { DashboardShell, type NavGroup } from "../../../components/DashboardShell";
 
-type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "orders" | "repairs" | "allchats" | "handoffs" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels";
+type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "orders" | "repairs" | "allchats" | "handoffs" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "companies" | "deals";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }] },
@@ -28,6 +31,14 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
     items: [
       { id: "allchats", label: "Inbox" },
       { id: "handoffs", label: "Handoffs" },
+    ],
+  },
+  {
+    label: "CRM",
+    items: [
+      { id: "contacts", label: "Contacts" },
+      { id: "companies", label: "Companies" },
+      { id: "deals", label: "Deals" },
     ],
   },
   {
@@ -227,6 +238,15 @@ export default function ClientDashboardClient() {
       </div>
       <div style={{ display: tab === "repairs" ? "block" : "none" }}>
         <RepairsPanel businessId={businessId} active={tab === "repairs"} />
+      </div>
+      <div style={{ display: tab === "contacts" ? "block" : "none" }}>
+        <ContactsPanel businessId={businessId} active={tab === "contacts"} />
+      </div>
+      <div style={{ display: tab === "companies" ? "block" : "none" }}>
+        <CompaniesPanel businessId={businessId} active={tab === "companies"} />
+      </div>
+      <div style={{ display: tab === "deals" ? "block" : "none" }}>
+        <DealsPanel businessId={businessId} active={tab === "deals"} />
       </div>
       <div style={{ display: tab === "allchats" ? "block" : "none" }}>
         <AllChatsPanel businessId={businessId} active={tab === "allchats"} />

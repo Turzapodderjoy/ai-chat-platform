@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { cardStyle, subtleTextStyle, primaryButtonStyle } from "./dashboard-styles";
+import { cardStyle, subtleTextStyle, primaryButtonStyle, shortId } from "./dashboard-styles";
 import { MessageTagControl } from "./MessageTagControl";
 import { MarkdownMessage } from "./MarkdownMessage";
 import { ReasoningInfo } from "./ReasoningInfo";
@@ -398,6 +398,23 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
     }
   }
 
+  const [settingStatus, setSettingStatus] = useState(false);
+
+  async function setAiStatus(status: "bot" | "human") {
+    if (!selectedId) return;
+    setSettingStatus(true);
+    try {
+      await fetch("/api/admin/handoffs/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: selectedId, status }),
+      });
+      refresh();
+    } finally {
+      setSettingStatus(false);
+    }
+  }
+
   const selected = conversations?.find((c) => c.id === selectedId) ?? null;
 
   const visibleConversations = (conversations ?? []).filter((c) => {
@@ -672,17 +689,23 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
 
                 {/* Detail panel — Contact Details / Tags / Conversation
                  * Summary / Order Actions, all sourced from data already
-                 * fetched elsewhere in the app. "Stop AI"/"Resume AI"
-                 * match the mockup's look but aren't wired to a real
-                 * action yet — no endpoint exists to flip handoff status
-                 * outside sending a message, so they're left visual-only
-                 * rather than faking a control that doesn't do anything. */}
+                 * fetched elsewhere in the app. Stop/Resume AI directly
+                 * flip handoffStatus (no message involved) via
+                 * /api/admin/handoffs/status. */}
                 <div style={{ width: 240, flexShrink: 0 }}>
                   <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
-                    <button disabled title="Not wired up yet" style={{ flex: 1, fontSize: 12, padding: "8px 10px", opacity: 0.5 }}>
+                    <button
+                      onClick={() => setAiStatus("human")}
+                      disabled={settingStatus || selected.handoffStatus === "human"}
+                      style={{ flex: 1, fontSize: 12, padding: "8px 10px" }}
+                    >
                       Stop AI
                     </button>
-                    <button disabled title="Not wired up yet" style={{ flex: 1, fontSize: 12, padding: "8px 10px", opacity: 0.5 }}>
+                    <button
+                      onClick={() => setAiStatus("bot")}
+                      disabled={settingStatus || selected.handoffStatus === "bot"}
+                      style={{ flex: 1, fontSize: 12, padding: "8px 10px" }}
+                    >
                       Resume AI
                     </button>
                   </div>
@@ -727,7 +750,7 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                           <div style={{ display: "flex", flexDirection: "column", gap: 7, fontSize: 12 }}>
                             <div style={{ display: "flex", justifyContent: "space-between" }}>
                               <span style={{ color: "var(--text-faint)" }}>Order ID</span>
-                              <span>{repairForSelected.id}</span>
+                              <span>{shortId(repairForSelected.id)}</span>
                             </div>
                             <div style={{ display: "flex", justifyContent: "space-between" }}>
                               <span style={{ color: "var(--text-faint)" }}>Customer</span>
@@ -774,7 +797,7 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                           <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12 }}>
                             <div style={{ display: "flex", justifyContent: "space-between" }}>
                               <span style={{ color: "var(--text-faint)" }}>Order ID</span>
-                              <span>{orderForSelected.id}</span>
+                              <span>{shortId(orderForSelected.id)}</span>
                             </div>
                             <div style={{ display: "flex", justifyContent: "space-between" }}>
                               <span style={{ color: "var(--text-faint)" }}>Customer</span>
