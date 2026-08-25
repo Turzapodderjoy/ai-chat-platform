@@ -214,6 +214,17 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
     if (selected?.id === id) fetchMessages(selected.trackingToken);
   }
 
+  async function deleteAppointment(a: Appointment) {
+    const confirmed = window.confirm(
+      `Delete the repair appointment for "${a.customerName}" (${a.trackingToken})? This also removes its message thread — cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    await fetch(`/api/admin/repairs?id=${encodeURIComponent(a.id)}`, { method: "DELETE" });
+    if (selectedId === a.id) setSelectedId(null);
+    refresh();
+  }
+
   async function sendReply() {
     if (!selected || !reply.trim()) return;
     setSending(true);
@@ -465,15 +476,20 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
               <div style={{ fontSize: 14, fontWeight: 700 }}>{selected.customerName}</div>
               <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{selected.phone}</div>
             </div>
-            <select
-              value={selected.status}
-              onChange={(e) => updateStatus(selected.id, e.target.value)}
-              style={{ padding: 6 }}
-            >
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s} value={s}>{STATUS_LABEL[s]}</option>
-              ))}
-            </select>
+            <div style={{ display: "flex", gap: 8 }}>
+              <select
+                value={selected.status}
+                onChange={(e) => updateStatus(selected.id, e.target.value)}
+                style={{ padding: 6 }}
+              >
+                {STATUS_OPTIONS.map((s) => (
+                  <option key={s} value={s}>{STATUS_LABEL[s]}</option>
+                ))}
+              </select>
+              <button onClick={() => deleteAppointment(selected)} style={{ padding: "6px 10px", fontSize: 12 }}>
+                Delete
+              </button>
+            </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, fontSize: 12.5, marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>

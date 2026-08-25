@@ -122,6 +122,19 @@ export class RepairController {
     await this.conversations.addMessage(appointment.trackingToken, "system", `Status updated to ${REPAIR_STATUS_LABEL[status] ?? status}`);
     return appointment;
   }
+
+  async deleteAppointment(id: string): Promise<{ ok: true }> {
+    const appointment = await this.repairs.findById(id);
+    if (appointment) {
+      // trackingToken doubles as the linked Conversation's id — remove
+      // that too (messages cascade), not just the appointment row,
+      // otherwise the tracking page's message thread outlives the
+      // appointment it was ever about.
+      await this.conversations.deleteConversation(appointment.trackingToken);
+    }
+    await this.repairs.delete(id);
+    return { ok: true };
+  }
 }
 
 const REPAIR_STATUS_LABEL: Record<string, string> = {

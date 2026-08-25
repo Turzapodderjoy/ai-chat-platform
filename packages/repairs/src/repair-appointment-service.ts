@@ -118,4 +118,13 @@ export class RepairAppointmentService {
     const row = await prisma.repairAppointment.update({ where: { id }, data: { status } });
     return toAppointment(row);
   }
+
+  async findById(id: string): Promise<RepairAppointment | null> {
+    const row = await prisma.repairAppointment.findUnique({ where: { id } });
+    return row ? toAppointment(row) : null;
+  }
+
+  async delete(id: string): Promise<void> {
+    await prisma.repairAppointment.delete({ where: { id } });
+  }
 }

@@ -12,3 +12,14 @@ export async function GET(req: NextRequest) {
   const result = await app.container.router.repairs.listForBusiness(businessId);
   return NextResponse.json({ appointments: result });
 }
+
+export async function DELETE(req: NextRequest) {
+  const id = req.nextUrl.searchParams.get("id");
+  if (!id) {
+    return NextResponse.json({ error: "id is required" }, { status: 400 });
+  }
+
+  const app = await getApp();
+  const result = await app.container.router.repairs.deleteAppointment(id);
+  return NextResponse.json(result);
+}

@@ -232,6 +232,13 @@ export class ConversationService {
     await prisma.conversation.deleteMany({ where: { businessId } });
   }
 
+  /** Single conversation — messages cascade via the schema's
+   * onDelete: Cascade. deleteMany (not delete) so it's a no-op rather
+   * than throwing if the conversation doesn't exist. */
+  async deleteConversation(id: string): Promise<void> {
+    await prisma.conversation.deleteMany({ where: { id } });
+  }
+
   /** Past Training Arena sessions for the Intercom-style sidebar — most
    * recent first, with a preview of the last message and whether a human
    * has touched this session yet in Chat Learning (any ConversationReview
