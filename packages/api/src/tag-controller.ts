@@ -47,24 +47,34 @@ export class TagController {
     return this.assignments.messageTagsForMany(messageIds);
   }
 
-  assignTag(params: { conversationId?: string; messageId?: string; tagId: string }) {
+  orderTagsForMany(orderIds: string[]) {
+    return this.assignments.orderTagsForMany(orderIds);
+  }
+
+  assignTag(params: { conversationId?: string; messageId?: string; orderId?: string; tagId: string }) {
     if (params.messageId) {
       return this.assignments.assignMessageTag(params.messageId, params.tagId);
+    }
+    if (params.orderId) {
+      return this.assignments.assignOrderTag(params.orderId, params.tagId);
     }
     if (params.conversationId) {
       return this.assignments.assignConversationTag(params.conversationId, params.tagId);
     }
-    throw new Error("Either conversationId or messageId is required.");
+    throw new Error("Either conversationId, messageId, or orderId is required.");
   }
 
-  removeTag(params: { conversationId?: string; messageId?: string; tagId: string }) {
+  removeTag(params: { conversationId?: string; messageId?: string; orderId?: string; tagId: string }) {
     if (params.messageId) {
       return this.assignments.removeMessageTag(params.messageId, params.tagId);
+    }
+    if (params.orderId) {
+      return this.assignments.removeOrderTag(params.orderId, params.tagId);
     }
     if (params.conversationId) {
       return this.assignments.removeConversationTag(params.conversationId, params.tagId);
     }
-    throw new Error("Either conversationId or messageId is required.");
+    throw new Error("Either conversationId, messageId, or orderId is required.");
   }
 
   getAnalytics(filters: AnalyticsFilters) {

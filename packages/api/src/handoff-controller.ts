@@ -1,4 +1,4 @@
-import { ConversationService } from "@ai-chat-platform/conversation";
+import { ConversationService, ConversationNoteService } from "@ai-chat-platform/conversation";
 import { CHANNEL_CATALOG } from "@ai-chat-platform/channel-catalog";
 import type { ChannelConnectionService } from "@ai-chat-platform/channel-connections";
 
@@ -16,7 +16,8 @@ export interface HandoffSummary {
 export class HandoffController {
   constructor(
     private readonly conversations: ConversationService,
-    private readonly channelConnections: ChannelConnectionService
+    private readonly channelConnections: ChannelConnectionService,
+    private readonly notes: ConversationNoteService
   ) {}
 
   async list(businessId?: string): Promise<HandoffSummary[]> {
@@ -104,5 +105,21 @@ export class HandoffController {
   async setStatus(sessionId: string, status: "bot" | "pending" | "human"): Promise<{ ok: true }> {
     await this.conversations.setHandoffStatus(sessionId, status);
     return { ok: true };
+  }
+
+  listNotes(conversationId: string) {
+    return this.notes.list(conversationId);
+  }
+
+  async addNote(params: { conversationId: string; author: string; body: string }) {
+    const conversation = await this.conversations.get(params.conversationId);
+    if (!conversation) {
+      throw new Error("Session not found");
+    }
+    return this.notes.add({ conversationId: params.conversationId, businessId: conversation.businessId, author: params.author, body: params.body });
+  }
+
+  deleteNote(id: string) {
+    return this.notes.delete(id);
   }
 }

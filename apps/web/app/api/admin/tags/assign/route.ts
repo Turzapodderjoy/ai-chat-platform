@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
     await app.container.router.tags.assignTag({
       conversationId: typeof body.conversationId === "string" ? body.conversationId : undefined,
       messageId: typeof body.messageId === "string" ? body.messageId : undefined,
+      orderId: typeof body.orderId === "string" ? body.orderId : undefined,
       tagId: body.tagId,
     });
     return NextResponse.json({ ok: true });
@@ -38,6 +39,7 @@ export async function DELETE(req: NextRequest) {
     await app.container.router.tags.removeTag({
       conversationId: params.get("conversationId") ?? undefined,
       messageId: params.get("messageId") ?? undefined,
+      orderId: params.get("orderId") ?? undefined,
       tagId,
     });
     return NextResponse.json({ ok: true });

@@ -1,4 +1,4 @@
-import { OrderService } from "@ai-chat-platform/conversation";
+import { OrderService, type UpdateDeliveryInput } from "@ai-chat-platform/conversation";
 
 /** The Orders panel's data source — orders the AI takes directly inside a
  * chat conversation (see ChatService's ORDER_TAKEN marker handling). */
@@ -7,5 +7,9 @@ export class OrderController {
 
   list(businessId: string) {
     return this.orders.listForBusiness(businessId);
+  }
+
+  updateDelivery(id: string, input: UpdateDeliveryInput) {
+    return this.orders.updateDelivery(id, input);
   }
 }

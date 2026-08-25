@@ -12,7 +12,18 @@ export interface OrderInput {
 
 export interface Order extends OrderInput {
   id: string;
+  courier: string | null;
+  trackingId: string | null;
+  deliveryStatus: string;
   createdAt: string;
+}
+
+export const DELIVERY_STATUSES = ["pending", "picked_up", "in_transit", "delivered", "returned"] as const;
+
+export interface UpdateDeliveryInput {
+  courier?: string | null;
+  trackingId?: string | null;
+  deliveryStatus?: string;
 }
 
 function toOrder(row: {
@@ -24,6 +35,9 @@ function toOrder(row: {
   deliveryAddress: string;
   products: string;
   paymentMethod: string;
+  courier: string | null;
+  trackingId: string | null;
+  deliveryStatus: string;
   createdAt: Date;
 }): Order {
   return { ...row, createdAt: row.createdAt.toISOString() };
@@ -45,5 +59,18 @@ export class OrderService {
       take: limit,
     });
     return rows.map(toOrder);
+  }
+
+  /** Manual delivery tracking — courier/trackingId are free text a
+   * staff member fills in by hand; there is no real courier API call
+   * here (no merchant credentials for Pathao/Steadfast/etc. exist in
+   * this deployment). A real adapter would plug in right here: call
+   * the provider's "create shipment" endpoint on first save, then a
+   * webhook or polling job would keep deliveryStatus in sync instead
+   * of a human updating it — same seam RepairAppointment.status left
+   * for a future automated status source. */
+  async updateDelivery(id: string, input: UpdateDeliveryInput): Promise<Order> {
+    const row = await prisma.order.update({ where: { id }, data: input });
+    return toOrder(row);
   }
 }

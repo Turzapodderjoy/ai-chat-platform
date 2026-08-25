@@ -14,3 +14,18 @@ export async function GET(req: NextRequest) {
   const result = await app.container.router.orders.list(businessId);
   return NextResponse.json(result);
 }
+
+export async function PATCH(req: NextRequest) {
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body.id !== "string") {
+    return NextResponse.json({ error: "id is required" }, { status: 400 });
+  }
+
+  const app = await getApp();
+  const result = await app.container.router.orders.updateDelivery(body.id, {
+    courier: typeof body.courier === "string" ? body.courier : undefined,
+    trackingId: typeof body.trackingId === "string" ? body.trackingId : undefined,
+    deliveryStatus: typeof body.deliveryStatus === "string" ? body.deliveryStatus : undefined,
+  });
+  return NextResponse.json(result);
+}

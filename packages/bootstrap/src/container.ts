@@ -1,6 +1,6 @@
 import { AIManager } from "@ai-chat-platform/ai-manager";
 import { PromptEngine } from "@ai-chat-platform/prompt-engine";
-import { ConversationService, MessageFeedbackService, OrderService } from "@ai-chat-platform/conversation";
+import { ConversationService, MessageFeedbackService, OrderService, ConversationNoteService } from "@ai-chat-platform/conversation";
 import type { Retriever } from "@ai-chat-platform/retriever";
 import type { VectorStoreManager } from "@ai-chat-platform/vector-store";
 import type { EmbeddingManager } from "@ai-chat-platform/embedding-manager";
@@ -68,6 +68,9 @@ export class Container {
 
     const conversations =
       new ConversationService();
+
+    const conversationNotes =
+      new ConversationNoteService();
 
     const prompts =
       new PromptEngine();
@@ -265,7 +268,7 @@ export class Container {
           providerKeys,
           providerState
         ),
-        new HandoffController(conversations, channelConnections),
+        new HandoffController(conversations, channelConnections, conversationNotes),
         new CrawlerController(crawlerService),
         new AiConfigController(aiConfig, tenants),
         new EmbeddingController(embeddings, providerKeys, indexingService, providerState, tabularExtraction, extractionKeyService),

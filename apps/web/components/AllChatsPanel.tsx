@@ -60,6 +60,13 @@ interface Contact {
   email: string | null;
 }
 
+interface Note {
+  id: string;
+  author: string;
+  body: string;
+  createdAt: string;
+}
+
 interface Order {
   id: string;
   conversationId: string;
@@ -168,6 +175,10 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
   const [repairForSelected, setRepairForSelected] = useState<RepairAppointment | null | undefined>(undefined);
   const [savingRepairStatus, setSavingRepairStatus] = useState(false);
   const [contactForSelected, setContactForSelected] = useState<Contact | null | undefined>(undefined);
+  const [notes, setNotes] = useState<Note[] | null>(null);
+  const [newNote, setNewNote] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+  const [currentUsername, setCurrentUsername] = useState("admin");
 
   // Which messageCount an agent had last seen, per conversation — a
   // conversation is "unread" when the live list's current messageCount
@@ -186,6 +197,14 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
       setSeenCounts({});
     }
   }, [seenKey]);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d: { username?: string }) => {
+        if (d.username) setCurrentUsername(d.username);
+      });
+  }, []);
 
   function markSeen(id: string, count: number) {
     setSeenCounts((prev) => {
@@ -301,11 +320,19 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
     }
   }
 
+  function refreshNotes(conversationId: string) {
+    fetch(`/api/admin/handoffs/notes?conversationId=${encodeURIComponent(conversationId)}`)
+      .then((r) => r.json())
+      .then((d: { notes: Note[] }) => setNotes(d.notes));
+  }
+
   function openConversation(c: ConversationSummary) {
     setSelectedId(c.id);
     setMessages(null);
     fetchMessages(c.id);
     markSeen(c.id, c.messageCount);
+    setNotes(null);
+    refreshNotes(c.id);
 
     // Conversation Summary and Order Actions both reuse existing
     // endpoints rather than adding new ones — the handoffs list already
@@ -423,6 +450,30 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
     } finally {
       setSending(false);
     }
+  }
+
+  async function addNote() {
+    if (!selectedId || !newNote.trim()) return;
+    setSavingNote(true);
+    try {
+      const res = await fetch("/api/admin/handoffs/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationId: selectedId, author: currentUsername, body: newNote }),
+      });
+      if (res.ok) {
+        setNewNote("");
+        refreshNotes(selectedId);
+      }
+    } finally {
+      setSavingNote(false);
+    }
+  }
+
+  async function deleteNote(id: string) {
+    if (!selectedId) return;
+    await fetch(`/api/admin/handoffs/notes?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    refreshNotes(selectedId);
   }
 
   const [settingStatus, setSettingStatus] = useState(false);
@@ -776,6 +827,38 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                       </div>
                     </>
                   )}
+
+                  <div style={{ fontSize: 10.5, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 10 }}>
+                    Notes
+                  </div>
+                  <div style={{ marginBottom: 20 }}>
+                    <p style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 0, marginBottom: 8 }}>
+                      Private to your team — never sent to the customer.
+                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
+                      {notes === null && <span style={{ fontSize: 12, color: "var(--text-faint)" }}>Loading…</span>}
+                      {notes !== null && notes.length === 0 && <span style={{ fontSize: 12, color: "var(--text-faint)" }}>No notes yet.</span>}
+                      {notes?.map((n) => (
+                        <div key={n.id} style={{ background: "var(--warning-soft, rgba(210,153,34,0.12))", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: 8, fontSize: 12 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                            <span style={{ fontWeight: 650 }}>{n.author}</span>
+                            <button onClick={() => deleteNote(n.id)} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.5, fontSize: 10, padding: 0 }}>✕</button>
+                          </div>
+                          <div style={{ whiteSpace: "pre-wrap" }}>{n.body}</div>
+                          <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 4 }}>{new Date(n.createdAt).toLocaleString()}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <textarea
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
+                      placeholder="Leave a note for your team…"
+                      style={{ width: "100%", padding: 6, fontSize: 12, boxSizing: "border-box", minHeight: 50, resize: "vertical" }}
+                    />
+                    <button onClick={addNote} disabled={savingNote || !newNote.trim()} style={{ fontSize: 11, padding: "4px 8px", marginTop: 4 }}>
+                      {savingNote ? "Saving…" : "+ Add note"}
+                    </button>
+                  </div>
 
                   <div style={{ fontSize: 10.5, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 10 }}>
                     Tags

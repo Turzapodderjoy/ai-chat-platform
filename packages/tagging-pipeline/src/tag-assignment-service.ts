@@ -90,4 +90,33 @@ export class TagAssignmentService {
   async removeMessageTag(messageId: string, tagId: string): Promise<void> {
     await prisma.messageTag.deleteMany({ where: { messageId, tagId } });
   }
+
+  async orderTagsForMany(orderIds: string[]): Promise<Map<string, TagAssignment[]>> {
+    if (orderIds.length === 0) return new Map();
+
+    const rows = await prisma.orderTag.findMany({
+      where: { orderId: { in: orderIds } },
+      include: { tag: true },
+      orderBy: { createdAt: "asc" },
+    });
+
+    const map = new Map<string, TagAssignment[]>();
+    for (const r of rows) {
+      const list = map.get(r.orderId) ?? [];
+      list.push({ tagId: r.tagId, label: r.tag.label, color: r.tag.color, source: r.source, createdAt: r.createdAt.toISOString() });
+      map.set(r.orderId, list);
+    }
+    return map;
+  }
+
+  async assignOrderTag(orderId: string, tagId: string): Promise<void> {
+    await prisma.orderTag.createMany({
+      data: [{ orderId, tagId, source: "manual" }],
+      skipDuplicates: true,
+    });
+  }
+
+  async removeOrderTag(orderId: string, tagId: string): Promise<void> {
+    await prisma.orderTag.deleteMany({ where: { orderId, tagId } });
+  }
 }

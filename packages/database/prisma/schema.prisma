@@ -131,6 +131,7 @@ model Conversation {
   messages           Message[]
   conversationReview ConversationReview?
   conversationTags   ConversationTag[]
+  notes              ConversationNote[]
 
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
@@ -193,6 +194,29 @@ model MessageFeedback {
   updatedAt  DateTime @updatedAt
 
   @@index([businessId, verdict])
+}
+
+// Intercom-style internal note — an aside a staff member leaves on a
+// conversation for teammates, never sent to the customer and never
+// mixed into Message (which is the actual on-channel thread, including
+// agent replies that DO go out to the customer over that channel's Send
+// API). Rendered in its own section of the Inbox detail panel, not as a
+// bubble in the message thread. author is a free-text label (this
+// platform's dashboards have no per-staff-member login identity beyond
+// the shared admin/client account — see CLAUDE.md's "no auth" note —
+// so there's no userId to attribute it to).
+model ConversationNote {
+  id             String   @id @default(cuid())
+  conversationId String
+  businessId     String
+  author         String
+  body           String
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime @default(now())
+
+  @@index([conversationId, createdAt])
 }
 
 model CrawlTarget {
@@ -594,6 +618,7 @@ model Tag {
 
   conversationTags ConversationTag[]
   messageTags      MessageTag[]
+  orderTags        OrderTag[]
 
   @@unique([businessId, label])
   @@index([businessId, isFunnelStage])
@@ -819,9 +844,41 @@ model Order {
   products        String
   paymentMethod   String
 
+  // Manual delivery tracking — no live courier API wired yet (needs a
+  // merchant account/credentials from a provider like Pathao/Steadfast
+  // first, see OrderService.updateDelivery's own comment for the
+  // adapter seam left for that). courier/trackingId are free text a
+  // staff member fills in by hand; deliveryStatus is a plain string,
+  // same "tweakable without a migration" convention as
+  // RepairAppointment.status.
+  courier         String?
+  trackingId      String?
+  deliveryStatus  String   @default("pending")
+
+  orderTags       OrderTag[]
+
   createdAt       DateTime @default(now())
 
   @@index([businessId, createdAt])
+}
+
+// Order-level tagging — same shape as ConversationTag/MessageTag
+// (shared Tag catalog, "ai" vs "manual" source), added so an order can
+// be labeled (e.g. "VIP", "Refund requested") independently of the
+// conversation it came from.
+model OrderTag {
+  id        String   @id @default(cuid())
+  orderId   String
+  tagId     String
+  source    String   // "ai" | "manual" -- always "manual" today, kept for symmetry with the other two tag-assignment tables
+
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([orderId, tagId])
+  @@index([tagId])
 }
 
 // A repair-shop client's appointment booking + tracking record — same
