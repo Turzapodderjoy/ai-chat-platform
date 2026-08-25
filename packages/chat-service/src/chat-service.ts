@@ -215,11 +215,25 @@ const HANDOFF_MESSAGE_EN =
 const HANDOFF_MESSAGE_BN =
   "এই বিষয়ে আমাদের নলেজ বেসে কোনো তথ্য নেই। আমি আপনাকে একজন টিম মেম্বারের সাথে সংযুক্ত করছি — তিনি এই কথোপকথন যেখানে শেষ হয়েছে সেখান থেকেই শুরু করবেন।";
 
-const ALREADY_WAITING_MESSAGE_EN =
-  "You're connected with a human agent — they'll see your message and reply here shortly.";
+// 4 variants, not 1 fixed line — a customer sending several messages
+// while waiting (very common; see discount-question example that
+// prompted this) was getting the exact same sentence back verbatim
+// every time, which reads as broken/robotic rather than "a person has
+// this." Picked deterministically per message (same greetingIndex
+// trick as the greeting replies above) so it varies without an AI call.
+const ALREADY_WAITING_MESSAGES_EN = [
+  "Thanks for reaching out! Our team already has your message and will reply here shortly — feel free to share any more details in the meantime.",
+  "Appreciate your patience! A team member has your message and will get back to you here soon.",
+  "Got it — you're already with our team on this, they'll reply here shortly. Feel free to add anything else in the meantime.",
+  "Thanks for the message! Our team's already looking into this and will reply here shortly.",
+];
 
-const ALREADY_WAITING_MESSAGE_BN =
-  "আপনি একজন মানব এজেন্টের সাথে সংযুক্ত আছেন — তিনি শীঘ্রই এখানে আপনার বার্তা দেখে উত্তর দেবেন।";
+const ALREADY_WAITING_MESSAGES_BN = [
+  "যোগাযোগ করার জন্য ধন্যবাদ! আমাদের টিম আপনার বার্তা পেয়েছে এবং শীঘ্রই এখানে উত্তর দেবে — এর মধ্যে আরও কিছু জানানোর থাকলে নির্দ্বিধায় লিখুন।",
+  "ধৈর্য ধরার জন্য ধন্যবাদ! আমাদের একজন টিম মেম্বার আপনার বার্তা দেখেছেন, শীঘ্রই এখানে উত্তর দেবেন।",
+  "বুঝেছি — এই বিষয়ে আপনি ইতিমধ্যে আমাদের টিমের সাথে আছেন, তারা শীঘ্রই উত্তর দেবেন। এর মধ্যে আরও কিছু জানাতে চাইলে নির্দ্বিধায় লিখুন।",
+  "বার্তার জন্য ধন্যবাদ! আমাদের টিম এই বিষয়ে দেখছে, শীঘ্রই এখানে উত্তর দেবে।",
+];
 
 const ORDER_CONFIRMED_MESSAGE_EN = "Your order is confirmed and will be delivered soon. Thank you!";
 const ORDER_CONFIRMED_MESSAGE_BN = "আপনার অর্ডারটি নিশ্চিত করা হয়েছে এবং শীঘ্রই ডেলিভারি করা হবে। ধন্যবাদ!";
@@ -248,8 +262,12 @@ function invoiceMessage(fields: OrderFields, orderId: string, lang: "bangla" | "
 const HANDOFF_MESSAGE_BANGLISH =
   "Dukkhito, amader knowledge base e ei bishoye kono tothyo nei. Ami apnake ekjon team member-er sathe connect kore dicchi — uni ei conversation ja jekhane sesh hoyeche sekhan theke shuru korben.";
 
-const ALREADY_WAITING_MESSAGE_BANGLISH =
-  "Apni ekjon human agent-er sathe connected achen — tini shiggiri apnar message dekhe eikhane reply korben.";
+const ALREADY_WAITING_MESSAGES_BANGLISH = [
+  "Jogajog korar jonno dhonnobad! Amader team apnar message peyeche, shiggiri eikhane reply korbe — er moddhe aro kichu janar thakle nishchinte likhun.",
+  "Dhoirjo dhorar jonno dhonnobad! Amader ekjon team member apnar message dekheche, shiggiri eikhane reply korben.",
+  "Bujhlam — ei bishoye apni already amader team er sathe achen, tara shiggiri reply korben. Er moddhe aro kichu janate chaile nishchinte likhun.",
+  "Message er jonno dhonnobad! Amader team eta niye dekhche, shiggiri eikhane reply korbe.",
+];
 
 // A plain greeting has no real content to reason about, yet letting the
 // LLM generate a reply for it is where nonsense like "How can Amader
@@ -679,13 +697,11 @@ export class ChatService {
     // that behavior, not to simulate the real "you're waiting" UX.
     if (!conversation.isTraining && conversation.handoffStatus !== "bot") {
       const lang = cannedMessageLanguage(config.languageMode, request.message);
+      const idx = greetingIndex(request.sessionId + request.message);
+      const variants =
+        lang === "bangla" ? ALREADY_WAITING_MESSAGES_BN : lang === "banglish" ? ALREADY_WAITING_MESSAGES_BANGLISH : ALREADY_WAITING_MESSAGES_EN;
       return {
-        answer:
-          lang === "bangla"
-            ? ALREADY_WAITING_MESSAGE_BN
-            : lang === "banglish"
-              ? ALREADY_WAITING_MESSAGE_BANGLISH
-              : ALREADY_WAITING_MESSAGE_EN,
+        answer: variants[idx % variants.length]!,
         provider: "human",
         tokens: 0,
         confidence: 0,
