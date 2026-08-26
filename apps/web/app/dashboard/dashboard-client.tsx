@@ -257,6 +257,10 @@ export default function DashboardClient() {
       .then((data) => setUsername(typeof data.username === "string" ? data.username : null));
   }, []);
 
+  function logout() {
+    fetch("/api/auth/logout", { method: "POST" }).finally(() => window.location.assign("/"));
+  }
+
   return (
     <DashboardShell
       sidebarLabel={
@@ -265,14 +269,13 @@ export default function DashboardClient() {
           <div style={{ fontSize: 10.5, color: "var(--text-faint)", fontWeight: 400, marginTop: 2 }}>
             Command Center
           </div>
-          {username && (
-            <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 4 }}>Logged in as {username}</div>
-          )}
         </div>
       }
       groups={NAV_GROUPS}
       activeTab={tab}
       onSelect={setTab}
+      username={username}
+      onLogout={logout}
     >
       {/* Every panel stays mounted (hidden via CSS, not unmounted) so
           switching tabs never wipes a panel's local state. */}

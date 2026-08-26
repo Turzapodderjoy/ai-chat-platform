@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { NavIcon } from "./nav-icons";
 
@@ -37,18 +37,79 @@ export function DashboardShell<T extends string>({
   groups,
   activeTab,
   onSelect,
+  username,
+  onLogout,
+  backHref,
   children,
 }: {
   sidebarLabel: ReactNode;
   groups: NavGroup<T>[];
   activeTab: T;
   onSelect: (tab: T) => void;
+  /** Rendered in the header's profile dropdown instead of buried in the
+   * sidebar — keeps the sidebar to just brand + nav, matching a
+   * cleaner reference layout the owner pointed at (search bar +
+   * profile menu live in the top bar, not the rail). */
+  username?: string | null;
+  onLogout?: () => void;
+  /** "Back to Command Center" link inside the profile dropdown — admin
+   * browsing into a client dashboard only. */
+  backHref?: string;
   children: ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<number, boolean>>({});
   const [isMobile, setIsMobile] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchBoxRef = useRef<HTMLDivElement>(null);
+  const profileBoxRef = useRef<HTMLDivElement>(null);
+
+  // Cmd/Ctrl+K focuses the jump-to search — same shortcut the reference
+  // layout uses, and a real one here: it filters this dashboard's own
+  // nav (every panel already reachable from the sidebar), not a fake
+  // decoration. A true cross-record search (contacts/deals/orders/etc.
+  // content, not just nav labels) is a bigger, separate feature.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        setSearchOpen(true);
+      }
+      if (e.key === "Escape") {
+        setSearchOpen(false);
+        setProfileOpen(false);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (searchBoxRef.current && !searchBoxRef.current.contains(e.target as Node)) setSearchOpen(false);
+      if (profileBoxRef.current && !profileBoxRef.current.contains(e.target as Node)) setProfileOpen(false);
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  const searchResults = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return [];
+    const flat = groups.flatMap((g) => g.items.map((item) => ({ item, groupLabel: g.label })));
+    return flat.filter((f) => f.item.label.toLowerCase().includes(q)).slice(0, 8);
+  }, [groups, search]);
+
+  function jumpTo(id: T) {
+    onSelect(id);
+    setSearch("");
+    setSearchOpen(false);
+  }
 
   useEffect(() => {
     const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
@@ -328,6 +389,96 @@ export function DashboardShell<T extends string>({
               </div>
             </div>
           </div>
+
+          {!isMobile && (
+            <div ref={searchBoxRef} style={{ position: "relative", flex: 1, maxWidth: 420 }}>
+              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", left: 12, color: "var(--text-faint)", pointerEvents: "none" }}>
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" />
+                </svg>
+                <input
+                  ref={searchInputRef}
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setSearchOpen(true);
+                  }}
+                  onFocus={() => setSearchOpen(true)}
+                  placeholder="Search Anything"
+                  style={{
+                    width: "100%",
+                    padding: "8px 44px 8px 34px",
+                    borderRadius: 999,
+                    border: "1px solid var(--border)",
+                    background: "var(--surface)",
+                    color: "var(--text)",
+                    fontSize: 13,
+                  }}
+                />
+                <span
+                  style={{
+                    position: "absolute",
+                    right: 10,
+                    fontSize: 10.5,
+                    color: "var(--text-faint)",
+                    background: "var(--bg-elevated)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 5,
+                    padding: "1px 6px",
+                    pointerEvents: "none",
+                  }}
+                >
+                  ⌘K
+                </span>
+              </div>
+              {searchOpen && search.trim() && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 6px)",
+                    left: 0,
+                    right: 0,
+                    background: "var(--bg-elevated)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 10,
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
+                    overflow: "hidden",
+                    zIndex: 60,
+                  }}
+                >
+                  {searchResults.length === 0 && (
+                    <div style={{ padding: "10px 14px", fontSize: 12.5, color: "var(--text-faint)" }}>No matching page.</div>
+                  )}
+                  {searchResults.map(({ item, groupLabel }) => (
+                    <button
+                      key={item.id}
+                      onClick={() => jumpTo(item.id)}
+                      className="plain"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "9px 14px",
+                        fontSize: 13,
+                        color: "var(--text)",
+                      }}
+                    >
+                      <span style={{ display: "flex", flexShrink: 0, color: "var(--text-muted)" }}>
+                        <NavIcon id={item.id} />
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
+                      {groupLabel && <span style={{ fontSize: 10.5, color: "var(--text-faint)", flexShrink: 0 }}>{groupLabel}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
           <button
             onClick={toggleTheme}
             title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
@@ -356,6 +507,70 @@ export function DashboardShell<T extends string>({
               </svg>
             )}
           </button>
+
+          {(username || onLogout) && (
+            <div ref={profileBoxRef} style={{ position: "relative" }}>
+              <button
+                onClick={() => setProfileOpen((o) => !o)}
+                className="plain"
+                title={username ?? "Account"}
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: "50%",
+                  background: "var(--accent)",
+                  color: "var(--bg)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 13,
+                  fontWeight: 700,
+                }}
+              >
+                {(username ?? "?").slice(0, 1).toUpperCase()}
+              </button>
+              {profileOpen && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 8px)",
+                    right: 0,
+                    minWidth: 200,
+                    background: "var(--bg-elevated)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 10,
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
+                    overflow: "hidden",
+                    zIndex: 60,
+                  }}
+                >
+                  {username && (
+                    <div style={{ padding: "10px 14px", fontSize: 12, color: "var(--text-faint)", borderBottom: "1px solid var(--border)" }}>
+                      Logged in as <span style={{ color: "var(--text)", fontWeight: 600 }}>{username}</span>
+                    </div>
+                  )}
+                  {backHref && (
+                    <a
+                      href={backHref}
+                      style={{ display: "block", padding: "9px 14px", fontSize: 13, color: "var(--text)" }}
+                    >
+                      Back to Command Center
+                    </a>
+                  )}
+                  {onLogout && (
+                    <button
+                      onClick={onLogout}
+                      className="plain"
+                      style={{ display: "block", width: "100%", textAlign: "left", padding: "9px 14px", fontSize: 13, color: "var(--danger)" }}
+                    >
+                      Log out
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          </div>
         </header>
         <main style={{ flex: 1, minWidth: 0, padding: isMobile ? "18px 16px" : "28px 32px", maxWidth: 1160, width: "100%" }}>{children}</main>
       </div>
