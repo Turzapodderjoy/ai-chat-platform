@@ -1112,15 +1112,26 @@ export class ChatService {
       };
       const MAX_LANGUAGE_RETRIES = 2;
 
+      let strippedForCheck = "";
+      let markersSuffix = "";
+
       for (let attempt = 0; attempt < MAX_LANGUAGE_RETRIES; attempt++) {
-        const replyForLangCheck = aiResponse.response
+        const hasHandoff = aiResponse.response.includes(HANDOFF_MARKER);
+        const orderFieldsMatch = aiResponse.response.match(ORDER_FIELDS_PATTERN)?.[0] ?? "";
+        const orderMarkerMatch = aiResponse.response.match(ORDER_MARKER_PATTERN)?.[0] ?? "";
+        strippedForCheck = aiResponse.response
           .replaceAll(HANDOFF_MARKER, "")
           .replace(ORDER_MARKER_PATTERN, "")
           .replace(ORDER_FIELDS_PATTERN, "")
           .trim();
-        const actualReplyLanguage = detectLanguage(replyForLangCheck);
+        markersSuffix = [hasHandoff ? HANDOFF_MARKER : "", orderFieldsMatch, orderMarkerMatch].filter(Boolean).join("\n");
 
-        if (!actualReplyLanguage || actualReplyLanguage === expectedReplyLanguage) break;
+        const actualReplyLanguage = detectLanguage(strippedForCheck);
+
+        if (!actualReplyLanguage || actualReplyLanguage === expectedReplyLanguage) {
+          strippedForCheck = "";
+          break;
+        }
 
         console.log(`[perf] retrying (${attempt + 1}/${MAX_LANGUAGE_RETRIES}): reply language mismatch (expected ${expectedReplyLanguage}, got ${actualReplyLanguage})`);
         const retrySystemPrompt =
@@ -1128,6 +1139,25 @@ export class ChatService {
           `\n\nREMINDER: your last reply was NOT in the required language. Rewrite your ENTIRE reply in ${LANGUAGE_RETRY_LABEL[expectedReplyLanguage]} only, keeping the same meaning and any required markers — do not mix languages. Do not open with a Bangla word like "Amader" if the required language is English.`;
         aiResponse = await this.ai.chat(prompt.userPrompt, { ...aiCallOptions, systemPrompt: retrySystemPrompt });
         console.log(`[perf] language retry ${attempt + 1} done, provider=${aiResponse.provider}`);
+      }
+
+      // Confirmed live: a provider can ignore "reply in English" twice in
+      // a row when its base system prompt carries a strong Bangla brand
+      // voice (e.g. habitually opening with "Amader") — "regenerate the
+      // whole answer, but in a different language this time" competes
+      // against that voice and loses. A pure translation instruction
+      // doesn't: there's no persona/voice to fight, just "convert this
+      // text," which models follow far more reliably. Last-resort only,
+      // after the regenerate loop above is exhausted, so it costs one
+      // extra call solely on the stubborn-drift path, not every turn.
+      if (strippedForCheck) {
+        console.log(`[perf] regenerate retries exhausted, falling back to direct translation into ${expectedReplyLanguage}`);
+        const translation = await this.ai.chat(
+          `Translate the following text into ${LANGUAGE_RETRY_LABEL[expectedReplyLanguage]}. Preserve every number, price, and product name exactly. Output ONLY the translated text, with no preamble, quotes, or commentary.\n\n${strippedForCheck}`,
+          { ...aiCallOptions, systemPrompt: "You are a precise translator. Output only the translated text." }
+        );
+        aiResponse = { ...aiResponse, response: markersSuffix ? `${translation.response.trim()}\n${markersSuffix}` : translation.response.trim() };
+        console.log(`[perf] translation fallback done, provider=${translation.provider}`);
       }
     }
 
