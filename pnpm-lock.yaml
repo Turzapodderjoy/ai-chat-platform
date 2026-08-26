@@ -217,6 +217,9 @@ importers:
       '@ai-chat-platform/widget-config':
         specifier: workspace:*
         version: link:../widget-config
+      '@ai-chat-platform/widget-visibility':
+        specifier: workspace:*
+        version: link:../widget-visibility
 
   packages/auto-heal:
     dependencies:
@@ -349,6 +352,9 @@ importers:
       '@ai-chat-platform/widget-config':
         specifier: workspace:*
         version: link:../widget-config
+      '@ai-chat-platform/widget-visibility':
+        specifier: workspace:*
+        version: link:../widget-visibility
 
   packages/cerebras:
     dependencies:
@@ -799,6 +805,12 @@ importers:
         version: link:../vector-store
 
   packages/widget-config:
+    dependencies:
+      '@ai-chat-platform/database':
+        specifier: workspace:*
+        version: link:../database
+
+  packages/widget-visibility:
     dependencies:
       '@ai-chat-platform/database':
         specifier: workspace:*

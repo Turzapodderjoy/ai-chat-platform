@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { cardStyle, subtleTextStyle, badgeStyle, type BadgeTone } from "./dashboard-styles";
 import { StatCard, StatCardRow } from "./StatCard";
+import { RemovableSection } from "./RemovableSection";
 
 interface OverviewReport {
   revenue: {
@@ -79,6 +80,9 @@ export function ReportsPanel({
   businessId,
   active = true,
   allowedPanels = null,
+  hiddenWidgets = [],
+  editable = false,
+  onToggleWidget,
 }: {
   businessId?: string;
   active?: boolean;
@@ -89,8 +93,15 @@ export function ReportsPanel({
   // sees Revenue numbers derived from a feature they can't otherwise
   // open and verify.
   allowedPanels?: string[] | null;
+  /** Per-business admin "remove this box" list (see RemovableSection) —
+   * on top of the coarser allowedPanels gate above. */
+  hiddenWidgets?: string[];
+  editable?: boolean;
+  onToggleWidget?: (widgetId: string, hide: boolean) => void;
 }) {
   const [report, setReport] = useState<OverviewReport | null>(null);
+  const isHidden = (id: string) => hiddenWidgets.includes(id);
+  const toggle = (id: string, hide: boolean) => onToggleWidget?.(id, hide);
 
   useEffect(() => {
     if (!active) return;
@@ -132,7 +143,7 @@ export function ReportsPanel({
 
   return (
     <>
-      {showRevenue && <section style={cardStyle}>
+      {showRevenue && <RemovableSection id="reports.revenue" hidden={isHidden("reports.revenue")} editable={editable} onToggle={toggle}><section style={cardStyle}>
         <h2 style={{ marginTop: 0 }}>Revenue</h2>
         <p style={subtleTextStyle}>Rolled up from every Quote, Invoice, and Payment across this business.</p>
         <StatCardRow>
@@ -169,9 +180,9 @@ export function ReportsPanel({
             ))}
           </div>
         </div>
-      </section>}
+      </section></RemovableSection>}
 
-      {showSales && <section style={cardStyle}>
+      {showSales && <RemovableSection id="reports.sales" hidden={isHidden("reports.sales")} editable={editable} onToggle={toggle}><section style={cardStyle}>
         <h2 style={{ marginTop: 0 }}>Sales</h2>
         <p style={subtleTextStyle}>Pipeline health across every Deal, win/loss rate, and why deals are lost.</p>
         <StatCardRow>
@@ -203,9 +214,9 @@ export function ReportsPanel({
             ))}
           </div>
         </div>
-      </section>}
+      </section></RemovableSection>}
 
-      {showDelivery && <section style={cardStyle}>
+      {showDelivery && <RemovableSection id="reports.delivery" hidden={isHidden("reports.delivery")} editable={editable} onToggle={toggle}><section style={cardStyle}>
         <h2 style={{ marginTop: 0 }}>Delivery</h2>
         <p style={subtleTextStyle}>Manual delivery tracking across every Order.</p>
         <StatCardRow>
@@ -223,9 +234,9 @@ export function ReportsPanel({
             />
           ))}
         </div>
-      </section>}
+      </section></RemovableSection>}
 
-      {showRepairs && <section style={cardStyle}>
+      {showRepairs && <RemovableSection id="reports.repairs" hidden={isHidden("reports.repairs")} editable={editable} onToggle={toggle}><section style={cardStyle}>
         <h2 style={{ marginTop: 0 }}>Repairs</h2>
         <p style={subtleTextStyle}>Repair appointment throughput by status.</p>
         <StatCardRow>
@@ -242,9 +253,9 @@ export function ReportsPanel({
             />
           ))}
         </div>
-      </section>}
+      </section></RemovableSection>}
 
-      {showCrm && <section style={cardStyle}>
+      {showCrm && <RemovableSection id="reports.crm" hidden={isHidden("reports.crm")} editable={editable} onToggle={toggle}><section style={cardStyle}>
         <h2 style={{ marginTop: 0 }}>CRM Growth</h2>
         <p style={subtleTextStyle}>How fast the Contacts base is growing.</p>
         <StatCardRow>
@@ -253,7 +264,7 @@ export function ReportsPanel({
           <StatCard label="New This Month" value={String(crm.newContactsThisMonth)} tone="success" />
           <StatCard label="Companies" value={String(crm.totalCompanies)} tone="neutral" />
         </StatCardRow>
-      </section>}
+      </section></RemovableSection>}
     </>
   );
 }

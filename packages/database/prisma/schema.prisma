@@ -1003,6 +1003,26 @@ model Deal {
   @@index([businessId, stage])
 }
 
+// Per-business admin-only "remove this box" toggle — hovering any
+// removable widget (see RemovableSection.tsx) in the admin's own view
+// of a client's dashboard shows a minus button; clicking it adds a row
+// here. A real client login (restricted, non-admin session) never
+// renders a widget whose id has a row here; the admin still sees it
+// (dimmed, with a restore "+") so it can be brought back. widgetId is a
+// stable dotted string the widget itself owns (e.g.
+// "reports.delivery") — not a DB id, so it survives that record being
+// recreated.
+model HiddenWidget {
+  id         String   @id @default(cuid())
+  businessId String
+  widgetId   String
+
+  createdAt  DateTime @default(now())
+
+  @@unique([businessId, widgetId])
+  @@index([businessId])
+}
+
 // Revenue layer (Quote -> Invoice -> Payment), built on the same
 // Contact/Deal records as the rest of the CRM instead of a separate
 // billing database. A Quote is a proposal; accepting it turns it into

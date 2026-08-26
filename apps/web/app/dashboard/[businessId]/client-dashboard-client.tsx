@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { KnowledgeHubPanel } from "../../../components/KnowledgeHubPanel";
@@ -24,6 +24,7 @@ import { ClientOverviewPanel } from "../../../components/ClientOverviewPanel";
 import { ClientTagDashboardPanel } from "../../../components/ClientTagDashboardPanel";
 import { TrainingArenaPanel } from "../../../components/TrainingArenaPanel";
 import { DashboardShell, type NavGroup } from "../../../components/DashboardShell";
+import { RemovableSection } from "../../../components/RemovableSection";
 
 type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "orders" | "repairs" | "allchats" | "handoffs" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "companies" | "deals" | "quotes" | "invoices" | "reports";
 
@@ -104,9 +105,37 @@ export default function ClientDashboardClient() {
   // null = unrestricted (admin, or a client account with no restriction
   // set) — every tab shows. A real array is the exact allow-list.
   const [allowedPanels, setAllowedPanels] = useState<string[] | null>(null);
+  // Admin-only "remove this box for this client" list — see
+  // RemovableSection. A panel wrapped in it renders nothing at all for
+  // a real (non-admin) client session once its id is in here.
+  const [hiddenWidgets, setHiddenWidgets] = useState<string[]>([]);
 
   function logout() {
     fetch("/api/auth/logout", { method: "POST" }).finally(() => router.push("/"));
+  }
+
+  function refreshHiddenWidgets() {
+    fetch(`/api/admin/widget-visibility?businessId=${encodeURIComponent(businessId)}`)
+      .then((r) => r.json())
+      .then((d: { hidden: string[] }) => setHiddenWidgets(d.hidden ?? []));
+  }
+
+  useEffect(() => {
+    refreshHiddenWidgets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessId]);
+
+  function toggleWidget(widgetId: string, hide: boolean) {
+    const req = hide
+      ? fetch("/api/admin/widget-visibility", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ businessId, widgetId }),
+        })
+      : fetch(`/api/admin/widget-visibility?businessId=${encodeURIComponent(businessId)}&widgetId=${encodeURIComponent(widgetId)}`, {
+          method: "DELETE",
+        });
+    req.then(refreshHiddenWidgets);
   }
 
   // Only an admin session gets the "back to Command Center" link — a
@@ -127,22 +156,31 @@ export default function ClientDashboardClient() {
       });
   }, []);
 
-  const visibleGroups: NavGroup<Tab>[] = allowedPanels
-    ? NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => allowedPanels.includes(i.id)) })).filter(
-        (g) => g.items.length > 0
-      )
-    : NAV_GROUPS;
+  // Admin always sees the full nav (even a hidden-for-clients panel
+  // stays reachable so it can be un-hidden) — only a real client
+  // session's nav is filtered, by allowedPanels AND by any panel the
+  // admin removed inline via RemovableSection.
+  const visibleGroups: NavGroup<Tab>[] = isAdmin
+    ? NAV_GROUPS
+    : NAV_GROUPS.map((g) => ({
+        ...g,
+        items: g.items.filter(
+          (i) => (allowedPanels === null || allowedPanels.includes(i.id)) && !hiddenWidgets.includes(`panel.${i.id}`)
+        ),
+      })).filter((g) => g.items.length > 0);
 
   // If a restriction kicks in after first paint and the currently-open
   // tab isn't in the allow-list, jump to the first tab that is —
   // otherwise the content pane would keep showing a panel whose own nav
   // entry just disappeared.
   useEffect(() => {
-    if (allowedPanels && !allowedPanels.includes(tab)) {
+    if (isAdmin) return;
+    const stillVisible = visibleGroups.some((g) => g.items.some((i) => i.id === tab));
+    if (!stillVisible) {
       const firstAllowed = visibleGroups[0]?.items[0]?.id;
       if (firstAllowed) setTab(firstAllowed);
     }
-  }, [allowedPanels]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [allowedPanels, hiddenWidgets, isAdmin]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Always renders "overview" on the server/first paint to avoid a
   // hydration mismatch, then jumps to the OAuth callback's ?tab= param
@@ -180,66 +218,50 @@ export default function ClientDashboardClient() {
       onLogout={logout}
       backHref={isAdmin ? "/dashboard" : undefined}
     >
-      <div style={{ display: tab === "overview" ? "block" : "none" }}>
-        <ClientOverviewPanel businessId={businessId} active={tab === "overview"} />
-      </div>
-      <div style={{ display: tab === "tagdashboard" ? "block" : "none" }}>
-        <ClientTagDashboardPanel businessId={businessId} />
-      </div>
-      <div style={{ display: tab === "knowledge" ? "block" : "none" }}>
-        <KnowledgeHubPanel businessId={businessId} active={tab === "knowledge"} />
-      </div>
-      <div style={{ display: tab === "products" ? "block" : "none" }}>
-        <ProductCatalogPanel businessId={businessId} />
-      </div>
-      <div style={{ display: tab === "orders" ? "block" : "none" }}>
-        <OrdersPanel businessId={businessId} />
-      </div>
-      <div style={{ display: tab === "repairs" ? "block" : "none" }}>
-        <RepairsPanel businessId={businessId} active={tab === "repairs"} />
-      </div>
-      <div style={{ display: tab === "contacts" ? "block" : "none" }}>
-        <ContactsPanel businessId={businessId} active={tab === "contacts"} />
-      </div>
-      <div style={{ display: tab === "companies" ? "block" : "none" }}>
-        <CompaniesPanel businessId={businessId} active={tab === "companies"} />
-      </div>
-      <div style={{ display: tab === "deals" ? "block" : "none" }}>
-        <DealsPanel businessId={businessId} active={tab === "deals"} />
-      </div>
-      <div style={{ display: tab === "quotes" ? "block" : "none" }}>
-        <QuotesPanel businessId={businessId} active={tab === "quotes"} />
-      </div>
-      <div style={{ display: tab === "invoices" ? "block" : "none" }}>
-        <InvoicesPanel businessId={businessId} active={tab === "invoices"} />
-      </div>
-      <div style={{ display: tab === "reports" ? "block" : "none" }}>
-        <ReportsPanel businessId={businessId} active={tab === "reports"} allowedPanels={allowedPanels} />
-      </div>
-      <div style={{ display: tab === "allchats" ? "block" : "none" }}>
-        <AllChatsPanel businessId={businessId} active={tab === "allchats"} />
-      </div>
-      <div style={{ display: tab === "handoffs" ? "block" : "none" }}>
-        <HandoffsPanel businessId={businessId} active={tab === "handoffs"} />
-      </div>
-      <div style={{ display: tab === "storage" ? "block" : "none" }}>
-        <StoragePanel businessId={businessId} />
-      </div>
-      <div style={{ display: tab === "brain" ? "block" : "none" }}>
-        <AiBrainPanel businessId={businessId} />
-      </div>
-      <div style={{ display: tab === "parameters" ? "block" : "none" }}>
-        <AiParametersPanel businessId={businessId} />
-      </div>
-      <div style={{ display: tab === "arena" ? "block" : "none" }}>
-        <TrainingArenaPanel businessId={businessId} />
-      </div>
-      <div style={{ display: tab === "review" ? "block" : "none" }}>
-        <ChatLearningPanel businessId={businessId} />
-      </div>
-      <div style={{ display: tab === "channels" ? "block" : "none" }}>
-        <ChannelsPanel businessId={businessId} />
-      </div>
+      {([
+        ["overview", <ClientOverviewPanel key="overview" businessId={businessId} active={tab === "overview"} />],
+        ["tagdashboard", <ClientTagDashboardPanel key="tagdashboard" businessId={businessId} />],
+        ["knowledge", <KnowledgeHubPanel key="knowledge" businessId={businessId} active={tab === "knowledge"} />],
+        ["products", <ProductCatalogPanel key="products" businessId={businessId} />],
+        ["orders", <OrdersPanel key="orders" businessId={businessId} />],
+        ["repairs", <RepairsPanel key="repairs" businessId={businessId} active={tab === "repairs"} />],
+        ["contacts", <ContactsPanel key="contacts" businessId={businessId} active={tab === "contacts"} />],
+        ["companies", <CompaniesPanel key="companies" businessId={businessId} active={tab === "companies"} />],
+        ["deals", <DealsPanel key="deals" businessId={businessId} active={tab === "deals"} />],
+        ["quotes", <QuotesPanel key="quotes" businessId={businessId} active={tab === "quotes"} />],
+        ["invoices", <InvoicesPanel key="invoices" businessId={businessId} active={tab === "invoices"} />],
+        [
+          "reports",
+          <ReportsPanel
+            key="reports"
+            businessId={businessId}
+            active={tab === "reports"}
+            allowedPanels={allowedPanels}
+            hiddenWidgets={hiddenWidgets}
+            editable={isAdmin}
+            onToggleWidget={toggleWidget}
+          />,
+        ],
+        ["allchats", <AllChatsPanel key="allchats" businessId={businessId} active={tab === "allchats"} />],
+        ["handoffs", <HandoffsPanel key="handoffs" businessId={businessId} active={tab === "handoffs"} />],
+        ["storage", <StoragePanel key="storage" businessId={businessId} />],
+        ["brain", <AiBrainPanel key="brain" businessId={businessId} />],
+        ["parameters", <AiParametersPanel key="parameters" businessId={businessId} />],
+        ["arena", <TrainingArenaPanel key="arena" businessId={businessId} />],
+        ["review", <ChatLearningPanel key="review" businessId={businessId} />],
+        ["channels", <ChannelsPanel key="channels" businessId={businessId} />],
+      ] as [Tab, ReactNode][]).map(([id, panel]) => (
+        <div key={id} style={{ display: tab === id ? "block" : "none" }}>
+          <RemovableSection
+            id={`panel.${id}`}
+            hidden={hiddenWidgets.includes(`panel.${id}`)}
+            editable={isAdmin}
+            onToggle={toggleWidget}
+          >
+            {panel}
+          </RemovableSection>
+        </div>
+      ))}
     </DashboardShell>
   );
 }

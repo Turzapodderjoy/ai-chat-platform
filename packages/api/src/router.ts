@@ -22,6 +22,7 @@ import { EmailController } from "./email-controller";
 import { CrmController } from "./crm-controller";
 import { RevenueController } from "./revenue-controller";
 import { ReportingController } from "./reporting-controller";
+import { WidgetVisibilityController } from "./widget-visibility-controller";
 import { DashboardThemeController } from "./dashboard-theme-controller";
 
 export class ApiRouter {
@@ -50,6 +51,7 @@ export class ApiRouter {
     readonly crm: CrmController,
     readonly revenue: RevenueController,
     readonly reporting: ReportingController,
+    readonly widgetVisibility: WidgetVisibilityController,
     readonly dashboardTheme: DashboardThemeController
   ) {}
 }
