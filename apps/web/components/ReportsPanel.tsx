@@ -75,7 +75,21 @@ function BreakdownBar({ label, count, total, tone }: { label: string; count: num
  * (Order tracking), Repairs, and CRM growth, all pulled from the same
  * records every other panel already writes to. See
  * ReportingService.getOverview for the actual aggregation. */
-export function ReportsPanel({ businessId, active = true }: { businessId?: string; active?: boolean }) {
+export function ReportsPanel({
+  businessId,
+  active = true,
+  allowedPanels = null,
+}: {
+  businessId?: string;
+  active?: boolean;
+  // null = unrestricted (admin/mother dashboard) — every section shows.
+  // A real client session's own allowedPanels (see ClientAccessPanel) --
+  // a section only renders if the feature it's built from is still
+  // ticked, so a client who's had e.g. Quotes/Invoices unchecked never
+  // sees Revenue numbers derived from a feature they can't otherwise
+  // open and verify.
+  allowedPanels?: string[] | null;
+}) {
   const [report, setReport] = useState<OverviewReport | null>(null);
 
   useEffect(() => {
@@ -95,14 +109,30 @@ export function ReportsPanel({ businessId, active = true }: { businessId?: strin
     );
   }
 
+  const has = (id: string) => allowedPanels === null || allowedPanels.includes(id);
+  const showRevenue = has("quotes") || has("invoices");
+  const showSales = has("deals");
+  const showDelivery = has("orders");
+  const showRepairs = has("repairs");
+  const showCrm = has("contacts") || has("companies");
+
   const { revenue, sales, delivery, repairs, crm } = report;
   const momDelta = revenue.collectedLastMonth > 0
     ? ((revenue.collectedThisMonth - revenue.collectedLastMonth) / revenue.collectedLastMonth) * 100
     : null;
 
+  if (!showRevenue && !showSales && !showDelivery && !showRepairs && !showCrm) {
+    return (
+      <section style={cardStyle}>
+        <h2 style={{ marginTop: 0 }}>Reports</h2>
+        <p style={subtleTextStyle}>No report sections are enabled for this account.</p>
+      </section>
+    );
+  }
+
   return (
     <>
-      <section style={cardStyle}>
+      {showRevenue && <section style={cardStyle}>
         <h2 style={{ marginTop: 0 }}>Revenue</h2>
         <p style={subtleTextStyle}>Rolled up from every Quote, Invoice, and Payment across this business.</p>
         <StatCardRow>
@@ -139,9 +169,9 @@ export function ReportsPanel({ businessId, active = true }: { businessId?: strin
             ))}
           </div>
         </div>
-      </section>
+      </section>}
 
-      <section style={cardStyle}>
+      {showSales && <section style={cardStyle}>
         <h2 style={{ marginTop: 0 }}>Sales</h2>
         <p style={subtleTextStyle}>Pipeline health across every Deal, win/loss rate, and why deals are lost.</p>
         <StatCardRow>
@@ -173,9 +203,9 @@ export function ReportsPanel({ businessId, active = true }: { businessId?: strin
             ))}
           </div>
         </div>
-      </section>
+      </section>}
 
-      <section style={cardStyle}>
+      {showDelivery && <section style={cardStyle}>
         <h2 style={{ marginTop: 0 }}>Delivery</h2>
         <p style={subtleTextStyle}>Manual delivery tracking across every Order.</p>
         <StatCardRow>
@@ -193,17 +223,13 @@ export function ReportsPanel({ businessId, active = true }: { businessId?: strin
             />
           ))}
         </div>
-      </section>
+      </section>}
 
-      <section style={cardStyle}>
-        <h2 style={{ marginTop: 0 }}>Repairs &amp; CRM Growth</h2>
-        <p style={subtleTextStyle}>Repair appointment throughput and how fast the Contacts base is growing.</p>
+      {showRepairs && <section style={cardStyle}>
+        <h2 style={{ marginTop: 0 }}>Repairs</h2>
+        <p style={subtleTextStyle}>Repair appointment throughput by status.</p>
         <StatCardRow>
           <StatCard label="Total Appointments" value={String(repairs.totalAppointments)} tone="info" />
-          <StatCard label="Total Contacts" value={String(crm.totalContacts)} tone="info" />
-          <StatCard label="New This Week" value={String(crm.newContactsThisWeek)} tone="success" />
-          <StatCard label="New This Month" value={String(crm.newContactsThisMonth)} tone="success" />
-          <StatCard label="Companies" value={String(crm.totalCompanies)} tone="neutral" />
         </StatCardRow>
         <div style={{ maxWidth: 420 }}>
           {Object.entries(repairs.appointmentsByStatus).map(([status, count]) => (
@@ -216,7 +242,18 @@ export function ReportsPanel({ businessId, active = true }: { businessId?: strin
             />
           ))}
         </div>
-      </section>
+      </section>}
+
+      {showCrm && <section style={cardStyle}>
+        <h2 style={{ marginTop: 0 }}>CRM Growth</h2>
+        <p style={subtleTextStyle}>How fast the Contacts base is growing.</p>
+        <StatCardRow>
+          <StatCard label="Total Contacts" value={String(crm.totalContacts)} tone="info" />
+          <StatCard label="New This Week" value={String(crm.newContactsThisWeek)} tone="success" />
+          <StatCard label="New This Month" value={String(crm.newContactsThisMonth)} tone="success" />
+          <StatCard label="Companies" value={String(crm.totalCompanies)} tone="neutral" />
+        </StatCardRow>
+      </section>}
     </>
   );
 }

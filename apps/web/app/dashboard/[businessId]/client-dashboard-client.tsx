@@ -265,7 +265,7 @@ export default function ClientDashboardClient() {
         <InvoicesPanel businessId={businessId} active={tab === "invoices"} />
       </div>
       <div style={{ display: tab === "reports" ? "block" : "none" }}>
-        <ReportsPanel businessId={businessId} active={tab === "reports"} />
+        <ReportsPanel businessId={businessId} active={tab === "reports"} allowedPanels={allowedPanels} />
       </div>
       <div style={{ display: tab === "allchats" ? "block" : "none" }}>
         <AllChatsPanel businessId={businessId} active={tab === "allchats"} />
