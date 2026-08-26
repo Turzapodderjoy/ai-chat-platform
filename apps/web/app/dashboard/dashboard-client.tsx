@@ -18,6 +18,7 @@ import { CompaniesPanel } from "../../components/CompaniesPanel";
 import { DealsPanel } from "../../components/DealsPanel";
 import { QuotesPanel } from "../../components/QuotesPanel";
 import { InvoicesPanel } from "../../components/InvoicesPanel";
+import { ReportsPanel } from "../../components/ReportsPanel";
 import { TrainingArenaPanel } from "../../components/TrainingArenaPanel";
 import { StatusBadge } from "../../components/StatusBadge";
 import { DashboardShell, type NavGroup } from "../../components/DashboardShell";
@@ -28,10 +29,10 @@ import { cardStyle, cellStyle, formatBytes, subtleTextStyle, primaryButtonStyle 
 // client component just for one string constant.
 const PLATFORM_CONFIG_ID = "__platform__";
 
-type Tab = "overview" | "health" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "access" | "knowledge" | "allchats" | "handoffs" | "database" | "tags" | "contacts" | "companies" | "deals" | "quotes" | "invoices";
+type Tab = "overview" | "health" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "access" | "knowledge" | "allchats" | "handoffs" | "database" | "tags" | "contacts" | "companies" | "deals" | "quotes" | "invoices" | "reports";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
-  { items: [{ id: "overview", label: "Overview" }, { id: "health", label: "Client Health" }] },
+  { items: [{ id: "overview", label: "Overview" }, { id: "health", label: "Client Health" }, { id: "reports", label: "Reports" }] },
   {
     label: "CRM",
     items: [
@@ -331,6 +332,9 @@ export default function DashboardClient() {
       </div>
       <div style={{ display: tab === "invoices" ? "block" : "none" }}>
         <InvoicesPanel active={tab === "invoices"} />
+      </div>
+      <div style={{ display: tab === "reports" ? "block" : "none" }}>
+        <ReportsPanel active={tab === "reports"} />
       </div>
       <div style={{ display: tab === "handoffs" ? "block" : "none" }}>
         <HandoffsPanel active={tab === "handoffs"} />

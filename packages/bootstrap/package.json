@@ -41,6 +41,7 @@
     "@ai-chat-platform/repairs": "workspace:*",
     "@ai-chat-platform/email": "workspace:*",
     "@ai-chat-platform/crm": "workspace:*",
-    "@ai-chat-platform/revenue": "workspace:*"
+    "@ai-chat-platform/revenue": "workspace:*",
+    "@ai-chat-platform/reporting": "workspace:*"
   }
 }

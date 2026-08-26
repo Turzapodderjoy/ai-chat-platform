@@ -1092,38 +1092,42 @@ export class ChatService {
     // what language THIS reply is required to be in (the admin's lock if
     // one is set, else whatever the customer's own current message is
     // detected as), then actually check the AI's reply against it and
-    // retry once with an explicit correction if it didn't comply — same
-    // "verify, don't just ask nicely" pattern as the ORDER_FIELDS retry
-    // above.
-    // ponytail: one retry, not a guarantee — confirmed live that a
-    // provider can still miss on the corrected retry too. Upgrade path
-    // if this isn't good enough: loop the retry (bounded, e.g. 2 tries)
-    // instead of a single shot.
+    // retry — with an explicit correction — until it complies or a
+    // bounded attempt count is exhausted. Owner-mandated hard
+    // requirement (confirmed live: a single retry could still miss,
+    // e.g. a reply that opens with "Amader" — a Bangla brand-voice habit
+    // — trips detectLanguage into "banglish" even for an otherwise-
+    // English reply); MAX_LANGUAGE_RETRIES bounds it so a
+    // stubbornly-noncompliant provider can't loop forever.
     const expectedReplyLanguage: "bangla" | "banglish" | "english" | null =
       config.languageMode === "english" || config.languageMode === "bangla" || config.languageMode === "banglish"
         ? config.languageMode
         : detectLanguage(request.message);
 
     if (expectedReplyLanguage) {
-      const replyForLangCheck = aiResponse.response
-        .replaceAll(HANDOFF_MARKER, "")
-        .replace(ORDER_MARKER_PATTERN, "")
-        .replace(ORDER_FIELDS_PATTERN, "")
-        .trim();
-      const actualReplyLanguage = detectLanguage(replyForLangCheck);
+      const LANGUAGE_RETRY_LABEL: Record<string, string> = {
+        bangla: "natural Bangla (Bengali script)",
+        banglish: "Banglish (Bangla written in Latin/Roman letters)",
+        english: "English",
+      };
+      const MAX_LANGUAGE_RETRIES = 2;
 
-      if (actualReplyLanguage && actualReplyLanguage !== expectedReplyLanguage) {
-        console.log(`[perf] retrying: reply language mismatch (expected ${expectedReplyLanguage}, got ${actualReplyLanguage})`);
-        const LANGUAGE_RETRY_LABEL: Record<string, string> = {
-          bangla: "natural Bangla (Bengali script)",
-          banglish: "Banglish (Bangla written in Latin/Roman letters)",
-          english: "English",
-        };
+      for (let attempt = 0; attempt < MAX_LANGUAGE_RETRIES; attempt++) {
+        const replyForLangCheck = aiResponse.response
+          .replaceAll(HANDOFF_MARKER, "")
+          .replace(ORDER_MARKER_PATTERN, "")
+          .replace(ORDER_FIELDS_PATTERN, "")
+          .trim();
+        const actualReplyLanguage = detectLanguage(replyForLangCheck);
+
+        if (!actualReplyLanguage || actualReplyLanguage === expectedReplyLanguage) break;
+
+        console.log(`[perf] retrying (${attempt + 1}/${MAX_LANGUAGE_RETRIES}): reply language mismatch (expected ${expectedReplyLanguage}, got ${actualReplyLanguage})`);
         const retrySystemPrompt =
           prompt.systemPrompt +
-          `\n\nREMINDER: your last reply was NOT in the required language. Rewrite your ENTIRE reply in ${LANGUAGE_RETRY_LABEL[expectedReplyLanguage]} only, keeping the same meaning and any required markers — do not mix languages.`;
+          `\n\nREMINDER: your last reply was NOT in the required language. Rewrite your ENTIRE reply in ${LANGUAGE_RETRY_LABEL[expectedReplyLanguage]} only, keeping the same meaning and any required markers — do not mix languages. Do not open with a Bangla word like "Amader" if the required language is English.`;
         aiResponse = await this.ai.chat(prompt.userPrompt, { ...aiCallOptions, systemPrompt: retrySystemPrompt });
-        console.log(`[perf] language retry done, provider=${aiResponse.provider}`);
+        console.log(`[perf] language retry ${attempt + 1} done, provider=${aiResponse.provider}`);
       }
     }
 

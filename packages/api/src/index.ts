@@ -22,4 +22,5 @@ export * from "./repair-controller";
 export * from "./email-controller";
 export * from "./crm-controller";
 export * from "./revenue-controller";
+export * from "./reporting-controller";
 export * from "./dashboard-theme-controller";

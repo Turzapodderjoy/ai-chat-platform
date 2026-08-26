@@ -19,15 +19,16 @@ import { CompaniesPanel } from "../../../components/CompaniesPanel";
 import { DealsPanel } from "../../../components/DealsPanel";
 import { QuotesPanel } from "../../../components/QuotesPanel";
 import { InvoicesPanel } from "../../../components/InvoicesPanel";
+import { ReportsPanel } from "../../../components/ReportsPanel";
 import { ClientOverviewPanel } from "../../../components/ClientOverviewPanel";
 import { ClientTagDashboardPanel } from "../../../components/ClientTagDashboardPanel";
 import { TrainingArenaPanel } from "../../../components/TrainingArenaPanel";
 import { DashboardShell, type NavGroup } from "../../../components/DashboardShell";
 
-type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "orders" | "repairs" | "allchats" | "handoffs" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "companies" | "deals" | "quotes" | "invoices";
+type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "orders" | "repairs" | "allchats" | "handoffs" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "companies" | "deals" | "quotes" | "invoices" | "reports";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
-  { items: [{ id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }] },
+  { items: [{ id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }, { id: "reports", label: "Reports" }] },
   {
     label: "Conversations",
     items: [
@@ -262,6 +263,9 @@ export default function ClientDashboardClient() {
       </div>
       <div style={{ display: tab === "invoices" ? "block" : "none" }}>
         <InvoicesPanel businessId={businessId} active={tab === "invoices"} />
+      </div>
+      <div style={{ display: tab === "reports" ? "block" : "none" }}>
+        <ReportsPanel businessId={businessId} active={tab === "reports"} />
       </div>
       <div style={{ display: tab === "allchats" ? "block" : "none" }}>
         <AllChatsPanel businessId={businessId} active={tab === "allchats"} />

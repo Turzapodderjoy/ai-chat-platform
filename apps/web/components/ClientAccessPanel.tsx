@@ -49,6 +49,7 @@ const ALL_PANELS: { id: string; label: string }[] = [
   { id: "deals", label: "Deals" },
   { id: "quotes", label: "Quotes" },
   { id: "invoices", label: "Invoices" },
+  { id: "reports", label: "Reports" },
 ];
 
 const PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
