@@ -15,6 +15,7 @@ import { UploadService } from "@ai-chat-platform/upload";
 import { TenantService } from "@ai-chat-platform/tenant";
 import { CrawlerService } from "@ai-chat-platform/web-crawler";
 import { ProductSyncService, ProductService } from "@ai-chat-platform/product-catalog";
+import { VisionService } from "@ai-chat-platform/vision";
 import {
   GeminiBatchClient,
   ConversationReviewService,
@@ -134,8 +135,11 @@ export class Container {
     const tenants =
       new TenantService();
 
+    const vision =
+      new VisionService(providerKeys);
+
     const productSync =
-      new ProductSyncService(vectorStore);
+      new ProductSyncService(vectorStore, vision, indexingService);
 
     const productService =
       new ProductService();
@@ -205,7 +209,8 @@ export class Container {
         masterCsv,
         orders,
         contacts,
-        deals
+        deals,
+        vision
       );
 
     const rag =
@@ -297,7 +302,7 @@ export class Container {
         new WidgetConfigController(widgetConfig),
         new KnowledgeRefreshController(refreshSchedule, masterCsv, tenants, crawlerService, vectorStore),
         new ClientHealthController(tenants, crawlerService, masterCsv, refreshSchedule, vectorStore, embeddings, conversations),
-        new ProductController(productService),
+        new ProductController(productService, productSync),
         new OrderController(orders),
         new RepairController(repairs, conversations, emailSenderConfig, emailClient, tenants, contacts, deals),
         new EmailController(emailSenderConfig),

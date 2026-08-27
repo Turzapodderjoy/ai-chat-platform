@@ -1,12 +1,12 @@
 import type { ChannelAdapter, ChannelConnectionInfo, InboundMessage } from "../types";
-import { sendGraphMessage, verifyMetaWebhookChallenge } from "./meta-shared";
+import { resolveWhatsAppMediaAsDataUri, sendGraphMessage, verifyMetaWebhookChallenge } from "./meta-shared";
 
 interface WhatsappWebhookPayload {
   entry?: Array<{
     changes?: Array<{
       value?: {
         metadata?: { phone_number_id?: string };
-        messages?: Array<{ from?: string; text?: { body?: string } }>;
+        messages?: Array<{ from?: string; text?: { body?: string }; type?: string; image?: { id?: string; caption?: string } }>;
       };
     }>;
   }>;
@@ -37,8 +37,15 @@ export const whatsappAdapter: ChannelAdapter = {
 
         for (const msg of change.value?.messages ?? []) {
           const senderId = msg.from;
+          if (!senderId) continue;
+
+          if (msg.type === "image" && msg.image?.id) {
+            messages.push({ externalId: phoneNumberId, senderId, text: msg.image.caption ?? "", imageMediaId: msg.image.id });
+            continue;
+          }
+
           const text = msg.text?.body;
-          if (senderId && text) {
+          if (text) {
             messages.push({ externalId: phoneNumberId, senderId, text });
           }
         }
@@ -46,6 +53,10 @@ export const whatsappAdapter: ChannelAdapter = {
     }
 
     return messages;
+  },
+
+  async resolveImageUrl(connection: ChannelConnectionInfo, mediaId: string): Promise<string | null> {
+    return resolveWhatsAppMediaAsDataUri(mediaId, connection.accessToken);
   },
 
   async sendMessage(connection: ChannelConnectionInfo, recipientId: string, text: string): Promise<void> {

@@ -7,6 +7,7 @@ import { AiConfigService } from "@ai-chat-platform/ai-config";
 import type { VectorStoreManager } from "@ai-chat-platform/vector-store";
 import type { MasterCsvService } from "@ai-chat-platform/knowledge-refresh";
 import type { ContactService, DealService } from "@ai-chat-platform/crm";
+import type { VisionService } from "@ai-chat-platform/vision";
 
 import { ChatUsageLog } from "./chat-usage-log";
 import { ResponseCache } from "./response-cache";
@@ -532,7 +533,8 @@ export class ChatService {
     private readonly masterCsv: MasterCsvService,
     private readonly orders: OrderService,
     private readonly contacts?: ContactService,
-    private readonly deals?: DealService
+    private readonly deals?: DealService,
+    private readonly vision?: VisionService
   ) {}
 
   // Two messages from the same customer arriving close together (a
@@ -651,10 +653,33 @@ export class ChatService {
         config.historyTurns
       );
 
+    // A customer-sent photo is resolved to text ONCE, right here, before
+    // anything downstream touches request.message — see VisionService's
+    // own comment for why this deliberately reuses the existing text
+    // retrieval pipeline instead of a separate image-similarity index.
+    // effectiveMessage (customer's own words, if any, plus a bracketed
+    // [photo] note) is what gets stored to the transcript, retrieved on,
+    // and shown to the model; isAffirmative/order-marker/language checks
+    // below keep reading the raw request.message on purpose, so a
+    // bracketed suffix can never accidentally satisfy those pattern
+    // checks (e.g. a "yes" order-confirmation match).
+    let effectiveMessage = request.message;
+    if (request.imageUrl && this.vision) {
+      const imageContext = await this.vision.describeImage(request.imageUrl);
+      if (imageContext) {
+        const imageNote = `[Customer sent a photo. What it shows: ${imageContext.description}.${imageContext.readText ? ` Text visible in the photo: "${imageContext.readText}".` : ""}]`;
+        effectiveMessage = request.message.trim() ? `${request.message}\n${imageNote}` : imageNote;
+      } else {
+        effectiveMessage = request.message.trim()
+          ? request.message
+          : "[Customer sent a photo, but it couldn't be read this turn.]";
+      }
+    }
+
     await this.conversations.addMessage(
       request.sessionId,
       "user",
-      request.message
+      effectiveMessage
     );
 
     // A pending order (all 5 fields collected, waiting on the customer's
@@ -789,7 +814,7 @@ export class ChatService {
     // prompt, which already gets full history correctly) fixes this —
     // it's the same "follow-ups need context" reasoning the cache skip
     // just below already applies, just applied one step earlier.
-    const retrievalQuery = buildRetrievalQuery(priorHistory, request.message);
+    const retrievalQuery = buildRetrievalQuery(priorHistory, effectiveMessage);
 
     const queryEmbeddingResult =
       await this.embeddings.embed(retrievalQuery);
@@ -876,7 +901,7 @@ export class ChatService {
           this.getMasterCsvChunkIfAvailable(businessId),
           this.retriever.retrieve(retrievalQuery, { businessId }),
           priorHistory.length > 0
-            ? this.retriever.retrieve(request.message, { businessId })
+            ? this.retriever.retrieve(effectiveMessage, { businessId })
             : Promise.resolve(null),
         ]);
     console.log(`[perf] retrieve took ${Date.now() - __tRetrieveStart}ms`);
@@ -981,7 +1006,7 @@ export class ChatService {
     if (!request.isTraining && retrieved.length === 0) {
       const fullHistory = [
         ...priorHistory,
-        { id: "pending", role: "user" as const, content: request.message, provider: null, sources: null, confidence: null, createdAt: new Date() },
+        { id: "pending", role: "user" as const, content: effectiveMessage, provider: null, sources: null, confidence: null, createdAt: new Date() },
       ];
       const { summary, tokens: summaryTokens } = await this.buildHandoffSummary(fullHistory);
       await this.conversations.requestHandoff(
@@ -1038,7 +1063,7 @@ export class ChatService {
         history:
           priorHistory.map(m => ({ role: m.role, content: m.content })),
         userMessage:
-          request.message,
+          effectiveMessage,
       });
 
     console.log(
@@ -1288,7 +1313,7 @@ export class ChatService {
     if (wantsHandoff) {
       const fullHistory = [
         ...priorHistory,
-        { id: "pending", role: "user" as const, content: request.message, provider: null, sources: null, confidence: null, createdAt: new Date() },
+        { id: "pending", role: "user" as const, content: effectiveMessage, provider: null, sources: null, confidence: null, createdAt: new Date() },
       ];
       const built = await this.buildHandoffSummary(fullHistory);
       summaryTokens = built.tokens;
@@ -1329,7 +1354,7 @@ export class ChatService {
       this.responseCache.store(
         queryEmbedding,
         businessId,
-        request.message,
+        effectiveMessage,
         cleanedAnswer,
         aiResponse.provider,
         confidence,

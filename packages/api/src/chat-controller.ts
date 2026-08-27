@@ -10,7 +10,8 @@ export class ChatController {
     message: string,
     businessId?: string,
     isTraining?: boolean,
-    languageHint?: string
+    languageHint?: string,
+    imageUrl?: string
   ) {
     return this.rag.ask({
       sessionId,
@@ -18,6 +19,7 @@ export class ChatController {
       businessId,
       isTraining,
       languageHint,
+      imageUrl,
     });
   }
 }

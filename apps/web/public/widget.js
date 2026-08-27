@@ -82,8 +82,67 @@
     log.setAttribute("style", "flex:1;overflow-y:auto;padding:12px;");
     panel.appendChild(log);
 
+    // Attached-photo preview strip — shown above the input row only while
+    // a photo is staged (uploaded, not yet sent). "product query, send a
+    // picture and ask price" needs the customer to see what they picked
+    // before it goes out, same as any messaging app's attach flow.
+    var attachedImageUrl = null;
+    var attachPreview = document.createElement("div");
+    attachPreview.setAttribute("style", "display:none;align-items:center;gap:8px;padding:6px 10px;border-top:1px solid " + (dark ? "#30363d" : "#eee") + ";");
+    var attachThumb = document.createElement("img");
+    attachThumb.setAttribute("style", "width:36px;height:36px;border-radius:6px;object-fit:cover;");
+    var attachLabel = document.createElement("span");
+    attachLabel.textContent = "Photo attached";
+    attachLabel.setAttribute("style", "font-size:12px;color:" + panelText + ";flex:1;");
+    var attachRemove = document.createElement("button");
+    attachRemove.textContent = "✕";
+    attachRemove.setAttribute("style", "border:none;background:none;cursor:pointer;font-size:13px;color:" + panelText + ";opacity:.6;");
+    attachRemove.addEventListener("click", function () { clearAttachment(); });
+    attachPreview.appendChild(attachThumb);
+    attachPreview.appendChild(attachLabel);
+    attachPreview.appendChild(attachRemove);
+    panel.appendChild(attachPreview);
+
+    function clearAttachment() {
+      attachedImageUrl = null;
+      attachPreview.style.display = "none";
+      fileInput.value = "";
+    }
+
     var inputRow = document.createElement("div");
     inputRow.setAttribute("style", "display:flex;border-top:1px solid " + (dark ? "#30363d" : "#eee") + ";");
+
+    var fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = "image/jpeg,image/png,image/webp,image/gif";
+    fileInput.setAttribute("style", "display:none;");
+    var attachBtn = document.createElement("button");
+    attachBtn.setAttribute("aria-label", "Attach a photo");
+    attachBtn.textContent = "📷";
+    attachBtn.setAttribute("style", "border:none;background:none;cursor:pointer;font-size:16px;padding:0 8px;color:" + panelText + ";");
+    attachBtn.addEventListener("click", function () { fileInput.click(); });
+    fileInput.addEventListener("change", function () {
+      var file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      attachLabel.textContent = "Uploading…";
+      attachThumb.src = URL.createObjectURL(file);
+      attachPreview.style.display = "flex";
+      fetch(origin + "/api/chat/upload-image", {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (!data.url) throw new Error(data.error || "Upload failed");
+          attachedImageUrl = data.url;
+          attachLabel.textContent = "Photo attached";
+        })
+        .catch(function () {
+          attachLabel.textContent = "Couldn't attach photo — try again";
+        });
+    });
+
     var input = document.createElement("input");
     input.placeholder = "Ask something…";
     input.setAttribute("style", [
@@ -93,6 +152,7 @@
     var send = document.createElement("button");
     send.textContent = "Send";
     send.setAttribute("style", "border:none;background:" + accent + ";color:#fff;padding:0 16px;cursor:pointer;font-size:13px;");
+    inputRow.appendChild(attachBtn);
     inputRow.appendChild(input);
     inputRow.appendChild(send);
     panel.appendChild(inputRow);
@@ -161,12 +221,20 @@
       log.scrollTop = log.scrollHeight;
     }
 
-    function addMessage(role, text) {
+    function addMessage(role, text, isHtml) {
       var row = document.createElement("div");
       row.setAttribute("style", "margin-bottom:8px;");
       var bubble = document.createElement("div");
       if (role === "user") {
-        bubble.textContent = text;
+        // isHtml is only ever set by sendMessage's own attached-photo
+        // bubble, built from escapeAttr(imageUrl) — never from raw
+        // customer-typed text, which always goes through textContent
+        // below untouched.
+        if (isHtml) {
+          bubble.innerHTML = text;
+        } else {
+          bubble.textContent = text;
+        }
       } else {
         bubble.innerHTML = formatMessage(text);
       }
@@ -198,19 +266,19 @@
     var RETRY_BUDGET_MS = 75000;
     var RETRY_DELAY_MS = 2500;
 
-    function postChat(text) {
+    function postChat(text, imageUrl) {
       return fetch(origin + "/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: sessionId, message: text, businessId: businessId, languageHint: preferredLanguage }),
+        body: JSON.stringify({ sessionId: sessionId, message: text, businessId: businessId, languageHint: preferredLanguage, imageUrl: imageUrl }),
       }).then(function (res) { return res.json(); });
     }
 
-    function postChatWithRetries(text, deadline) {
-      return postChat(text).catch(function (err) {
+    function postChatWithRetries(text, imageUrl, deadline) {
+      return postChat(text, imageUrl).catch(function (err) {
         if (Date.now() >= deadline) throw err;
         return new Promise(function (resolve) {
-          setTimeout(function () { resolve(postChatWithRetries(text, deadline)); }, RETRY_DELAY_MS);
+          setTimeout(function () { resolve(postChatWithRetries(text, imageUrl, deadline)); }, RETRY_DELAY_MS);
         });
       });
     }
@@ -240,13 +308,20 @@
 
     function sendMessage() {
       var text = input.value.trim();
-      if (!text) return;
+      var imageUrl = attachedImageUrl;
+      if (!text && !imageUrl) return;
       input.value = "";
-      addMessage("user", text);
+      clearAttachment();
+
+      if (imageUrl) {
+        addMessage("user", (text ? text + "\n" : "") + '<img src="' + escapeAttr(imageUrl) + '" style="max-width:160px;border-radius:8px;margin-top:4px;display:block;" />', true);
+      } else {
+        addMessage("user", text);
+      }
       showTyping();
       send.disabled = true;
 
-      postChatWithRetries(text, Date.now() + RETRY_BUDGET_MS)
+      postChatWithRetries(text, imageUrl, Date.now() + RETRY_BUDGET_MS)
         .then(function (data) {
           hideTyping();
           addMessage("assistant", data.answer || CONNECTION_TROUBLE_MESSAGE);

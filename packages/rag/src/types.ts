@@ -6,6 +6,7 @@ export interface AskRequest {
   channel?: string;
   externalUserId?: string | null;
   languageHint?: string;
+  imageUrl?: string;
 }
 
 export interface AskSource {

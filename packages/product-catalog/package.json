@@ -9,6 +9,8 @@
   "dependencies": {
     "@ai-chat-platform/database": "workspace:*",
     "@ai-chat-platform/vector-store": "workspace:*",
+    "@ai-chat-platform/vision": "workspace:*",
+    "@ai-chat-platform/indexing": "workspace:*",
     "xlsx": "^0.18.5"
   }
 }

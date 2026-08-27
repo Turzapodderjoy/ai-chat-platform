@@ -88,6 +88,37 @@ export async function sendGraphMessage(params: {
   }
 }
 
+const MAX_MEDIA_BYTES = 8 * 1024 * 1024;
+
+/** WhatsApp Cloud API's two-step authenticated media fetch — a media id
+ * only resolves to a real download URL via one Graph call, and that URL
+ * itself still needs the same Bearer token to actually fetch (unlike
+ * Messenger/Instagram's public CDN attachment URLs). Returns a data:
+ * URI (not the remote URL) so VisionService never has to know WhatsApp
+ * media needs auth at all — see its own comment. Null on any failure;
+ * callers fall back to text-only handling rather than failing the turn. */
+export async function resolveWhatsAppMediaAsDataUri(mediaId: string, accessToken: string): Promise<string | null> {
+  try {
+    const lookupRes = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${mediaId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!lookupRes.ok) return null;
+    const { url, mime_type, file_size } = (await lookupRes.json()) as { url?: string; mime_type?: string; file_size?: number };
+    if (!url) return null;
+    if (file_size && file_size > MAX_MEDIA_BYTES) return null;
+
+    const mediaRes = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!mediaRes.ok) return null;
+    const buffer = Buffer.from(await mediaRes.arrayBuffer());
+    if (buffer.byteLength > MAX_MEDIA_BYTES) return null;
+
+    const mimeType = mime_type ?? mediaRes.headers.get("content-type")?.split(";")[0] ?? "image/jpeg";
+    return `data:${mimeType};base64,${buffer.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
+
 /** Meta's webhook verification handshake — identical GET challenge format
  * across Messenger/Instagram/WhatsApp. */
 export function verifyMetaWebhookChallenge(query: URLSearchParams, verifyToken: string): string | null {

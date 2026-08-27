@@ -1,6 +1,8 @@
 import { prisma } from "@ai-chat-platform/database";
 import * as XLSX from "xlsx";
 import type { VectorStoreManager } from "@ai-chat-platform/vector-store";
+import type { VisionService } from "@ai-chat-platform/vision";
+import type { IndexingService } from "@ai-chat-platform/indexing";
 
 // Column names an extraction LLM might reasonably choose are decided
 // per-page (see TabularExtractionClient's own prompt) -- there's no
@@ -132,7 +134,44 @@ function addResults(a: ProductSyncResult, b: ProductSyncResult): ProductSyncResu
 }
 
 export class ProductSyncService {
-  constructor(private readonly vectorStore: VectorStoreManager) {}
+  constructor(
+    private readonly vectorStore: VectorStoreManager,
+    private readonly vision?: VisionService,
+    private readonly indexing?: IndexingService
+  ) {}
+
+  /** Fire-and-forget: turns a product photo into a searchable text chunk
+   * (see VisionService's own comment for why text, not a real image-
+   * embedding index) so a customer's own photo of this item can surface
+   * it via the normal retrieval pipeline. Non-blocking — a slow/failed
+   * vision call must never hold up a crawl batch. documentId is stable
+   * per product so re-captioning replaces the old chunk instead of
+   * accumulating duplicates. */
+  private captionProductImage(businessId: string, productId: string, imageUrl: string): void {
+    this.captionProductImageAwaited(businessId, productId, imageUrl).catch(() => {});
+  }
+
+  private async captionProductImageAwaited(businessId: string, productId: string, imageUrl: string): Promise<void> {
+    if (!this.vision || !this.indexing) return;
+    const documentId = `product-image:${productId}`;
+
+    const result = await this.vision.describeImage(imageUrl);
+    if (!result) return; // no key configured, fetch failed, or the vision call itself failed — see VisionService's own error logging
+    const captionText = [result.description, result.readText ? `Visible text: ${result.readText}` : ""]
+      .filter(Boolean)
+      .join("\n");
+    if (!captionText.trim()) return;
+
+    await prisma.product.update({ where: { id: productId }, data: { imageCaption: captionText } }).catch(() => {});
+    await this.vectorStore.deleteByDocumentId(documentId).catch(() => {});
+    await this.indexing.index({
+      filename: `product-image:${productId}`,
+      text: captionText,
+      documentId,
+      skipExtraction: true,
+      metadata: { businessId, source: "product-image", productId, imageUrl },
+    });
+  }
 
   /** Full pass — scans every chunk this business has. Correct after any
    * recrawl, but O(whole knowledge base) each time, so CrawlerService
@@ -247,7 +286,8 @@ export class ProductSyncService {
           });
 
       if (!existing) {
-        await prisma.product.create({ data: { businessId, sourceUrl, ...candidate } });
+        const row = await prisma.product.create({ data: { businessId, sourceUrl, ...candidate } });
+        if (candidate.imageUrl) this.captionProductImage(businessId, row.id, candidate.imageUrl);
         created++;
         continue;
       }
@@ -266,9 +306,42 @@ export class ProductSyncService {
       }
 
       await prisma.product.update({ where: { id: existing.id }, data: candidate });
+      if (candidate.imageUrl && candidate.imageUrl !== existing.imageUrl) {
+        this.captionProductImage(businessId, existing.id, candidate.imageUrl);
+      }
       updated++;
     }
 
     return { created, updated, unchanged };
+  }
+
+  /** Backfill for products that existed before image captioning shipped
+   * (or were captioned while the vision call failed) — everything else
+   * captions itself automatically on create/update above. Bounded per
+   * call (dashboard "Caption images" button) rather than firing
+   * hundreds of vision calls unbounded in one click. */
+  async captionMissingImages(businessId: string, limit = 25): Promise<{ queued: number }> {
+    if (!this.vision || !this.indexing) return { queued: 0 };
+
+    const rows = await prisma.product.findMany({
+      where: { businessId, imageUrl: { not: null }, imageCaption: null },
+      select: { id: true, imageUrl: true },
+      take: limit,
+    });
+
+    // Sequential, not Promise.all/fire-all-at-once — confirmed live that
+    // 25 concurrent Gemini vision calls on one key all came back 503
+    // ("high demand") simultaneously, i.e. the burst itself was the
+    // cause, not a real outage. Still fire-and-forget from the caller's
+    // perspective (this whole function isn't awaited by its route), just
+    // paced internally.
+    (async () => {
+      for (const row of rows) {
+        if (!row.imageUrl) continue;
+        await this.captionProductImageAwaited(businessId, row.id, row.imageUrl);
+      }
+    })().catch(() => {});
+
+    return { queued: rows.length };
   }
 }

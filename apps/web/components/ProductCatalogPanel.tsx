@@ -27,6 +27,30 @@ export function ProductCatalogPanel({ businessId }: { businessId: string }) {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);
+  const [captioning, setCaptioning] = useState(false);
+  const [captionMsg, setCaptionMsg] = useState("");
+
+  async function captionImages() {
+    setCaptioning(true);
+    setCaptionMsg("");
+    try {
+      const res = await fetch("/api/admin/products/caption-images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId }),
+      });
+      const data = await res.json();
+      setCaptionMsg(
+        data.queued > 0
+          ? `Captioning ${data.queued} product photo(s) in the background — refresh in a bit.`
+          : "Every product with a photo is already captioned."
+      );
+    } catch {
+      setCaptionMsg("Couldn't start captioning — try again.");
+    } finally {
+      setCaptioning(false);
+    }
+  }
 
   useEffect(() => {
     setProducts(null);
@@ -55,6 +79,16 @@ export function ProductCatalogPanel({ businessId }: { businessId: string }) {
         Every product extracted from this client&apos;s crawled site — kept current automatically on every
         recrawl, no chat/LLM call needed to browse it.
       </p>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+        <button onClick={captionImages} disabled={captioning} style={{ fontSize: 12, padding: "6px 10px" }}>
+          {captioning ? "Starting…" : "Caption product images"}
+        </button>
+        <span style={{ ...subtleTextStyle, marginTop: 0 }}>
+          Lets a customer&apos;s own photo be matched to a product — see each row&apos;s photo below.
+          {captionMsg && <> {captionMsg}</>}
+        </span>
+      </div>
 
       <div style={{ display: "flex", gap: 8, margin: "16px 0" }}>
         <input

@@ -815,6 +815,15 @@ model Product {
   imageUrl    String?
   sourceUrl   String?
   sku         String?
+  // Vision-model-generated visual description + any legible text read
+  // from imageUrl (see VisionService) — indexed as its own searchable
+  // chunk (documentId "product-image:{id}") so a customer's own photo
+  // can match this product via the same text-retrieval pipeline, no
+  // separate image-similarity index needed. Null until captioned
+  // (ProductSyncService fires this automatically when imageUrl is set
+  // on create/update; re-crawls with an unchanged imageUrl don't
+  // recaption).
+  imageCaption String?
 
   updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())

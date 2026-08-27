@@ -24,6 +24,7 @@ export class RagService {
         channel: request.channel,
         externalUserId: request.externalUserId,
         languageHint: request.languageHint,
+        imageUrl: request.imageUrl,
       });
 
     return {

@@ -12,7 +12,7 @@ interface InstagramWebhookPayload {
     id?: string;
     messaging?: Array<{
       sender?: { id?: string };
-      message?: { text?: string };
+      message?: { text?: string; attachments?: Array<{ type?: string; payload?: { url?: string } }> };
     }>;
   }>;
 }
@@ -71,8 +71,14 @@ export const instagramAdapter: ChannelAdapter = {
 
       for (const event of entry.messaging ?? []) {
         const senderId = event.sender?.id;
+        if (!senderId) continue;
+
         const text = event.message?.text;
-        if (senderId && text) {
+        const imageUrl = event.message?.attachments?.find((a) => a.type === "image")?.payload?.url;
+
+        if (imageUrl) {
+          messages.push({ externalId: igAccountId, senderId, text: text ?? "", imageUrl });
+        } else if (text) {
           messages.push({ externalId: igAccountId, senderId, text });
         }
       }

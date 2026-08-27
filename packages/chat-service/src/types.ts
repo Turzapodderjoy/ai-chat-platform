@@ -25,6 +25,13 @@ export interface ChatRequest {
    * "match the customer's current message" rule still overrides this the
    * moment they actually type in a different language. */
   languageHint?: string;
+
+  /** A photo the customer sent this turn (product photo, price tag,
+   * screenshot) — a publicly fetchable URL. See VisionService: turned
+   * into a text description + any legible text before retrieval, so the
+   * rest of the pipeline (retrieval, prompt, markers) never has to know
+   * an image was involved at all. */
+  imageUrl?: string;
 }
 
 export interface ChatSource {

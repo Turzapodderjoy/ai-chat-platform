@@ -204,12 +204,23 @@ export class ChannelController {
       const connection = await this.channelConnections.findByExternalId(channel, msg.externalId);
       if (!connection) continue; // message for a Page/number not connected to any client
 
+      // WhatsApp Cloud API only gives a media id in the webhook payload
+      // (see InboundMessage's own comment for why) — resolve it to a
+      // real fetchable image now, with the connection's access token
+      // parseInboundMessage never had access to.
+      const imageUrl =
+        msg.imageUrl ??
+        (msg.imageMediaId && entry.resolveImageUrl
+          ? (await entry.resolveImageUrl(connection, msg.imageMediaId)) ?? undefined
+          : undefined);
+
       const response = await this.rag.ask({
         sessionId: `${channel}:${connection.businessId}:${msg.senderId}`,
         message: msg.text,
         businessId: connection.businessId,
         channel,
         externalUserId: msg.senderId,
+        imageUrl,
       });
 
       await entry.sendMessage(connection, msg.senderId, response.answer);

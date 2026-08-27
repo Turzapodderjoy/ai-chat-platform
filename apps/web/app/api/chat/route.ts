@@ -21,8 +21,10 @@ export async function OPTIONS() {
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
 
-  if (!body || typeof body.message !== "string" || body.message.trim() === "") {
-    return NextResponse.json({ error: "message is required" }, { status: 400, headers: CORS_HEADERS });
+  const imageUrl = typeof body?.imageUrl === "string" && body.imageUrl.trim() ? body.imageUrl.trim() : undefined;
+
+  if (!body || typeof body.message !== "string" || (body.message.trim() === "" && !imageUrl)) {
+    return NextResponse.json({ error: "message or imageUrl is required" }, { status: 400, headers: CORS_HEADERS });
   }
 
   const sessionId = typeof body.sessionId === "string" ? body.sessionId : "dev-session";
@@ -32,7 +34,7 @@ export async function POST(req: NextRequest) {
   try {
     const app = await getApp();
     const answer = await withTimeout(
-      app.container.router.chat.post(sessionId, body.message, businessId, undefined, languageHint),
+      app.container.router.chat.post(sessionId, body.message, businessId, undefined, languageHint, imageUrl),
       55_000
     );
     return NextResponse.json(answer, { headers: CORS_HEADERS });

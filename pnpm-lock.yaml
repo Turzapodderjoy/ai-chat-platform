@@ -346,6 +346,9 @@ importers:
       '@ai-chat-platform/vector-store':
         specifier: workspace:*
         version: link:../vector-store
+      '@ai-chat-platform/vision':
+        specifier: workspace:*
+        version: link:../vision
       '@ai-chat-platform/web-crawler':
         specifier: workspace:*
         version: link:../web-crawler
@@ -402,6 +405,9 @@ importers:
       '@ai-chat-platform/vector-store':
         specifier: workspace:*
         version: link:../vector-store
+      '@ai-chat-platform/vision':
+        specifier: workspace:*
+        version: link:../vision
 
   packages/chunker:
     dependencies:
@@ -610,9 +616,15 @@ importers:
       '@ai-chat-platform/database':
         specifier: workspace:*
         version: link:../database
+      '@ai-chat-platform/indexing':
+        specifier: workspace:*
+        version: link:../indexing
       '@ai-chat-platform/vector-store':
         specifier: workspace:*
         version: link:../vector-store
+      '@ai-chat-platform/vision':
+        specifier: workspace:*
+        version: link:../vision
       xlsx:
         specifier: ^0.18.5
         version: 0.18.5
@@ -782,6 +794,15 @@ importers:
       '@ai-chat-platform/database':
         specifier: workspace:*
         version: link:../database
+
+  packages/vision:
+    dependencies:
+      '@ai-chat-platform/provider-keys':
+        specifier: workspace:*
+        version: link:../provider-keys
+      '@google/genai':
+        specifier: ^2.12.0
+        version: 2.13.0
 
   packages/web-crawler:
     dependencies:

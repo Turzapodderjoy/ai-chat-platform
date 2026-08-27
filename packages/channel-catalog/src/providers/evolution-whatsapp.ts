@@ -20,6 +20,18 @@ interface EvolutionWebhookPayload {
   };
 }
 
+// ponytail: image messages on this channel are NOT wired up yet — a
+// Baileys imageMessage's own `url` is an encrypted WhatsApp CDN link
+// (needs the accompanying mediaKey run through Baileys' own decryption,
+// not a plain HTTP fetch), and it's unconfirmed whether this gateway's
+// webhook config can be set to re-host/decrypt media before it reaches
+// here. Rather than guess and ship a silent failure, this channel stays
+// text-only for now; the official whatsapp/messenger/instagram adapters
+// and the website widget all support photos today. Upgrade path: check
+// this gateway's actual webhook payload for an image message live
+// (`webhook_base64` setting may already hand back decrypted bytes), and
+// wire it the same way whatsapp.ts's resolveImageUrl does.
+
 /** Testing-only WhatsApp channel via a self-hosted Evolution API gateway
  * (github.com/EvolutionAPI/evolution-api, unofficial -- Baileys under
  * the hood, no browser) instead of the official Meta Cloud API. Each

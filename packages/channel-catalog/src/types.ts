@@ -11,6 +11,16 @@ export interface InboundMessage {
   /** The customer's platform-specific id — where the reply gets sent. */
   senderId: string;
   text: string;
+  /** A directly-fetchable image URL, when the customer sent a photo —
+   * Messenger/Instagram attachment URLs are public CDN links, usable
+   * as-is. WhatsApp Cloud API instead only gives a media id here (see
+   * imageMediaId) since its media requires an authenticated fetch. */
+  imageUrl?: string;
+  /** WhatsApp Cloud API's media id for an inbound image — resolved to a
+   * real fetchable URL via the adapter's own resolveImageUrl (needs the
+   * connection's access token, which parseInboundMessage doesn't have
+   * access to) before reaching the chat pipeline. */
+  imageMediaId?: string;
 }
 
 /** What a channel adapter needs to send a reply or identify itself — the
@@ -83,6 +93,13 @@ export interface ChannelAdapter {
 
   /** Normalizes a webhook POST body into zero or more inbound messages. */
   parseInboundMessage?(payload: unknown): InboundMessage[];
+
+  /** WhatsApp Cloud API only — resolves an InboundMessage.imageMediaId
+   * into a real, fetchable image URL via the Graph API's two-step media
+   * lookup (get a short-lived download URL by id, that URL itself still
+   * needs the same access token to actually fetch). Null on any
+   * failure — the caller falls back to text-only handling. */
+  resolveImageUrl?(connection: ChannelConnectionInfo, mediaId: string): Promise<string | null>;
 
   /** Sends a reply back through this channel's Send API. */
   sendMessage?(connection: ChannelConnectionInfo, recipientId: string, text: string): Promise<void>;

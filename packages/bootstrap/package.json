@@ -20,6 +20,7 @@
     "@ai-chat-platform/vector-store": "workspace:*",
     "@ai-chat-platform/ingestion": "workspace:*",
     "@ai-chat-platform/indexing": "workspace:*",
+    "@ai-chat-platform/vision": "workspace:*",
     "@ai-chat-platform/tabular-extraction": "workspace:*",
     "@ai-chat-platform/knowledge-refresh": "workspace:*",
     "@ai-chat-platform/provider-catalog": "workspace:*",
