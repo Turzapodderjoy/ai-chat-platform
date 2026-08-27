@@ -1,8 +1,8 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { cardStyle, cellStyle, subtleTextStyle, shortId, badgeStyle, type BadgeTone } from "./dashboard-styles";
+import { cardStyle, cellStyle, subtleTextStyle, shortId } from "./dashboard-styles";
 import { MessageTagControl } from "./MessageTagControl";
 
 interface Order {
@@ -12,9 +12,6 @@ interface Order {
   deliveryAddress: string;
   products: string;
   paymentMethod: string;
-  courier: string | null;
-  trackingId: string | null;
-  deliveryStatus: string;
   createdAt: string;
 }
 
@@ -31,38 +28,20 @@ interface TagAssignment {
   source: string;
 }
 
-const DELIVERY_STATUSES = ["pending", "picked_up", "in_transit", "delivered", "returned"] as const;
-const DELIVERY_LABEL: Record<string, string> = {
-  pending: "Pending",
-  picked_up: "Picked Up",
-  in_transit: "In Transit",
-  delivered: "Delivered",
-  returned: "Returned",
-};
-const DELIVERY_TONE: Record<string, BadgeTone> = {
-  pending: "neutral",
-  picked_up: "info",
-  in_transit: "info",
-  delivered: "ok",
-  returned: "error",
-};
-
-/** Orders the AI takes directly inside a chat conversation — collected
- * conversationally (name, phone, delivery address, products/quantity,
- * payment method), turned into a row here the moment the AI confirms them
- * back to the customer. Tagging reuses the same Tag catalog as
- * conversations/messages; delivery tracking is manual entry (courier/
- * tracking ID/status) — see OrderService.updateDelivery's own comment
- * for why there's no live courier API call behind it yet. */
+/** Order management — every order the AI has taken directly inside a
+ * chat, collected conversationally (name, phone, delivery address,
+ * products/quantity, payment method), turned into a row here the
+ * moment the AI confirms it back to the customer. Tagging reuses the
+ * same Tag catalog as conversations/messages. Delivery/courier
+ * tracking for these same orders lives in its own dedicated panel
+ * (DeliveryPanel) rather than bundled in here — two different jobs
+ * (what was ordered vs. where the shipment is), confirmed live this
+ * needed to be split rather than kept as one combined view. */
 export function OrdersPanel({ businessId }: { businessId: string }) {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [search, setSearch] = useState("");
   const [tagCatalog, setTagCatalog] = useState<Tag[]>([]);
   const [orderTags, setOrderTags] = useState<Record<string, TagAssignment[]>>({});
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [courierDraft, setCourierDraft] = useState("");
-  const [trackingDraft, setTrackingDraft] = useState("");
 
   function refresh() {
     fetch(`/api/admin/orders?businessId=${encodeURIComponent(businessId)}`)
@@ -102,44 +81,6 @@ export function OrdersPanel({ businessId }: { businessId: string }) {
     refreshOrderTags(orders?.map((o) => o.id) ?? []);
   }
 
-  function toggleDelivery(order: Order) {
-    if (expandedId === order.id) {
-      setExpandedId(null);
-      return;
-    }
-    setExpandedId(order.id);
-    setCourierDraft(order.courier ?? "");
-    setTrackingDraft(order.trackingId ?? "");
-  }
-
-  async function saveDelivery(order: Order) {
-    setBusyId(order.id);
-    try {
-      await fetch("/api/admin/orders", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: order.id, courier: courierDraft, trackingId: trackingDraft }),
-      });
-      refresh();
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function setDeliveryStatus(order: Order, deliveryStatus: string) {
-    setBusyId(order.id);
-    try {
-      await fetch("/api/admin/orders", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: order.id, deliveryStatus }),
-      });
-      refresh();
-    } finally {
-      setBusyId(null);
-    }
-  }
-
   // Plain case-insensitive substring match across every visible field —
   // no fuzzy-match library needed for a handful of short fields; good
   // enough to find "the order with 'drill' in it" or a partial name.
@@ -156,11 +97,11 @@ export function OrdersPanel({ businessId }: { businessId: string }) {
 
   return (
     <section style={cardStyle}>
-      <h2 style={{ marginTop: 0 }}>Orders</h2>
+      <h2 style={{ marginTop: 0 }}>Order Management</h2>
       <p style={subtleTextStyle}>
         Every order the AI has taken directly inside a chat — collected conversationally (name,
         phone, delivery address, products &amp; quantity, payment method) and confirmed to the
-        customer as taken and on its way. Tag an order or click a row to manage its delivery.
+        customer as taken and on its way. For courier/shipment tracking, see the Delivery panel.
       </p>
 
       <input
@@ -186,70 +127,28 @@ export function OrdersPanel({ businessId }: { businessId: string }) {
                 <th style={cellStyle}>Delivery address</th>
                 <th style={cellStyle}>Products</th>
                 <th style={cellStyle}>Payment</th>
-                <th style={cellStyle}>Delivery</th>
                 <th style={cellStyle}>Tags</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((o) => (
-                <Fragment key={o.id}>
-                  <tr>
-                    <td style={{ ...cellStyle, fontSize: 11, color: "var(--text-faint)" }}>{shortId(o.id)}</td>
-                    <td style={cellStyle}>{new Date(o.createdAt).toLocaleString()}</td>
-                    <td style={cellStyle}>{o.customerName}</td>
-                    <td style={cellStyle}>{o.phone}</td>
-                    <td style={cellStyle}>{o.deliveryAddress}</td>
-                    <td style={cellStyle}>{o.products}</td>
-                    <td style={cellStyle}>{o.paymentMethod}</td>
-                    <td style={cellStyle}>
-                      <button onClick={() => toggleDelivery(o)} style={{ fontSize: 11, padding: "3px 6px", marginRight: 6 }}>
-                        {expandedId === o.id ? "Close" : "Manage"}
-                      </button>
-                      <span style={badgeStyle(DELIVERY_TONE[o.deliveryStatus] ?? "neutral")}>{DELIVERY_LABEL[o.deliveryStatus] ?? o.deliveryStatus}</span>
-                    </td>
-                    <td style={cellStyle}>
-                      <MessageTagControl
-                        catalog={tagCatalog}
-                        applied={orderTags[o.id] ?? []}
-                        onAssign={(tagId) => assignTag(o.id, tagId)}
-                        onRemove={(tagId) => removeTag(o.id, tagId)}
-                      />
-                    </td>
-                  </tr>
-                  {expandedId === o.id && (
-                    <tr>
-                      <td colSpan={9} style={{ ...cellStyle, background: "var(--surface)", padding: 14 }}>
-                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                          <input
-                            style={{ padding: 6, fontSize: 12 }}
-                            placeholder="Courier (e.g. Pathao, Steadfast)"
-                            value={courierDraft}
-                            onChange={(e) => setCourierDraft(e.target.value)}
-                          />
-                          <input
-                            style={{ padding: 6, fontSize: 12 }}
-                            placeholder="Tracking ID"
-                            value={trackingDraft}
-                            onChange={(e) => setTrackingDraft(e.target.value)}
-                          />
-                          <button onClick={() => saveDelivery(o)} disabled={busyId === o.id} style={{ fontSize: 11, padding: "5px 10px" }}>
-                            Save
-                          </button>
-                          <select
-                            value={o.deliveryStatus}
-                            onChange={(e) => setDeliveryStatus(o, e.target.value)}
-                            disabled={busyId === o.id}
-                            style={{ padding: 6, fontSize: 12 }}
-                          >
-                            {DELIVERY_STATUSES.map((s) => (
-                              <option key={s} value={s}>{DELIVERY_LABEL[s]}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
+                <tr key={o.id}>
+                  <td style={{ ...cellStyle, fontSize: 11, color: "var(--text-faint)" }}>{shortId(o.id)}</td>
+                  <td style={cellStyle}>{new Date(o.createdAt).toLocaleString()}</td>
+                  <td style={cellStyle}>{o.customerName}</td>
+                  <td style={cellStyle}>{o.phone}</td>
+                  <td style={cellStyle}>{o.deliveryAddress}</td>
+                  <td style={cellStyle}>{o.products}</td>
+                  <td style={cellStyle}>{o.paymentMethod}</td>
+                  <td style={cellStyle}>
+                    <MessageTagControl
+                      catalog={tagCatalog}
+                      applied={orderTags[o.id] ?? []}
+                      onAssign={(tagId) => assignTag(o.id, tagId)}
+                      onRemove={(tagId) => removeTag(o.id, tagId)}
+                    />
+                  </td>
+                </tr>
               ))}
             </tbody>
           </table>

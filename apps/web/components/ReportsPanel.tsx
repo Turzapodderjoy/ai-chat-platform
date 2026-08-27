@@ -123,7 +123,7 @@ export function ReportsPanel({
   const has = (id: string) => allowedPanels === null || allowedPanels.includes(id);
   const showRevenue = has("quotes") || has("invoices");
   const showSales = has("deals");
-  const showDelivery = has("orders");
+  const showDelivery = has("delivery");
   const showRepairs = has("repairs");
   const showCrm = has("contacts") || has("companies");
 

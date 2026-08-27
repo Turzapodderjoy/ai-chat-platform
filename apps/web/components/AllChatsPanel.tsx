@@ -156,10 +156,26 @@ const STATUS_TABS: { id: StatusTab; label: string }[] = [
  * transcript viewer + a detail panel, same pattern as Training Arena's
  * session sidebar. Reuses existing endpoints throughout (messages, tags,
  * handoffs, orders) rather than inventing new ones. */
+const MOBILE_BREAKPOINT = 860;
+
 export function AllChatsPanel({ businessId, active = true }: { businessId?: string; active?: boolean }) {
   const [conversations, setConversations] = useState<ConversationSummary[] | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+
+  // Below MOBILE_BREAKPOINT the fixed 280px list + 240px detail columns
+  // (real bug, confirmed live: forced ~520px+ of side columns alone
+  // inside a 375px viewport) collapse into a single-column, one-thing-
+  // at-a-time flow instead: list, OR thread+detail with a back button —
+  // same pattern DashboardShell's own sidebar already uses.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
+    setIsMobile(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   const [channelFilter, setChannelFilter] = useState("");
   const [statusTab, setStatusTab] = useState<StatusTab>("all");
@@ -556,8 +572,18 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
         </select>
       </div>
 
-      <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-        <div style={{ width: 280, flexShrink: 0, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", maxHeight: 620, overflowY: "auto" }}>
+      <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 16, alignItems: "flex-start" }}>
+        <div
+          style={{
+            display: isMobile && selected ? "none" : "block",
+            width: isMobile ? "100%" : 280,
+            flexShrink: 0,
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-sm)",
+            maxHeight: isMobile ? "none" : 620,
+            overflowY: "auto",
+          }}
+        >
           {!conversations && <p style={{ padding: 10, ...subtleTextStyle }}>Loading…</p>}
           {conversations && visibleConversations.length === 0 && <p style={{ padding: 10, ...subtleTextStyle }}>No chats here.</p>}
           {visibleConversations.map((c) => {
@@ -636,10 +662,22 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
           )}
         </div>
 
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 0, width: isMobile ? "100%" : undefined, display: isMobile && !selected ? "none" : "block" }}>
           {!selected && <p style={subtleTextStyle}>Select a chat to view the conversation.</p>}
           {selected && (
             <>
+              {isMobile && (
+                <button
+                  onClick={() => setSelectedId(null)}
+                  className="plain"
+                  style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, color: "var(--text-muted)", marginBottom: 10 }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m15 6-6 6 6 6" />
+                  </svg>
+                  Back to Inbox
+                </button>
+              )}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, fontSize: 13 }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <div
@@ -678,9 +716,9 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                 </span>
               </div>
 
-              <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", minHeight: 300, maxHeight: 420, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 16, alignItems: "flex-start" }}>
+                <div style={{ flex: 1, minWidth: 0, width: isMobile ? "100%" : undefined }}>
+                  <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", minHeight: 300, maxHeight: isMobile ? 340 : 420, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
                     {!messages && <p style={subtleTextStyle}>Loading…</p>}
                     {messages?.map((m) => {
                       if (m.role === "system") {
@@ -770,7 +808,7 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                  * fetched elsewhere in the app. Stop/Resume AI directly
                  * flip handoffStatus (no message involved) via
                  * /api/admin/handoffs/status. */}
-                <div style={{ width: 240, flexShrink: 0 }}>
+                <div style={{ width: isMobile ? "100%" : 240, flexShrink: 0 }}>
                   <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
                     <button
                       onClick={() => setAiStatus("human")}

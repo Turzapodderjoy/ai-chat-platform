@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+const MOBILE_BREAKPOINT = 860;
+
 import { cardStyle, subtleTextStyle, badgeStyle, primaryButtonStyle } from "./dashboard-styles";
 import { MarkdownMessage } from "./MarkdownMessage";
 
@@ -28,6 +30,15 @@ export function HandoffsPanel({ businessId, active = true }: { businessId?: stri
   const [handoffs, setHandoffs] = useState<HandoffSummary[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [messages, setMessages] = useState<HandoffMessage[] | null>(null);
+
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
+    setIsMobile(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -85,8 +96,8 @@ export function HandoffsPanel({ businessId, active = true }: { businessId?: stri
       <h2 style={{ marginTop: 0 }}>Handoffs</h2>
       <p style={subtleTextStyle}>Chats the AI couldn&apos;t confidently answer — pick one up and reply.</p>
 
-      <div style={{ display: "flex", gap: 24, marginTop: 16 }}>
-        <div style={{ flex: 1 }}>
+      <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 24, marginTop: 16 }}>
+        <div style={{ flex: 1, minWidth: 0, display: isMobile && openId ? "none" : "block" }}>
           {!handoffs && <p style={subtleTextStyle}>Loading…</p>}
           {handoffs?.length === 0 && <p style={subtleTextStyle}>No handoffs right now.</p>}
           {handoffs?.map((h) => (
@@ -114,11 +125,23 @@ export function HandoffsPanel({ businessId, active = true }: { businessId?: stri
           ))}
         </div>
 
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, minWidth: 0, display: isMobile && !openId ? "none" : "block" }}>
           {!openId && <p style={subtleTextStyle}>Select a handoff to view the conversation.</p>}
 
           {openId && (
             <>
+              {isMobile && (
+                <button
+                  onClick={() => setOpenId(null)}
+                  className="plain"
+                  style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, color: "var(--text-muted)", marginBottom: 10 }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m15 6-6 6 6 6" />
+                  </svg>
+                  Back to Handoffs
+                </button>
+              )}
               <div
                 style={{
                   border: "1px solid var(--border)",

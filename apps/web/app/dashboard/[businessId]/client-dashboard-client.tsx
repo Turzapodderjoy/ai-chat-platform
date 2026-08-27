@@ -13,6 +13,7 @@ import { ChatLearningPanel } from "../../../components/ChatLearningPanel";
 import { ChannelsPanel } from "../../../components/ChannelsPanel";
 import { ProductCatalogPanel } from "../../../components/ProductCatalogPanel";
 import { OrdersPanel } from "../../../components/OrdersPanel";
+import { DeliveryPanel } from "../../../components/DeliveryPanel";
 import { RepairsPanel } from "../../../components/RepairsPanel";
 import { ContactsPanel } from "../../../components/ContactsPanel";
 import { CompaniesPanel } from "../../../components/CompaniesPanel";
@@ -26,7 +27,7 @@ import { TrainingArenaPanel } from "../../../components/TrainingArenaPanel";
 import { DashboardShell, type NavGroup } from "../../../components/DashboardShell";
 import { RemovableSection } from "../../../components/RemovableSection";
 
-type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "orders" | "repairs" | "allchats" | "handoffs" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "companies" | "deals" | "quotes" | "invoices" | "reports";
+type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "orders" | "delivery" | "repairs" | "allchats" | "handoffs" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "companies" | "deals" | "quotes" | "invoices" | "reports";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }, { id: "reports", label: "Reports" }] },
@@ -49,6 +50,7 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
     label: "Sales",
     items: [
       { id: "orders", label: "Orders" },
+      { id: "delivery", label: "Delivery" },
       { id: "repairs", label: "Repairs" },
       { id: "products", label: "Product Catalog" },
     ],
@@ -224,6 +226,7 @@ export default function ClientDashboardClient() {
         ["knowledge", <KnowledgeHubPanel key="knowledge" businessId={businessId} active={tab === "knowledge"} />],
         ["products", <ProductCatalogPanel key="products" businessId={businessId} />],
         ["orders", <OrdersPanel key="orders" businessId={businessId} />],
+        ["delivery", <DeliveryPanel key="delivery" businessId={businessId} />],
         ["repairs", <RepairsPanel key="repairs" businessId={businessId} active={tab === "repairs"} />],
         ["contacts", <ContactsPanel key="contacts" businessId={businessId} active={tab === "contacts"} />],
         ["companies", <CompaniesPanel key="companies" businessId={businessId} active={tab === "companies"} />],

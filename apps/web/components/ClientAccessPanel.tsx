@@ -35,6 +35,7 @@ const ALL_PANELS: { id: string; label: string }[] = [
   { id: "knowledge", label: "Knowledge Hub" },
   { id: "products", label: "Product Catalog" },
   { id: "orders", label: "Orders" },
+  { id: "delivery", label: "Delivery" },
   { id: "repairs", label: "Repairs" },
   { id: "allchats", label: "All Chats" },
   { id: "handoffs", label: "Handoffs" },
