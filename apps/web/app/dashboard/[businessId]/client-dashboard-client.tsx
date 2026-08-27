@@ -4,7 +4,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { KnowledgeHubPanel } from "../../../components/KnowledgeHubPanel";
-import { HandoffsPanel } from "../../../components/HandoffsPanel";
 import { AllChatsPanel } from "../../../components/AllChatsPanel";
 import { StoragePanel } from "../../../components/StoragePanel";
 import { AiBrainPanel } from "../../../components/AiBrainPanel";
@@ -27,7 +26,7 @@ import { TrainingArenaPanel } from "../../../components/TrainingArenaPanel";
 import { DashboardShell, type NavGroup } from "../../../components/DashboardShell";
 import { RemovableSection } from "../../../components/RemovableSection";
 
-type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "orders" | "delivery" | "repairs" | "allchats" | "handoffs" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "companies" | "deals" | "quotes" | "invoices" | "reports";
+type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "orders" | "delivery" | "repairs" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "companies" | "deals" | "quotes" | "invoices" | "reports";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }, { id: "reports", label: "Reports" }] },
@@ -35,7 +34,6 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
     label: "Conversations",
     items: [
       { id: "allchats", label: "Inbox" },
-      { id: "handoffs", label: "Handoffs" },
     ],
   },
   {
@@ -246,7 +244,6 @@ export default function ClientDashboardClient() {
           />,
         ],
         ["allchats", <AllChatsPanel key="allchats" businessId={businessId} active={tab === "allchats"} />],
-        ["handoffs", <HandoffsPanel key="handoffs" businessId={businessId} active={tab === "handoffs"} />],
         ["storage", <StoragePanel key="storage" businessId={businessId} />],
         ["brain", <AiBrainPanel key="brain" businessId={businessId} />],
         ["parameters", <AiParametersPanel key="parameters" businessId={businessId} />],

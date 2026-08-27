@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 
 import { KnowledgeHubPanel } from "../../components/KnowledgeHubPanel";
-import { HandoffsPanel } from "../../components/HandoffsPanel";
 import { AllChatsPanel } from "../../components/AllChatsPanel";
 import { AiBrainPanel } from "../../components/AiBrainPanel";
 import { AiParametersPanel } from "../../components/AiParametersPanel";
@@ -29,7 +28,7 @@ import { cardStyle, cellStyle, formatBytes, subtleTextStyle, primaryButtonStyle 
 // client component just for one string constant.
 const PLATFORM_CONFIG_ID = "__platform__";
 
-type Tab = "overview" | "health" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "access" | "knowledge" | "allchats" | "handoffs" | "database" | "tags" | "contacts" | "companies" | "deals" | "quotes" | "invoices" | "reports";
+type Tab = "overview" | "health" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "access" | "knowledge" | "allchats" | "database" | "tags" | "contacts" | "companies" | "deals" | "quotes" | "invoices" | "reports";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }, { id: "health", label: "Client Health" }, { id: "reports", label: "Reports" }] },
@@ -62,7 +61,6 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
     label: "Conversations",
     items: [
       { id: "allchats", label: "Inbox" },
-      { id: "handoffs", label: "Handoffs" },
       { id: "tags", label: "Tags" },
     ],
   },
@@ -338,9 +336,6 @@ export default function DashboardClient() {
       </div>
       <div style={{ display: tab === "reports" ? "block" : "none" }}>
         <ReportsPanel active={tab === "reports"} />
-      </div>
-      <div style={{ display: tab === "handoffs" ? "block" : "none" }}>
-        <HandoffsPanel active={tab === "handoffs"} />
       </div>
       <div style={{ display: tab === "tags" ? "block" : "none" }}>
         <TagsPanel />

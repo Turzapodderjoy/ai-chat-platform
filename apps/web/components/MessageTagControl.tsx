@@ -20,8 +20,7 @@ interface TagAssignment {
  * popover so several tags can be applied at once. Applied tags render
  * as chips on the message itself, AI-assigned ones visually
  * distinguished from manual ones with a small "AI" badge. Built as one
- * reusable component so a future HandoffsPanel integration can drop it
- * in without re-solving this. */
+ * reusable component — also used for order tagging (OrdersPanel). */
 export function MessageTagControl({
   catalog,
   applied,
