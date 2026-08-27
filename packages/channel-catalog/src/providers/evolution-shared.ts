@@ -124,9 +124,98 @@ export async function registerWebhook(instanceName: string, webhookUrl: string):
   });
 }
 
+/** Confirmed live: an inbound imageMessage's own `url` is an encrypted
+ * Baileys WhatsApp CDN link (mediaKey/fileEncSha256 alongside it) — not
+ * fetchable directly, and enabling the webhook's own base64 option
+ * does NOT embed decrypted bytes in the webhook payload either
+ * (checked live). The actual documented path is this dedicated
+ * endpoint: hand back the message's own key.id, Evolution API decrypts
+ * server-side and returns the raw bytes as base64. Returns a data: URI
+ * (not a remote URL) for the same reason whatsapp.ts's
+ * resolveWhatsAppMediaAsDataUri does — the caller (VisionService) never
+ * has to know this channel needed anything special. */
+export async function getBase64FromMediaMessage(instanceName: string, messageId: string): Promise<string | null> {
+  try {
+    const result = await request<{ base64?: string; mimetype?: string }>(
+      `/chat/getBase64FromMediaMessage/${instanceName}`,
+      {
+        method: "POST",
+        body: JSON.stringify({ message: { key: { id: messageId } }, convertToMp4: false }),
+      }
+    );
+    if (!result.base64) return null;
+    return `data:${result.mimetype ?? "image/jpeg"};base64,${result.base64}`;
+  } catch {
+    return null;
+  }
+}
+
+async function sendPresence(instanceName: string, number: string, delayMs: number): Promise<void> {
+  await request(`/chat/sendPresence/${instanceName}`, {
+    method: "POST",
+    body: JSON.stringify({ number, presence: "composing", delay: delayMs }),
+  }).catch(() => {}); // a missed "typing…" indicator must never block the actual reply
+}
+
 export async function sendTextMessage(instanceName: string, number: string, text: string): Promise<void> {
   await request(`/message/sendText/${instanceName}`, {
     method: "POST",
     body: JSON.stringify({ number, text }),
   });
+}
+
+// Roughly 45 WPM (~230ms/word) — fast enough not to make a real customer
+// wait unreasonably long, slow enough to not read as instant-paste.
+const MS_PER_WORD = 230;
+const MIN_DELAY_MS = 900;
+const MAX_DELAY_MS = 6000;
+
+function typingDelayFor(text: string): number {
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
+  return Math.min(MAX_DELAY_MS, Math.max(MIN_DELAY_MS, words * MS_PER_WORD));
+}
+
+// Splits on blank lines first (the AI's own paragraph breaks are the
+// most natural seams); a single long paragraph with no breaks falls
+// back to sentence boundaries. Capped at 3 bubbles — enough to read as
+// a person typing multiple thoughts, not so many it reads as spam
+// flooding (a different bot-detection trigger than the one this is
+// meant to avoid).
+const MAX_CHUNKS = 3;
+
+function splitIntoMessages(text: string): string[] {
+  const paragraphs = text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  const parts = paragraphs.length > 1 ? paragraphs : text.split(/(?<=[.!?])\s+(?=[A-Zঀ-৿])/).map((p) => p.trim()).filter(Boolean);
+
+  if (parts.length <= 1) return [text.trim()];
+  if (parts.length <= MAX_CHUNKS) return parts;
+
+  // More natural breaks than the cap allows -- merge down to MAX_CHUNKS
+  // evenly rather than dropping content past the limit.
+  const merged: string[] = [];
+  const perChunk = Math.ceil(parts.length / MAX_CHUNKS);
+  for (let i = 0; i < parts.length; i += perChunk) {
+    merged.push(parts.slice(i, i + perChunk).join(" "));
+  }
+  return merged;
+}
+
+/** Sends a reply as a human would type it -- a realistic "typing…"
+ * pause before each message, and a long answer broken into a few
+ * natural bubbles instead of one instant-pasted wall of text. Owner's
+ * explicit call: an unofficial Baileys connection (this channel, see
+ * this file's own header comment on "real ban risk") is exactly the
+ * kind of automation WhatsApp's own anti-bot heuristics watch for --
+ * instant, unbroken replies are a real flagged pattern. The official
+ * Meta Cloud API integration (whatsapp.ts) is a sanctioned bot channel
+ * by design and doesn't use this. */
+export async function sendHumanPacedMessage(instanceName: string, number: string, text: string): Promise<void> {
+  const parts = splitIntoMessages(text);
+
+  for (const part of parts) {
+    const delay = typingDelayFor(part);
+    await sendPresence(instanceName, number, delay);
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    await sendTextMessage(instanceName, number, part);
+  }
 }
