@@ -164,15 +164,33 @@ export async function sendTextMessage(instanceName: string, number: string, text
   });
 }
 
-// Roughly 45 WPM (~230ms/word) — fast enough not to make a real customer
-// wait unreasonably long, slow enough to not read as instant-paste.
-const MS_PER_WORD = 230;
+// Roughly 45 WPM (~230ms/word) as the CENTER of a random range, not a
+// fixed value — a flat words*230 formula is itself a detectable bot
+// signature (real human typing speed varies message to message, and
+// within one message). ±35% jitter per word plus an occasional longer
+// "thinking" pause (mid-sentence hesitation, not just at the start)
+// keeps the total both irregular and still bounded/reasonable.
+const MS_PER_WORD_BASE = 230;
+const WORD_JITTER = 0.35;
 const MIN_DELAY_MS = 900;
-const MAX_DELAY_MS = 6000;
+const MAX_DELAY_MS = 7500;
+const THINKING_PAUSE_CHANCE = 0.2;
+const THINKING_PAUSE_RANGE: [number, number] = [400, 1300];
+
+function randomBetween(min: number, max: number): number {
+  return min + Math.random() * (max - min);
+}
 
 function typingDelayFor(text: string): number {
   const words = text.trim().split(/\s+/).filter(Boolean).length;
-  return Math.min(MAX_DELAY_MS, Math.max(MIN_DELAY_MS, words * MS_PER_WORD));
+  let total = 0;
+  for (let i = 0; i < words; i++) {
+    total += randomBetween(MS_PER_WORD_BASE * (1 - WORD_JITTER), MS_PER_WORD_BASE * (1 + WORD_JITTER));
+  }
+  if (Math.random() < THINKING_PAUSE_CHANCE) {
+    total += randomBetween(...THINKING_PAUSE_RANGE);
+  }
+  return Math.round(Math.min(MAX_DELAY_MS, Math.max(MIN_DELAY_MS, total)));
 }
 
 // Splits on blank lines first (the AI's own paragraph breaks are the
