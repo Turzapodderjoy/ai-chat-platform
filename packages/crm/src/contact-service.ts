@@ -6,7 +6,8 @@ export interface Contact {
   name: string;
   phone: string | null;
   email: string | null;
-  companyId: string | null;
+  companyName: string | null;
+  companyDomain: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -28,7 +29,8 @@ function toContact(row: {
   name: string;
   phone: string | null;
   email: string | null;
-  companyId: string | null;
+  companyName: string | null;
+  companyDomain: string | null;
   createdAt: Date;
   updatedAt: Date;
 }): Contact {
@@ -38,7 +40,8 @@ function toContact(row: {
     name: row.name,
     phone: row.phone,
     email: row.email,
-    companyId: row.companyId,
+    companyName: row.companyName,
+    companyDomain: row.companyDomain,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -115,8 +118,8 @@ export class ContactService {
     return row ? toContact(row) : null;
   }
 
-  async setCompany(id: string, companyId: string | null): Promise<Contact> {
-    const row = await prisma.contact.update({ where: { id }, data: { companyId } });
+  async setCompany(id: string, companyName: string | null, companyDomain: string | null): Promise<Contact> {
+    const row = await prisma.contact.update({ where: { id }, data: { companyName, companyDomain } });
     return toContact(row);
   }
 

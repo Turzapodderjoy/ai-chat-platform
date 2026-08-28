@@ -29,7 +29,11 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
   const app = await getApp();
-  const result = await app.container.router.crm.setContactCompany(body.id, body.companyId ?? null);
+  const result = await app.container.router.crm.setContactCompany(
+    body.id,
+    body.companyName ?? null,
+    body.companyDomain ?? null
+  );
   return NextResponse.json(result);
 }
 

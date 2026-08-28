@@ -36,7 +36,6 @@ export interface CrmReport {
   totalContacts: number;
   newContactsThisWeek: number;
   newContactsThisMonth: number;
-  totalCompanies: number;
 }
 
 export interface OverviewReport {
@@ -96,7 +95,6 @@ export class ReportingService {
       totalContacts,
       newContactsThisWeek,
       newContactsThisMonth,
-      totalCompanies,
     ] = await Promise.all([
       prisma.invoice.findMany({ where, select: { status: true, discount: true, tax: true, amountPaid: true, items: { select: { quantity: true, unitPrice: true } } } }),
       prisma.quote.findMany({ where, select: { status: true } }),
@@ -107,7 +105,6 @@ export class ReportingService {
       prisma.contact.count({ where }),
       prisma.contact.count({ where: { ...where, createdAt: { gte: week } } }),
       prisma.contact.count({ where: { ...where, createdAt: { gte: thisMonth } } }),
-      prisma.company.count({ where }),
     ]);
 
     // --- Revenue ---
@@ -204,7 +201,6 @@ export class ReportingService {
         totalContacts,
         newContactsThisWeek,
         newContactsThisMonth,
-        totalCompanies,
       },
       generatedAt: new Date().toISOString(),
     };

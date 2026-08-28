@@ -1,9 +1,8 @@
-import { ContactService, CompanyService, DealService, type CreateDealInput } from "@ai-chat-platform/crm";
+import { ContactService, DealService, type CreateDealInput } from "@ai-chat-platform/crm";
 
 export class CrmController {
   constructor(
     private readonly contacts: ContactService,
-    private readonly companies: CompanyService,
     private readonly deals: DealService
   ) {}
 
@@ -11,8 +10,8 @@ export class CrmController {
     return this.contacts.listForBusiness(businessId);
   }
 
-  setContactCompany(id: string, companyId: string | null) {
-    return this.contacts.setCompany(id, companyId);
+  setContactCompany(id: string, companyName: string | null, companyDomain: string | null) {
+    return this.contacts.setCompany(id, companyName, companyDomain);
   }
 
   deleteContact(id: string) {
@@ -25,18 +24,6 @@ export class CrmController {
 
   findContactByPhone(businessId: string, phone: string) {
     return this.contacts.findByPhone(businessId, phone);
-  }
-
-  listCompanies(businessId?: string) {
-    return this.companies.listForBusiness(businessId);
-  }
-
-  createCompany(businessId: string, name: string, domain?: string) {
-    return this.companies.create(businessId, name, domain);
-  }
-
-  deleteCompany(id: string) {
-    return this.companies.delete(id);
   }
 
   listDeals(businessId?: string) {

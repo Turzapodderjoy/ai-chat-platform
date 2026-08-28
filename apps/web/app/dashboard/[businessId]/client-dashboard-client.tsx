@@ -15,7 +15,6 @@ import { OrdersPanel } from "../../../components/OrdersPanel";
 import { DeliveryPanel } from "../../../components/DeliveryPanel";
 import { RepairsPanel } from "../../../components/RepairsPanel";
 import { ContactsPanel } from "../../../components/ContactsPanel";
-import { CompaniesPanel } from "../../../components/CompaniesPanel";
 import { DealsPanel } from "../../../components/DealsPanel";
 import { QuotesPanel } from "../../../components/QuotesPanel";
 import { InvoicesPanel } from "../../../components/InvoicesPanel";
@@ -27,7 +26,7 @@ import { DashboardShell, type NavGroup } from "../../../components/DashboardShel
 import { RemovableSection } from "../../../components/RemovableSection";
 import { AgentConsole } from "../../../components/AgentConsole";
 
-type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "orders" | "delivery" | "repairs" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "companies" | "deals" | "quotes" | "invoices" | "reports";
+type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "orders" | "delivery" | "repairs" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "deals" | "quotes" | "invoices" | "reports";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }, { id: "reports", label: "Reports" }] },
@@ -41,7 +40,6 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
     label: "CRM",
     items: [
       { id: "contacts", label: "Contacts" },
-      { id: "companies", label: "Companies" },
       { id: "deals", label: "Deals" },
     ],
   },
@@ -312,7 +310,6 @@ export default function ClientDashboardClient() {
         ["delivery", <DeliveryPanel key="delivery" businessId={businessId} />],
         ["repairs", <RepairsPanel key="repairs" businessId={businessId} active={tab === "repairs"} />],
         ["contacts", <ContactsPanel key="contacts" businessId={businessId} active={tab === "contacts"} />],
-        ["companies", <CompaniesPanel key="companies" businessId={businessId} active={tab === "companies"} />],
         ["deals", <DealsPanel key="deals" businessId={businessId} active={tab === "deals"} />],
         ["quotes", <QuotesPanel key="quotes" businessId={businessId} active={tab === "quotes"} />],
         ["invoices", <InvoicesPanel key="invoices" businessId={businessId} active={tab === "invoices"} />],

@@ -47,7 +47,7 @@ import { KnowledgeRefreshController } from "@ai-chat-platform/api";
 import { ClientHealthController, ProductController, OrderController, RepairController, EmailController, CrmController, RevenueController, ReportingController, WidgetVisibilityController } from "@ai-chat-platform/api";
 import { RepairAppointmentService } from "@ai-chat-platform/repairs";
 import { EmailSenderConfigService, ResendEmailClient } from "@ai-chat-platform/email";
-import { ContactService, CompanyService, DealService } from "@ai-chat-platform/crm";
+import { ContactService, DealService } from "@ai-chat-platform/crm";
 import { QuoteService, InvoiceService, PaymentService } from "@ai-chat-platform/revenue";
 import { ReportingService } from "@ai-chat-platform/reporting";
 import { WidgetVisibilityService } from "@ai-chat-platform/widget-visibility";
@@ -173,9 +173,6 @@ export class Container {
 
     const contacts =
       new ContactService();
-
-    const companies =
-      new CompanyService();
 
     const deals =
       new DealService();
@@ -306,7 +303,7 @@ export class Container {
         new OrderController(orders),
         new RepairController(repairs, conversations, emailSenderConfig, emailClient, tenants, contacts, deals),
         new EmailController(emailSenderConfig),
-        new CrmController(contacts, companies, deals),
+        new CrmController(contacts, deals),
         new RevenueController(quotes, invoices, payments),
         new ReportingController(reporting),
         new WidgetVisibilityController(widgetVisibility),

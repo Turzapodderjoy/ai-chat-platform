@@ -39,7 +39,6 @@ interface OverviewReport {
     totalContacts: number;
     newContactsThisWeek: number;
     newContactsThisMonth: number;
-    totalCompanies: number;
   };
   generatedAt: string;
 }
@@ -125,7 +124,7 @@ export function ReportsPanel({
   const showSales = has("deals");
   const showDelivery = has("delivery");
   const showRepairs = has("repairs");
-  const showCrm = has("contacts") || has("companies");
+  const showCrm = has("contacts");
 
   const { revenue, sales, delivery, repairs, crm } = report;
   const momDelta = revenue.collectedLastMonth > 0
@@ -262,7 +261,6 @@ export function ReportsPanel({
           <StatCard label="Total Contacts" value={String(crm.totalContacts)} tone="info" />
           <StatCard label="New This Week" value={String(crm.newContactsThisWeek)} tone="success" />
           <StatCard label="New This Month" value={String(crm.newContactsThisMonth)} tone="success" />
-          <StatCard label="Companies" value={String(crm.totalCompanies)} tone="neutral" />
         </StatCardRow>
       </section></RemovableSection>}
     </>

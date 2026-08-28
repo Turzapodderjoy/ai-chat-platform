@@ -10,14 +10,10 @@ interface Contact {
   name: string;
   phone: string | null;
   email: string | null;
-  companyId: string | null;
+  companyName: string | null;
+  companyDomain: string | null;
   createdAt: string;
   updatedAt: string;
-}
-
-interface Company {
-  id: string;
-  name: string;
 }
 
 interface ContactRecord {
@@ -42,29 +38,24 @@ const INVOICE_TONE: Record<string, BadgeTone> = { draft: "neutral", issued: "inf
  * this is for, not just a flat list. */
 export function ContactsPanel({ businessId, active = true }: { businessId?: string; active?: boolean }) {
   const [contacts, setContacts] = useState<Contact[] | null>(null);
-  const [companies, setCompanies] = useState<Company[] | null>(null);
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [record, setRecord] = useState<ContactRecord | null>(null);
   const [loadingRecord, setLoadingRecord] = useState(false);
+  const [companyDraft, setCompanyDraft] = useState<Record<string, { name: string; domain: string }>>({});
 
   function refresh() {
     const qs = businessId ? `?businessId=${encodeURIComponent(businessId)}` : "";
     fetch(`/api/admin/crm/contacts${qs}`)
       .then((r) => r.json())
       .then((d) => setContacts(d.contacts));
-    fetch(`/api/admin/crm/companies${qs}`)
-      .then((r) => r.json())
-      .then((d) => setCompanies(d.companies));
   }
 
   useEffect(() => {
     if (active) refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [businessId, active]);
-
-  const companyById = useMemo(() => new Map((companies ?? []).map((c) => [c.id, c.name])), [companies]);
 
   const filtered = useMemo(() => {
     if (!contacts) return null;
@@ -89,13 +80,19 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
       .finally(() => setLoadingRecord(false));
   }
 
-  async function setCompany(contact: Contact, companyId: string) {
+  async function saveCompany(contact: Contact) {
+    const draft = companyDraft[contact.id] ?? { name: contact.companyName ?? "", domain: contact.companyDomain ?? "" };
     setBusyId(contact.id);
     try {
       await fetch("/api/admin/crm/contacts", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: contact.id, companyId: companyId || null }),
+        body: JSON.stringify({ id: contact.id, companyName: draft.name || null, companyDomain: draft.domain || null }),
+      });
+      setCompanyDraft((prev) => {
+        const next = { ...prev };
+        delete next[contact.id];
+        return next;
       });
       refresh();
     } finally {
@@ -158,17 +155,31 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                     <td style={cellStyle}>{c.phone ?? "—"}</td>
                     <td style={cellStyle}>{c.email ?? "—"}</td>
                     <td style={cellStyle} onClick={(e) => e.stopPropagation()}>
-                      <select
-                        value={c.companyId ?? ""}
-                        onChange={(e) => setCompany(c, e.target.value)}
-                        disabled={busyId === c.id}
-                        style={{ padding: 4, fontSize: 12 }}
-                      >
-                        <option value="">{companyById.get(c.companyId ?? "") ?? "— none —"}</option>
-                        {(companies ?? []).filter((co) => co.id !== c.companyId).map((co) => (
-                          <option key={co.id} value={co.id}>{co.name}</option>
-                        ))}
-                      </select>
+                      {(() => {
+                        const draft = companyDraft[c.id] ?? { name: c.companyName ?? "", domain: c.companyDomain ?? "" };
+                        const dirty = draft.name !== (c.companyName ?? "") || draft.domain !== (c.companyDomain ?? "");
+                        return (
+                          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                            <input
+                              value={draft.name}
+                              onChange={(e) => setCompanyDraft((prev) => ({ ...prev, [c.id]: { ...draft, name: e.target.value } }))}
+                              placeholder="Company"
+                              style={{ padding: 4, fontSize: 12, width: 90 }}
+                            />
+                            <input
+                              value={draft.domain}
+                              onChange={(e) => setCompanyDraft((prev) => ({ ...prev, [c.id]: { ...draft, domain: e.target.value } }))}
+                              placeholder="Domain"
+                              style={{ padding: 4, fontSize: 12, width: 90 }}
+                            />
+                            {dirty && (
+                              <button onClick={() => saveCompany(c)} disabled={busyId === c.id} style={{ fontSize: 11, padding: "3px 6px" }}>
+                                Save
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td style={cellStyle}>{new Date(c.updatedAt).toLocaleDateString()}</td>
                     <td style={cellStyle} onClick={(e) => e.stopPropagation()}>

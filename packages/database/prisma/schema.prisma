@@ -973,14 +973,21 @@ model EmailSenderConfig {
 // Contact rather than creating a new one every time that customer
 // orders/books again.
 model Contact {
-  id         String   @id @default(cuid())
-  businessId String
-  name       String
-  phone      String?
-  email      String?
-  companyId  String?
+  id            String   @id @default(cuid())
+  businessId    String
+  name          String
+  phone         String?
+  email         String?
+  // The organization this contact works for, if any -- plain fields
+  // instead of a separate Company entity/relation. Companies used to be
+  // their own model+panel, but carried nothing beyond a name and a
+  // domain and nothing else in the app ever referenced a companyId
+  // directly (not Deal, not Quote, not Invoice -- all key off Contact),
+  // so the extra table/join bought nothing a Contact couldn't hold
+  // itself.
+  companyName   String?
+  companyDomain String?
 
-  company    Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
   deals      Deal[]
   quotes     Quote[]
   invoices   Invoice[]
@@ -991,19 +998,6 @@ model Contact {
   @@index([businessId])
   @@index([businessId, phone])
   @@index([businessId, email])
-}
-
-model Company {
-  id         String   @id @default(cuid())
-  businessId String
-  name       String
-  domain     String?
-
-  contacts   Contact[]
-
-  createdAt  DateTime @default(now())
-
-  @@index([businessId])
 }
 
 // A sales opportunity — separate from Order (an order is a completed
