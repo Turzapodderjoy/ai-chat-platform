@@ -245,6 +245,8 @@ function ProviderCard({
   );
 }
 
+const TAB_IDS = NAV_GROUPS.flatMap((g) => g.items.map((i) => i.id));
+
 export default function DashboardClient() {
   const [tab, setTab] = useState<Tab>("overview");
   const [username, setUsername] = useState<string | null>(null);
@@ -254,6 +256,26 @@ export default function DashboardClient() {
       .then((r) => r.json())
       .then((data) => setUsername(typeof data.username === "string" ? data.username : null));
   }, []);
+
+  // Always renders "overview" on the server/first paint to avoid a
+  // hydration mismatch, then jumps to whatever tab a refresh's own URL
+  // still carries once mounted.
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("tab") as Tab | null;
+    if (requested && TAB_IDS.includes(requested)) {
+      setTab(requested);
+    }
+  }, []);
+
+  // Keeps the URL's ?tab= in sync with clicks so a refresh lands back on
+  // the same panel instead of resetting to Overview -- replaceState, not
+  // router.push, so switching tabs never grows browser history.
+  function selectTab(next: Tab) {
+    setTab(next);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", next);
+    window.history.replaceState(null, "", url);
+  }
 
   function logout() {
     fetch("/api/auth/logout", { method: "POST" }).finally(() => window.location.assign("/"));
@@ -271,7 +293,7 @@ export default function DashboardClient() {
       }
       groups={NAV_GROUPS}
       activeTab={tab}
-      onSelect={setTab}
+      onSelect={selectTab}
       username={username}
       onLogout={logout}
     >

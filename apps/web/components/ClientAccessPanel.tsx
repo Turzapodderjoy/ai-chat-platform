@@ -99,6 +99,13 @@ export function ClientAccessPanel() {
     }
   }, [clients, businessId]);
 
+  function quickCreateFor(id: string) {
+    setIsAdmin(false);
+    setBusinessId(id);
+    setMessage("");
+    document.getElementById("client-access-username")?.focus();
+  }
+
   async function createAccount() {
     if ((!isAdmin && !businessId) || !username.trim() || !password) return;
     setCreating(true);
@@ -197,14 +204,24 @@ export function ClientAccessPanel() {
     }
   }
 
-  const filteredAccounts = useMemo(() => {
-    if (!accounts) return null;
+  // One row per CLIENT (not per account) so a business with no login yet
+  // still shows up here -- otherwise there was no way to tell "never
+  // given access" apart from "just hasn't been added as a client yet".
+  // A business can have more than one login, so each row carries an array.
+  const clientRows = useMemo(() => {
+    if (!clients || !accounts) return null;
     const q = filter.trim().toLowerCase();
-    if (!q) return accounts;
-    return accounts.filter(
-      (a) => a.username.toLowerCase().includes(q) || (a.businessName?.toLowerCase().includes(q) ?? false)
+    const rows = clients.map((c) => ({
+      client: c,
+      accounts: accounts.filter((a) => a.businessId === c.id),
+    }));
+    if (!q) return rows;
+    return rows.filter(
+      (r) => r.client.name.toLowerCase().includes(q) || r.accounts.some((a) => a.username.toLowerCase().includes(q))
     );
-  }, [accounts, filter]);
+  }, [clients, accounts, filter]);
+
+  const adminAccounts = useMemo(() => (accounts ?? []).filter((a) => a.isAdmin), [accounts]);
 
   return (
     <section style={cardStyle}>
@@ -231,6 +248,7 @@ export function ClientAccessPanel() {
           ))}
         </select>
         <input
+          id="client-access-username"
           style={{ padding: 8, minWidth: 160 }}
           placeholder="Username"
           value={username}
@@ -262,7 +280,7 @@ export function ClientAccessPanel() {
       {message && <p style={{ fontSize: 13, opacity: 0.85, marginTop: 8 }}>{message}</p>}
 
       <div style={{ marginTop: 24, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h3 style={{ margin: 0 }}>All logins</h3>
+        <h3 style={{ margin: 0 }}>Every client</h3>
         <input
           style={{ padding: 6, fontSize: 13, width: 200 }}
           placeholder="Filter by username or client…"
@@ -271,9 +289,9 @@ export function ClientAccessPanel() {
         />
       </div>
 
-      {!filteredAccounts && <p>Loading…</p>}
+      {!clientRows && <p>Loading…</p>}
 
-      {filteredAccounts && (
+      {clientRows && (
         <div className="table-scroll">
         <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
           <thead>
@@ -288,74 +306,29 @@ export function ClientAccessPanel() {
             </tr>
           </thead>
           <tbody>
-            {filteredAccounts.map((a) => {
-              const panelCount = a.allowedPanels?.length ?? ALL_PANELS.length;
-              const restricted = a.allowedPanels !== null;
-              const selected = pendingPanels[a.id] ?? a.allowedPanels ?? ALL_PANELS.map((p) => p.id);
-
-              return (
-                <Fragment key={a.id}>
-                  <tr>
-                    <td style={cellStyle}>{a.username}</td>
-                    <td style={cellStyle}>
-                      {a.isAdmin ? <span style={badgeStyle("info")}>Admin — all clients</span> : a.businessName}
-                    </td>
-                    <td style={cellStyle}>
-                      <span style={badgeStyle(a.disabled ? "error" : "ok")}>{a.disabled ? "Restricted" : "Active"}</span>
-                    </td>
-                    <td style={cellStyle}>
-                      {a.isAdmin ? (
-                        <span style={{ fontSize: 12, color: "var(--text-faint)" }}>All panels</span>
-                      ) : (
-                        <button onClick={() => togglePanelsBox(a)} className="plain" style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                          {restricted ? `${panelCount}/${ALL_PANELS.length} panels` : "All panels"}
-                        </button>
-                      )}
-                    </td>
-                    <td style={cellStyle}>{a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString() : "Never"}</td>
-                    <td style={cellStyle}>{new Date(a.createdAt).toLocaleDateString()}</td>
-                    <td style={cellStyle}>
-                      <button onClick={() => setDisabled(a, !a.disabled)} disabled={busyId === a.id}>
-                        {busyId === a.id ? "…" : a.disabled ? "Re-enable" : "Restrict"}
-                      </button>{" "}
-                      <button onClick={() => deleteAccount(a)} disabled={busyId === a.id}>
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                  {expandedId === a.id && (
-                    <tr>
-                      <td style={{ ...cellStyle, borderTop: "none" }} colSpan={6}>
-                        <Collapsible title={`Which panels can "${a.username}" see?`} defaultOpen>
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
-                            {ALL_PANELS.map((p) => (
-                              <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-                                <input
-                                  type="checkbox"
-                                  checked={selected.includes(p.id)}
-                                  onChange={() => togglePanel(a.id, p.id)}
-                                />
-                                {p.label}
-                              </label>
-                            ))}
-                          </div>
-                          <div style={{ marginTop: 14, display: "flex", gap: 8 }}>
-                            <button onClick={() => savePanels(a)} disabled={busyId === a.id} style={primaryButtonStyle}>
-                              {busyId === a.id ? "Saving…" : "Save"}
-                            </button>
-                            <button onClick={() => setExpandedId(null)}>Cancel</button>
-                          </div>
-                        </Collapsible>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              );
-            })}
-            {filteredAccounts.length === 0 && (
+            {clientRows.map(({ client, accounts: rows }) =>
+              rows.length > 0 ? (
+                rows.map((a) => renderAccountRow(a))
+              ) : (
+                <tr key={client.id}>
+                  <td style={cellStyle}>
+                    <span style={badgeStyle("warn")}>No login set</span>
+                  </td>
+                  <td style={cellStyle}>{client.name}</td>
+                  <td style={cellStyle} colSpan={4}>
+                    <span style={{ fontSize: 12, color: "var(--text-faint)" }}>This client can&apos;t log in yet.</span>
+                  </td>
+                  <td style={cellStyle}>
+                    <button onClick={() => quickCreateFor(client.id)}>+ Create login</button>
+                  </td>
+                </tr>
+              )
+            )}
+            {adminAccounts.map((a) => renderAccountRow(a))}
+            {clientRows.length === 0 && (
               <tr>
                 <td style={cellStyle} colSpan={7}>
-                  {accounts?.length === 0 ? "No logins yet — create one above." : "No logins match that filter."}
+                  {clients?.length === 0 ? "No clients yet — add one in the Clients tab." : "No clients match that filter."}
                 </td>
               </tr>
             )}
@@ -365,4 +338,69 @@ export function ClientAccessPanel() {
       )}
     </section>
   );
+
+  function renderAccountRow(a: ClientAccount) {
+    const panelCount = a.allowedPanels?.length ?? ALL_PANELS.length;
+    const restricted = a.allowedPanels !== null;
+    const selected = pendingPanels[a.id] ?? a.allowedPanels ?? ALL_PANELS.map((p) => p.id);
+
+    return (
+      <Fragment key={a.id}>
+        <tr>
+          <td style={cellStyle}>{a.username}</td>
+          <td style={cellStyle}>
+            {a.isAdmin ? <span style={badgeStyle("info")}>Admin — all clients</span> : a.businessName}
+          </td>
+          <td style={cellStyle}>
+            <span style={badgeStyle(a.disabled ? "error" : "ok")}>{a.disabled ? "Restricted" : "Active"}</span>
+          </td>
+          <td style={cellStyle}>
+            {a.isAdmin ? (
+              <span style={{ fontSize: 12, color: "var(--text-faint)" }}>All panels</span>
+            ) : (
+              <button onClick={() => togglePanelsBox(a)} className="plain" style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                {restricted ? `${panelCount}/${ALL_PANELS.length} panels` : "All panels"}
+              </button>
+            )}
+          </td>
+          <td style={cellStyle}>{a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString() : "Never"}</td>
+          <td style={cellStyle}>{new Date(a.createdAt).toLocaleDateString()}</td>
+          <td style={cellStyle}>
+            <button onClick={() => setDisabled(a, !a.disabled)} disabled={busyId === a.id}>
+              {busyId === a.id ? "…" : a.disabled ? "Re-enable" : "Restrict"}
+            </button>{" "}
+            <button onClick={() => deleteAccount(a)} disabled={busyId === a.id}>
+              Delete
+            </button>
+          </td>
+        </tr>
+        {expandedId === a.id && (
+          <tr>
+            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={6}>
+              <Collapsible title={`Which panels can "${a.username}" see?`} defaultOpen>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
+                  {ALL_PANELS.map((p) => (
+                    <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(p.id)}
+                        onChange={() => togglePanel(a.id, p.id)}
+                      />
+                      {p.label}
+                    </label>
+                  ))}
+                </div>
+                <div style={{ marginTop: 14, display: "flex", gap: 8 }}>
+                  <button onClick={() => savePanels(a)} disabled={busyId === a.id} style={primaryButtonStyle}>
+                    {busyId === a.id ? "Saving…" : "Save"}
+                  </button>
+                  <button onClick={() => setExpandedId(null)}>Cancel</button>
+                </div>
+              </Collapsible>
+            </td>
+          </tr>
+        )}
+      </Fragment>
+    );
+  }
 }

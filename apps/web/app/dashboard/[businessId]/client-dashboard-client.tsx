@@ -184,13 +184,24 @@ export default function ClientDashboardClient() {
 
   // Always renders "overview" on the server/first paint to avoid a
   // hydration mismatch, then jumps to the OAuth callback's ?tab= param
-  // (see api/oauth/[channel]/callback) once mounted.
+  // (see api/oauth/[channel]/callback) -- or whatever tab a refresh's
+  // own URL still carries -- once mounted.
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get("tab") as Tab | null;
     if (requested && TAB_IDS.includes(requested)) {
       setTab(requested);
     }
   }, []);
+
+  // Keeps the URL's ?tab= in sync with clicks so a refresh lands back on
+  // the same panel instead of resetting to Overview -- replaceState, not
+  // router.push, so switching tabs never grows browser history.
+  function selectTab(next: Tab) {
+    setTab(next);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", next);
+    window.history.replaceState(null, "", url);
+  }
 
   useEffect(() => {
     fetch("/api/admin/clients")
@@ -213,7 +224,7 @@ export default function ClientDashboardClient() {
       }
       groups={visibleGroups}
       activeTab={tab}
-      onSelect={setTab}
+      onSelect={selectTab}
       username={username}
       onLogout={logout}
       backHref={isAdmin ? "/dashboard" : undefined}
