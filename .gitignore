@@ -8,6 +8,7 @@ storage/uploads/
 .env
 .env.local
 .env.*
+!.env.example
 
 # Dependencies
 node_modules/
@@ -19,3 +20,7 @@ node_modules/
 dist/
 .vercel
 .env*
+
+# Turborepo local cache / logs (machine-local, never commit)
+.turbo/
+local/
