@@ -296,7 +296,7 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
     setBusyAgentId(agent.id);
     try {
       await fetch(`/api/admin/client-accounts?id=${encodeURIComponent(agent.id)}`, { method: "DELETE" });
-      refreshAgents();
+      setAgents((prev) => prev.filter((a) => a.id !== agent.id));
     } finally {
       setBusyAgentId(null);
     }
@@ -572,7 +572,7 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
   async function deleteNote(id: string) {
     if (!selectedId) return;
     await fetch(`/api/admin/handoffs/notes?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-    refreshNotes(selectedId);
+    setNotes((prev) => prev?.filter((n) => n.id !== id) ?? prev);
   }
 
   const [settingStatus, setSettingStatus] = useState(false);

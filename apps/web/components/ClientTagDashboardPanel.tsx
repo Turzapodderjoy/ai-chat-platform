@@ -201,7 +201,7 @@ export function ClientTagDashboardPanel({ businessId }: { businessId: string }) 
     const confirmed = window.confirm(`Delete "${tag.label}"? This removes it from every conversation it's applied to.`);
     if (!confirmed) return;
     await fetch(`/api/admin/tags?id=${encodeURIComponent(tag.id)}`, { method: "DELETE" });
-    refreshTags();
+    setTags((prev) => prev?.filter((t) => t.id !== tag.id) ?? prev);
   }
 
   const myTags = useMemo(() => (tags ?? []).filter((t) => t.businessId === businessId), [tags, businessId]);

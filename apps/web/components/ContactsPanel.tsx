@@ -106,7 +106,7 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
     setBusyId(contact.id);
     try {
       await fetch(`/api/admin/crm/contacts?id=${encodeURIComponent(contact.id)}`, { method: "DELETE" });
-      refresh();
+      setContacts((prev) => prev?.filter((c) => c.id !== contact.id) ?? prev);
     } finally {
       setBusyId(null);
     }

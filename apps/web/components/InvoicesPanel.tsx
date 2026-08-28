@@ -99,7 +99,7 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
     const confirmed = window.confirm(`Delete invoice ${inv.invoiceNumber}? This cannot be undone.`);
     if (!confirmed) return;
     await fetch(`/api/admin/revenue/invoices?id=${encodeURIComponent(inv.id)}`, { method: "DELETE" });
-    refresh();
+    setInvoices((prev) => prev?.filter((i) => i.id !== inv.id) ?? prev);
   }
 
   return (

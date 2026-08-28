@@ -283,7 +283,10 @@ export function ClientAccessPanel() {
     setBusyId(account.id);
     try {
       await fetch(`/api/admin/client-accounts?id=${encodeURIComponent(account.id)}`, { method: "DELETE" });
-      refresh();
+      // Removed from local state immediately -- don't wait on a
+      // re-fetch to make the row disappear, that's what forced a
+      // manual browser refresh before to see any delete reflected.
+      setAccounts((prev) => prev?.filter((a) => a.id !== account.id) ?? prev);
     } finally {
       setBusyId(null);
     }

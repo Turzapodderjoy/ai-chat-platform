@@ -153,7 +153,7 @@ export function QuotesPanel({ businessId, active = true }: { businessId?: string
     const confirmed = window.confirm(`Delete the quote "${quote.title}"? This cannot be undone.`);
     if (!confirmed) return;
     await fetch(`/api/admin/revenue/quotes?id=${encodeURIComponent(quote.id)}`, { method: "DELETE" });
-    refresh();
+    setQuotes((prev) => prev?.filter((q) => q.id !== quote.id) ?? prev);
   }
 
   return (

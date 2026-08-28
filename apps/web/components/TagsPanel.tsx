@@ -81,7 +81,7 @@ export function TagsPanel() {
     if (!confirmed) return;
 
     await fetch(`/api/admin/tags?id=${encodeURIComponent(tag.id)}`, { method: "DELETE" });
-    refresh();
+    setTags((prev) => prev?.filter((t) => t.id !== tag.id) ?? prev);
   }
 
   return (

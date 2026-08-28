@@ -422,7 +422,7 @@ function ClientsPanel() {
       alert(`Couldn't delete "${client.name}": ${body?.error ?? res.statusText}`);
       return;
     }
-    refresh();
+    setClients((prev) => prev?.filter((c) => c.id !== client.id) ?? prev);
   }
 
   async function setMaxAgents(client: Client, maxAgents: number) {

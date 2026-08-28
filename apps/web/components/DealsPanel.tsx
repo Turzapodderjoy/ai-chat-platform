@@ -144,7 +144,7 @@ export function DealsPanel({ businessId, active = true }: { businessId?: string;
     const confirmed = window.confirm(`Delete the deal "${deal.title}"? This cannot be undone.`);
     if (!confirmed) return;
     await fetch(`/api/admin/crm/deals?id=${encodeURIComponent(deal.id)}`, { method: "DELETE" });
-    refresh();
+    setDeals((prev) => prev?.filter((d) => d.id !== deal.id) ?? prev);
   }
 
   return (

@@ -267,7 +267,7 @@ export function KnowledgeHubPanel({ businessId, active = true }: { businessId?: 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ documentId: doc.documentId, businessId }),
     });
-    refreshDocuments();
+    setDocuments((prev) => prev?.filter((d) => d.documentId !== doc.documentId) ?? prev);
   }
 
   /** Re-embeds every chunk this business has that's missing a vector

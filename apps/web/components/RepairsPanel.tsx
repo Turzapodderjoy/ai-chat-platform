@@ -222,7 +222,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
 
     await fetch(`/api/admin/repairs?id=${encodeURIComponent(a.id)}`, { method: "DELETE" });
     if (selectedId === a.id) setSelectedId(null);
-    refresh();
+    setAppointments((prev) => prev?.filter((x) => x.id !== a.id) ?? prev);
   }
 
   async function sendReply() {
