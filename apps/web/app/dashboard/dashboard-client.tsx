@@ -477,7 +477,9 @@ function ClientsPanel() {
                   {storageByClient[c.id] !== undefined ? formatBytes(storageByClient[c.id]!) : "…"}
                 </td>
                 <td style={cellStyle}>
-                  <a href={`/dashboard/${c.id}`}>/dashboard/{c.id}</a>
+                  <a href={`/dashboard/${c.id}`}>Admin view</a>
+                  {" · "}
+                  <a href={`/dashboard/${c.id}?view=client`}>Client view</a>
                 </td>
                 <td style={cellStyle}>
                   <button onClick={() => deleteClient(c)}>Delete</button>

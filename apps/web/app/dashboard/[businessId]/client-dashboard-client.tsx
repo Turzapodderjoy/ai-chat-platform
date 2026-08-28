@@ -109,6 +109,15 @@ export default function ClientDashboardClient() {
   // RemovableSection. A panel wrapped in it renders nothing at all for
   // a real (non-admin) client session once its id is in here.
   const [hiddenWidgets, setHiddenWidgets] = useState<string[]>([]);
+  // ?view=client -- an admin browsing this URL normally sees everything
+  // (see the comment below), which made it impossible to check what a
+  // restricted client actually sees without logging out and back in as
+  // them. This flag makes an admin session render exactly as that
+  // client's own login would, read-only (no RemovableSection editing),
+  // using the FIRST non-admin login found for this business -- good
+  // enough since in practice a business has one login, and multiple
+  // logins for one business share the same panel restrictions anyway.
+  const [previewAsClient, setPreviewAsClient] = useState(false);
 
   function logout() {
     fetch("/api/auth/logout", { method: "POST" }).finally(() => router.push("/"));
@@ -156,31 +165,57 @@ export default function ClientDashboardClient() {
       });
   }, []);
 
+  // Reads ?view=client on mount (same place the ?tab= param below is
+  // read) and, once we know this is really an admin session, fetches
+  // this business's own login to borrow its allowedPanels for the
+  // preview -- an admin previewing has no allowedPanels of their own.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("view") === "client") {
+      setPreviewAsClient(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!previewAsClient || !isAdmin) return;
+    fetch("/api/admin/client-accounts")
+      .then((r) => r.json())
+      .then((d: { accounts: { businessId: string | null; isAdmin: boolean; allowedPanels: string[] | null }[] }) => {
+        const account = d.accounts?.find((a) => a.businessId === businessId && !a.isAdmin);
+        setAllowedPanels(account?.allowedPanels ?? null);
+      });
+  }, [previewAsClient, isAdmin, businessId]);
+
+  // The actual "is this session unrestricted" check -- previewAsClient
+  // makes an admin session behave exactly like the real client session
+  // it's standing in for.
+  const actsAsClient = !isAdmin || previewAsClient;
+
   // Admin always sees the full nav (even a hidden-for-clients panel
   // stays reachable so it can be un-hidden) — only a real client
   // session's nav is filtered, by allowedPanels AND by any panel the
-  // admin removed inline via RemovableSection.
-  const visibleGroups: NavGroup<Tab>[] = isAdmin
-    ? NAV_GROUPS
-    : NAV_GROUPS.map((g) => ({
+  // admin removed inline via RemovableSection. Same filter applies
+  // when previewing as the client.
+  const visibleGroups: NavGroup<Tab>[] = actsAsClient
+    ? NAV_GROUPS.map((g) => ({
         ...g,
         items: g.items.filter(
           (i) => (allowedPanels === null || allowedPanels.includes(i.id)) && !hiddenWidgets.includes(`panel.${i.id}`)
         ),
-      })).filter((g) => g.items.length > 0);
+      })).filter((g) => g.items.length > 0)
+    : NAV_GROUPS;
 
   // If a restriction kicks in after first paint and the currently-open
   // tab isn't in the allow-list, jump to the first tab that is —
   // otherwise the content pane would keep showing a panel whose own nav
   // entry just disappeared.
   useEffect(() => {
-    if (isAdmin) return;
+    if (!actsAsClient) return;
     const stillVisible = visibleGroups.some((g) => g.items.some((i) => i.id === tab));
     if (!stillVisible) {
       const firstAllowed = visibleGroups[0]?.items[0]?.id;
       if (firstAllowed) setTab(firstAllowed);
     }
-  }, [allowedPanels, hiddenWidgets, isAdmin]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [allowedPanels, hiddenWidgets, actsAsClient]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Always renders "overview" on the server/first paint to avoid a
   // hydration mismatch, then jumps to the OAuth callback's ?tab= param
@@ -201,6 +236,12 @@ export default function ClientDashboardClient() {
     const url = new URL(window.location.href);
     url.searchParams.set("tab", next);
     window.history.replaceState(null, "", url);
+  }
+
+  function exitPreview() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("view");
+    window.location.href = url.toString();
   }
 
   useEffect(() => {
@@ -225,10 +266,31 @@ export default function ClientDashboardClient() {
       groups={visibleGroups}
       activeTab={tab}
       onSelect={selectTab}
-      username={username}
+      username={previewAsClient ? `${username} (previewing as client)` : username}
       onLogout={logout}
       backHref={isAdmin ? "/dashboard" : undefined}
     >
+      {previewAsClient && isAdmin && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "8px 14px",
+            marginBottom: 16,
+            borderRadius: 8,
+            background: "var(--accent-soft)",
+            color: "var(--accent)",
+            fontSize: 13,
+            fontWeight: 600,
+          }}
+        >
+          <span>Previewing exactly what this client's own login sees — nothing here is editable.</span>
+          <button onClick={exitPreview} className="plain" style={{ color: "var(--accent)", textDecoration: "underline" }}>
+            Exit preview
+          </button>
+        </div>
+      )}
       {([
         ["overview", <ClientOverviewPanel key="overview" businessId={businessId} active={tab === "overview"} />],
         ["tagdashboard", <ClientTagDashboardPanel key="tagdashboard" businessId={businessId} />],
@@ -250,7 +312,7 @@ export default function ClientDashboardClient() {
             active={tab === "reports"}
             allowedPanels={allowedPanels}
             hiddenWidgets={hiddenWidgets}
-            editable={isAdmin}
+            editable={!actsAsClient}
             onToggleWidget={toggleWidget}
           />,
         ],
@@ -266,7 +328,7 @@ export default function ClientDashboardClient() {
           <RemovableSection
             id={`panel.${id}`}
             hidden={hiddenWidgets.includes(`panel.${id}`)}
-            editable={isAdmin}
+            editable={!actsAsClient}
             onToggle={toggleWidget}
           >
             {panel}
