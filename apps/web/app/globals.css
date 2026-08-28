@@ -319,6 +319,23 @@ a {
   font-weight: 600;
 }
 
+/* .plain was only ever referenced as a :not() escape hatch above --
+ * nothing actually reset it, so any button using className="plain"
+ * without its OWN full set of inline overrides (border/background/
+ * padding/radius) still inherited the pill-shaped, bordered, padded
+ * base button above. Confirmed live: Client Access's "6/19 panels" and
+ * "Change / history" links rendered as fat wrapped-text ovals instead
+ * of plain inline text. This is the actual reset every "plain" button
+ * across the app was supposed to get; call sites that already pass
+ * their own inline border/background (DashboardShell's nav, etc.) are
+ * unaffected since inline styles win per-property regardless. */
+.app-shell button.plain {
+  border: none;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
 .app-shell aside button {
   border: none;
   background: transparent;
