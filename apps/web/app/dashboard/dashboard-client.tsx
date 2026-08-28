@@ -420,7 +420,12 @@ function ClientsPanel() {
     );
     if (!confirmed) return;
 
-    await fetch(`/api/admin/clients/${client.id}`, { method: "DELETE" });
+    const res = await fetch(`/api/admin/clients/${client.id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      alert(`Couldn't delete "${client.name}": ${body?.error ?? res.statusText}`);
+      return;
+    }
     refresh();
   }
 
