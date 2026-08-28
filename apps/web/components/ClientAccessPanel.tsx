@@ -51,6 +51,24 @@ const ALL_PANELS: { id: string; label: string }[] = [
   { id: "reports", label: "Reports" },
 ];
 
+interface ActivityEntry {
+  action: string;
+  detail: string | null;
+  changedBy: string;
+  changedAt: string;
+}
+
+const ACTIVITY_LABEL: Record<string, (detail: string | null) => string> = {
+  password: () => "Password reset",
+  panels: (detail) => `Panels set to ${detail ?? "?"}`,
+  disabled: () => "Login restricted",
+  enabled: () => "Login re-enabled",
+};
+
+function describeActivity(entry: ActivityEntry): string {
+  return (ACTIVITY_LABEL[entry.action] ?? (() => entry.action))(entry.detail);
+}
+
 const PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
 
 function generatePassword(length = 14): string {
@@ -83,12 +101,20 @@ export function ClientAccessPanel() {
   // Password reset -- there's no "view" for an existing password
   // (hashed, one-way), only change-and-log-it. pwExpandedId mirrors
   // expandedId's pattern but is a separate toggle since a row can open
-  // either box independently.
+  // either box independently. The box also shows the account's FULL
+  // activity trail (password resets, panel changes, restrict/enable),
+  // not just password resets -- see AccountActivityLog.
   const [pwExpandedId, setPwExpandedId] = useState<string | null>(null);
   const [pwDraft, setPwDraft] = useState<Record<string, string>>({});
   const [pwShow, setPwShow] = useState<Record<string, boolean>>({});
-  const [pwHistory, setPwHistory] = useState<Record<string, { changedBy: string; changedAt: string }[]>>({});
+  const [activity, setActivity] = useState<Record<string, ActivityEntry[]>>({});
   const [pwMessage, setPwMessage] = useState("");
+
+  function refreshActivity(accountId: string) {
+    fetch(`/api/admin/client-accounts/activity?id=${encodeURIComponent(accountId)}`)
+      .then((r) => r.json())
+      .then((d: { history: ActivityEntry[] }) => setActivity((prev) => ({ ...prev, [accountId]: d.history ?? [] })));
+  }
 
   function refresh() {
     fetch("/api/admin/clients")
@@ -153,6 +179,7 @@ export function ClientAccessPanel() {
         body: JSON.stringify({ id: account.id, disabled }),
       });
       refresh();
+      if (account.id in activity) refreshActivity(account.id);
     } finally {
       setBusyId(null);
     }
@@ -189,10 +216,11 @@ export function ClientAccessPanel() {
       await fetch("/api/admin/client-accounts", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: account.id, allowedPanels }),
+        body: JSON.stringify({ id: account.id, allowedPanels, totalPanelCount: ALL_PANELS.length }),
       });
       setExpandedId(null);
       refresh();
+      if (account.id in activity) refreshActivity(account.id);
     } finally {
       setBusyId(null);
     }
@@ -205,13 +233,7 @@ export function ClientAccessPanel() {
     }
     setPwExpandedId(account.id);
     setPwMessage("");
-    if (!(account.id in pwHistory)) {
-      fetch(`/api/admin/client-accounts/password-history?id=${encodeURIComponent(account.id)}`)
-        .then((r) => r.json())
-        .then((d: { history: { changedBy: string; changedAt: string }[] }) =>
-          setPwHistory((prev) => ({ ...prev, [account.id]: d.history ?? [] }))
-        );
-    }
+    if (!(account.id in activity)) refreshActivity(account.id);
   }
 
   async function savePassword(account: ClientAccount) {
@@ -234,11 +256,7 @@ export function ClientAccessPanel() {
       }
       setPwMessage(`Password changed for "${account.username}" — share it with them now, it won't be shown again. Any of their active sessions were signed out.`);
       setPwDraft((prev) => ({ ...prev, [account.id]: "" }));
-      fetch(`/api/admin/client-accounts/password-history?id=${encodeURIComponent(account.id)}`)
-        .then((r) => r.json())
-        .then((d: { history: { changedBy: string; changedAt: string }[] }) =>
-          setPwHistory((prev) => ({ ...prev, [account.id]: d.history ?? [] }))
-        );
+      refreshActivity(account.id);
     } finally {
       setBusyId(null);
     }
@@ -464,7 +482,7 @@ export function ClientAccessPanel() {
         {pwExpandedId === a.id && (
           <tr>
             <td style={{ ...cellStyle, borderTop: "none" }} colSpan={7}>
-              <Collapsible title={`Password for "${a.username}"`} defaultOpen>
+              <Collapsible title={`Password & activity for "${a.username}"`} defaultOpen>
                 <p style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 0 }}>
                   Existing passwords can&apos;t be viewed (stored hashed, never in plain text) — set a new one
                   below. This immediately signs out any of their active sessions.
@@ -496,16 +514,16 @@ export function ClientAccessPanel() {
                 {pwMessage && <p style={{ fontSize: 12.5, marginTop: 0, marginBottom: 10 }}>{pwMessage}</p>}
 
                 <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 6 }}>
-                  Change history
+                  Activity history
                 </div>
-                {!pwHistory[a.id] && <p style={{ fontSize: 12, color: "var(--text-faint)" }}>Loading…</p>}
-                {pwHistory[a.id]?.length === 0 && <p style={{ fontSize: 12, color: "var(--text-faint)" }}>Never changed since this login was created.</p>}
-                {pwHistory[a.id] && pwHistory[a.id]!.length > 0 && (
+                {!activity[a.id] && <p style={{ fontSize: 12, color: "var(--text-faint)" }}>Loading…</p>}
+                {activity[a.id]?.length === 0 && <p style={{ fontSize: 12, color: "var(--text-faint)" }}>No changes since this login was created.</p>}
+                {activity[a.id] && activity[a.id]!.length > 0 && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    {pwHistory[a.id]!.map((h, i) => (
-                      <div key={i} style={{ fontSize: 12.5, display: "flex", justifyContent: "space-between", maxWidth: 360 }}>
-                        <span>Changed by <strong>{h.changedBy}</strong></span>
-                        <span style={{ color: "var(--text-faint)" }}>{new Date(h.changedAt).toLocaleString()}</span>
+                    {activity[a.id]!.map((h, i) => (
+                      <div key={i} style={{ fontSize: 12.5, display: "flex", justifyContent: "space-between", gap: 12, maxWidth: 420 }}>
+                        <span>{describeActivity(h)} — by <strong>{h.changedBy}</strong></span>
+                        <span style={{ color: "var(--text-faint)", flexShrink: 0 }}>{new Date(h.changedAt).toLocaleString()}</span>
                       </div>
                     ))}
                   </div>

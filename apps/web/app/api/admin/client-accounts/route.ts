@@ -49,7 +49,8 @@ export async function PATCH(req: NextRequest) {
     const app = await getApp();
 
     if (typeof body.disabled === "boolean") {
-      await app.container.router.clientAuth.setDisabled(body.id, body.disabled);
+      const changedBy = await resolveAdminActor(req);
+      await app.container.router.clientAuth.setDisabled(body.id, body.disabled, changedBy);
     }
 
     if (body.allowedPanels !== undefined) {
@@ -59,7 +60,9 @@ export async function PATCH(req: NextRequest) {
           : Array.isArray(body.allowedPanels)
             ? body.allowedPanels.filter((p: unknown): p is string => typeof p === "string")
             : null;
-      await app.container.router.clientAuth.setAllowedPanels(body.id, panels);
+      const changedBy = await resolveAdminActor(req);
+      const totalPanelCount = typeof body.totalPanelCount === "number" ? body.totalPanelCount : (panels?.length ?? 0);
+      await app.container.router.clientAuth.setAllowedPanels(body.id, panels, changedBy, totalPanelCount);
     }
 
     if (typeof body.password === "string") {

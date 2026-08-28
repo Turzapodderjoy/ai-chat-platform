@@ -7,6 +7,6 @@ export async function GET(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
   const app = await getApp();
-  const history = await app.container.router.clientAuth.passwordHistory(id);
+  const history = await app.container.router.clientAuth.activityHistory(id);
   return NextResponse.json({ history });
 }

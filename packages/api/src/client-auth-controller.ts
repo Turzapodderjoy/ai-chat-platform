@@ -31,20 +31,20 @@ export class ClientAuthController {
     return this.clientAuth.getAccountById(id);
   }
 
-  setDisabled(id: string, disabled: boolean) {
-    return this.clientAuth.setDisabled(id, disabled);
+  setDisabled(id: string, disabled: boolean, changedBy: string) {
+    return this.clientAuth.setDisabled(id, disabled, changedBy);
   }
 
   changePassword(id: string, newPassword: string, changedBy: string) {
     return this.clientAuth.changePassword(id, newPassword, changedBy);
   }
 
-  passwordHistory(id: string) {
-    return this.clientAuth.passwordHistory(id);
+  activityHistory(id: string) {
+    return this.clientAuth.activityHistory(id);
   }
 
-  setAllowedPanels(id: string, panels: string[] | null) {
-    return this.clientAuth.setAllowedPanels(id, panels);
+  setAllowedPanels(id: string, panels: string[] | null, changedBy: string, totalPanelCount: number) {
+    return this.clientAuth.setAllowedPanels(id, panels, changedBy, totalPanelCount);
   }
 
   deleteAccount(id: string) {

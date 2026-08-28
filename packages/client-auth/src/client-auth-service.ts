@@ -121,8 +121,9 @@ export class ClientAuthService {
    * an empty array is a real, deliberate "show nothing" state, kept
    * distinct from null rather than treated the same. Meaningless for an
    * isAdmin account (always sees everything), but harmless to set. */
-  async setAllowedPanels(id: string, panels: string[] | null) {
+  async setAllowedPanels(id: string, panels: string[] | null, changedBy: string, totalPanelCount: number) {
     await prisma.clientAccount.update({ where: { id }, data: { allowedPanels: panels ?? Prisma.JsonNull } });
+    await this.logActivity(id, "panels", panels === null ? "All panels" : `${panels.length}/${totalPanelCount} panels`, changedBy);
   }
 
   async create(businessId: string | null, username: string, password: string, isAdmin = false, isAgent = false) {
@@ -169,16 +170,18 @@ export class ClientAuthService {
     });
   }
 
-  /** Disabling also deletes every active session for the account (cascade
-   * isn't enough here since we're not deleting the account row) — without
-   * this, a client already signed in would keep working until their
-   * session naturally expired. */
+  /** One append-only trail per account -- who did what and when. Never
+   * called with a secret in `detail`; see AccountActivityLog's own
+   * schema comment. */
+  private async logActivity(clientAccountId: string, action: string, detail: string | null, changedBy: string): Promise<void> {
+    await prisma.accountActivityLog.create({ data: { clientAccountId, action, detail, changedBy } });
+  }
+
   /** Resets a login's password -- there's no "view" for an existing one
    * (scrypt is one-way by design, same as every password here), only
-   * change-and-log-it. Logs who did it (changedBy, resolved server-side
-   * from the caller's OWN session -- never trust a client-supplied
-   * name) and kicks out any session already using the old password,
-   * same reasoning as setDisabled below. */
+   * change-and-log-it. Logs WHO did it and WHEN, never the password
+   * value itself, and kicks out any session already using the old
+   * password, same reasoning as setDisabled below. */
   async changePassword(id: string, newPassword: string, changedBy: string): Promise<void> {
     if (newPassword.length < MIN_PASSWORD_LENGTH) {
       throw new Error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
@@ -186,23 +189,30 @@ export class ClientAuthService {
     await prisma.$transaction([
       prisma.clientAccount.update({ where: { id }, data: { passwordHash: hashPassword(newPassword) } }),
       prisma.clientSession.deleteMany({ where: { clientAccountId: id } }),
-      prisma.passwordChangeLog.create({ data: { clientAccountId: id, changedBy } }),
     ]);
+    await this.logActivity(id, "password", null, changedBy);
   }
 
-  async passwordHistory(id: string): Promise<{ changedBy: string; changedAt: string }[]> {
-    const rows = await prisma.passwordChangeLog.findMany({
+  /** Every logged action on this account -- password resets, panel
+   * changes, restrict/re-enable -- newest first. */
+  async activityHistory(id: string): Promise<{ action: string; detail: string | null; changedBy: string; changedAt: string }[]> {
+    const rows = await prisma.accountActivityLog.findMany({
       where: { clientAccountId: id },
       orderBy: { changedAt: "desc" },
     });
-    return rows.map((r) => ({ changedBy: r.changedBy, changedAt: r.changedAt.toISOString() }));
+    return rows.map((r) => ({ action: r.action, detail: r.detail, changedBy: r.changedBy, changedAt: r.changedAt.toISOString() }));
   }
 
-  async setDisabled(id: string, disabled: boolean) {
+  /** Disabling also deletes every active session for the account (cascade
+   * isn't enough here since we're not deleting the account row) — without
+   * this, a client already signed in would keep working until their
+   * session naturally expired. */
+  async setDisabled(id: string, disabled: boolean, changedBy: string) {
     await prisma.clientAccount.update({ where: { id }, data: { disabled } });
     if (disabled) {
       await prisma.clientSession.deleteMany({ where: { clientAccountId: id } });
     }
+    await this.logActivity(id, disabled ? "disabled" : "enabled", null, changedBy);
   }
 
   async remove(id: string) {

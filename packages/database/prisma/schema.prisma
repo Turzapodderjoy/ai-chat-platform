@@ -726,15 +726,21 @@ model ClientAccount {
   @@index([businessId])
 }
 
-// Audit trail for password changes -- who changed a login's password
-// and when, never the password itself (old or new, hashed or not) --
-// there's nothing to "view" for an existing password (scrypt is
-// one-way by design), only a reset-and-log-it flow. Plain string
-// clientAccountId (not a relation) so the log outlives a deleted
-// account, same convention as businessId elsewhere in this schema.
-model PasswordChangeLog {
+// Audit trail for a client login's account settings -- who did what
+// and when: password resets, panel-restriction edits, restrict/
+// re-enable. NEVER the password value itself (old or new, hashed or
+// not) -- there's nothing to "view" for an existing password (scrypt
+// is one-way by design), only a reset-and-log-it flow; `detail` is a
+// human-readable summary of the OTHER kinds of changes (e.g. "12/19
+// panels", "restricted"), never a secret. Plain string clientAccountId
+// (not a relation) so the log outlives a deleted account, same
+// convention as businessId elsewhere in this schema.
+model AccountActivityLog {
   id              String   @id @default(cuid())
   clientAccountId String
+  // "password" | "panels" | "disabled" | "enabled" | "created"
+  action          String
+  detail          String?
   changedBy       String
   changedAt       DateTime @default(now())
 
