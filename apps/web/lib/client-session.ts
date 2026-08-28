@@ -8,6 +8,7 @@ export interface ClientScopedSession {
   id: string;
   businessId: string;
   isAgent: boolean;
+  username: string;
 }
 
 /** Resolves the caller's own {accountId, businessId, isAgent} from the
@@ -25,5 +26,5 @@ export async function resolveClientSession(req: NextRequest): Promise<ClientScop
   const session = await app.container.router.clientAuth.getSession(token);
   if (!session || session.isAdmin || !session.businessId) return null;
 
-  return { id: session.id, businessId: session.businessId, isAgent: session.isAgent };
+  return { id: session.id, businessId: session.businessId, isAgent: session.isAgent, username: session.username };
 }

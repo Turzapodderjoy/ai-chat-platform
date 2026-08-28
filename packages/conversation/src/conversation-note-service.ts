@@ -34,6 +34,14 @@ export class ConversationNoteService {
     return toNote(row);
   }
 
+  /** Used by the client-scoped Agent Console routes to check a note's
+   * businessId before letting an agent/owner delete it -- never trust a
+   * client-supplied businessId, only this lookup. */
+  async get(id: string): Promise<ConversationNote | null> {
+    const row = await prisma.conversationNote.findUnique({ where: { id } });
+    return row ? toNote(row) : null;
+  }
+
   async delete(id: string): Promise<void> {
     await prisma.conversationNote.delete({ where: { id } });
   }

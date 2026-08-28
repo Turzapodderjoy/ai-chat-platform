@@ -35,6 +35,13 @@ interface Message {
   createdAt: string;
 }
 
+interface Note {
+  id: string;
+  author: string;
+  body: string;
+  createdAt: string;
+}
+
 /** The scoped dashboard a business-owner-created agent login lands on
  * -- a completely different, cut-down experience from the normal
  * client dashboard (see client-dashboard-client.tsx's role branch),
@@ -62,6 +69,12 @@ export function AgentConsole({
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
+  // Internal notes -- never sent to the customer, visible to the whole
+  // team (not just whoever a chat is assigned to), so an owner or a
+  // teammate can leave context for whoever picks it up next.
+  const [notes, setNotes] = useState<Note[] | null>(null);
+  const [newNote, setNewNote] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
 
   function refreshRoster() {
     fetch("/api/client/agents")
@@ -92,12 +105,45 @@ export function AgentConsole({
   useEffect(() => {
     if (!selectedId) {
       setMessages(null);
+      setNotes(null);
       return;
     }
     fetch(`/api/client/inbox/messages?sessionId=${encodeURIComponent(selectedId)}`)
       .then((r) => r.json())
       .then((d: { messages: Message[] }) => setMessages(d.messages ?? []));
+    refreshNotes(selectedId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
+
+  function refreshNotes(sessionId: string) {
+    fetch(`/api/client/inbox/notes?sessionId=${encodeURIComponent(sessionId)}`)
+      .then((r) => r.json())
+      .then((d: { notes: Note[] }) => setNotes(d.notes ?? []));
+  }
+
+  async function addNote() {
+    if (!selectedId || !newNote.trim()) return;
+    setSavingNote(true);
+    try {
+      const res = await fetch("/api/client/inbox/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: selectedId, body: newNote }),
+      });
+      if (res.ok) {
+        setNewNote("");
+        refreshNotes(selectedId);
+      }
+    } finally {
+      setSavingNote(false);
+    }
+  }
+
+  async function deleteNote(id: string) {
+    if (!selectedId) return;
+    await fetch(`/api/client/inbox/notes?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    setNotes((prev) => prev?.filter((n) => n.id !== id) ?? prev);
+  }
 
   async function togglePresence() {
     const next = !online;
@@ -184,7 +230,7 @@ export function AgentConsole({
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+      <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
         <section style={{ ...cardStyle, width: 320, flexShrink: 0, padding: 0, overflow: "hidden" }}>
           <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", fontSize: 13, fontWeight: 600 }}>
             {tab === "team" ? "Every chat in this business" : "Chats assigned to you"}
@@ -277,6 +323,40 @@ export function AgentConsole({
             </>
           )}
         </section>
+
+        {selected && (
+          <section style={{ ...cardStyle, width: 260, flexShrink: 0 }}>
+            <div style={{ fontSize: 10.5, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 10 }}>
+              Notes
+            </div>
+            <p style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 0, marginBottom: 8 }}>
+              Visible to your whole team, never sent to the customer.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
+              {notes === null && <span style={{ fontSize: 12, color: "var(--text-faint)" }}>Loading…</span>}
+              {notes !== null && notes.length === 0 && <span style={{ fontSize: 12, color: "var(--text-faint)" }}>No notes yet.</span>}
+              {notes?.map((n) => (
+                <div key={n.id} style={{ background: "var(--warning-soft, rgba(210,153,34,0.12))", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: 8, fontSize: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ fontWeight: 650 }}>{n.author}</span>
+                    <button onClick={() => deleteNote(n.id)} className="plain" style={{ opacity: 0.5, fontSize: 10 }}>✕</button>
+                  </div>
+                  <div style={{ whiteSpace: "pre-wrap" }}>{n.body}</div>
+                  <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 4 }}>{new Date(n.createdAt).toLocaleString()}</div>
+                </div>
+              ))}
+            </div>
+            <textarea
+              value={newNote}
+              onChange={(e) => setNewNote(e.target.value)}
+              placeholder="Leave a note for your team…"
+              style={{ width: "100%", padding: 6, fontSize: 12, boxSizing: "border-box", minHeight: 50, resize: "vertical" }}
+            />
+            <button onClick={addNote} disabled={savingNote || !newNote.trim()} style={{ fontSize: 11, padding: "4px 8px", marginTop: 4 }}>
+              {savingNote ? "Saving…" : "+ Add note"}
+            </button>
+          </section>
+        )}
       </div>
     </DashboardShell>
   );

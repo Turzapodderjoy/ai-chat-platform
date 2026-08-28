@@ -135,6 +135,10 @@ export class HandoffController {
     return this.notes.add({ conversationId: params.conversationId, businessId: conversation.businessId, author: params.author, body: params.body });
   }
 
+  getNote(id: string) {
+    return this.notes.get(id);
+  }
+
   deleteNote(id: string) {
     return this.notes.delete(id);
   }
