@@ -24,7 +24,7 @@ Root commands: `pnpm dev` / `pnpm build` / `pnpm lint` / `pnpm check-types` (all
 
 ## Known gaps (don't assume these exist)
 
-- **No authentication anywhere.** No login page, no session/JWT, no `middleware.ts`. Every dashboard URL and every `/api/admin/**` route is open to anyone with the link. `User.passwordHash`/`RefreshToken` are orphaned schema columns from a deleted, never-rebuilt auth package. Treat this as a known, deliberate gap — not a bug to silently "fix" by adding partial auth to one route.
+- **Auth is session-only and not data-scoped.** Login/sessions exist (`packages/client-auth`: a single fixed admin identity in `admin-session.ts`, plus per-client `ClientAccount`/`ClientSession`), and `apps/web/proxy.ts` gates `/dashboard` (admin-only), `/dashboard/{businessId}/*` (admin or a client session matching that businessId), and `/api/admin/**` (any valid session). The residual gap: a logged-in non-admin client session is **not** business-scoped at the API layer — mother-level endpoints (`/api/admin/clients`, `/api/admin/revenue/**`, etc.) accept any valid session because both dashboards share components that pass `businessId` from the frontend. Real server-side per-tenant enforcement would be a larger, deliberate change and hasn't been done. `User`/`Business`/`Membership`/`RefreshToken` are orphaned schema tables from an abandoned early auth attempt — not used by the live auth path.
 - **No automatic training pipeline.** Training only happens through two explicit, human-driven paths: Training Arena sessions and dumped-chat transcripts. There is no nightly cron that scans the whole conversation database and auto-generates suggestions (this existed earlier and was deliberately removed).
 
 ## Working conventions

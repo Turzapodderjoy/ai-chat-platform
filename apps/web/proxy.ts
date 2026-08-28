@@ -2,17 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@ai-chat-platform/database";
 import { verifyAdminToken } from "@ai-chat-platform/client-auth";
 
-// Now that there's a real admin login, the mother dashboard itself
-// ("/dashboard" exactly) is gated too — admin-only, no client session
-// gets in there. "/dashboard/{businessId}/*" accepts either: an admin
-// session (can browse into any client, same as before this feature
-// existed) or a client session that matches that exact businessId.
+// The mother dashboard itself ("/dashboard" exactly) is admin-only — no
+// client session gets in there. "/dashboard/{businessId}/*" accepts
+// either: an admin session (can browse into any client, same as before
+// this feature existed) or a client session that matches that exact
+// businessId. "/api/admin/**" accepts any authenticated session (admin or
+// an active client account) — same-origin dashboard fetches send the
+// session cookie automatically, so this closes the "anyone with the URL
+// can hit admin APIs" hole while keeping client dashboards working.
 // "Admin" here means either the single fixed admin_session cookie
 // (stateless, nothing to invalidate early for it) OR a real ClientAccount
 // with isAdmin set (DB-backed, validated on every request the same as a
 // regular client session, so disabling one kicks it out immediately).
 export const config = {
-  matcher: ["/dashboard", "/dashboard/:businessId/:path*"],
+  matcher: ["/dashboard", "/dashboard/:businessId/:path*", "/api/admin/:path*"],
 };
 
 const CLIENT_COOKIE = "client_session";
@@ -29,14 +32,21 @@ export async function proxy(req: NextRequest) {
   const dbAdmin = validSession && session!.account.isAdmin;
   const isAdmin = fixedAdmin || dbAdmin;
 
-  if (req.nextUrl.pathname === "/dashboard") {
+  const pathname = req.nextUrl.pathname;
+
+  if (pathname.startsWith("/api/admin")) {
+    if (isAdmin || validSession) return NextResponse.next();
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (pathname === "/dashboard") {
     if (isAdmin) return NextResponse.next();
     return NextResponse.redirect(new URL("/", req.url));
   }
 
   if (isAdmin) return NextResponse.next();
 
-  const businessId = req.nextUrl.pathname.split("/")[2];
+  const businessId = pathname.split("/")[2];
 
   const valid = validSession && !!businessId && session!.account.businessId === businessId;
 
