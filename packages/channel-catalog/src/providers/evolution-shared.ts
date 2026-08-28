@@ -218,6 +218,21 @@ function splitIntoMessages(text: string): string[] {
   return merged;
 }
 
+// Confirmed live: a customer firing off several messages in a row (each
+// its own inbound webhook -> its own chat() turn -> its own reply) used
+// to send each reply near-instantly, so arrival order matched send
+// order even with nothing coordinating them. Now that one reply can
+// take 5-20+ seconds to fully send (multiple paced bubbles), two turns'
+// sends can run concurrently and finish in whatever order their
+// individual delays happen to land -- exactly the garbled, interleaved,
+// out-of-order mess reported live (an old turn's reply arriving mixed
+// into a brand new one). This map serializes sendHumanPacedMessage per
+// recipient (not globally -- different customers must never wait on
+// each other) so a second reply's pacing only starts once the first
+// one has fully finished sending, same guarantee chat-service.ts's own
+// runSequentially already gives the GENERATION half of each turn.
+const sendQueues = new Map<string, Promise<void>>();
+
 /** Sends a reply as a human would type it -- a realistic "typing…"
  * pause before each message, and a long answer broken into a few
  * natural bubbles instead of one instant-pasted wall of text. Owner's
@@ -227,13 +242,22 @@ function splitIntoMessages(text: string): string[] {
  * instant, unbroken replies are a real flagged pattern. The official
  * Meta Cloud API integration (whatsapp.ts) is a sanctioned bot channel
  * by design and doesn't use this. */
-export async function sendHumanPacedMessage(instanceName: string, number: string, text: string): Promise<void> {
-  const parts = splitIntoMessages(text);
+export function sendHumanPacedMessage(instanceName: string, number: string, text: string): Promise<void> {
+  const key = `${instanceName}:${number}`;
+  const prior = sendQueues.get(key) ?? Promise.resolve();
 
-  for (const part of parts) {
-    const delay = typingDelayFor(part);
-    await sendPresence(instanceName, number, delay);
-    await new Promise((resolve) => setTimeout(resolve, delay));
-    await sendTextMessage(instanceName, number, part);
-  }
+  const next = prior
+    .catch(() => {}) // one turn's send failure must never wedge every later turn to this customer
+    .then(async () => {
+      const parts = splitIntoMessages(text);
+      for (const part of parts) {
+        const delay = typingDelayFor(part);
+        await sendPresence(instanceName, number, delay);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        await sendTextMessage(instanceName, number, part);
+      }
+    });
+
+  sendQueues.set(key, next);
+  return next;
 }
