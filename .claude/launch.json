@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "widget-smoke-test",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8123", "--directory", "C:/Users/Admin/AppData/Local/Temp/claude/E--Startup-ai-chat-platform/20b4ee2e-db74-4d9e-b446-2acd2e1255c4/scratchpad"],
+      "port": 8123
+    }
+  ]
+}

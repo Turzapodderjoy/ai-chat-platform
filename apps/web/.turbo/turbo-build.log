@@ -1,0 +1,95 @@
+
+> web@0.1.0 build E:\Startup\ai-chat-platform\apps\web
+> next build
+
+▲ Next.js 16.2.0 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 18.2s
+  Running TypeScript ...
+  Finished TypeScript in 11.6s ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/67) ...
+  Generating static pages using 7 workers (16/67) 
+  Generating static pages using 7 workers (33/67) 
+  Generating static pages using 7 workers (50/67) 
+✓ Generating static pages using 7 workers (67/67) in 797ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /api/admin/ai-config
+├ ƒ /api/admin/ai-config/append
+├ ƒ /api/admin/ai-config/broadcast
+├ ƒ /api/admin/ai-config/history
+├ ƒ /api/admin/ai-config/language
+├ ƒ /api/admin/ai-config/parameters
+├ ƒ /api/admin/auto-heal/run
+├ ƒ /api/admin/channels
+├ ƒ /api/admin/channels/disconnect
+├ ƒ /api/admin/channels/platform-app
+├ ƒ /api/admin/channels/whatsapp/connect
+├ ƒ /api/admin/chat-usage
+├ ƒ /api/admin/clients
+├ ƒ /api/admin/clients/[id]
+├ ƒ /api/admin/conversations
+├ ƒ /api/admin/crawler
+├ ƒ /api/admin/crawler/recrawl
+├ ƒ /api/admin/database
+├ ƒ /api/admin/embedding-providers
+├ ƒ /api/admin/embedding-providers/activate
+├ ƒ /api/admin/embedding-providers/backfill
+├ ƒ /api/admin/embedding-providers/coverage
+├ ƒ /api/admin/embedding-providers/remove
+├ ƒ /api/admin/embedding-providers/toggle
+├ ƒ /api/admin/handoffs
+├ ƒ /api/admin/handoffs/messages
+├ ƒ /api/admin/handoffs/reply
+├ ƒ /api/admin/knowledge
+├ ƒ /api/admin/knowledge/delete
+├ ƒ /api/admin/providers
+├ ƒ /api/admin/providers/activate
+├ ƒ /api/admin/providers/custom
+├ ƒ /api/admin/providers/remove
+├ ƒ /api/admin/providers/toggle
+├ ƒ /api/admin/qa-feedback
+├ ƒ /api/admin/storage
+├ ƒ /api/admin/tags
+├ ƒ /api/admin/tags/analytics
+├ ƒ /api/admin/tags/assign
+├ ƒ /api/admin/tags/for-conversations
+├ ƒ /api/admin/tags/for-messages
+├ ƒ /api/admin/tags/pivot
+├ ƒ /api/admin/training/analyses
+├ ƒ /api/admin/training/dump
+├ ƒ /api/admin/training/review
+├ ƒ /api/admin/training/sessions
+├ ƒ /api/admin/training/suggestions
+├ ƒ /api/admin/training/suggestions/accept
+├ ƒ /api/admin/training/suggestions/broadcast-accept
+├ ƒ /api/admin/training/suggestions/decline
+├ ƒ /api/admin/training/suggestions/refine
+├ ƒ /api/admin/usage
+├ ƒ /api/chat
+├ ƒ /api/chat/feedback
+├ ƒ /api/chat/messages
+├ ƒ /api/chat/training
+├ ƒ /api/cron/auto-heal
+├ ƒ /api/cron/backfill-embeddings
+├ ƒ /api/cron/crawl
+├ ƒ /api/oauth/[channel]/callback
+├ ƒ /api/oauth/[channel]/start
+├ ƒ /api/upload
+├ ƒ /api/webhooks/[channel]
+├ ○ /chat
+├ ○ /dashboard
+├ ƒ /dashboard/[businessId]
+├ ○ /privacy
+└ ○ /upload
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
