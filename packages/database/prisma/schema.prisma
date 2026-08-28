@@ -726,6 +726,21 @@ model ClientAccount {
   @@index([businessId])
 }
 
+// Audit trail for password changes -- who changed a login's password
+// and when, never the password itself (old or new, hashed or not) --
+// there's nothing to "view" for an existing password (scrypt is
+// one-way by design), only a reset-and-log-it flow. Plain string
+// clientAccountId (not a relation) so the log outlives a deleted
+// account, same convention as businessId elsewhere in this schema.
+model PasswordChangeLog {
+  id              String   @id @default(cuid())
+  clientAccountId String
+  changedBy       String
+  changedAt       DateTime @default(now())
+
+  @@index([clientAccountId])
+}
+
 // Disabling or deleting the owning ClientAccount deletes these too
 // (cascade), which is what makes "restrict" kick out an already-logged-in
 // session immediately rather than waiting for it to expire.

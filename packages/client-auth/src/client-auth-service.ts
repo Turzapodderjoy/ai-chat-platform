@@ -173,6 +173,31 @@ export class ClientAuthService {
    * isn't enough here since we're not deleting the account row) — without
    * this, a client already signed in would keep working until their
    * session naturally expired. */
+  /** Resets a login's password -- there's no "view" for an existing one
+   * (scrypt is one-way by design, same as every password here), only
+   * change-and-log-it. Logs who did it (changedBy, resolved server-side
+   * from the caller's OWN session -- never trust a client-supplied
+   * name) and kicks out any session already using the old password,
+   * same reasoning as setDisabled below. */
+  async changePassword(id: string, newPassword: string, changedBy: string): Promise<void> {
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
+      throw new Error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+    }
+    await prisma.$transaction([
+      prisma.clientAccount.update({ where: { id }, data: { passwordHash: hashPassword(newPassword) } }),
+      prisma.clientSession.deleteMany({ where: { clientAccountId: id } }),
+      prisma.passwordChangeLog.create({ data: { clientAccountId: id, changedBy } }),
+    ]);
+  }
+
+  async passwordHistory(id: string): Promise<{ changedBy: string; changedAt: string }[]> {
+    const rows = await prisma.passwordChangeLog.findMany({
+      where: { clientAccountId: id },
+      orderBy: { changedAt: "desc" },
+    });
+    return rows.map((r) => ({ changedBy: r.changedBy, changedAt: r.changedAt.toISOString() }));
+  }
+
   async setDisabled(id: string, disabled: boolean) {
     await prisma.clientAccount.update({ where: { id }, data: { disabled } });
     if (disabled) {

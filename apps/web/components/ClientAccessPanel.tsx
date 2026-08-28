@@ -80,6 +80,16 @@ export function ClientAccessPanel() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [pendingPanels, setPendingPanels] = useState<Record<string, string[]>>({});
 
+  // Password reset -- there's no "view" for an existing password
+  // (hashed, one-way), only change-and-log-it. pwExpandedId mirrors
+  // expandedId's pattern but is a separate toggle since a row can open
+  // either box independently.
+  const [pwExpandedId, setPwExpandedId] = useState<string | null>(null);
+  const [pwDraft, setPwDraft] = useState<Record<string, string>>({});
+  const [pwShow, setPwShow] = useState<Record<string, boolean>>({});
+  const [pwHistory, setPwHistory] = useState<Record<string, { changedBy: string; changedAt: string }[]>>({});
+  const [pwMessage, setPwMessage] = useState("");
+
   function refresh() {
     fetch("/api/admin/clients")
       .then((r) => r.json())
@@ -183,6 +193,52 @@ export function ClientAccessPanel() {
       });
       setExpandedId(null);
       refresh();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function togglePasswordBox(account: ClientAccount) {
+    if (pwExpandedId === account.id) {
+      setPwExpandedId(null);
+      return;
+    }
+    setPwExpandedId(account.id);
+    setPwMessage("");
+    if (!(account.id in pwHistory)) {
+      fetch(`/api/admin/client-accounts/password-history?id=${encodeURIComponent(account.id)}`)
+        .then((r) => r.json())
+        .then((d: { history: { changedBy: string; changedAt: string }[] }) =>
+          setPwHistory((prev) => ({ ...prev, [account.id]: d.history ?? [] }))
+        );
+    }
+  }
+
+  async function savePassword(account: ClientAccount) {
+    const next = pwDraft[account.id] ?? "";
+    if (next.length < 8) {
+      setPwMessage("Password must be at least 8 characters.");
+      return;
+    }
+    setBusyId(account.id);
+    try {
+      const res = await fetch("/api/admin/client-accounts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: account.id, password: next }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setPwMessage(`Error: ${body?.error ?? res.statusText}`);
+        return;
+      }
+      setPwMessage(`Password changed for "${account.username}" — share it with them now, it won't be shown again. Any of their active sessions were signed out.`);
+      setPwDraft((prev) => ({ ...prev, [account.id]: "" }));
+      fetch(`/api/admin/client-accounts/password-history?id=${encodeURIComponent(account.id)}`)
+        .then((r) => r.json())
+        .then((d: { history: { changedBy: string; changedAt: string }[] }) =>
+          setPwHistory((prev) => ({ ...prev, [account.id]: d.history ?? [] }))
+        );
     } finally {
       setBusyId(null);
     }
@@ -299,6 +355,7 @@ export function ClientAccessPanel() {
               <th style={cellStyle}>Client</th>
               <th style={cellStyle}>Status</th>
               <th style={cellStyle}>Panels</th>
+              <th style={cellStyle}>Password</th>
               <th style={cellStyle}>Last login</th>
               <th style={cellStyle}>Created</th>
               <th style={cellStyle}></th>
@@ -314,7 +371,7 @@ export function ClientAccessPanel() {
                     <span style={badgeStyle("warn")}>No login set</span>
                   </td>
                   <td style={cellStyle}>{client.name}</td>
-                  <td style={cellStyle} colSpan={4}>
+                  <td style={cellStyle} colSpan={5}>
                     <span style={{ fontSize: 12, color: "var(--text-faint)" }}>This client can&apos;t log in yet.</span>
                   </td>
                   <td style={cellStyle}>
@@ -326,7 +383,7 @@ export function ClientAccessPanel() {
             {adminAccounts.map((a) => renderAccountRow(a))}
             {clientRows.length === 0 && (
               <tr>
-                <td style={cellStyle} colSpan={7}>
+                <td style={cellStyle} colSpan={8}>
                   {clients?.length === 0 ? "No clients yet — add one in the Clients tab." : "No clients match that filter."}
                 </td>
               </tr>
@@ -362,6 +419,11 @@ export function ClientAccessPanel() {
               </button>
             )}
           </td>
+          <td style={cellStyle}>
+            <button onClick={() => togglePasswordBox(a)} className="plain" style={{ fontSize: 12, color: "var(--text-muted)" }}>
+              Change / history
+            </button>
+          </td>
           <td style={cellStyle}>{a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString() : "Never"}</td>
           <td style={cellStyle}>{new Date(a.createdAt).toLocaleDateString()}</td>
           <td style={cellStyle}>
@@ -375,7 +437,7 @@ export function ClientAccessPanel() {
         </tr>
         {expandedId === a.id && (
           <tr>
-            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={6}>
+            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={7}>
               <Collapsible title={`Which panels can "${a.username}" see?`} defaultOpen>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
                   {ALL_PANELS.map((p) => (
@@ -395,6 +457,59 @@ export function ClientAccessPanel() {
                   </button>
                   <button onClick={() => setExpandedId(null)}>Cancel</button>
                 </div>
+              </Collapsible>
+            </td>
+          </tr>
+        )}
+        {pwExpandedId === a.id && (
+          <tr>
+            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={7}>
+              <Collapsible title={`Password for "${a.username}"`} defaultOpen>
+                <p style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 0 }}>
+                  Existing passwords can&apos;t be viewed (stored hashed, never in plain text) — set a new one
+                  below. This immediately signs out any of their active sessions.
+                </p>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
+                  <input
+                    style={{ padding: 8, minWidth: 180 }}
+                    placeholder="New password (min 8 chars)"
+                    type={pwShow[a.id] ? "text" : "password"}
+                    value={pwDraft[a.id] ?? ""}
+                    onChange={(e) => setPwDraft((prev) => ({ ...prev, [a.id]: e.target.value }))}
+                  />
+                  <button type="button" onClick={() => setPwDraft((prev) => ({ ...prev, [a.id]: generatePassword() }))}>
+                    Generate
+                  </button>
+                  <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
+                    <input
+                      type="checkbox"
+                      checked={!!pwShow[a.id]}
+                      onChange={(e) => setPwShow((prev) => ({ ...prev, [a.id]: e.target.checked }))}
+                    />
+                    Show
+                  </label>
+                  <button onClick={() => savePassword(a)} disabled={busyId === a.id} style={primaryButtonStyle}>
+                    {busyId === a.id ? "Saving…" : "Set new password"}
+                  </button>
+                  <button onClick={() => setPwExpandedId(null)}>Close</button>
+                </div>
+                {pwMessage && <p style={{ fontSize: 12.5, marginTop: 0, marginBottom: 10 }}>{pwMessage}</p>}
+
+                <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 6 }}>
+                  Change history
+                </div>
+                {!pwHistory[a.id] && <p style={{ fontSize: 12, color: "var(--text-faint)" }}>Loading…</p>}
+                {pwHistory[a.id]?.length === 0 && <p style={{ fontSize: 12, color: "var(--text-faint)" }}>Never changed since this login was created.</p>}
+                {pwHistory[a.id] && pwHistory[a.id]!.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {pwHistory[a.id]!.map((h, i) => (
+                      <div key={i} style={{ fontSize: 12.5, display: "flex", justifyContent: "space-between", maxWidth: 360 }}>
+                        <span>Changed by <strong>{h.changedBy}</strong></span>
+                        <span style={{ color: "var(--text-faint)" }}>{new Date(h.changedAt).toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </Collapsible>
             </td>
           </tr>

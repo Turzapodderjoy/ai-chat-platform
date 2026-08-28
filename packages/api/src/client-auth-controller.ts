@@ -35,6 +35,14 @@ export class ClientAuthController {
     return this.clientAuth.setDisabled(id, disabled);
   }
 
+  changePassword(id: string, newPassword: string, changedBy: string) {
+    return this.clientAuth.changePassword(id, newPassword, changedBy);
+  }
+
+  passwordHistory(id: string) {
+    return this.clientAuth.passwordHistory(id);
+  }
+
   setAllowedPanels(id: string, panels: string[] | null) {
     return this.clientAuth.setAllowedPanels(id, panels);
   }

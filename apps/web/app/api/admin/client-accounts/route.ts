@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getApp } from "../../../../lib/app";
+import { resolveAdminActor } from "../../../../lib/admin-actor";
 
 export async function GET() {
   const app = await getApp();
@@ -59,6 +60,11 @@ export async function PATCH(req: NextRequest) {
             ? body.allowedPanels.filter((p: unknown): p is string => typeof p === "string")
             : null;
       await app.container.router.clientAuth.setAllowedPanels(body.id, panels);
+    }
+
+    if (typeof body.password === "string") {
+      const changedBy = await resolveAdminActor(req);
+      await app.container.router.clientAuth.changePassword(body.id, body.password, changedBy);
     }
 
     return NextResponse.json({ ok: true });
