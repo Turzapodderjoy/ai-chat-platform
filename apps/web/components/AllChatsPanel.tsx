@@ -43,9 +43,18 @@ interface ConversationSummary {
   externalUserId: string | null;
   customerName: string | null;
   handoffStatus: "bot" | "pending" | "human";
+  assignedAgentId: string | null;
   updatedAt: string;
   messageCount: number;
   lastMessage: string | null;
+}
+
+interface Agent {
+  id: string;
+  businessId: string | null;
+  username: string;
+  online: boolean;
+  disabled: boolean;
 }
 
 interface HandoffInfo {
@@ -233,6 +242,80 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
   const [tagCatalog, setTagCatalog] = useState<Tag[]>([]);
   const [conversationTags, setConversationTags] = useState<Record<string, TagAssignment[]>>({});
   const [messageTags, setMessageTags] = useState<Record<string, TagAssignment[]>>({});
+
+  // The handoff team -- who's handling what. Fetched unfiltered (every
+  // isAgent account across every business) so a row's "assigned to"
+  // badge resolves even in the mother dashboard's cross-client Inbox;
+  // the create/remove management UI below only renders when businessId
+  // is set (a single client's own Inbox), filtered down to theirs.
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [newAgentUsername, setNewAgentUsername] = useState("");
+  const [newAgentPassword, setNewAgentPassword] = useState("");
+  const [creatingAgent, setCreatingAgent] = useState(false);
+  const [agentMessage, setAgentMessage] = useState("");
+  const [busyAgentId, setBusyAgentId] = useState<string | null>(null);
+  const [reassigning, setReassigning] = useState(false);
+
+  function refreshAgents() {
+    fetch("/api/admin/client-accounts")
+      .then((r) => r.json())
+      .then((d: { accounts: (Agent & { isAgent: boolean })[] }) => setAgents((d.accounts ?? []).filter((a) => a.isAgent)));
+  }
+
+  useEffect(refreshAgents, []);
+
+  const agentsForBusiness = agents.filter((a) => a.businessId === businessId);
+  const agentName = (id: string | null) => (id ? agents.find((a) => a.id === id)?.username ?? "agent" : null);
+
+  async function createAgent() {
+    if (!businessId || !newAgentUsername.trim() || !newAgentPassword) return;
+    setCreatingAgent(true);
+    setAgentMessage("");
+    try {
+      const res = await fetch("/api/admin/client-accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, username: newAgentUsername, password: newAgentPassword, isAgent: true }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        setAgentMessage(`Error: ${result.error}`);
+        return;
+      }
+      setAgentMessage(`Login created for "${newAgentUsername}" — share these credentials now, the password won't be shown again.`);
+      setNewAgentUsername("");
+      setNewAgentPassword("");
+      refreshAgents();
+    } finally {
+      setCreatingAgent(false);
+    }
+  }
+
+  async function removeAgent(agent: Agent) {
+    if (!window.confirm(`Remove "${agent.username}"? They'll lose access immediately.`)) return;
+    setBusyAgentId(agent.id);
+    try {
+      await fetch(`/api/admin/client-accounts?id=${encodeURIComponent(agent.id)}`, { method: "DELETE" });
+      refreshAgents();
+    } finally {
+      setBusyAgentId(null);
+    }
+  }
+
+  async function reassignSelected(agentId: string | null) {
+    if (!selectedId) return;
+    setReassigning(true);
+    try {
+      await fetch("/api/admin/handoffs/assign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: selectedId, agentId }),
+      });
+      refresh();
+    } finally {
+      setReassigning(false);
+    }
+  }
 
   useEffect(() => {
     const qs = businessId ? `?businessId=${encodeURIComponent(businessId)}` : "";
@@ -534,6 +617,52 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
         widget — answered by the AI, with handed-off ones still replyable here.
       </p>
 
+      {businessId && (
+        <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: 12, marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 8 }}>
+            Handoff team
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: agentsForBusiness.length > 0 ? 10 : 0 }}>
+            {agentsForBusiness.map((a) => (
+              <span
+                key={a.id}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "4px 10px", borderRadius: 999, background: "var(--surface)", border: "1px solid var(--border)" }}
+              >
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: a.online ? "var(--success)" : "var(--text-faint)" }} />
+                {a.username}
+                <button
+                  onClick={() => removeAgent(a)}
+                  disabled={busyAgentId === a.id}
+                  className="plain"
+                  style={{ color: "var(--danger)", fontSize: 11, padding: 0 }}
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            <input
+              style={{ padding: 6, fontSize: 12, width: 130 }}
+              placeholder="Agent username"
+              value={newAgentUsername}
+              onChange={(e) => setNewAgentUsername(e.target.value)}
+            />
+            <input
+              style={{ padding: 6, fontSize: 12, width: 140 }}
+              placeholder="Password (min 8)"
+              type="text"
+              value={newAgentPassword}
+              onChange={(e) => setNewAgentPassword(e.target.value)}
+            />
+            <button onClick={createAgent} disabled={creatingAgent || !newAgentUsername.trim() || !newAgentPassword} style={{ fontSize: 12, padding: "6px 10px" }}>
+              {creatingAgent ? "Adding…" : "+ Add agent"}
+            </button>
+          </div>
+          {agentMessage && <p style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 6, marginBottom: 0 }}>{agentMessage}</p>}
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
         {STATUS_TABS.map((tab) => (
           <button
@@ -637,8 +766,13 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                       {c.lastMessage}
                     </div>
                   )}
-                  {(conversationTags[c.id] ?? []).length > 0 && (
-                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 5 }}>
+                  {(agentName(c.assignedAgentId) || (conversationTags[c.id] ?? []).length > 0) && (
+                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 5, alignItems: "center" }}>
+                      {agentName(c.assignedAgentId) && (
+                        <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 999, background: "var(--accent-soft)", color: "var(--accent-strong)" }}>
+                          → {agentName(c.assignedAgentId)}
+                        </span>
+                      )}
                       {(conversationTags[c.id] ?? []).map((t) => (
                         <span
                           key={t.tagId}
@@ -825,6 +959,27 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                       Resume AI
                     </button>
                   </div>
+
+                  {businessId && (
+                    <>
+                      <div style={{ fontSize: 10.5, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 10 }}>
+                        Assigned agent
+                      </div>
+                      <select
+                        value={selected.assignedAgentId ?? ""}
+                        onChange={(e) => reassignSelected(e.target.value || null)}
+                        disabled={reassigning}
+                        style={{ width: "100%", padding: 6, fontSize: 12, marginBottom: 20 }}
+                      >
+                        <option value="">Unassigned</option>
+                        {agentsForBusiness.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.username} {a.online ? "(online)" : "(offline)"}
+                          </option>
+                        ))}
+                      </select>
+                    </>
+                  )}
 
                   <div style={{ fontSize: 10.5, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 10 }}>
                     Contact Details

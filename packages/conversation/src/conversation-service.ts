@@ -282,6 +282,13 @@ export class ConversationService {
     });
   }
 
+  /** Manual reassignment from the Inbox's own detail panel -- the owner
+   * overriding auto-assignment (a customer's regular agent is out, a
+   * chat needs a specialist, etc). null clears it back to unassigned. */
+  async setAssignedAgent(sessionId: string, agentId: string | null): Promise<void> {
+    await prisma.conversation.update({ where: { id: sessionId }, data: { assignedAgentId: agentId } });
+  }
+
   /** Direct handoffStatus flip, no message involved — powers the
    * dashboard's "Stop AI"/"Resume AI" buttons. "human" pins the
    * conversation to a real agent the same way sendAgentMessage does,

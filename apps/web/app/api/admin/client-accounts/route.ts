@@ -23,7 +23,8 @@ export async function POST(req: NextRequest) {
       isAdmin ? null : body.businessId,
       body.username,
       body.password,
-      isAdmin
+      isAdmin,
+      Boolean(body.isAgent)
     );
     // Never echo passwordHash back to the client, even hashed — the
     // caller already has the plaintext password it just submitted.

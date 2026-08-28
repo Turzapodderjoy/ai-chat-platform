@@ -25,10 +25,9 @@ import { ClientTagDashboardPanel } from "../../../components/ClientTagDashboardP
 import { TrainingArenaPanel } from "../../../components/TrainingArenaPanel";
 import { DashboardShell, type NavGroup } from "../../../components/DashboardShell";
 import { RemovableSection } from "../../../components/RemovableSection";
-import { AgentsPanel } from "../../../components/AgentsPanel";
 import { AgentConsole } from "../../../components/AgentConsole";
 
-type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "orders" | "delivery" | "repairs" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "companies" | "deals" | "quotes" | "invoices" | "reports" | "agents";
+type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "orders" | "delivery" | "repairs" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "companies" | "deals" | "quotes" | "invoices" | "reports";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }, { id: "reports", label: "Reports" }] },
@@ -36,7 +35,6 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
     label: "Conversations",
     items: [
       { id: "allchats", label: "Inbox" },
-      { id: "agents", label: "Agents" },
     ],
   },
   {
@@ -308,7 +306,6 @@ export default function ClientDashboardClient() {
       {([
         ["overview", <ClientOverviewPanel key="overview" businessId={businessId} active={tab === "overview"} />],
         ["tagdashboard", <ClientTagDashboardPanel key="tagdashboard" businessId={businessId} />],
-        ["agents", <AgentsPanel key="agents" />],
         ["knowledge", <KnowledgeHubPanel key="knowledge" businessId={businessId} active={tab === "knowledge"} />],
         ["products", <ProductCatalogPanel key="products" businessId={businessId} />],
         ["orders", <OrdersPanel key="orders" businessId={businessId} />],

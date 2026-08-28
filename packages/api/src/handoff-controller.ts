@@ -118,6 +118,11 @@ export class HandoffController {
     return { ok: true };
   }
 
+  async setAssignedAgent(sessionId: string, agentId: string | null): Promise<{ ok: true }> {
+    await this.conversations.setAssignedAgent(sessionId, agentId);
+    return { ok: true };
+  }
+
   listNotes(conversationId: string) {
     return this.notes.list(conversationId);
   }
