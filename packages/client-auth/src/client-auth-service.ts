@@ -30,12 +30,15 @@ export interface ClientAccountSummary {
   createdAt: string;
   allowedPanels: string[] | null;
   isAdmin: boolean;
+  isAgent: boolean;
+  online: boolean;
 }
 
 export interface LoginResult {
   token: string;
   businessId: string | null;
   isAdmin: boolean;
+  isAgent: boolean;
   username: string;
   expiresAt: Date;
 }
@@ -70,7 +73,48 @@ export class ClientAuthService {
       createdAt: a.createdAt.toISOString(),
       allowedPanels: (a.allowedPanels as string[] | null) ?? null,
       isAdmin: a.isAdmin,
+      isAgent: a.isAgent,
+      online: a.online,
     }));
+  }
+
+  /** Agents (isAgent) for one business only -- the owner's own Agents
+   * panel, and the roster an Agent Console shows teammates. Includes
+   * disabled ones so the owner can see and re-enable them; the caller
+   * filters if it only wants active agents. */
+  async listAgents(businessId: string): Promise<ClientAccountSummary[]> {
+    const accounts = await prisma.clientAccount.findMany({
+      where: { businessId, isAgent: true },
+      orderBy: { createdAt: "asc" },
+    });
+
+    return accounts.map((a) => ({
+      id: a.id,
+      businessId: a.businessId,
+      businessName: null,
+      username: a.username,
+      disabled: a.disabled,
+      lastLoginAt: a.lastLoginAt?.toISOString() ?? null,
+      createdAt: a.createdAt.toISOString(),
+      allowedPanels: null,
+      isAdmin: false,
+      isAgent: true,
+      online: a.online,
+    }));
+  }
+
+  async setOnline(id: string, online: boolean): Promise<void> {
+    await prisma.clientAccount.update({ where: { id }, data: { online } });
+  }
+
+  async agentLimit(businessId: string): Promise<{ max: number; used: number }> {
+    const business = await prisma.business.findUnique({ where: { id: businessId }, select: { maxAgents: true } });
+    const used = await prisma.clientAccount.count({ where: { businessId, isAgent: true } });
+    return { max: business?.maxAgents ?? 0, used };
+  }
+
+  async setMaxAgents(businessId: string, max: number): Promise<void> {
+    await prisma.business.update({ where: { id: businessId }, data: { maxAgents: Math.max(0, Math.trunc(max)) } });
   }
 
   /** null clears the restriction (account can see every tab again) --
@@ -81,7 +125,7 @@ export class ClientAuthService {
     await prisma.clientAccount.update({ where: { id }, data: { allowedPanels: panels ?? Prisma.JsonNull } });
   }
 
-  async create(businessId: string | null, username: string, password: string, isAdmin = false) {
+  async create(businessId: string | null, username: string, password: string, isAdmin = false, isAgent = false) {
     const cleanUsername = username.trim();
 
     if (!isAdmin && !businessId) {
@@ -99,12 +143,28 @@ export class ClientAuthService {
       throw new Error(`Username "${cleanUsername}" is already taken.`);
     }
 
+    // Re-checked here (not just in the Agents panel's own UI) so the
+    // limit can't be bypassed by a direct API call -- the platform
+    // admin's maxAgents is the actual cap, not a client-side suggestion.
+    if (isAgent && businessId) {
+      const business = await prisma.business.findUnique({ where: { id: businessId }, select: { maxAgents: true } });
+      const current = await prisma.clientAccount.count({ where: { businessId, isAgent: true } });
+      if (current >= (business?.maxAgents ?? 0)) {
+        throw new Error(
+          business?.maxAgents
+            ? `Agent limit reached (${business.maxAgents}). Ask the platform to raise it.`
+            : "Agent accounts aren't enabled for this business yet -- ask the platform to turn it on."
+        );
+      }
+    }
+
     return prisma.clientAccount.create({
       data: {
         businessId: isAdmin ? null : businessId,
         username: cleanUsername,
         passwordHash: hashPassword(password),
         isAdmin,
+        isAgent,
       },
     });
   }
@@ -124,6 +184,15 @@ export class ClientAuthService {
     await prisma.clientAccount.delete({ where: { id } });
   }
 
+  /** Used by the Agents API to verify a target account actually belongs
+   * to the caller's own business before letting them delete/toggle it --
+   * never trust a client-supplied businessId, only the caller's own
+   * session plus this lookup. */
+  async getAccountById(id: string): Promise<{ id: string; businessId: string | null; isAgent: boolean } | null> {
+    const account = await prisma.clientAccount.findUnique({ where: { id }, select: { id: true, businessId: true, isAgent: true } });
+    return account;
+  }
+
   async login(username: string, password: string, remember: boolean): Promise<LoginResult | null> {
     const account = await prisma.clientAccount.findUnique({ where: { username: username.trim() } });
     if (!account || account.disabled) return null;
@@ -138,7 +207,14 @@ export class ClientAuthService {
       prisma.clientAccount.update({ where: { id: account.id }, data: { lastLoginAt: new Date() } }),
     ]);
 
-    return { token, businessId: account.businessId, isAdmin: account.isAdmin, username: account.username, expiresAt };
+    return {
+      token,
+      businessId: account.businessId,
+      isAdmin: account.isAdmin,
+      isAgent: account.isAgent,
+      username: account.username,
+      expiresAt,
+    };
   }
 
   async logout(token: string) {
@@ -148,9 +224,14 @@ export class ClientAuthService {
   /** Used by /api/auth/me — same validity rules as login (not expired,
    * account not disabled) so a disabled client's stale cookie doesn't
    * still read as "logged in" to the UI. */
-  async getSession(
-    token: string
-  ): Promise<{ businessId: string | null; allowedPanels: string[] | null; isAdmin: boolean; username: string } | null> {
+  async getSession(token: string): Promise<{
+    id: string;
+    businessId: string | null;
+    allowedPanels: string[] | null;
+    isAdmin: boolean;
+    isAgent: boolean;
+    username: string;
+  } | null> {
     const session = await prisma.clientSession.findUnique({
       where: { token },
       include: { account: true },
@@ -161,9 +242,11 @@ export class ClientAuthService {
     }
 
     return {
+      id: session.account.id,
       businessId: session.account.businessId,
       allowedPanels: (session.account.allowedPanels as string[] | null) ?? null,
       isAdmin: session.account.isAdmin,
+      isAgent: session.account.isAgent,
       username: session.account.username,
     };
   }

@@ -17,6 +17,7 @@ type ConversationRow = {
   handoffReason: string | null;
   handoffSummary: string | null;
   handoffRequestedAt: Date | null;
+  assignedAgentId: string | null;
   isTraining: boolean;
   pendingOrder: unknown;
 };
@@ -32,6 +33,7 @@ function toRecord(row: ConversationRow): ConversationRecord {
     handoffReason: row.handoffReason,
     handoffSummary: row.handoffSummary,
     handoffRequestedAt: row.handoffRequestedAt,
+    assignedAgentId: row.assignedAgentId,
     isTraining: row.isTraining,
     pendingOrder: (row.pendingOrder as Record<string, string> | null) ?? null,
   };
@@ -131,7 +133,7 @@ export class ConversationService {
     reason: string,
     summary: string
   ): Promise<void> {
-    await prisma.conversation.update({
+    const conversation = await prisma.conversation.update({
       where: { id: sessionId },
       data: {
         handoffStatus: "PENDING",
@@ -140,6 +142,55 @@ export class ConversationService {
         handoffRequestedAt: new Date(),
       },
     });
+
+    await this.autoAssignAgent(conversation.businessId, sessionId);
+  }
+
+  /** Picks the least-busy ONLINE agent for this business and assigns
+   * them the conversation -- the one choke point every requestHandoff
+   * caller (AI-triggered handoff) routes through, so this never needs
+   * repeating per caller. No-ops if already assigned, if the business
+   * has no agents online, or if the feature isn't in use at all
+   * (isAgent rows only exist once an owner has created one). "Busy" is
+   * counted as open (non-BOT) conversations currently on that agent --
+   * simple and good enough at this scale, not a weighted queue. */
+  private async autoAssignAgent(businessId: string, conversationId: string): Promise<void> {
+    const current = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { assignedAgentId: true },
+    });
+    if (current?.assignedAgentId) return;
+
+    const onlineAgents = await prisma.clientAccount.findMany({
+      where: { businessId, isAgent: true, online: true, disabled: false },
+      select: { id: true },
+    });
+    if (onlineAgents.length === 0) return;
+
+    const loads = await prisma.conversation.groupBy({
+      by: ["assignedAgentId"],
+      where: {
+        businessId,
+        assignedAgentId: { in: onlineAgents.map((a) => a.id) },
+        handoffStatus: { not: "BOT" },
+      },
+      _count: true,
+    });
+    const loadByAgent = new Map(onlineAgents.map((a) => [a.id, 0]));
+    for (const row of loads) {
+      if (row.assignedAgentId) loadByAgent.set(row.assignedAgentId, row._count);
+    }
+
+    let leastBusy = onlineAgents[0]!.id;
+    let lowest = Infinity;
+    for (const [agentId, count] of loadByAgent) {
+      if (count < lowest) {
+        lowest = count;
+        leastBusy = agentId;
+      }
+    }
+
+    await prisma.conversation.update({ where: { id: conversationId }, data: { assignedAgentId: leastBusy } });
   }
 
   /** See Conversation.pendingOrder's own schema comment — the 5 order
@@ -306,6 +357,10 @@ export class ConversationService {
     cursor?: string;
     limit?: number;
     includeTraining?: boolean;
+    // Agent Console's "My chats" scope -- "unassigned" for the pool of
+    // handoffs no online agent has picked up yet (see requestHandoff's
+    // auto-assignment), a real id for one agent's own queue.
+    assignedAgentId?: string | "unassigned";
   }): Promise<{
     conversations: Array<{
       id: string;
@@ -314,6 +369,7 @@ export class ConversationService {
       externalUserId: string | null;
       customerName: string | null;
       handoffStatus: HandoffStatus;
+      assignedAgentId: string | null;
       updatedAt: Date;
       messageCount: number;
       lastMessage: string | null;
@@ -328,6 +384,11 @@ export class ConversationService {
         ...(params.businessId ? { businessId: params.businessId } : {}),
         ...(params.channel ? { channel: params.channel } : {}),
         ...(params.needsHandoffOnly ? { handoffStatus: { not: "BOT" } } : {}),
+        ...(params.assignedAgentId === "unassigned"
+          ? { assignedAgentId: null }
+          : params.assignedAgentId
+            ? { assignedAgentId: params.assignedAgentId }
+            : {}),
       },
       orderBy: { updatedAt: params.sort === "oldest" ? "asc" : "desc" },
       take: limit + 1,
@@ -354,6 +415,7 @@ export class ConversationService {
         externalUserId: row.externalUserId,
         customerName: names.get(row.id) ?? null,
         handoffStatus: row.handoffStatus.toLowerCase() as HandoffStatus,
+        assignedAgentId: row.assignedAgentId,
         updatedAt: row.updatedAt,
         messageCount: row._count.messages,
         lastMessage: row.messages[0]?.content ?? null,

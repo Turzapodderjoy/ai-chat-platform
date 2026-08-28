@@ -24,10 +24,11 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ role: "admin", username: session.username });
       }
       return NextResponse.json({
-        role: "client",
+        role: session.isAgent ? "agent" : "client",
         businessId: session.businessId,
         allowedPanels: session.allowedPanels,
         username: session.username,
+        accountId: session.id,
       });
     }
   }

@@ -26,6 +26,7 @@ export interface ConversationRecord {
   handoffReason: string | null;
   handoffSummary: string | null;
   handoffRequestedAt: Date | null;
+  assignedAgentId: string | null;
   isTraining: boolean;
   pendingOrder: Record<string, string> | null;
 }

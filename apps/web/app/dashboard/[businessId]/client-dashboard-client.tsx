@@ -25,8 +25,10 @@ import { ClientTagDashboardPanel } from "../../../components/ClientTagDashboardP
 import { TrainingArenaPanel } from "../../../components/TrainingArenaPanel";
 import { DashboardShell, type NavGroup } from "../../../components/DashboardShell";
 import { RemovableSection } from "../../../components/RemovableSection";
+import { AgentsPanel } from "../../../components/AgentsPanel";
+import { AgentConsole } from "../../../components/AgentConsole";
 
-type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "orders" | "delivery" | "repairs" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "companies" | "deals" | "quotes" | "invoices" | "reports";
+type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "orders" | "delivery" | "repairs" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "companies" | "deals" | "quotes" | "invoices" | "reports" | "agents";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }, { id: "reports", label: "Reports" }] },
@@ -34,6 +36,7 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
     label: "Conversations",
     items: [
       { id: "allchats", label: "Inbox" },
+      { id: "agents", label: "Agents" },
     ],
   },
   {
@@ -118,6 +121,11 @@ export default function ClientDashboardClient() {
   // enough since in practice a business has one login, and multiple
   // logins for one business share the same panel restrictions anyway.
   const [previewAsClient, setPreviewAsClient] = useState(false);
+  // Set once /api/auth/me resolves -- a session created via the owner's
+  // own Agents panel gets a completely different, cut-down dashboard
+  // (AgentConsole), not just fewer nav tabs on the normal one.
+  const [isAgent, setIsAgent] = useState(false);
+  const [accountId, setAccountId] = useState<string | null>(null);
 
   function logout() {
     fetch("/api/auth/logout", { method: "POST" }).finally(() => router.push("/"));
@@ -158,8 +166,10 @@ export default function ClientDashboardClient() {
       .then((r) => r.json())
       .then((data) => {
         setIsAdmin(data.role === "admin");
+        setIsAgent(data.role === "agent");
         setUsername(typeof data.username === "string" ? data.username : null);
-        if (data.role === "client" && Array.isArray(data.allowedPanels)) {
+        setAccountId(typeof data.accountId === "string" ? data.accountId : null);
+        if ((data.role === "client" || data.role === "agent") && Array.isArray(data.allowedPanels)) {
           setAllowedPanels(data.allowedPanels);
         }
       });
@@ -253,6 +263,10 @@ export default function ClientDashboardClient() {
       });
   }, [businessId]);
 
+  if (isAgent && accountId) {
+    return <AgentConsole businessId={businessId} username={username} accountId={accountId} onLogout={logout} />;
+  }
+
   return (
     <DashboardShell
       sidebarLabel={
@@ -294,6 +308,7 @@ export default function ClientDashboardClient() {
       {([
         ["overview", <ClientOverviewPanel key="overview" businessId={businessId} active={tab === "overview"} />],
         ["tagdashboard", <ClientTagDashboardPanel key="tagdashboard" businessId={businessId} />],
+        ["agents", <AgentsPanel key="agents" />],
         ["knowledge", <KnowledgeHubPanel key="knowledge" businessId={businessId} active={tab === "knowledge"} />],
         ["products", <ProductCatalogPanel key="products" businessId={businessId} />],
         ["orders", <OrdersPanel key="orders" businessId={businessId} />],

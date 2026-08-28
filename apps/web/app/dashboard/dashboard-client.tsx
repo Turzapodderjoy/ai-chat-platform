@@ -164,6 +164,7 @@ interface Client {
   name: string;
   slug: string;
   createdAt: string;
+  maxAgents: number;
 }
 
 /** One provider = one card, not a spreadsheet row — a raw <table> for a
@@ -429,6 +430,15 @@ function ClientsPanel() {
     refresh();
   }
 
+  async function setMaxAgents(client: Client, maxAgents: number) {
+    await fetch(`/api/admin/clients/${client.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ maxAgents }),
+    });
+    refresh();
+  }
+
   return (
     <section style={cardStyle}>
       <h2 style={{ marginTop: 0 }}>Clients</h2>
@@ -464,6 +474,7 @@ function ClientsPanel() {
               <th style={cellStyle}>Name</th>
               <th style={cellStyle}>Created</th>
               <th style={cellStyle}>Storage used</th>
+              <th style={cellStyle}>Max agents</th>
               <th style={cellStyle}>Dashboard</th>
               <th style={cellStyle}></th>
             </tr>
@@ -477,6 +488,19 @@ function ClientsPanel() {
                   {storageByClient[c.id] !== undefined ? formatBytes(storageByClient[c.id]!) : "…"}
                 </td>
                 <td style={cellStyle}>
+                  <input
+                    type="number"
+                    min={0}
+                    defaultValue={c.maxAgents}
+                    style={{ width: 56, padding: 4 }}
+                    onBlur={(e) => {
+                      const next = Math.max(0, Number(e.target.value) || 0);
+                      if (next !== c.maxAgents) setMaxAgents(c, next);
+                    }}
+                    title="How many handoff-team agent logins this client can create for themselves"
+                  />
+                </td>
+                <td style={cellStyle}>
                   <a href={`/dashboard/${c.id}`}>Admin view</a>
                   {" · "}
                   <a href={`/dashboard/${c.id}?view=client`}>Client view</a>
@@ -488,7 +512,7 @@ function ClientsPanel() {
             ))}
             {clients.length === 0 && (
               <tr>
-                <td style={cellStyle} colSpan={5}>
+                <td style={cellStyle} colSpan={6}>
                   No clients yet — add one above.
                 </td>
               </tr>

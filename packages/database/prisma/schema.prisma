@@ -40,6 +40,12 @@ model Business {
 
   members       Membership[]
 
+  // How many agent (handoff-team) logins this business is allowed to
+  // create for itself under Client Access -- 0 means the feature isn't
+  // enabled for them yet. Set by platform admin only; the client's own
+  // Agents panel enforces this but never raises it.
+  maxAgents     Int      @default(0)
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
@@ -100,6 +106,13 @@ model Conversation {
   handoffReason      String?
   handoffSummary     String?
   handoffRequestedAt DateTime?
+  // Which ClientAccount (isAgent) is on the hook for this handoff --
+  // set once by ConversationService.requestHandoff's auto-assignment
+  // (least-busy online agent), plain string reference like every other
+  // businessId-scoped field here, not a Prisma relation. Null until an
+  // agent exists and is online to receive it, or if the business has
+  // no agent feature enabled at all.
+  assignedAgentId    String?
 
   // The 5 order fields once the AI has collected all of them and is
   // waiting on the customer's confirmation (see ChatService's
@@ -138,6 +151,7 @@ model Conversation {
 
   @@index([businessId, channel])
   @@index([businessId, createdAt])
+  @@index([businessId, assignedAgentId])
 }
 
 model Message {
@@ -694,6 +708,18 @@ model ClientAccount {
   // this flag set is allowed onto "/dashboard" (mother) and any
   // "/dashboard/{businessId}", exactly like the fixed admin identity.
   isAdmin      Boolean   @default(false)
+
+  // A business-scoped handoff-team member, created by the business
+  // OWNER (not admin) via their own Agents panel -- distinct from a
+  // regular unrestricted client login. An agent's dashboard is a
+  // separate cut-down "Agent Console" (see AgentConsole.tsx), not the
+  // normal client dashboard: only their assigned chats are actionable,
+  // though they can read teammates' chats too and see who's online.
+  isAgent      Boolean   @default(false)
+  // Self-reported presence, toggled from the Agent Console -- used by
+  // auto-assignment (see ConversationService.requestHandoff) to pick a
+  // least-busy ONLINE agent, and shown to teammates as a roster.
+  online       Boolean   @default(false)
 
   sessions     ClientSession[]
 

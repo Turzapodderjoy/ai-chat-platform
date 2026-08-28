@@ -57,8 +57,19 @@ export class HandoffController {
     cursor?: string;
     limit?: number;
     includeTraining?: boolean;
+    assignedAgentId?: string | "unassigned";
   }) {
     return this.conversations.listAllConversations(params);
+  }
+
+  /** businessId + assignedAgentId only -- used by the client-scoped
+   * /api/client/inbox/* routes to verify a caller (owner or agent) is
+   * actually allowed to touch this conversation before reply/status/
+   * messages, without ever trusting a client-supplied businessId. */
+  async getConversationMeta(sessionId: string) {
+    const conversation = await this.conversations.get(sessionId);
+    if (!conversation) return null;
+    return { businessId: conversation.businessId, assignedAgentId: conversation.assignedAgentId };
   }
 
   async messages(sessionId: string) {

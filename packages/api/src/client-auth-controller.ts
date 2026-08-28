@@ -7,8 +7,28 @@ export class ClientAuthController {
     return this.clientAuth.list();
   }
 
-  createAccount(businessId: string | null, username: string, password: string, isAdmin = false) {
-    return this.clientAuth.create(businessId, username, password, isAdmin);
+  createAccount(businessId: string | null, username: string, password: string, isAdmin = false, isAgent = false) {
+    return this.clientAuth.create(businessId, username, password, isAdmin, isAgent);
+  }
+
+  listAgents(businessId: string) {
+    return this.clientAuth.listAgents(businessId);
+  }
+
+  setOnline(id: string, online: boolean) {
+    return this.clientAuth.setOnline(id, online);
+  }
+
+  agentLimit(businessId: string) {
+    return this.clientAuth.agentLimit(businessId);
+  }
+
+  setMaxAgents(businessId: string, max: number) {
+    return this.clientAuth.setMaxAgents(businessId, max);
+  }
+
+  getAccount(id: string) {
+    return this.clientAuth.getAccountById(id);
   }
 
   setDisabled(id: string, disabled: boolean) {
