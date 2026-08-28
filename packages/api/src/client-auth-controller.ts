@@ -43,8 +43,8 @@ export class ClientAuthController {
     return this.clientAuth.activityHistory(id);
   }
 
-  setAllowedPanels(id: string, panels: string[] | null, changedBy: string, totalPanelCount: number) {
-    return this.clientAuth.setAllowedPanels(id, panels, changedBy, totalPanelCount);
+  setAllowedPanels(id: string, panels: string[] | null, changedBy: string, allPanelIds: string[]) {
+    return this.clientAuth.setAllowedPanels(id, panels, changedBy, allPanelIds);
   }
 
   deleteAccount(id: string) {

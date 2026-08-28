@@ -58,15 +58,27 @@ interface ActivityEntry {
   changedAt: string;
 }
 
-const ACTIVITY_LABEL: Record<string, (detail: string | null) => string> = {
-  password: () => "Password reset",
-  panels: (detail) => `Panels set to ${detail ?? "?"}`,
-  disabled: () => "Login restricted",
-  enabled: () => "Login re-enabled",
-};
+const PANEL_LABEL = new Map(ALL_PANELS.map((p) => [p.id, p.label]));
+const panelLabels = (ids: string[]) => ids.map((id) => PANEL_LABEL.get(id) ?? id).join(", ");
 
 function describeActivity(entry: ActivityEntry): string {
-  return (ACTIVITY_LABEL[entry.action] ?? (() => entry.action))(entry.detail);
+  if (entry.action === "password") return "Password reset";
+  if (entry.action === "disabled") return "Login restricted";
+  if (entry.action === "enabled") return "Login re-enabled";
+
+  if (entry.action === "panels") {
+    try {
+      const { added, removed } = JSON.parse(entry.detail ?? "{}") as { added: string[]; removed: string[] };
+      const parts: string[] = [];
+      if (added?.length) parts.push(`added ${panelLabels(added)}`);
+      if (removed?.length) parts.push(`removed ${panelLabels(removed)}`);
+      return parts.length ? `Panels changed — ${parts.join("; ")}` : "Panels saved (no actual change)";
+    } catch {
+      return "Panels changed";
+    }
+  }
+
+  return entry.action;
 }
 
 const PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
@@ -216,7 +228,7 @@ export function ClientAccessPanel() {
       await fetch("/api/admin/client-accounts", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: account.id, allowedPanels, totalPanelCount: ALL_PANELS.length }),
+        body: JSON.stringify({ id: account.id, allowedPanels, allPanelIds: ALL_PANELS.map((p) => p.id) }),
       });
       setExpandedId(null);
       refresh();

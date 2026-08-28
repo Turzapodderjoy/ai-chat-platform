@@ -61,8 +61,10 @@ export async function PATCH(req: NextRequest) {
             ? body.allowedPanels.filter((p: unknown): p is string => typeof p === "string")
             : null;
       const changedBy = await resolveAdminActor(req);
-      const totalPanelCount = typeof body.totalPanelCount === "number" ? body.totalPanelCount : (panels?.length ?? 0);
-      await app.container.router.clientAuth.setAllowedPanels(body.id, panels, changedBy, totalPanelCount);
+      const allPanelIds: string[] = Array.isArray(body.allPanelIds)
+        ? body.allPanelIds.filter((p: unknown): p is string => typeof p === "string")
+        : (panels ?? []);
+      await app.container.router.clientAuth.setAllowedPanels(body.id, panels, changedBy, allPanelIds);
     }
 
     if (typeof body.password === "string") {

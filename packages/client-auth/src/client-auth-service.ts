@@ -120,10 +120,22 @@ export class ClientAuthService {
   /** null clears the restriction (account can see every tab again) --
    * an empty array is a real, deliberate "show nothing" state, kept
    * distinct from null rather than treated the same. Meaningless for an
-   * isAdmin account (always sees everything), but harmless to set. */
-  async setAllowedPanels(id: string, panels: string[] | null, changedBy: string, totalPanelCount: number) {
+   * isAdmin account (always sees everything), but harmless to set.
+   * Logs the actual before/after panel ids (not just a count) so the
+   * activity history can show which panels were actually added/removed
+   * -- allPanelIds is needed to expand a null ("every panel") into a
+   * concrete list for diffing, since this service doesn't itself know
+   * the full panel universe (that list lives in the dashboard UI). */
+  async setAllowedPanels(id: string, panels: string[] | null, changedBy: string, allPanelIds: string[]) {
+    const current = await prisma.clientAccount.findUnique({ where: { id }, select: { allowedPanels: true } });
+    const before = new Set((current?.allowedPanels as string[] | null) ?? allPanelIds);
+    const after = new Set(panels ?? allPanelIds);
+
     await prisma.clientAccount.update({ where: { id }, data: { allowedPanels: panels ?? Prisma.JsonNull } });
-    await this.logActivity(id, "panels", panels === null ? "All panels" : `${panels.length}/${totalPanelCount} panels`, changedBy);
+
+    const added = [...after].filter((p) => !before.has(p));
+    const removed = [...before].filter((p) => !after.has(p));
+    await this.logActivity(id, "panels", JSON.stringify({ added, removed }), changedBy);
   }
 
   async create(businessId: string | null, username: string, password: string, isAdmin = false, isAgent = false) {
