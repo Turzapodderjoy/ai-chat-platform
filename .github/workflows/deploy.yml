@@ -1,0 +1,14 @@
+name: Deploy on push to main
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  trigger-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger deploy webhook
+        run: |
+          curl -sf -X POST https://app.ieltsclarification.com/api/webhooks/deploy \
+            -H "Authorization: Bearer ${{ secrets.DEPLOY_SECRET }}"
