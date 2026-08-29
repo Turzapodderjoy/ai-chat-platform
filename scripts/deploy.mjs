@@ -39,7 +39,15 @@ function log(msg) {
 
 function run(cmd, cwd) {
   log(`$ ${cmd}${cwd ? ` (in ${cwd})` : ""}`);
-  execSync(cmd, { cwd, stdio: "inherit", shell: true });
+  // CI=true forces pnpm to skip its interactive "remove and reinstall
+  // from scratch?" confirmation prompt, confirmed live: a second worktree
+  // sharing this repo's pnpm store can trip that prompt (store integrity
+  // check across worktree paths), and with no stdin attached (this
+  // script runs detached, spawned by the webhook route with
+  // stdio:"ignore") pnpm silently declined it and left node_modules
+  // partially linked -- some @repo/* workspace symlinks missing, no
+  // error surfaced at install time, only a downstream build failure.
+  execSync(cmd, { cwd, stdio: "inherit", shell: true, env: { ...process.env, CI: "true" } });
 }
 
 function currentDeployedSha() {
