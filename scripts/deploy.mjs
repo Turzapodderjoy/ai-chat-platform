@@ -83,6 +83,31 @@ function run(cmd, cwd) {
   execSync(cmd, { cwd, stdio: "inherit", shell: true, env: { ...process.env, CI: "true" } });
 }
 
+// The workspace packages every build actually needs resolved via
+// symlink in apps/web/node_modules/@repo -- confirmed live, THREE
+// separate times, that CI=true alone doesn't reliably stop pnpm from
+// leaving one or more of these missing after "pnpm install" reports
+// success (exit code 0, no error) in a second/third worktree sharing
+// this repo's pnpm store. A plain re-run of install reliably fixes it
+// when done by hand, so this just automates that instead of leaving it
+// as a manual intervention every time.
+const REQUIRED_WORKSPACE_LINKS = ["typescript-config", "eslint-config", "ui"];
+const INSTALL_ATTEMPTS = 3;
+
+function workspaceLinksOk(releaseDir) {
+  const repoDir = join(releaseDir, "apps", "web", "node_modules", "@repo");
+  return REQUIRED_WORKSPACE_LINKS.every((name) => existsSync(join(repoDir, name)));
+}
+
+function installWithRetry(releaseDir) {
+  for (let attempt = 1; attempt <= INSTALL_ATTEMPTS; attempt++) {
+    run("pnpm install --frozen-lockfile", releaseDir);
+    if (workspaceLinksOk(releaseDir)) return;
+    log(`Workspace symlinks incomplete after install attempt ${attempt}/${INSTALL_ATTEMPTS} -- retrying.`);
+  }
+  throw new Error(`apps/web/node_modules/@repo is still missing required links after ${INSTALL_ATTEMPTS} install attempts.`);
+}
+
 function currentDeployedSha() {
   const marker = join(CURRENT_LINK, ".deployed-sha");
   if (!existsSync(CURRENT_LINK) || !existsSync(marker)) return null;
@@ -172,7 +197,7 @@ async function deploy() {
   }
 
   try {
-    run("pnpm install --frozen-lockfile", releaseDir);
+    installWithRetry(releaseDir);
     run("npx prisma generate --schema=packages/database/prisma/schema.prisma", releaseDir);
     run("pnpm --filter web run build", releaseDir);
   } catch (err) {
