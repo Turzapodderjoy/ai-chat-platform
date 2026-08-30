@@ -1095,7 +1095,7 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
 
                     {/* Contact Details */}
                     <div style={{ marginBottom: 20 }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", marginBottom: 10 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", marginBottom: 8 }}>
                         Contact Details
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12 }}>
@@ -1114,27 +1114,27 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                       </div>
                     </div>
 
-                  {contactForSelected !== undefined && (
+                    {contactForSelected !== undefined && (
+                      <div style={{ marginBottom: 20 }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", marginBottom: 8 }}>
+                          CRM Contact
+                        </div>
+                        {contactForSelected ? (
+                          <div style={{ fontSize: 12 }}>
+                            <div style={{ color: "var(--text)" }}>{contactForSelected.name}</div>
+                            {contactForSelected.email && <div style={{ color: "var(--text-muted)", marginTop: 2 }}>{contactForSelected.email}</div>}
+                            <div style={{ color: "var(--text-faint)", marginTop: 4, fontSize: 10 }}>{shortId(contactForSelected.id)}</div>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: 12, color: "var(--text-faint)" }}>No linked contact record</span>
+                        )}
+                      </div>
+                    )}
+
                     <div style={{ marginBottom: 20 }}>
                       <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", marginBottom: 8 }}>
-                        CRM Contact
+                        Notes
                       </div>
-                      {contactForSelected ? (
-                        <div style={{ fontSize: 12 }}>
-                          <div style={{ color: "var(--text)" }}>{contactForSelected.name}</div>
-                          {contactForSelected.email && <div style={{ color: "var(--text-muted)", marginTop: 2 }}>{contactForSelected.email}</div>}
-                          <div style={{ color: "var(--text-faint)", marginTop: 4, fontSize: 10 }}>{shortId(contactForSelected.id)}</div>
-                        </div>
-                      ) : (
-                        <span style={{ fontSize: 12, color: "var(--text-faint)" }}>No linked contact record</span>
-                      )}
-                    </div>
-                  )}
-
-                  <div style={{ marginBottom: 20 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", marginBottom: 8 }}>
-                      Notes
-                    </div>
                     <p style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 0, marginBottom: 8 }}>
                       Private to your team — never sent to the customer.
                     </p>
@@ -1267,6 +1267,7 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                       <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, margin: 0 }}>{summaryBySession[selected.id]}</p>
                     </div>
                   )}
+                  </div>
                 </div>
               </div>
             </>
