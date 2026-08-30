@@ -125,7 +125,7 @@ export function DashboardShell<T extends string>({
   const sidebarOpen = isMobile ? mobileOpen : true;
 
   return (
-    <div className="app-shell" data-theme={theme} style={{ display: "flex", minHeight: "100vh" }}>
+    <div className="app-shell" data-theme={theme} style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
       {/* Mobile overlay */}
       {isMobile && mobileOpen && (
         <div
@@ -143,11 +143,7 @@ export function DashboardShell<T extends string>({
           borderRight: "1px solid var(--border-subtle)",
           display: "flex",
           flexDirection: "column",
-          position: isMobile ? "fixed" : "sticky",
-          top: 0,
-          left: 0,
-          alignSelf: "flex-start",
-          height: "100vh",
+          height: "100%",
           overflowY: "auto",
           overflowX: "hidden",
           zIndex: 50,
@@ -325,7 +321,7 @@ export function DashboardShell<T extends string>({
       </aside>
 
       {/* Main content */}
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {/* Header */}
         <header
           style={{
@@ -336,9 +332,7 @@ export function DashboardShell<T extends string>({
             alignItems: "center",
             justifyContent: "space-between",
             gap: 16,
-            position: "sticky",
-            top: 0,
-            zIndex: 30,
+            flexShrink: 0,
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
@@ -532,7 +526,7 @@ export function DashboardShell<T extends string>({
         </header>
 
         {/* Content */}
-        <main style={{ flex: 1, padding: isMobile ? "16px" : "24px", maxWidth: 1400, width: "100%" }}>
+        <main style={{ flex: 1, padding: isMobile ? "16px" : "24px", maxWidth: 1400, width: "100%", overflowY: "auto" }}>
           {children}
         </main>
       </div>
