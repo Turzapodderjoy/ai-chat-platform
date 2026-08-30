@@ -12,6 +12,7 @@ interface AiConfig {
   presencePenalty: number | null;
   stopSequences: string | null;
   seed: number | null;
+  visionMode: string;
   changeType: string;
   note: string | null;
   createdAt: string;
@@ -73,9 +74,12 @@ export function AiParametersPanel({ businessId }: AiParametersPanelProps) {
   const [presPenaltyDraft, setPresPenaltyDraft] = useState("");
   const [stopDraft, setStopDraft] = useState("");
   const [seedDraft, setSeedDraft] = useState("");
+  const [visionModeDraft, setVisionModeDraft] = useState("current");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [visionSaving, setVisionSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [visionMessage, setVisionMessage] = useState("");
   const [advanced, setAdvanced] = useState(false);
 
   const qs = businessId ? `?businessId=${encodeURIComponent(businessId)}` : "";
@@ -91,6 +95,7 @@ export function AiParametersPanel({ businessId }: AiParametersPanelProps) {
         setPresPenaltyDraft(data.presencePenalty != null ? String(data.presencePenalty) : "");
         setStopDraft(data.stopSequences ?? "");
         setSeedDraft(data.seed != null ? String(data.seed) : "");
+        setVisionModeDraft(data.visionMode ?? "current");
       });
 
     fetch(`/api/admin/ai-config/history${qs}`)
@@ -127,6 +132,28 @@ export function AiParametersPanel({ businessId }: AiParametersPanelProps) {
       if (res.ok) { setNote(""); refresh(); }
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveVisionMode(mode: string) {
+    setVisionSaving(true);
+    setVisionMessage("");
+    try {
+      const res = await fetch("/api/admin/ai-config/vision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visionMode: mode, businessId }),
+      });
+      const result = await res.json();
+      if (res.ok) {
+        setVisionModeDraft(mode);
+        setVisionMessage(`Vision mode set to "${mode}" — applied to next message.`);
+        refresh();
+      } else {
+        setVisionMessage(`Error: ${result.error}`);
+      }
+    } finally {
+      setVisionSaving(false);
     }
   }
 
@@ -213,6 +240,31 @@ export function AiParametersPanel({ businessId }: AiParametersPanelProps) {
               ) : (
                 <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Loading...</div>
               )}
+            </div>
+
+            {/* Vision Mode */}
+            <div style={cardStyle}>
+              <div style={labelTextStyle}>Vision Mode (Customer Photos)</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <PresetButton
+                  label="Current"
+                  hint="Gemini describes image as text"
+                  active={visionModeDraft === "current"}
+                  onClick={() => !visionSaving && saveVisionMode("current")}
+                />
+                <PresetButton
+                  label="MiMo"
+                  hint="AI sees actual image pixels"
+                  active={visionModeDraft === "mimo"}
+                  onClick={() => !visionSaving && saveVisionMode("mimo")}
+                />
+              </div>
+              <div style={{ marginTop: 8, fontSize: 11, color: "var(--text-faint)" }}>
+                {visionModeDraft === "mimo"
+                  ? "MiMo-V2.5 via OpenRouter — sends raw image to the model"
+                  : "Gemini describes the image as text, then any provider replies"}
+              </div>
+              {visionMessage && <p style={{ fontSize: 12, color: "var(--accent)", marginTop: 6 }}>{visionMessage}</p>}
             </div>
           </div>
 

@@ -27,6 +27,11 @@ export interface AIRequest {
   presencePenalty?: number;
   stop?: string[];
   seed?: number;
+  /** Optional image URL for multimodal providers. When present, vision-
+   * capable providers (OpenRouter/MiMo, Gemini) should send the image
+   * as a content part alongside the text message. Providers that don't
+   * support vision can ignore this. */
+  imageUrl?: string;
 }
 
 export interface AIResponse {

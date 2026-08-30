@@ -443,6 +443,12 @@ model AiConfigVersion {
   // regardless of what language the customer writes in.
   languageMode String   @default("auto")
 
+  // Vision mode for customer-sent photos: "current" uses Gemini to
+  // describe the image as text before sending to any provider (AI sees
+  // a text description), "mimo" sends the raw image to MiMo-V2.5 via
+  // OpenRouter so the AI sees the actual pixels.
+  visionMode   String   @default("current")
+
   // Provider-tuning parameters, overriding all AI providers uniformly for
   // this business. maxTokens replaces the old hardcoded ANSWER_MAX_TOKENS
   // constant — every business now controls its own answer length. The

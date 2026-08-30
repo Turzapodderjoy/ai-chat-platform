@@ -664,6 +664,10 @@ export class ChatService {
     // bracketed suffix can never accidentally satisfy those pattern
     // checks (e.g. a "yes" order-confirmation match).
     let effectiveMessage = request.message;
+    // When visionMode is "mimo", forward the raw image URL to the AI
+    // provider so MiMo can see the actual pixels. The VisionService
+    // text description still runs for search/retrieval indexing.
+    let forwardImageUrl: string | undefined;
     if (request.imageUrl && this.vision) {
       const imageContext = await this.vision.describeImage(request.imageUrl);
       if (imageContext) {
@@ -673,6 +677,10 @@ export class ChatService {
         effectiveMessage = request.message.trim()
           ? request.message
           : "[Customer sent a photo, but it couldn't be read this turn.]";
+      }
+      // Forward raw image when vision mode is "mimo"
+      if (config.visionMode === "mimo") {
+        forwardImageUrl = request.imageUrl;
       }
     }
 
@@ -1084,7 +1092,7 @@ export class ChatService {
     let aiResponse =
       await this.ai.chat(
         prompt.userPrompt,
-        { ...aiCallOptions, systemPrompt: prompt.systemPrompt }
+        { ...aiCallOptions, systemPrompt: prompt.systemPrompt, imageUrl: forwardImageUrl }
       );
     console.log(`[perf] ai.chat took ${Date.now() - __tAiStart}ms, provider=${aiResponse.provider}`);
 

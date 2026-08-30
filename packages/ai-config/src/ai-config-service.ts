@@ -19,6 +19,8 @@ export interface AiConfig {
   temperature: number;
   /** "auto" | "english" | "bangla" | "banglish" — see schema comment. */
   languageMode: string;
+  /** "current" (Gemini text description) | "mimo" (MiMo direct image). */
+  visionMode: string;
   maxTokens: number;
   topP: number | null;
   frequencyPenalty: number | null;
@@ -47,6 +49,7 @@ type Row = {
   historyTurns: number;
   temperature: number;
   languageMode: string;
+  visionMode: string;
   maxTokens: number;
   topP: number | null;
   frequencyPenalty: number | null;
@@ -67,6 +70,7 @@ function toConfig(row: Row): AiConfig {
     historyTurns: row.historyTurns,
     temperature: row.temperature,
     languageMode: row.languageMode,
+    visionMode: row.visionMode,
     maxTokens: row.maxTokens,
     topP: row.topP,
     frequencyPenalty: row.frequencyPenalty,
@@ -157,6 +161,7 @@ export class AiConfigService {
         historyTurns,
         temperature,
         languageMode: current.languageMode,
+        visionMode: current.visionMode,
         maxTokens: current.maxTokens,
         topP: current.topP,
         frequencyPenalty: current.frequencyPenalty,
@@ -191,6 +196,7 @@ export class AiConfigService {
         historyTurns: current.historyTurns,
         temperature: current.temperature,
         languageMode: current.languageMode,
+        visionMode: current.visionMode,
         maxTokens: current.maxTokens,
         topP: current.topP,
         frequencyPenalty: current.frequencyPenalty,
@@ -222,6 +228,7 @@ export class AiConfigService {
         historyTurns: current.historyTurns,
         temperature: current.temperature,
         languageMode,
+        visionMode: current.visionMode,
         maxTokens: current.maxTokens,
         topP: current.topP,
         frequencyPenalty: current.frequencyPenalty,
@@ -257,6 +264,7 @@ export class AiConfigService {
         historyTurns: current.historyTurns,
         temperature: current.temperature,
         languageMode: current.languageMode,
+        visionMode: current.visionMode,
         maxTokens: params.maxTokens,
         topP: params.topP,
         frequencyPenalty: params.frequencyPenalty,
@@ -283,5 +291,34 @@ export class AiConfigService {
     });
 
     return rows.map(toConfig);
+  }
+
+  /** Switches between "current" (Gemini text description) and "mimo"
+   * (MiMo direct image) vision modes. Everything else carries forward. */
+  async setVisionMode(businessId: string, visionMode: string, note?: string): Promise<AiConfig> {
+    const current = await this.getCurrent(businessId);
+
+    const created = await prisma.aiConfigVersion.create({
+      data: {
+        businessId,
+        systemPrompt: current.systemPrompt,
+        handoffFloor: current.handoffFloor,
+        historyTurns: current.historyTurns,
+        temperature: current.temperature,
+        languageMode: current.languageMode,
+        visionMode,
+        maxTokens: current.maxTokens,
+        topP: current.topP,
+        frequencyPenalty: current.frequencyPenalty,
+        presencePenalty: current.presencePenalty,
+        stopSequences: current.stopSequences,
+        seed: current.seed,
+        changeType: "vision",
+        note: note?.trim() || `Vision mode set to ${visionMode}`,
+      },
+    });
+
+    this.responseCache?.clearForBusiness(businessId);
+    return toConfig(created);
   }
 }

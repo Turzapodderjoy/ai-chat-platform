@@ -86,6 +86,18 @@ export class AiConfigController {
     return this.aiConfig.setLanguageMode(businessId, languageMode);
   }
 
+  private static readonly VALID_VISION_MODES = new Set(["current", "mimo"]);
+
+  /** Switches between "current" (Gemini text description) and "mimo"
+   * (MiMo direct image) vision modes for customer-sent photos. */
+  setVisionMode(visionMode: string, businessId: string = PLATFORM_CONFIG_ID) {
+    if (!AiConfigController.VALID_VISION_MODES.has(visionMode)) {
+      throw new Error('visionMode must be "current" or "mimo".');
+    }
+
+    return this.aiConfig.setVisionMode(businessId, visionMode);
+  }
+
   /** Appends a rule to the platform default AND every existing client's
    * own current prompt — for policy rules that must apply everywhere
    * immediately, not just to clients who haven't customized their prompt

@@ -363,6 +363,7 @@ export class AIManager {
       presencePenalty?: number;
       stop?: string[];
       seed?: number;
+      imageUrl?: string;
     } = {}
   ): Promise<{ provider: string; response: string; tokens: number }> {
     const result = await this.generate({
@@ -377,6 +378,7 @@ export class AIManager {
       presencePenalty: options.presencePenalty,
       stop: options.stop,
       seed: options.seed,
+      imageUrl: options.imageUrl,
     });
 
     return {

@@ -4,7 +4,12 @@
 // before picking these two.
 export const DEFAULT_MODEL = "openai/gpt-oss-20b:free";
 
+// MiMo-V2.5 via OpenRouter — native multimodal (vision) support.
+// Used when a customer sends a photo and visionMode is "mimo".
+export const VISION_MODEL = "xiaomi/mimo-v2.5";
+
 export const MODELS = [
   "openai/gpt-oss-20b:free",
   "google/gemma-4-26b-a4b-it:free",
+  VISION_MODEL,
 ];
