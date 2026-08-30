@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { cardStyle, primaryButtonStyle, subtleTextStyle } from "./dashboard-styles";
+import { cardStyle, primaryButtonStyle, labelTextStyle, subtleTextStyle, inputStyle } from "./dashboard-styles";
 
 type Kind = "order_status" | "repair_status";
 
@@ -103,46 +103,59 @@ export function StatusEmailTemplatesPanel({ businessId }: { businessId: string }
             const isOpen = openKey === key;
 
             return (
-              <div key={key} style={{ ...cardStyle, padding: 12 }}>
+              <div key={key} style={{ ...cardStyle, padding: 16 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <strong>{s.label}</strong>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <strong style={{ fontSize: 14 }}>{s.label}</strong>
                     {existing ? (
-                      <span style={{ marginLeft: 8, fontSize: 12, color: existing.enabled ? "#10b981" : "#6b7280" }}>
+                      <span style={{
+                        fontSize: 11,
+                        fontWeight: 500,
+                        padding: "2px 8px",
+                        borderRadius: "var(--radius-full, 9999px)",
+                        background: existing.enabled ? "var(--success-subtle)" : "var(--surface-hover)",
+                        color: existing.enabled ? "var(--success)" : "var(--text-muted)",
+                      }}>
                         {existing.enabled ? "Enabled" : "Disabled"}
                       </span>
                     ) : (
-                      <span style={{ marginLeft: 8, fontSize: 12, fontStyle: "italic", opacity: 0.6 }}>No template set</span>
+                      <span style={{ fontSize: 12, color: "var(--text-faint)", fontStyle: "italic" }}>No template</span>
                     )}
                   </div>
-                  <button onClick={() => toggle(kind, s.value)} style={{ fontSize: 12, padding: "4px 10px" }}>
+                  <button onClick={() => toggle(kind, s.value)} className="ghost" style={{ fontSize: 12, padding: "6px 12px" }}>
                     {isOpen ? "Close" : existing ? "Edit" : "Add"}
                   </button>
                 </div>
 
                 {isOpen && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
-                    <input
-                      type="text"
-                      placeholder="Subject"
-                      value={subjectDraft}
-                      onChange={(e) => setSubjectDraft(e.target.value)}
-                      style={{ padding: "6px 8px", border: "1px solid #d1d5db", borderRadius: 4, fontSize: 14 }}
-                    />
-                    <textarea
-                      placeholder="Email body (HTML) -- use {{placeholders}} above"
-                      value={bodyDraft}
-                      onChange={(e) => setBodyDraft(e.target.value)}
-                      rows={6}
-                      style={{ padding: "6px 8px", border: "1px solid #d1d5db", borderRadius: 4, fontSize: 13, fontFamily: "monospace" }}
-                    />
-                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-                      <input type="checkbox" checked={enabledDraft} onChange={(e) => setEnabledDraft(e.target.checked)} />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border-subtle)" }}>
+                    <div>
+                      <label style={labelTextStyle}>Subject</label>
+                      <input
+                        type="text"
+                        placeholder="Email subject line"
+                        value={subjectDraft}
+                        onChange={(e) => setSubjectDraft(e.target.value)}
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelTextStyle}>Body (HTML)</label>
+                      <textarea
+                        placeholder="Use {{placeholders}} for dynamic content"
+                        value={bodyDraft}
+                        onChange={(e) => setBodyDraft(e.target.value)}
+                        rows={6}
+                        style={{ ...inputStyle, fontFamily: "var(--font-mono)", resize: "vertical" }}
+                      />
+                    </div>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-secondary)", cursor: "pointer" }}>
+                      <input type="checkbox" checked={enabledDraft} onChange={(e) => setEnabledDraft(e.target.checked)} style={{ width: 16, height: 16, accentColor: "var(--accent)" }} />
                       Enabled
                     </label>
                     <div>
-                      <button onClick={() => save(kind, s.value)} disabled={saving || !subjectDraft.trim() || !bodyDraft.trim()} style={primaryButtonStyle}>
-                        {saving ? "Saving…" : "Save"}
+                      <button onClick={() => save(kind, s.value)} disabled={saving || !subjectDraft.trim() || !bodyDraft.trim()} className="primary" style={{ fontSize: 13, padding: "8px 16px" }}>
+                        {saving ? "Saving..." : "Save Template"}
                       </button>
                     </div>
                   </div>
@@ -155,18 +168,30 @@ export function StatusEmailTemplatesPanel({ businessId }: { businessId: string }
     );
   }
 
-  if (!templates) return <div style={{ padding: 24 }}>Loading…</div>;
+  if (!templates) {
+    return (
+      <div style={{ padding: 24, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 200 }}>
+        <div style={{ textAlign: "center", color: "var(--text-muted)" }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginBottom: 8, opacity: 0.5 }}>
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 6v6l4 2" />
+          </svg>
+          <div style={{ fontSize: 13 }}>Loading templates...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: 24 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>Notifications</h2>
-      <p style={{ ...subtleTextStyle, marginBottom: 16 }}>
-        Automated emails sent to the customer whenever an order or repair status changes — sent through the
-        Gmail account connected on the Integrations tab. Connect Gmail there first; a status change with no
-        template set (or no connected Gmail account) is silently skipped.
-      </p>
-      {renderSection("order_status", ORDER_STATUSES, ORDER_PLACEHOLDERS, "Order status emails")}
-      {renderSection("repair_status", REPAIR_STATUSES, REPAIR_PLACEHOLDERS, "Repair status emails")}
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Email Notifications</h2>
+        <p style={{ ...subtleTextStyle, fontSize: 13 }}>
+          Automated emails sent when order or repair status changes. Uses the Gmail account connected on the Integrations tab.
+        </p>
+      </div>
+      {renderSection("order_status", ORDER_STATUSES, ORDER_PLACEHOLDERS, "Order Status Emails")}
+      {renderSection("repair_status", REPAIR_STATUSES, REPAIR_PLACEHOLDERS, "Repair Status Emails")}
     </div>
   );
 }
