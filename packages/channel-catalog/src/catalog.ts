@@ -3,7 +3,6 @@ import { messengerAdapter } from "./providers/messenger";
 import { instagramAdapter } from "./providers/instagram";
 import { whatsappAdapter } from "./providers/whatsapp";
 import { evolutionWhatsappAdapter } from "./providers/evolution-whatsapp";
-import { gmailAdapter } from "./providers/gmail";
 import type { ChannelAdapter } from "./types";
 
 /** Every messaging channel with a real adapter — same pattern as
@@ -15,5 +14,4 @@ export const CHANNEL_CATALOG: ChannelAdapter[] = [
   instagramAdapter,
   whatsappAdapter,
   evolutionWhatsappAdapter,
-  gmailAdapter,
 ];

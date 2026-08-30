@@ -1044,6 +1044,19 @@ model EmailSenderConfig {
   updatedAt       DateTime @updatedAt
 }
 
+// Per-business Gmail sender, connected via an App Password (Google
+// Account -> Security -> App Passwords, needs 2-Step Verification on)
+// instead of OAuth -- no Google Cloud project, no consent screen, no
+// platform-wide app credential, nothing shared across clients. Sent
+// over Gmail's own SMTP (smtp.gmail.com:465) by GmailEmailClient.
+model GmailSenderConfig {
+  id          String   @id @default(cuid())
+  businessId  String   @unique
+  gmailAddress String
+  appPassword String
+  updatedAt   DateTime @updatedAt
+}
+
 // One editable email template per (business, kind, status) -- kind is
 // "order_status" or "repair_status", statusValue matches
 // DELIVERY_STATUSES / the repair status list. Rendered with {{placeholder}}

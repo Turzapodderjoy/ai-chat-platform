@@ -42,12 +42,12 @@ import { FeedbackController } from "@ai-chat-platform/api";
 import { AutoHealController } from "@ai-chat-platform/api";
 import { TagController } from "@ai-chat-platform/api";
 import { ClientAuthController } from "@ai-chat-platform/api";
-import { WidgetConfigController, DashboardThemeController, ApprovalController, StatusEmailTemplateController } from "@ai-chat-platform/api";
+import { WidgetConfigController, DashboardThemeController, ApprovalController, StatusEmailTemplateController, GmailSenderConfigController } from "@ai-chat-platform/api";
 import { ApprovalService } from "@ai-chat-platform/approvals";
 import { KnowledgeRefreshController } from "@ai-chat-platform/api";
 import { ClientHealthController, ProductController, OrderController, RepairController, EmailController, CrmController, RevenueController, ReportingController, WidgetVisibilityController } from "@ai-chat-platform/api";
 import { RepairAppointmentService } from "@ai-chat-platform/repairs";
-import { EmailSenderConfigService, ResendEmailClient, GmailEmailClient, StatusEmailTemplateService, StatusEmailService } from "@ai-chat-platform/email";
+import { EmailSenderConfigService, ResendEmailClient, GmailSenderConfigService, GmailEmailClient, StatusEmailTemplateService, StatusEmailService } from "@ai-chat-platform/email";
 import { ContactService, DealService } from "@ai-chat-platform/crm";
 import { QuoteService, InvoiceService, PaymentService } from "@ai-chat-platform/revenue";
 import { ReportingService } from "@ai-chat-platform/reporting";
@@ -241,8 +241,11 @@ export class Container {
     const channelAppCredentials =
       new ChannelAppCredentialService();
 
+    const gmailSenderConfig =
+      new GmailSenderConfigService();
+
     const gmailEmailClient =
-      new GmailEmailClient(channelConnections, channelAppCredentials);
+      new GmailEmailClient(gmailSenderConfig);
 
     const statusEmailTemplates =
       new StatusEmailTemplateService();
@@ -276,6 +279,9 @@ export class Container {
 
     const statusEmailTemplateController =
       new StatusEmailTemplateController(statusEmailTemplates);
+
+    const gmailSenderConfigController =
+      new GmailSenderConfigController(gmailSenderConfig);
 
     this.router =
       new ApiRouter(
@@ -325,7 +331,8 @@ export class Container {
         new WidgetVisibilityController(widgetVisibility),
         new DashboardThemeController(dashboardTheme),
         new ApprovalController(approvals),
-        statusEmailTemplateController
+        statusEmailTemplateController,
+        gmailSenderConfigController
       );
   }
 
