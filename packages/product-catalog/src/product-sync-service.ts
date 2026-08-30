@@ -344,4 +344,71 @@ export class ProductSyncService {
 
     return { queued: rows.length };
   }
+
+  /** Manual bulk inventory import (Product Catalog panel's "Import
+   * CSV/XLSX" button) — reuses the exact same parser/column-alias
+   * matching (parseChunkRows/rowToProduct above) built for the
+   * crawler's extracted tables, since a real uploaded spreadsheet is
+   * the same shape: a header row + data rows, with no fixed schema to
+   * key off. XLSX.read auto-detects CSV vs. real .xlsx from the buffer
+   * itself, so one path handles both. Unlike the crawler sync path,
+   * this always writes every parsed row (create or update by SKU) --
+   * no unchanged-skip diffing, since an explicit import is a deliberate
+   * action, not a background recrawl. Rows with no SKU always create a
+   * new product (no natural key to match an existing one against) --
+   * documented behavior, not a bug: re-importing the same SKU-less file
+   * duplicates those rows. */
+  async importRows(businessId: string, fileBuffer: Buffer): Promise<{ created: number; updated: number; skipped: number }> {
+    let workbook: XLSX.WorkBook;
+    try {
+      workbook = XLSX.read(fileBuffer, { type: "buffer" });
+    } catch {
+      return { created: 0, updated: 0, skipped: 0 };
+    }
+
+    const sheet = workbook.Sheets[workbook.SheetNames[0]!];
+    if (!sheet) return { created: 0, updated: 0, skipped: 0 };
+
+    const rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, blankrows: false, defval: "" });
+    if (rows.length < 2) return { created: 0, updated: 0, skipped: 0 };
+
+    const [headerRow, ...dataRows] = rows;
+    const headers = headerRow!.map(String);
+
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+
+    for (const row of dataRows) {
+      const product = rowToProduct(headers, row.map(String));
+      if (!product) {
+        skipped++;
+        continue;
+      }
+
+      const existing = product.sku ? await prisma.product.findFirst({ where: { businessId, sku: product.sku } }) : null;
+
+      if (existing) {
+        await prisma.product.update({
+          where: { id: existing.id },
+          data: { name: product.name, price: product.price, stock: product.stock, description: product.description },
+        });
+        updated++;
+      } else {
+        await prisma.product.create({
+          data: {
+            businessId,
+            name: product.name,
+            price: product.price,
+            stock: product.stock,
+            sku: product.sku,
+            description: product.description,
+          },
+        });
+        created++;
+      }
+    }
+
+    return { created, updated, skipped };
+  }
 }
