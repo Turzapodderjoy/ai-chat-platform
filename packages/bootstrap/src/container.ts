@@ -42,11 +42,12 @@ import { FeedbackController } from "@ai-chat-platform/api";
 import { AutoHealController } from "@ai-chat-platform/api";
 import { TagController } from "@ai-chat-platform/api";
 import { ClientAuthController } from "@ai-chat-platform/api";
-import { WidgetConfigController, DashboardThemeController } from "@ai-chat-platform/api";
+import { WidgetConfigController, DashboardThemeController, ApprovalController, StatusEmailTemplateController } from "@ai-chat-platform/api";
+import { ApprovalService } from "@ai-chat-platform/approvals";
 import { KnowledgeRefreshController } from "@ai-chat-platform/api";
 import { ClientHealthController, ProductController, OrderController, RepairController, EmailController, CrmController, RevenueController, ReportingController, WidgetVisibilityController } from "@ai-chat-platform/api";
 import { RepairAppointmentService } from "@ai-chat-platform/repairs";
-import { EmailSenderConfigService, ResendEmailClient } from "@ai-chat-platform/email";
+import { EmailSenderConfigService, ResendEmailClient, GmailEmailClient, StatusEmailTemplateService, StatusEmailService } from "@ai-chat-platform/email";
 import { ContactService, DealService } from "@ai-chat-platform/crm";
 import { QuoteService, InvoiceService, PaymentService } from "@ai-chat-platform/revenue";
 import { ReportingService } from "@ai-chat-platform/reporting";
@@ -240,6 +241,15 @@ export class Container {
     const channelAppCredentials =
       new ChannelAppCredentialService();
 
+    const gmailEmailClient =
+      new GmailEmailClient(channelConnections, channelAppCredentials);
+
+    const statusEmailTemplates =
+      new StatusEmailTemplateService();
+
+    const statusEmails =
+      new StatusEmailService(statusEmailTemplates, gmailEmailClient);
+
     const autoHeal =
       new AutoHealService(crawlerService, indexingService, embeddings, tenants, masterCsv, refreshSchedule);
 
@@ -260,6 +270,12 @@ export class Container {
 
     const dashboardTheme =
       new DashboardThemeService();
+
+    const approvals =
+      new ApprovalService();
+
+    const statusEmailTemplateController =
+      new StatusEmailTemplateController(statusEmailTemplates);
 
     this.router =
       new ApiRouter(
@@ -300,14 +316,16 @@ export class Container {
         new KnowledgeRefreshController(refreshSchedule, masterCsv, tenants, crawlerService, vectorStore),
         new ClientHealthController(tenants, crawlerService, masterCsv, refreshSchedule, vectorStore, embeddings, conversations),
         new ProductController(productService, productSync),
-        new OrderController(orders),
-        new RepairController(repairs, conversations, emailSenderConfig, emailClient, tenants, contacts, deals),
+        new OrderController(orders, statusEmails),
+        new RepairController(repairs, conversations, emailSenderConfig, emailClient, tenants, contacts, deals, statusEmails),
         new EmailController(emailSenderConfig),
         new CrmController(contacts, deals),
         new RevenueController(quotes, invoices, payments),
         new ReportingController(reporting),
         new WidgetVisibilityController(widgetVisibility),
-        new DashboardThemeController(dashboardTheme)
+        new DashboardThemeController(dashboardTheme),
+        new ApprovalController(approvals),
+        statusEmailTemplateController
       );
   }
 

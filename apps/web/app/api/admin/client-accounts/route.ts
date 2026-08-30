@@ -72,6 +72,10 @@ export async function PATCH(req: NextRequest) {
       await app.container.router.clientAuth.changePassword(body.id, body.password, changedBy);
     }
 
+    if (body.teamId !== undefined) {
+      await app.container.router.clientAuth.assignAccountToTeam(body.id, typeof body.teamId === "string" ? body.teamId : null);
+    }
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json(

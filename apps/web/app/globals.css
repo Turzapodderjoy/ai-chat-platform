@@ -1,17 +1,11 @@
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0f1117;
+  --foreground: #e2e8f0;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "SF Mono", SFMono-Regular, ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-html,
-body {
+html, body {
   max-width: 100vw;
   overflow-x: hidden;
 }
@@ -19,6 +13,9 @@ body {
 body {
   color: var(--foreground);
   background: var(--background);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
@@ -32,147 +29,110 @@ a {
   text-decoration: none;
 }
 
-.imgDark {
-  display: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
-
-  .imgLight {
-    display: none;
-  }
-  .imgDark {
-    display: unset;
-  }
-}
-
-/* ---------------------------------------------------------------------
- * Dashboard design system — scoped to `.app-shell` (both dashboards, via
- * DashboardShell). Ships two full themes, toggled by `data-theme` on
- * this element (DashboardThemeService — one shared DB-backed value for
- * every viewer, not per-browser). Dark is the default/no-attribute case
- * so existing behavior is unchanged until someone actually flips the
- * toggle; light is a real second theme, not an inverted afterthought —
- * same violet accent, same shape/motion language, contrast tuned
- * separately for a white ground (Intercom/Attio-style: soft cards,
- * pill nav, gentle shadows instead of hard borders doing all the work).
- * ------------------------------------------------------------------- */
+/* ===================================================================
+   Dashboard Design System - Modern Minimal
+   =================================================================== */
 .app-shell,
 .app-shell[data-theme="dark"] {
-  /* HubSpot's own sidebar navy, not a generic dark theme — same palette
-   * their app itself uses in the left rail. */
-  --bg: #1a2e43;
-  --bg-elevated: #213343;
-  --surface: #24374e;
-  --surface-hover: #2c4058;
-  --border: #33475b;
-  --border-strong: #45607a;
-  --text: #f5f8fa;
-  --text-muted: #cbd6e2;
-  --text-faint: #8697a8;
-  --accent: #ff7a59;
-  --accent-strong: #ff5c35;
-  --accent-soft: rgba(255, 122, 89, 0.16);
-  --success: #34d399;
-  --success-soft: rgba(52, 211, 153, 0.14);
-  --warning: #f2b84b;
-  --warning-soft: rgba(242, 184, 75, 0.14);
-  --danger: #f16565;
-  --danger-soft: rgba(241, 101, 101, 0.14);
-  --radius: 10px;
-  --radius-sm: 7px;
-  --shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.45);
+  /* Core palette */
+  --bg: #0f1117;
+  --bg-elevated: #161822;
+  --surface: #1c1f2e;
+  --surface-hover: #232738;
+  --surface-active: #2a2e42;
+  --border: #2a2e42;
+  --border-subtle: #1e2235;
+  --border-strong: #3d4260;
+  
+  /* Text hierarchy */
+  --text: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-faint: #64748b;
+  
+  /* Accent - Indigo */
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-muted: #4f46e5;
+  --accent-subtle: rgba(99, 102, 241, 0.12);
+  --accent-glow: rgba(99, 102, 241, 0.25);
+  
+  /* Semantic colors */
+  --success: #10b981;
+  --success-subtle: rgba(16, 185, 129, 0.12);
+  --warning: #f59e0b;
+  --warning-subtle: rgba(245, 158, 11, 0.12);
+  --danger: #ef4444;
+  --danger-subtle: rgba(239, 68, 68, 0.12);
+  --info: #3b82f6;
+  --info-subtle: rgba(59, 130, 246, 0.12);
+  
+  /* Shape */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 40px -8px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 20px var(--accent-glow);
+  
+  /* Motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --duration-slow: 350ms;
+  
   color-scheme: dark;
-
-  /* MD3's dark-theme elevation model is TONAL: a "higher" surface gets
-   * progressively lighter, not just a bigger drop shadow — these 5
-   * tiers are a flat white overlay of increasing opacity laid over
-   * --surface, matching the spec's own 5%/8%/11%/12%/14% levels. */
-  --md-surface-1: color-mix(in srgb, var(--surface) 95%, white 5%);
-  --md-surface-2: color-mix(in srgb, var(--surface) 92%, white 8%);
-  --md-surface-3: color-mix(in srgb, var(--surface) 89%, white 11%);
-  --md-surface-4: color-mix(in srgb, var(--surface) 88%, white 12%);
-  --md-surface-5: color-mix(in srgb, var(--surface) 86%, white 14%);
 }
 
 .app-shell[data-theme="light"] {
-  /* HubSpot's own light-mode app palette — warm off-white ground, navy
-   * text, the same orange accent as the dark/sidebar theme. */
-  --bg: #f5f8fa;
+  --bg: #f8fafc;
   --bg-elevated: #ffffff;
   --surface: #ffffff;
-  --surface-hover: #f5f8fa;
-  --border: #cbd6e2;
-  --border-strong: #99acc2;
-  --text: #33475b;
-  --text-muted: #516f90;
-  --text-faint: #7c98b6;
-  --accent: #ff7a59;
-  --accent-strong: #e66e51;
-  --accent-soft: rgba(255, 122, 89, 0.12);
-  --success: #16a34a;
-  --success-soft: rgba(22, 163, 74, 0.1);
-  --warning: #b45309;
-  --warning-soft: rgba(180, 83, 9, 0.1);
+  --surface-hover: #f1f5f9;
+  --surface-active: #e2e8f0;
+  --border: #e2e8f0;
+  --border-subtle: #f1f5f9;
+  --border-strong: #cbd5e1;
+  
+  --text: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-faint: #64748b;
+  
+  --accent: #6366f1;
+  --accent-hover: #4f46e5;
+  --accent-muted: #818cf8;
+  --accent-subtle: rgba(99, 102, 241, 0.08);
+  --accent-glow: rgba(99, 102, 241, 0.15);
+  
+  --success: #059669;
+  --success-subtle: rgba(5, 150, 105, 0.08);
+  --warning: #d97706;
+  --warning-subtle: rgba(217, 119, 6, 0.08);
   --danger: #dc2626;
-  --danger-soft: rgba(220, 38, 38, 0.1);
-  --radius: 10px;
-  --radius-sm: 7px;
-  --shadow: 0 10px 30px -12px rgba(32, 28, 44, 0.14);
+  --danger-subtle: rgba(220, 38, 38, 0.08);
+  --info: #2563eb;
+  --info-subtle: rgba(37, 99, 235, 0.08);
+  
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 40px -8px rgba(0, 0, 0, 0.12);
+  
   color-scheme: light;
-
-  /* On an already near-white ground, "more white" does nothing visible —
-   * light MD3 elevation instead tints progressively toward the accent,
-   * the spec's own primary-tinted overlay approach for light surfaces. */
-  --md-surface-1: color-mix(in srgb, var(--surface) 97%, var(--accent) 3%);
-  --md-surface-2: color-mix(in srgb, var(--surface) 95%, var(--accent) 5%);
-  --md-surface-3: color-mix(in srgb, var(--surface) 93%, var(--accent) 7%);
-  --md-surface-4: color-mix(in srgb, var(--surface) 92%, var(--accent) 8%);
-  --md-surface-5: color-mix(in srgb, var(--surface) 90%, var(--accent) 10%);
 }
 
 .app-shell {
-  /* Shape scale (MD3 §Shape): none/extra-small.../full, one variable per
-   * step so a component picks the step that matches its own size rather
-   * than every component sharing one radius. */
-  --md-shape-xs: 4px;
-  --md-shape-sm: 8px;
-  --md-shape-md: 12px;
-  --md-shape-lg: 16px;
-  --md-shape-xl: 28px;
-  --md-shape-full: 999px;
-
-  /* State layers (MD3 §Interaction states) — the standard hover/press
-   * opacity an on-surface-colored overlay gets, applied via the
-   * `.state-layer` utility below rather than hand-mixed colors per
-   * component. */
-  --md-state-hover: 0.08;
-  --md-state-press: 0.12;
-  --md-state-focus: 0.12;
-
-  /* Motion (MD3 §Motion) — the spec's own "emphasized" easing (fast out,
-   * slow in) for anything entering/leaving, "standard" for in-place
-   * state changes, plus duration tiers. */
-  --md-easing-standard: cubic-bezier(0.2, 0, 0, 1);
-  --md-easing-emphasized: cubic-bezier(0.3, 0, 0, 1);
-  --md-duration-short: 150ms;
-  --md-duration-medium: 250ms;
-  --md-duration-long: 400ms;
-
   min-height: 100vh;
-  /* A flat single color reads as a generic admin template — this is
-   * the same radial-wash treatment the login page already uses,
-   * carried through to the dashboard so the whole product shares one
-   * visual signature instead of the login page being the only place
-   * with any atmosphere. */
-  background:
-    radial-gradient(1100px 520px at 14% -8%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%),
-    var(--bg);
+  background: var(--bg);
   color: var(--text);
-  font-family: var(--font-geist-sans, -apple-system), BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-geist-sans, -apple-system), BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 14px;
   line-height: 1.5;
 }
@@ -185,125 +145,98 @@ a {
   }
 }
 
-.app-shell h1,
-.app-shell h2,
-.app-shell h3 {
+/* Typography */
+.app-shell h1, .app-shell h2, .app-shell h3 {
   color: var(--text);
-  font-weight: 650;
-  letter-spacing: -0.01em;
-  font-family: var(--font-lexend-deca), var(--font-geist-sans, -apple-system), sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
-.app-shell h1 { font-size: 22px; }
-.app-shell h2 { font-size: 17px; }
+.app-shell h1 { font-size: 24px; }
+.app-shell h2 { font-size: 18px; }
 .app-shell h3 { font-size: 14px; }
 
 .app-shell p {
-  color: var(--text);
+  color: var(--text-secondary);
 }
 
 .app-shell code {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: "SF Mono", "Fira Code", monospace;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+  padding: 2px 6px;
+  font-size: 12px;
+  color: var(--accent-hover);
 }
 
-/* Inputs, selects, textareas — one consistent control style everywhere,
- * so every existing panel's raw <input>/<select> instantly matches
- * without each one needing its own className rewrite. */
+/* Inputs */
 .app-shell input:not([type="checkbox"]):not([type="radio"]),
 .app-shell select,
 .app-shell textarea {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-family: inherit;
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
   border-radius: var(--radius-sm);
-  font: inherit;
-  padding: 8px 10px;
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color var(--duration-fast) ease, box-shadow var(--duration-fast) ease;
 }
 
 .app-shell input:not([type="checkbox"]):not([type="radio"])::placeholder,
 .app-shell textarea::placeholder {
-  color: var(--text-faint);
+  color: var(--text-muted);
 }
 
 .app-shell input:not([type="checkbox"]):not([type="radio"]):focus,
 .app-shell select:focus,
 .app-shell textarea:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
 }
 
 .app-shell input[type="checkbox"],
 .app-shell input[type="radio"] {
+  width: 16px;
+  height: 16px;
   accent-color: var(--accent);
-  width: 15px;
-  height: 15px;
   cursor: pointer;
 }
 
-.app-shell input[type="color"] {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-
-/* Buttons — MD3 shape (full-pill, matching the spec's "filled/outlined
- * button" shape) and a real state layer instead of a flat color swap:
- * hover/press lay a translucent white overlay over whatever the
- * button's own background already is, so it reads correctly on both
- * plain and accent-filled buttons without two separate rule sets. */
+/* Buttons */
 .app-shell button {
-  position: relative;
-  font: inherit;
-  border-radius: var(--md-shape-full);
-  border: 1px solid var(--border-strong);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  padding: 9px 18px;
   cursor: pointer;
-  overflow: hidden;
-  transition: background var(--md-duration-short) var(--md-easing-standard),
-    border-color var(--md-duration-short) var(--md-easing-standard),
-    opacity var(--md-duration-short) var(--md-easing-standard),
-    transform var(--md-duration-short) var(--md-easing-emphasized),
-    box-shadow var(--md-duration-short) var(--md-easing-standard);
-}
-
-.app-shell button::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: currentColor;
-  opacity: 0;
-  transition: opacity var(--md-duration-short) var(--md-easing-standard);
-  pointer-events: none;
-}
-
-.app-shell button:hover:not(:disabled)::before {
-  opacity: var(--md-state-hover);
-}
-
-.app-shell button:active:not(:disabled)::before {
-  opacity: var(--md-state-press);
+  transition: all var(--duration-fast) ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .app-shell button:hover:not(:disabled) {
+  background: var(--surface-hover);
   border-color: var(--border-strong);
 }
 
 .app-shell button:active:not(:disabled) {
-  transform: scale(0.97);
+  background: var(--surface-active);
+  transform: scale(0.98);
 }
 
 .app-shell button:disabled {
   opacity: 0.5;
-  cursor: default;
+  cursor: not-allowed;
 }
 
 .app-shell button:focus-visible {
@@ -311,110 +244,135 @@ a {
   outline-offset: 2px;
 }
 
-/* The dashboards' "primary action" buttons never carried a distinct
- * className — this promotes the common submit-style verbs by label so
- * they read as primary without touching every call site. Purely
- * cosmetic, no behavior change. */
-.app-shell button:not(.plain) {
-  font-weight: 600;
+/* Primary button */
+.app-shell button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
 }
 
-/* .plain was only ever referenced as a :not() escape hatch above --
- * nothing actually reset it, so any button using className="plain"
- * without its OWN full set of inline overrides (border/background/
- * padding/radius) still inherited the pill-shaped, bordered, padded
- * base button above. Confirmed live: Client Access's "6/19 panels" and
- * "Change / history" links rendered as fat wrapped-text ovals instead
- * of plain inline text. This is the actual reset every "plain" button
- * across the app was supposed to get; call sites that already pass
- * their own inline border/background (DashboardShell's nav, etc.) are
- * unaffected since inline styles win per-property regardless. */
-.app-shell button.plain {
-  border: none;
+.app-shell button.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  box-shadow: var(--shadow-glow);
+}
+
+/* Ghost button */
+.app-shell button.ghost {
   background: transparent;
+  border-color: transparent;
+  color: var(--text-secondary);
+}
+
+.app-shell button.ghost:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+/* Danger button */
+.app-shell button.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: white;
+}
+
+.app-shell button.danger:hover:not(:disabled) {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
+/* Plain button reset */
+.app-shell button.plain {
+  background: transparent;
+  border: none;
   padding: 0;
-  border-radius: 0;
+  font-weight: inherit;
 }
 
 .app-shell aside button {
-  border: none;
   background: transparent;
-  font-weight: 400;
+  border: none;
 }
 
 /* Tables */
 .app-shell table {
-  border-collapse: collapse;
   width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
-/* A table wide enough to need it (many columns, or one long-content
- * cell) scrolls horizontally INSIDE this wrapper instead of pushing its
- * last column out past the card's visible edge — confirmed live on
- * Client Health, where the action button rendered completely outside
- * the card. Deliberately a real wrapper element (.table-scroll, added
- * per table in each panel) rather than a table{display:block} trick:
- * that trick breaks header/body column sync (thead and tbody become
- * two separate table contexts with independently-computed widths). */
 .table-scroll {
   overflow-x: auto;
-  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
 }
 
 .app-shell th {
   text-align: left;
   font-size: 11px;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-muted);
-  font-weight: 600;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border-strong);
+  padding: 12px 16px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.app-shell th:first-child {
+  border-radius: var(--radius-md) 0 0 0;
+}
+
+.app-shell th:last-child {
+  border-radius: 0 var(--radius-md) 0 0;
 }
 
 .app-shell td {
-  padding: 12px;
-  border-bottom: 1px solid var(--border);
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-subtle);
   font-size: 13px;
-  /* top, not middle -- a row with one tall cell (a long provider-usage
-   * list, a multi-line status) was centering every OTHER cell in that
-   * same row, leaving huge empty gaps above/below their actual content.
-   * Confirmed live on Client Health's Malamal row. */
-  vertical-align: top;
+  color: var(--text-secondary);
 }
 
 .app-shell tbody tr {
-  transition: background var(--md-duration-short) var(--md-easing-standard);
+  transition: background var(--duration-fast) ease;
 }
 
 .app-shell tbody tr:hover {
   background: var(--surface-hover);
 }
 
-/* Reusable expand/collapse chevron rotation — see Collapsible.tsx.
- * Kept as a plain CSS class (not inline style) so the rotation
- * transition uses the shared MD3 easing token instead of each call
- * site re-declaring its own. */
-.md-chevron {
-  transition: transform var(--md-duration-short) var(--md-easing-standard);
+.app-shell tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
 }
 
-.md-chevron[data-open="true"] {
-  transform: rotate(180deg);
+.app-shell tbody tr:nth-child(even):hover {
+  background: var(--surface-hover);
 }
 
+.app-shell tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Links */
 .app-shell a:not(.plain-link) {
   color: var(--accent);
+  transition: color var(--duration-fast) ease;
 }
 
 .app-shell a:hover:not(.plain-link) {
+  color: var(--accent-hover);
   text-decoration: underline;
 }
 
+/* Scrollbar */
 .app-shell ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 .app-shell ::-webkit-scrollbar-track {
@@ -423,11 +381,16 @@ a {
 
 .app-shell ::-webkit-scrollbar-thumb {
   background: var(--border-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
 }
 
+.app-shell ::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Markdown */
 .markdown-message p {
-  margin: 0 0 8px;
+  margin: 0 0 12px;
   color: inherit;
 }
 
@@ -435,33 +398,167 @@ a {
   margin-bottom: 0;
 }
 
-.markdown-message ul,
-.markdown-message ol {
-  margin: 4px 0 8px;
-  padding-left: 20px;
+.markdown-message ul, .markdown-message ol {
+  margin: 8px 0 12px;
+  padding-left: 24px;
 }
 
 .markdown-message li {
-  margin: 2px 0;
+  margin: 4px 0;
 }
 
 .markdown-message strong {
-  font-weight: 700;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .markdown-message table {
-  border-collapse: collapse;
-  margin: 6px 0;
+  margin: 12px 0;
   font-size: 0.92em;
 }
 
-.markdown-message th,
-.markdown-message td {
-  padding: 4px 10px;
-  border: 1px solid var(--border-strong, rgba(128, 128, 128, 0.3));
-  text-align: left;
+.markdown-message th, .markdown-message td {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
 }
 
 .markdown-message th {
-  opacity: 0.85;
+  background: var(--bg-elevated);
+  font-weight: 600;
+}
+
+/* Recharts tooltip */
+.recharts-tooltip-wrapper {
+  outline: none !important;
+}
+
+.recharts-default-tooltip {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+.recharts-tooltip-label {
+  color: var(--text) !important;
+  font-weight: 600 !important;
+  margin-bottom: 4px !important;
+}
+
+.recharts-tooltip-item {
+  color: var(--text-secondary) !important;
+  font-size: 12px !important;
+}
+
+.recharts-cartesian-axis-tick-value {
+  fill: var(--text-muted) !important;
+  font-size: 11px !important;
+}
+
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: var(--border-subtle) !important;
+}
+
+/* ===================================================================
+   Skeleton Loader
+   =================================================================== */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+
+.skeleton {
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-text {
+  height: 12px;
+  margin-bottom: 8px;
+  border-radius: var(--radius-xs);
+}
+
+.skeleton-text:last-child {
+  width: 60%;
+}
+
+.skeleton-circle {
+  border-radius: 50%;
+}
+
+.skeleton-card {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+}
+
+/* ===================================================================
+   Focus Animations (Login & Forms)
+   =================================================================== */
+.login-input {
+  transition: all 0.2s ease;
+  border: 1px solid var(--border);
+}
+
+.login-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+.login-input:hover:not(:focus) {
+  border-color: var(--border-strong);
+}
+
+/* ===================================================================
+   Empty State Illustrations
+   =================================================================== */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.empty-state-icon {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 20px;
+  color: var(--text-faint);
+  opacity: 0.5;
+}
+
+.empty-state-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.empty-state-description {
+  font-size: 13px;
+  color: var(--text-muted);
+  max-width: 280px;
+  line-height: 1.5;
+}
+
+/* ===================================================================
+   Button Loading State
+   =================================================================== */
+@keyframes button-spin {
+  to { transform: rotate(360deg); }
+}
+
+button .spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: button-spin 0.6s linear infinite;
 }

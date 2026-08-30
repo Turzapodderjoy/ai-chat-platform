@@ -56,5 +56,24 @@ export async function proxy(req: NextRequest) {
     return res;
   }
 
+  // Check subscription status for client access (2-day grace period)
+  const business = await prisma.business.findUnique({
+    where: { id: businessId! },
+    select: {
+      subscriptionActive: true,
+      subscriptionEndDate: true,
+    },
+  });
+
+  if (business) {
+    const isDisabled = !business.subscriptionActive;
+    const isExpired = business.subscriptionEndDate &&
+      business.subscriptionEndDate < new Date(Date.now() - 2 * 24 * 60 * 60 * 1000); // 2-day grace period
+
+    if (isDisabled || isExpired) {
+      return NextResponse.redirect(new URL("/subscription-expired", req.url));
+    }
+  }
+
   return NextResponse.next();
 }

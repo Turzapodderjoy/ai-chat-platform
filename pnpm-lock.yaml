@@ -27,6 +27,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@ai-chat-platform/billing':
+        specifier: workspace:*
+        version: link:../../packages/billing
       '@ai-chat-platform/bootstrap':
         specifier: workspace:*
         version: link:../../packages/bootstrap
@@ -130,6 +133,9 @@ importers:
       '@ai-chat-platform/ai-manager':
         specifier: workspace:*
         version: link:../ai-manager
+      '@ai-chat-platform/approvals':
+        specifier: workspace:*
+        version: link:../approvals
       '@ai-chat-platform/auto-heal':
         specifier: workspace:*
         version: link:../auto-heal
@@ -221,6 +227,12 @@ importers:
         specifier: workspace:*
         version: link:../widget-visibility
 
+  packages/approvals:
+    dependencies:
+      '@ai-chat-platform/database':
+        specifier: workspace:*
+        version: link:../database
+
   packages/auto-heal:
     dependencies:
       '@ai-chat-platform/database':
@@ -242,6 +254,12 @@ importers:
         specifier: workspace:*
         version: link:../web-crawler
 
+  packages/billing:
+    dependencies:
+      '@ai-chat-platform/database':
+        specifier: workspace:*
+        version: link:../database
+
   packages/bootstrap:
     dependencies:
       '@ai-chat-platform/ai-config':
@@ -253,6 +271,9 @@ importers:
       '@ai-chat-platform/api':
         specifier: workspace:*
         version: link:../api
+      '@ai-chat-platform/approvals':
+        specifier: workspace:*
+        version: link:../approvals
       '@ai-chat-platform/auto-heal':
         specifier: workspace:*
         version: link:../auto-heal
@@ -472,9 +493,18 @@ importers:
 
   packages/email:
     dependencies:
+      '@ai-chat-platform/channel-connections':
+        specifier: workspace:*
+        version: link:../channel-connections
+      '@ai-chat-platform/conversation':
+        specifier: workspace:*
+        version: link:../conversation
       '@ai-chat-platform/database':
         specifier: workspace:*
         version: link:../database
+      '@ai-chat-platform/repairs':
+        specifier: workspace:*
+        version: link:../repairs
 
   packages/embedding-catalog:
     dependencies:
@@ -1412,6 +1442,7 @@ packages:
   '@xmldom/xmldom@0.8.13':
     resolution: {integrity: sha512-KRYzxepc14G/CEpEGc3Yn+JKaAeT63smlDr+vjB8jRfgTBBI9wRj/nkQEO+ucV8p8I9bfKLWp37uHgFrbntPvw==}
     engines: {node: '>=10.0.0'}
+    deprecated: this version has critical issues, please update to the latest version
 
   abort-controller@3.0.0:
     resolution: {integrity: sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg==}
@@ -1875,6 +1906,7 @@ packages:
   eslint@9.39.5:
     resolution: {integrity: sha512-DgZS62aPLXKlnxILS/AYCoRvHaZeXceIzlXPkkGGzJWSow1aEk0lbTlxUSlyjC8jcaKxAdOnTDz+o1JFSBsyjw==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'

@@ -12,6 +12,7 @@ export interface OrderInput {
 
 export interface Order extends OrderInput {
   id: string;
+  email: string | null;
   courier: string | null;
   trackingId: string | null;
   deliveryStatus: string;
@@ -21,6 +22,7 @@ export interface Order extends OrderInput {
 export const DELIVERY_STATUSES = ["pending", "picked_up", "in_transit", "delivered", "returned"] as const;
 
 export interface UpdateDeliveryInput {
+  email?: string | null;
   courier?: string | null;
   trackingId?: string | null;
   deliveryStatus?: string;
@@ -32,6 +34,7 @@ function toOrder(row: {
   conversationId: string;
   customerName: string;
   phone: string;
+  email: string | null;
   deliveryAddress: string;
   products: string;
   paymentMethod: string;
@@ -49,6 +52,14 @@ function toOrder(row: {
 export class OrderService {
   async create(input: OrderInput): Promise<Order> {
     const row = await prisma.order.create({ data: input });
+
+    // Track usage for billing (fire and forget)
+    prisma.businessUsage.upsert({
+      where: { businessId: input.businessId },
+      update: { orderCount: { increment: 1 } },
+      create: { businessId: input.businessId, orderCount: 1 },
+    }).catch((err) => console.error("[Usage] Failed to track order:", err));
+
     return toOrder(row);
   }
 

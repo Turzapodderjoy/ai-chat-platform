@@ -21,7 +21,9 @@ const PAGE_SIZE = 25;
 /** Per-client browsable product list — real columns, plain search, no
  * LLM call and no per-message token budget in the way (see
  * ProductSyncService's own comment on why this table exists at all).
- * Kept current automatically by every recrawl; this panel is read-only. */
+ * Kept current automatically by every recrawl; this panel is read-only.
+ * For manually adding/editing/importing inventory directly, see
+ * InventoryPanel — a separate tab, same underlying Product table. */
 export function ProductCatalogPanel({ businessId }: { businessId: string }) {
   const [products, setProducts] = useState<Product[] | null>(null);
   const [total, setTotal] = useState(0);

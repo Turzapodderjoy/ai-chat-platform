@@ -62,4 +62,24 @@ export class ClientAuthController {
   logout(token: string) {
     return this.clientAuth.logout(token);
   }
+
+  createTeam(businessId: string, name: string, parentTeamId: string | null) {
+    return this.clientAuth.createTeam(businessId, name, parentTeamId);
+  }
+
+  listTeams(businessId: string) {
+    return this.clientAuth.listTeams(businessId);
+  }
+
+  setTeamDefaultPanels(teamId: string, panels: string[] | null) {
+    return this.clientAuth.setTeamDefaultPanels(teamId, panels);
+  }
+
+  deleteTeam(teamId: string) {
+    return this.clientAuth.deleteTeam(teamId);
+  }
+
+  assignAccountToTeam(accountId: string, teamId: string | null) {
+    return this.clientAuth.assignAccountToTeam(accountId, teamId);
+  }
 }

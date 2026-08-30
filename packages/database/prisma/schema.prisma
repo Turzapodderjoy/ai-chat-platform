@@ -39,6 +39,7 @@ model Business {
   slug          String        @unique
 
   members       Membership[]
+  usage         BusinessUsage?
 
   // How many agent (handoff-team) logins this business is allowed to
   // create for itself under Client Access -- 0 means the feature isn't
@@ -46,8 +47,29 @@ model Business {
   // Agents panel enforces this but never raises it.
   maxAgents     Int      @default(0)
 
+  // Subscription fields (manual management by admin)
+  subscriptionPlanName  String?
+  subscriptionFee       Float?
+  subscriptionCurrency  String    @default("BDT")
+  subscriptionStartDate DateTime?
+  subscriptionEndDate   DateTime?
+  subscriptionActive    Boolean   @default(true)
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+// Usage tracking for billing and plan limits
+model BusinessUsage {
+  id              String    @id @default(cuid())
+  businessId      String    @unique
+  chatCount       Int       @default(0)  // Total AI messages this period
+  orderCount      Int       @default(0)  // Orders collected this period
+  lastResetAt     DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  business        Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
 
 model Membership {
@@ -721,9 +743,41 @@ model ClientAccount {
   // least-busy ONLINE agent, and shown to teammates as a roster.
   online       Boolean   @default(false)
 
+  // Optional org/department/team membership -- see Team's own comment.
+  // Purely additive: an account with no team behaves EXACTLY as before
+  // (allowedPanels null/array resolves the same way it always did).
+  // Only an account actually assigned to a team gains the extra
+  // fallback tier (team default, checked when the account's own
+  // allowedPanels is null).
+  teamId       String?
+
   sessions     ClientSession[]
 
   @@index([businessId])
+  @@index([teamId])
+}
+
+// One hierarchy primitive for "org / department / team" rather than
+// three separate models -- structurally each level is the same thing
+// (a named group of accounts with shared default panel access), just
+// nested: a team with no parent reads as the top-level "org", a team
+// with a parent reads as a "department" under it, and so on as deep as
+// a business actually wants to go. defaultAllowedPanels is consulted
+// ONLY as a fallback when a ClientAccount has no allowedPanels of its
+// own set (null) -- an account's own explicit allow-list always wins,
+// same precedence order CLAUDE.md's "the user's own words beat
+// everything else" convention uses elsewhere in this app.
+model Team {
+  id                   String   @id @default(cuid())
+  businessId           String
+  name                 String
+  parentTeamId         String?
+  defaultAllowedPanels Json?
+
+  createdAt            DateTime @default(now())
+
+  @@index([businessId])
+  @@index([parentTeamId])
 }
 
 // Audit trail for a client login's account settings -- who did what
@@ -896,6 +950,10 @@ model Order {
 
   customerName    String
   phone           String
+  // Nullable -- the AI order-taking chat flow doesn't collect an email
+  // today, so this starts empty and is filled in by staff by hand (see
+  // OrderService.UpdateDeliveryInput.email) until/unless that changes.
+  email           String?
   deliveryAddress String
   products        String
   paymentMethod   String
@@ -984,6 +1042,27 @@ model EmailSenderConfig {
   fromEmail       String
   trackingPageUrl String?
   updatedAt       DateTime @updatedAt
+}
+
+// One editable email template per (business, kind, status) -- kind is
+// "order_status" or "repair_status", statusValue matches
+// DELIVERY_STATUSES / the repair status list. Rendered with {{placeholder}}
+// tokens (see renderTemplate in packages/email) and sent through the
+// business's own connected Gmail account (GmailEmailClient), not through
+// the paid Resend path EmailSenderConfig backs.
+model StatusEmailTemplate {
+  id          String   @id @default(cuid())
+  businessId  String
+  kind        String
+  statusValue String
+  subject     String
+  bodyHtml    String
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([businessId, kind, statusValue])
+  @@index([businessId])
 }
 
 // CRM layer (Contacts/Companies/Deals) — a real customer record instead
@@ -1186,4 +1265,53 @@ model Payment {
 
   @@index([businessId])
   @@index([invoiceId])
+}
+// Generic approval engine (Day 1 PM) -- built once, reused by every
+// later module that needs sign-off (CPQ, Procurement, Finance) instead
+// of each inventing its own approve/reject flow. This engine doesn't
+// know what a "Quote" or "PurchaseOrder" is -- type+recordId is the
+// CALLER's own pointer back to whatever needs approving; this table
+// only tracks the approval workflow itself.
+model ApprovalRequest {
+  id          String   @id @default(cuid())
+  businessId  String
+  type        String
+  recordId    String
+  requestedBy String
+  // pending | approved | rejected -- plain string, not an enum, so a
+  // future status doesn't need a migration (same convention as
+  // RepairAppointment.status elsewhere in this schema).
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+  decidedAt   DateTime?
+
+  steps       ApprovalStep[]
+
+  @@index([businessId])
+  @@index([type, recordId])
+  @@index([businessId, status])
+}
+
+// order groups steps into sequential stages -- every step in the same
+// order number runs in PARALLEL (all must approve before that stage
+// passes); the next order number's steps aren't even decidable until
+// every step in the prior order is approved. A single-step, single-
+// order request is just a plain one-person approval, the common case.
+model ApprovalStep {
+  id                String    @id @default(cuid())
+  requestId         String
+  order             Int
+  status            String    @default("pending")
+  // Either a specific person must decide (approverAccountId) or anyone
+  // matching a role can (approverRole, e.g. "isAdmin") -- exactly one
+  // of these is set, enforced in ApprovalService, not here.
+  approverAccountId String?
+  approverRole      String?
+  decidedBy         String?
+  decidedAt         DateTime?
+  comment           String?
+
+  request           ApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
 }

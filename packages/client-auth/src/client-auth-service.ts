@@ -32,6 +32,16 @@ export interface ClientAccountSummary {
   isAdmin: boolean;
   isAgent: boolean;
   online: boolean;
+  teamId: string | null;
+}
+
+export interface TeamSummary {
+  id: string;
+  businessId: string;
+  name: string;
+  parentTeamId: string | null;
+  defaultAllowedPanels: string[] | null;
+  memberCount: number;
 }
 
 export interface LoginResult {
@@ -75,6 +85,7 @@ export class ClientAuthService {
       isAdmin: a.isAdmin,
       isAgent: a.isAgent,
       online: a.online,
+      teamId: a.teamId,
     }));
   }
 
@@ -100,6 +111,7 @@ export class ClientAuthService {
       isAdmin: false,
       isAgent: true,
       online: a.online,
+      teamId: a.teamId,
     }));
   }
 
@@ -115,6 +127,62 @@ export class ClientAuthService {
 
   async setMaxAgents(businessId: string, max: number): Promise<void> {
     await prisma.business.update({ where: { id: businessId }, data: { maxAgents: Math.max(0, Math.trunc(max)) } });
+  }
+
+  // --- Teams (org/department/team hierarchy layer, Day 1 AM) ---
+  // One primitive for every nesting level: a team with no parentTeamId
+  // reads as a top-level "org", a team with a parent reads as a
+  // "department"/sub-team under it. See Team's own schema comment for
+  // why this isn't three separate models.
+
+  async createTeam(businessId: string, name: string, parentTeamId: string | null = null): Promise<TeamSummary> {
+    if (!name.trim()) throw new Error("A team name is required.");
+    if (parentTeamId) {
+      const parent = await prisma.team.findUnique({ where: { id: parentTeamId } });
+      if (!parent || parent.businessId !== businessId) {
+        throw new Error("Parent team not found for this business.");
+      }
+    }
+    const row = await prisma.team.create({ data: { businessId, name: name.trim(), parentTeamId } });
+    return { id: row.id, businessId: row.businessId, name: row.name, parentTeamId: row.parentTeamId, defaultAllowedPanels: null, memberCount: 0 };
+  }
+
+  async listTeams(businessId: string): Promise<TeamSummary[]> {
+    const [teams, accounts] = await Promise.all([
+      prisma.team.findMany({ where: { businessId }, orderBy: { createdAt: "asc" } }),
+      prisma.clientAccount.findMany({ where: { businessId, teamId: { not: null } }, select: { teamId: true } }),
+    ]);
+    const countByTeam = new Map<string, number>();
+    for (const a of accounts) {
+      if (a.teamId) countByTeam.set(a.teamId, (countByTeam.get(a.teamId) ?? 0) + 1);
+    }
+    return teams.map((t) => ({
+      id: t.id,
+      businessId: t.businessId,
+      name: t.name,
+      parentTeamId: t.parentTeamId,
+      defaultAllowedPanels: (t.defaultAllowedPanels as string[] | null) ?? null,
+      memberCount: countByTeam.get(t.id) ?? 0,
+    }));
+  }
+
+  /** null clears the team's default (falls back to fully open, same as
+   * an account with no team and no allowedPanels of its own). Only ever
+   * consulted for an account whose OWN allowedPanels is null -- an
+   * account's explicit allow-list always wins over its team's default. */
+  async setTeamDefaultPanels(teamId: string, panels: string[] | null): Promise<void> {
+    await prisma.team.update({ where: { id: teamId }, data: { defaultAllowedPanels: panels ?? Prisma.JsonNull } });
+  }
+
+  async deleteTeam(teamId: string): Promise<void> {
+    // Members keep their login exactly as-is -- just lose the team's
+    // default fallback, same as if they'd never been assigned one.
+    await prisma.clientAccount.updateMany({ where: { teamId }, data: { teamId: null } });
+    await prisma.team.delete({ where: { id: teamId } });
+  }
+
+  async assignAccountToTeam(accountId: string, teamId: string | null): Promise<void> {
+    await prisma.clientAccount.update({ where: { id: accountId }, data: { teamId } });
   }
 
   /** null clears the restriction (account can see every tab again) --
@@ -171,6 +239,22 @@ export class ClientAuthService {
       }
     }
 
+    // A second login for a client that already has one shouldn't start
+    // wide open (allowedPanels null = every panel) while their first
+    // login is deliberately restricted -- copy whatever the most
+    // recently created existing login for this business has, restricted
+    // or not, so a new staff account matches what's already in place
+    // until the admin changes it by hand.
+    let allowedPanels: string[] | null = null;
+    if (!isAdmin && businessId) {
+      const template = await prisma.clientAccount.findFirst({
+        where: { businessId, isAdmin: false },
+        orderBy: { createdAt: "desc" },
+        select: { allowedPanels: true },
+      });
+      if (template) allowedPanels = template.allowedPanels as string[] | null;
+    }
+
     return prisma.clientAccount.create({
       data: {
         businessId: isAdmin ? null : businessId,
@@ -178,6 +262,7 @@ export class ClientAuthService {
         passwordHash: hashPassword(password),
         isAdmin,
         isAgent,
+        allowedPanels: allowedPanels ?? undefined,
       },
     });
   }
@@ -270,7 +355,14 @@ export class ClientAuthService {
 
   /** Used by /api/auth/me — same validity rules as login (not expired,
    * account not disabled) so a disabled client's stale cookie doesn't
-   * still read as "logged in" to the UI. */
+   * still read as "logged in" to the UI.
+   *
+   * allowedPanels resolution: the account's own explicit allow-list
+   * always wins when set (unchanged from before Teams existed -- an
+   * account with no team behaves EXACTLY as it always did). Only when
+   * the account's own allowedPanels is null AND it belongs to a team
+   * does the team's defaultAllowedPanels get consulted as a fallback --
+   * purely additive, nothing pre-existing changes behavior. */
   async getSession(token: string): Promise<{
     id: string;
     businessId: string | null;
@@ -288,10 +380,16 @@ export class ClientAuthService {
       return null;
     }
 
+    let allowedPanels = (session.account.allowedPanels as string[] | null) ?? null;
+    if (allowedPanels === null && session.account.teamId) {
+      const team = await prisma.team.findUnique({ where: { id: session.account.teamId }, select: { defaultAllowedPanels: true } });
+      allowedPanels = (team?.defaultAllowedPanels as string[] | null) ?? null;
+    }
+
     return {
       id: session.account.id,
       businessId: session.account.businessId,
-      allowedPanels: (session.account.allowedPanels as string[] | null) ?? null,
+      allowedPanels,
       isAdmin: session.account.isAdmin,
       isAgent: session.account.isAgent,
       username: session.account.username,

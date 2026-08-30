@@ -1,68 +1,85 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 
-/** Reusable MD3-style collapsible section — a labeled header with a
- * chevron that expands/collapses its content with a real height
- * animation (CSS grid-template-rows 0fr/1fr trick, not framer-motion —
- * no new dependency, and this needs no JS height measurement to work).
- * Any panel can wrap a sub-section in this to get the same "click to
- * expand" affordance the sidebar's own nav groups already have. */
 export function Collapsible({
   title,
-  defaultOpen = true,
+  defaultOpen = false,
+  badge,
   children,
 }: {
-  title: ReactNode;
+  title: string;
   defaultOpen?: boolean;
+  badge?: ReactNode;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number | "auto">(0);
+
+  useEffect(() => {
+    if (contentRef.current) {
+      setHeight(open ? contentRef.current.scrollHeight : 0);
+    }
+  }, [open]);
 
   return (
-    <div style={{ borderTop: "1px solid var(--border)", marginTop: 16, paddingTop: 12 }}>
+    <div style={{
+      background: "var(--surface)",
+      border: "1px solid var(--border)",
+      borderRadius: "var(--radius-md, 12px)",
+      overflow: "hidden",
+    }}>
       <button
-        onClick={() => setOpen((o) => !o)}
-        className="plain"
+        onClick={() => setOpen(!open)}
         style={{
+          width: "100%",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          width: "100%",
-          padding: "4px 0",
-          fontSize: 13,
-          fontWeight: 600,
+          padding: "14px 16px",
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
           color: "var(--text)",
+          fontSize: 14,
+          fontWeight: 500,
+          textAlign: "left",
         }}
-        aria-expanded={open}
       >
-        <span>{title}</span>
-        <svg
-          className="md-chevron"
-          data-open={open}
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{ flexShrink: 0, color: "var(--text-faint)" }}
-        >
-          <path d="m6 9 6 6 6-6" />
-        </svg>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{
+              color: "var(--text-muted)",
+              transform: open ? "rotate(90deg)" : "none",
+              transition: "transform 0.2s ease",
+            }}
+          >
+            <path d="m9 18 6-6-6-6" />
+          </svg>
+          <span>{title}</span>
+          {badge && <span style={{ marginLeft: 4 }}>{badge}</span>}
+        </div>
       </button>
-
       <div
+        ref={contentRef}
         style={{
-          display: "grid",
-          gridTemplateRows: open ? "1fr" : "0fr",
-          transition: "grid-template-rows var(--md-duration-medium, 250ms) var(--md-easing-standard, ease)",
+          height: height === 0 ? 0 : "auto",
+          maxHeight: height === 0 ? 0 : undefined,
+          overflow: "hidden",
+          transition: "max-height 0.3s ease",
         }}
       >
-        <div style={{ overflow: "hidden" }}>
-          <div style={{ paddingTop: 12 }}>{children}</div>
+        <div style={{ padding: "0 16px 16px" }}>
+          {children}
         </div>
       </div>
     </div>

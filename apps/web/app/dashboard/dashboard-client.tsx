@@ -18,6 +18,7 @@ import { QuotesPanel } from "../../components/QuotesPanel";
 import { InvoicesPanel } from "../../components/InvoicesPanel";
 import { ReportsPanel } from "../../components/ReportsPanel";
 import { TrainingArenaPanel } from "../../components/TrainingArenaPanel";
+import { SubscriptionPanel } from "../../components/SubscriptionPanel";
 import { StatusBadge } from "../../components/StatusBadge";
 import { DashboardShell, type NavGroup } from "../../components/DashboardShell";
 import { cardStyle, cellStyle, formatBytes, subtleTextStyle, primaryButtonStyle } from "../../components/dashboard-styles";
@@ -27,7 +28,7 @@ import { cardStyle, cellStyle, formatBytes, subtleTextStyle, primaryButtonStyle 
 // client component just for one string constant.
 const PLATFORM_CONFIG_ID = "__platform__";
 
-type Tab = "overview" | "health" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "access" | "knowledge" | "allchats" | "database" | "tags" | "contacts" | "deals" | "quotes" | "invoices" | "reports";
+type Tab = "overview" | "health" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "access" | "knowledge" | "allchats" | "database" | "tags" | "contacts" | "deals" | "quotes" | "invoices" | "reports" | "subscription";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }, { id: "health", label: "Client Health" }, { id: "reports", label: "Reports" }] },
@@ -45,7 +46,7 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
       { id: "invoices", label: "Invoices" },
     ],
   },
-  { items: [{ id: "clients", label: "Clients" }, { id: "access", label: "Client Access" }] },
+  { items: [{ id: "clients", label: "Clients" }, { id: "access", label: "Client Access" }, { id: "subscription", label: "Subscription" }] },
   {
     label: "AI Brain",
     items: [
@@ -333,6 +334,9 @@ export default function DashboardClient() {
       </div>
       <div style={{ display: tab === "access" ? "block" : "none" }}>
         <ClientAccessPanel />
+      </div>
+      <div style={{ display: tab === "subscription" ? "block" : "none" }}>
+        <SubscriptionPanel />
       </div>
       <div style={{ display: tab === "knowledge" ? "block" : "none" }}>
         <KnowledgeHubPanel active={tab === "knowledge"} />

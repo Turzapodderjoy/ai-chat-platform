@@ -25,3 +25,5 @@ export * from "./revenue-controller";
 export * from "./reporting-controller";
 export * from "./widget-visibility-controller";
 export * from "./dashboard-theme-controller";
+export * from "./approval-controller";
+export * from "./status-email-template-controller";
