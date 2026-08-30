@@ -23,6 +23,7 @@ export async function PATCH(req: NextRequest) {
 
   const app = await getApp();
   const result = await app.container.router.orders.updateDelivery(body.id, {
+    email: typeof body.email === "string" ? body.email : body.email === null ? null : undefined,
     courier: typeof body.courier === "string" ? body.courier : undefined,
     trackingId: typeof body.trackingId === "string" ? body.trackingId : undefined,
     deliveryStatus: typeof body.deliveryStatus === "string" ? body.deliveryStatus : undefined,

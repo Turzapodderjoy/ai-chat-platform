@@ -493,9 +493,18 @@ importers:
 
   packages/email:
     dependencies:
+      '@ai-chat-platform/channel-connections':
+        specifier: workspace:*
+        version: link:../channel-connections
+      '@ai-chat-platform/conversation':
+        specifier: workspace:*
+        version: link:../conversation
       '@ai-chat-platform/database':
         specifier: workspace:*
         version: link:../database
+      '@ai-chat-platform/repairs':
+        specifier: workspace:*
+        version: link:../repairs
 
   packages/embedding-catalog:
     dependencies:
