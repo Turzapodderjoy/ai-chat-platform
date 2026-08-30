@@ -148,7 +148,7 @@ export function DashboardShell<T extends string>({
           left: 0,
           alignSelf: "flex-start",
           height: "100vh",
-          overflowY: "hidden",
+          overflowY: "auto",
           overflowX: "hidden",
           zIndex: 50,
           transform: isMobile && !sidebarOpen ? "translateX(-100%)" : "translateX(0)",
@@ -223,21 +223,31 @@ export function DashboardShell<T extends string>({
             </button>
           )}
           {railCollapsed && (
-            <button
-              onClick={() => setCollapsed(false)}
-              className="ghost"
-              title="Expand sidebar"
-              style={{ width: 28, height: 28, padding: 0, borderRadius: "var(--radius-xs)", position: "absolute", bottom: 8, right: 8 }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="m9 18 6-6-6-6" />
-              </svg>
-            </button>
+            <div style={{ padding: "0 8px 12px", borderTop: "1px solid var(--border-subtle)", marginTop: "auto" }}>
+              <button
+                onClick={() => setCollapsed(false)}
+                className="ghost"
+                title="Expand sidebar"
+                style={{ 
+                  width: "100%", 
+                  height: 36, 
+                  padding: 0, 
+                  borderRadius: "var(--radius-sm)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="m9 18 6-6-6-6" />
+                </svg>
+              </button>
+            </div>
           )}
         </div>
 
         {/* Navigation */}
-        <nav style={{ flex: 1, padding: "12px 8px", overflowY: "hidden" }}>
+        <nav style={{ flex: 1, padding: "12px 8px", overflowY: "auto" }}>
           {groups.map((group, i) => {
             const groupCollapsed = collapsedGroups[i];
             return (
