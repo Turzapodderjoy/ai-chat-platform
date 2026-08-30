@@ -101,7 +101,13 @@ function workspaceLinksOk(releaseDir) {
 
 function installWithRetry(releaseDir) {
   for (let attempt = 1; attempt <= INSTALL_ATTEMPTS; attempt++) {
-    run("pnpm install --frozen-lockfile", releaseDir);
+    // pnpm's frozen-lockfile fast path skips re-linking when it thinks
+    // node_modules already satisfies the lockfile -- confirmed live, that
+    // "already satisfies" check doesn't verify each symlink actually
+    // exists, so a broken first attempt just gets silently repeated
+    // as-is on every retry in the same worktree. --force bypasses that
+    // fast path and makes the retry actually re-link from scratch.
+    run(`pnpm install --frozen-lockfile${attempt > 1 ? " --force" : ""}`, releaseDir);
     if (workspaceLinksOk(releaseDir)) return;
     log(`Workspace symlinks incomplete after install attempt ${attempt}/${INSTALL_ATTEMPTS} -- retrying.`);
   }
