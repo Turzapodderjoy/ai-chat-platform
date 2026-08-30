@@ -46,7 +46,7 @@ import { WidgetConfigController, DashboardThemeController, ApprovalController, S
 import { ApprovalService } from "@ai-chat-platform/approvals";
 import { KnowledgeRefreshController } from "@ai-chat-platform/api";
 import { ClientHealthController, ProductController, OrderController, RepairController, EmailController, CrmController, RevenueController, ReportingController, WidgetVisibilityController } from "@ai-chat-platform/api";
-import { RepairAppointmentService } from "@ai-chat-platform/repairs";
+import { RepairAppointmentService, StaffService } from "@ai-chat-platform/repairs";
 import { EmailSenderConfigService, ResendEmailClient, GmailSenderConfigService, GmailEmailClient, StatusEmailTemplateService, StatusEmailService } from "@ai-chat-platform/email";
 import { ContactService, DealService } from "@ai-chat-platform/crm";
 import { QuoteService, InvoiceService, PaymentService } from "@ai-chat-platform/revenue";
@@ -165,6 +165,9 @@ export class Container {
 
     const repairs =
       new RepairAppointmentService();
+
+    const staff =
+      new StaffService();
 
     const emailSenderConfig =
       new EmailSenderConfigService();
@@ -323,7 +326,7 @@ export class Container {
         new ClientHealthController(tenants, crawlerService, masterCsv, refreshSchedule, vectorStore, embeddings, conversations),
         new ProductController(productService, productSync),
         new OrderController(orders, statusEmails),
-        new RepairController(repairs, conversations, emailSenderConfig, emailClient, tenants, contacts, deals, statusEmails),
+        new RepairController(repairs, staff, conversations, emailSenderConfig, emailClient, tenants, contacts, deals, statusEmails),
         new EmailController(emailSenderConfig),
         new CrmController(contacts, deals),
         new RevenueController(quotes, invoices, payments),

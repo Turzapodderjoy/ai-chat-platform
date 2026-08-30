@@ -19,6 +19,13 @@ interface Appointment {
   issueDescription: string;
   appointmentDate: string;
   status: string;
+  priority: string;
+  technicianId?: string;
+  deviceImages: string[];
+  rescheduleRequested: boolean;
+  rescheduleNewDate?: string;
+  cancelRequested: boolean;
+  cancelReason?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -48,6 +55,22 @@ const STATUS_TONE: Record<string, BadgeTone> = {
   ready: "warn",
   completed: "ok",
   cancelled: "error",
+};
+
+const PRIORITY_OPTIONS = ["low", "normal", "high", "urgent"] as const;
+
+const PRIORITY_LABEL: Record<string, string> = {
+  low: "Low",
+  normal: "Normal",
+  high: "High",
+  urgent: "Urgent",
+};
+
+const PRIORITY_TONE: Record<string, BadgeTone> = {
+  low: "neutral",
+  normal: "info",
+  high: "warn",
+  urgent: "error",
 };
 
 function dateKey(iso: string): string {
@@ -211,6 +234,45 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
     // The status change is logged as a system message in the same
     // conversation (see RepairController.updateStatus) — refetch so it
     // shows up immediately instead of waiting for the next poll.
+    if (selected?.id === id) fetchMessages(selected.trackingToken);
+  }
+
+  async function updatePriority(id: string, priority: string) {
+    await fetch("/api/admin/repairs/status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, priority }),
+    });
+    refresh();
+  }
+
+  async function rescheduleRepair(id: string, date: string) {
+    await fetch("/api/admin/repairs/status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, appointmentDate: date }),
+    });
+    refresh();
+    if (selected?.id === id) fetchMessages(selected.trackingToken);
+  }
+
+  async function handleRescheduleRequest(id: string, action: "approve" | "reject") {
+    await fetch("/api/admin/repairs/reschedule", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action }),
+    });
+    refresh();
+    if (selected?.id === id) fetchMessages(selected.trackingToken);
+  }
+
+  async function handleCancelRequest(id: string, action: "approve" | "reject") {
+    await fetch("/api/admin/repairs/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action }),
+    });
+    refresh();
     if (selected?.id === id) fetchMessages(selected.trackingToken);
   }
 
@@ -455,9 +517,16 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
                 background: selectedId === a.id ? "var(--surface-hover)" : "transparent",
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
                 <strong style={{ fontSize: 12.5 }}>{a.customerName}</strong>
-                <span style={badgeStyle(STATUS_TONE[a.status] ?? "neutral")}>{STATUS_LABEL[a.status] ?? a.status}</span>
+                <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
+                  {a.priority && a.priority !== "normal" && (
+                    <span style={badgeStyle(PRIORITY_TONE[a.priority] ?? "neutral")}>{PRIORITY_LABEL[a.priority]}</span>
+                  )}
+                  {a.rescheduleRequested && <span style={badgeStyle("warn")}>Reschedule</span>}
+                  {a.cancelRequested && <span style={badgeStyle("error")}>Cancel</span>}
+                  <span style={badgeStyle(STATUS_TONE[a.status] ?? "neutral")}>{STATUS_LABEL[a.status] ?? a.status}</span>
+                </div>
               </div>
               <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 3 }}>
                 {a.deviceType}{a.deviceModel ? ` — ${a.deviceModel}` : ""} · {new Date(a.appointmentDate).toLocaleDateString()}
@@ -476,7 +545,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
               <div style={{ fontSize: 14, fontWeight: 700 }}>{selected.customerName}</div>
               <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{selected.phone}</div>
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <select
                 value={selected.status}
                 onChange={(e) => updateStatus(selected.id, e.target.value)}
@@ -486,6 +555,38 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
                   <option key={s} value={s}>{STATUS_LABEL[s]}</option>
                 ))}
               </select>
+              <select
+                value={selected.priority || "normal"}
+                onChange={(e) => updatePriority(selected.id, e.target.value)}
+                style={{ padding: 6 }}
+              >
+                {PRIORITY_OPTIONS.map((p) => (
+                  <option key={p} value={p}>{PRIORITY_LABEL[p]}</option>
+                ))}
+              </select>
+              <input
+                type="datetime-local"
+                value={selected.appointmentDate ? new Date(selected.appointmentDate).toISOString().slice(0, 16) : ""}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    rescheduleRepair(selected.id, new Date(e.target.value).toISOString());
+                  }
+                }}
+                style={{ padding: 5, fontSize: 12 }}
+                title="Reschedule appointment"
+              />
+              {selected.status !== "cancelled" && selected.status !== "completed" && (
+                <button
+                  onClick={() => {
+                    if (window.confirm(`Cancel repair for "${selected.customerName}"?`)) {
+                      updateStatus(selected.id, "cancelled");
+                    }
+                  }}
+                  style={{ padding: "6px 10px", fontSize: 12, color: "var(--danger)", border: "1px solid var(--danger)", borderRadius: "var(--radius-sm)", background: "transparent", cursor: "pointer" }}
+                >
+                  Cancel
+                </button>
+              )}
               <button onClick={() => deleteAppointment(selected)} style={{ padding: "6px 10px", fontSize: 12 }}>
                 Delete
               </button>
@@ -497,8 +598,96 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
             <div><span style={{ color: "var(--text-faint)" }}>Device</span><br />{selected.deviceType}{selected.deviceModel ? ` — ${selected.deviceModel}` : ""}</div>
             <div><span style={{ color: "var(--text-faint)" }}>Appointment</span><br />{new Date(selected.appointmentDate).toLocaleString()}</div>
             <div><span style={{ color: "var(--text-faint)" }}>Tracking Token</span><br />{selected.trackingToken}</div>
+            <div><span style={{ color: "var(--text-faint)" }}>Priority</span><br />
+              <span style={badgeStyle(PRIORITY_TONE[selected.priority] ?? "neutral")}>{PRIORITY_LABEL[selected.priority] ?? selected.priority}</span>
+            </div>
             {selected.email && <div><span style={{ color: "var(--text-faint)" }}>Email</span><br />{selected.email}</div>}
+            {selected.rescheduleRequested && (
+              <div style={{ gridColumn: "1 / -1", padding: "10px 12px", background: "var(--warning-subtle)", borderRadius: "var(--radius-sm)", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <div>
+                  <strong>Reschedule requested</strong> — New date: {selected.rescheduleNewDate ? new Date(selected.rescheduleNewDate).toLocaleString() : "Not specified"}
+                </div>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <button onClick={() => handleRescheduleRequest(selected.id, "approve")} className="primary" style={{ fontSize: 11, padding: "4px 10px" }}>Approve</button>
+                  <button onClick={() => handleRescheduleRequest(selected.id, "reject")} style={{ fontSize: 11, padding: "4px 10px", color: "var(--danger)" }}>Reject</button>
+                </div>
+              </div>
+            )}
+            {selected.cancelRequested && (
+              <div style={{ gridColumn: "1 / -1", padding: "10px 12px", background: "var(--danger-subtle)", borderRadius: "var(--radius-sm)", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <div>
+                  <strong>Cancellation requested</strong>{selected.cancelReason ? ` — Reason: ${selected.cancelReason}` : ""}
+                </div>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <button onClick={() => handleCancelRequest(selected.id, "approve")} className="primary" style={{ fontSize: 11, padding: "4px 10px", background: "var(--danger)" }}>Approve</button>
+                  <button onClick={() => handleCancelRequest(selected.id, "reject")} style={{ fontSize: 11, padding: "4px 10px" }}>Reject</button>
+                </div>
+              </div>
+            )}
             <div style={{ gridColumn: "1 / -1" }}><span style={{ color: "var(--text-faint)" }}>Issue</span><br />{selected.issueDescription}</div>
+          </div>
+
+          {/* Device Photos */}
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)" }}>Device Photos</span>
+              <label style={{ fontSize: 11, padding: "4px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", cursor: "pointer", color: "var(--text-muted)" }}>
+                + Upload
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  style={{ display: "none" }}
+                  onChange={async (e) => {
+                    const files = e.target.files;
+                    if (!files || !selected) return;
+                    const urls: string[] = [...(selected.deviceImages || [])];
+                    for (const file of Array.from(files)) {
+                      const fd = new FormData();
+                      fd.append("file", file);
+                      const res = await fetch("/api/chat/upload-image", { method: "POST", body: fd });
+                      if (res.ok) {
+                        const data = await res.json();
+                        if (data.url) urls.push(data.url);
+                      }
+                    }
+                    await fetch("/api/admin/repairs/photos", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ id: selected.id, images: urls }),
+                    });
+                    refresh();
+                  }}
+                />
+              </label>
+            </div>
+            {selected.deviceImages && selected.deviceImages.length > 0 ? (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {selected.deviceImages.map((url, i) => (
+                  <div key={i} style={{ position: "relative" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt={`Device photo ${i + 1}`} style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)" }} />
+                    <button
+                      onClick={async () => {
+                        if (!selected) return;
+                        const newImages = selected.deviceImages.filter((_, idx) => idx !== i);
+                        await fetch("/api/admin/repairs/photos", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ id: selected.id, images: newImages }),
+                        });
+                        refresh();
+                      }}
+                      style={{ position: "absolute", top: -4, right: -4, width: 18, height: 18, borderRadius: "50%", background: "var(--danger)", color: "white", border: "none", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                    >
+                      x
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: "var(--text-faint)", fontStyle: "italic" }}>No photos uploaded yet</div>
+            )}
           </div>
 
           <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", minHeight: 160, maxHeight: 300, overflowY: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 10, marginBottom: 10 }}>

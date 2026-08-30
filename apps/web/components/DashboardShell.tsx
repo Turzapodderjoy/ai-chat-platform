@@ -526,7 +526,7 @@ export function DashboardShell<T extends string>({
         </header>
 
         {/* Content */}
-        <main style={{ flex: 1, padding: isMobile ? "16px" : "24px", maxWidth: 1400, width: "100%", overflowY: "auto" }}>
+        <main className="panel-scroll" style={{ flex: 1, padding: isMobile ? "16px" : "24px", maxWidth: 1400, width: "100%" }}>
           {children}
         </main>
       </div>

@@ -17,6 +17,16 @@ export interface RepairAppointmentInput {
 export interface RepairAppointment extends RepairAppointmentInput {
   id: string;
   status: string;
+  priority: string;
+  technicianId?: string;
+  deviceImages: string[];
+  rescheduleRequested: boolean;
+  rescheduleNewDate?: Date;
+  cancelRequested: boolean;
+  cancelReason?: string;
+  estimatedCost?: number;
+  actualCost?: number;
+  warrantyExpiry?: Date;
   createdAt: string;
   updatedAt: string;
 }
@@ -47,6 +57,16 @@ function toAppointment(row: {
   issueDescription: string;
   appointmentDate: Date;
   status: string;
+  priority: string;
+  technicianId: string | null;
+  deviceImages: string[];
+  rescheduleRequested: boolean;
+  rescheduleNewDate: Date | null;
+  cancelRequested: boolean;
+  cancelReason: string | null;
+  estimatedCost: number | null;
+  actualCost: number | null;
+  warrantyExpiry: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }): RepairAppointment {
@@ -62,6 +82,16 @@ function toAppointment(row: {
     issueDescription: row.issueDescription,
     appointmentDate: row.appointmentDate,
     status: row.status,
+    priority: row.priority,
+    technicianId: row.technicianId ?? undefined,
+    deviceImages: row.deviceImages ?? [],
+    rescheduleRequested: row.rescheduleRequested,
+    rescheduleNewDate: row.rescheduleNewDate ?? undefined,
+    cancelRequested: row.cancelRequested,
+    cancelReason: row.cancelReason ?? undefined,
+    estimatedCost: row.estimatedCost ?? undefined,
+    actualCost: row.actualCost ?? undefined,
+    warrantyExpiry: row.warrantyExpiry ?? undefined,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -116,6 +146,75 @@ export class RepairAppointmentService {
 
   async updateStatus(id: string, status: string): Promise<RepairAppointment> {
     const row = await prisma.repairAppointment.update({ where: { id }, data: { status } });
+    return toAppointment(row);
+  }
+
+  async updatePriority(id: string, priority: string): Promise<RepairAppointment> {
+    const row = await prisma.repairAppointment.update({ where: { id }, data: { priority } });
+    return toAppointment(row);
+  }
+
+  async updateDate(id: string, date: string): Promise<RepairAppointment> {
+    const row = await prisma.repairAppointment.update({ where: { id }, data: { appointmentDate: new Date(date) } });
+    return toAppointment(row);
+  }
+
+  async updatePhotos(id: string, images: string[]): Promise<RepairAppointment> {
+    const row = await prisma.repairAppointment.update({ where: { id }, data: { deviceImages: images } });
+    return toAppointment(row);
+  }
+
+  async requestReschedule(id: string, newDate: string): Promise<RepairAppointment> {
+    const row = await prisma.repairAppointment.update({
+      where: { id },
+      data: { rescheduleRequested: true, rescheduleNewDate: new Date(newDate) },
+    });
+    return toAppointment(row);
+  }
+
+  async approveReschedule(id: string): Promise<RepairAppointment> {
+    const appointment = await this.findById(id);
+    if (!appointment) throw new Error("Appointment not found");
+    const row = await prisma.repairAppointment.update({
+      where: { id },
+      data: {
+        appointmentDate: appointment.rescheduleNewDate!,
+        rescheduleRequested: false,
+        rescheduleNewDate: null,
+      },
+    });
+    return toAppointment(row);
+  }
+
+  async rejectReschedule(id: string): Promise<RepairAppointment> {
+    const row = await prisma.repairAppointment.update({
+      where: { id },
+      data: { rescheduleRequested: false, rescheduleNewDate: null },
+    });
+    return toAppointment(row);
+  }
+
+  async requestCancel(id: string, reason?: string): Promise<RepairAppointment> {
+    const row = await prisma.repairAppointment.update({
+      where: { id },
+      data: { cancelRequested: true, cancelReason: reason ?? null },
+    });
+    return toAppointment(row);
+  }
+
+  async approveCancel(id: string): Promise<RepairAppointment> {
+    const row = await prisma.repairAppointment.update({
+      where: { id },
+      data: { status: "cancelled", cancelRequested: false },
+    });
+    return toAppointment(row);
+  }
+
+  async rejectCancel(id: string): Promise<RepairAppointment> {
+    const row = await prisma.repairAppointment.update({
+      where: { id },
+      data: { cancelRequested: false, cancelReason: null },
+    });
     return toAppointment(row);
   }
 

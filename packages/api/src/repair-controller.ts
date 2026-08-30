@@ -1,5 +1,5 @@
 import { ConversationService } from "@ai-chat-platform/conversation";
-import { RepairAppointmentService } from "@ai-chat-platform/repairs";
+import { RepairAppointmentService, StaffService } from "@ai-chat-platform/repairs";
 import { EmailSenderConfigService, ResendEmailClient, StatusEmailService } from "@ai-chat-platform/email";
 import { TenantService } from "@ai-chat-platform/tenant";
 import { ContactService, DealService } from "@ai-chat-platform/crm";
@@ -23,6 +23,7 @@ export interface BookRepairInput {
 export class RepairController {
   constructor(
     private readonly repairs: RepairAppointmentService,
+    private readonly staff: StaffService,
     private readonly conversations: ConversationService,
     private readonly emailSenderConfig: EmailSenderConfigService,
     private readonly emailClient: ResendEmailClient,
@@ -148,6 +149,58 @@ export class RepairController {
 
     return appointment;
   }
+
+  async updatePriority(id: string, priority: string) {
+    return this.repairs.updatePriority(id, priority);
+  }
+
+  async updateDate(id: string, date: string) {
+    return this.repairs.updateDate(id, date);
+  }
+
+  async updatePhotos(id: string, images: string[]) {
+    return this.repairs.updatePhotos(id, images);
+  }
+
+  async approveReschedule(id: string) {
+    const appointment = await this.repairs.approveReschedule(id);
+    await this.conversations.addMessage(appointment.trackingToken, "system", `Appointment rescheduled to ${new Date(appointment.appointmentDate).toLocaleString()}`);
+    this.statusEmails.sendForRepairStatusChange(appointment).catch(() => {});
+    return appointment;
+  }
+
+  async rejectReschedule(id: string) {
+    return this.repairs.rejectReschedule(id);
+  }
+
+  async approveCancel(id: string) {
+    const appointment = await this.repairs.approveCancel(id);
+    await this.conversations.addMessage(appointment.trackingToken, "system", "Appointment cancelled");
+    this.statusEmails.sendForRepairStatusChange(appointment).catch(() => {});
+    return appointment;
+  }
+
+  async rejectCancel(id: string) {
+    return this.repairs.rejectCancel(id);
+  }
+
+  // Staff management
+  listStaff(businessId: string) {
+    return this.staff.listForBusiness(businessId);
+  }
+
+  createStaff(input: { businessId: string; name: string; email?: string; phone?: string; role?: string }) {
+    return this.staff.create(input);
+  }
+
+  updateStaff(id: string, data: { name?: string; email?: string; phone?: string; role?: string; active?: boolean }) {
+    return this.staff.update(id, data);
+  }
+
+  deleteStaff(id: string) {
+    return this.staff.delete(id);
+  }
+}
 
   async deleteAppointment(id: string): Promise<{ ok: true }> {
     const appointment = await this.repairs.findById(id);

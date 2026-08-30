@@ -913,6 +913,8 @@ model Product {
   price       String?
   description String?
   stock       String?
+  category    String?
+  minStock    Int      @default(0)
   imageUrl    String?
   sourceUrl   String?
   sku         String?
@@ -1021,11 +1023,49 @@ model RepairAppointment {
   // later without a migration (same convention as Conversation.channel).
   status           String   @default("booked")
 
+  // Priority: low, normal, high, urgent
+  priority         String   @default("normal")
+
+  // Assigned technician (references Staff model)
+  technicianId     String?
+
+  // Device photos uploaded by customer or staff
+  deviceImages     String[] @default([])
+
+  // Reschedule request from customer
+  rescheduleRequested  Boolean @default(false)
+  rescheduleNewDate    DateTime?
+
+  // Cancellation request from customer
+  cancelRequested  Boolean @default(false)
+  cancelReason     String?
+
+  // Cost tracking
+  estimatedCost    Float?
+  actualCost       Float?
+
+  // Warranty set on completion
+  warrantyExpiry   DateTime?
+
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   @@index([businessId, appointmentDate])
   @@index([businessId, status])
+}
+
+model Staff {
+  id          String   @id @default(cuid())
+  businessId  String
+  name        String
+  email       String?
+  phone       String?
+  role        String   @default("technician") // technician | manager
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([businessId])
 }
 
 // Per-business outbound-email sender identity — same "single mutable

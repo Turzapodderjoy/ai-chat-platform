@@ -10,6 +10,8 @@ interface Product {
   price: string | null;
   description: string | null;
   stock: string | null;
+  category: string | null;
+  minStock: number;
   imageUrl: string | null;
   sourceUrl: string | null;
   sku: string | null;
@@ -17,7 +19,7 @@ interface Product {
 }
 
 const PAGE_SIZE = 25;
-const EMPTY_DRAFT = { name: "", price: "", stock: "", sku: "", description: "" };
+const EMPTY_DRAFT = { name: "", price: "", stock: "", sku: "", description: "", category: "", minStock: "0" };
 
 /** A client's own inventory record -- manual add/edit/delete, or bulk
  * CSV/XLSX import, over the SAME Product table the (read-only) Product
@@ -84,7 +86,7 @@ export function InventoryPanel({ businessId }: { businessId: string }) {
 
   function startEdit(p: Product) {
     setEditId(p.id);
-    setEditDraft({ name: p.name, price: p.price ?? "", stock: p.stock ?? "", sku: p.sku ?? "", description: p.description ?? "" });
+    setEditDraft({ name: p.name, price: p.price ?? "", stock: p.stock ?? "", sku: p.sku ?? "", description: p.description ?? "", category: p.category ?? "", minStock: String(p.minStock ?? 0) });
   }
 
   async function saveEdit(id: string) {
@@ -175,6 +177,8 @@ export function InventoryPanel({ businessId }: { businessId: string }) {
           <input placeholder="Name *" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} style={{ padding: 8, minWidth: 160 }} />
           <input placeholder="Price" value={draft.price} onChange={(e) => setDraft({ ...draft, price: e.target.value })} style={{ padding: 8, width: 100 }} />
           <input placeholder="Stock qty" value={draft.stock} onChange={(e) => setDraft({ ...draft, stock: e.target.value })} style={{ padding: 8, width: 100 }} />
+          <input placeholder="Min stock" value={draft.minStock} onChange={(e) => setDraft({ ...draft, minStock: e.target.value })} style={{ padding: 8, width: 80 }} />
+          <input placeholder="Category" value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })} style={{ padding: 8, width: 120 }} />
           <input placeholder="SKU" value={draft.sku} onChange={(e) => setDraft({ ...draft, sku: e.target.value })} style={{ padding: 8, width: 120 }} />
           <input placeholder="Description" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} style={{ padding: 8, flex: 1, minWidth: 180 }} />
           <button onClick={addProduct} disabled={saving || !draft.name.trim()} style={primaryButtonStyle}>
@@ -214,6 +218,8 @@ export function InventoryPanel({ businessId }: { businessId: string }) {
                 <input placeholder="Name" value={editDraft.name} onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })} style={{ padding: 6 }} />
                 <input placeholder="Price" value={editDraft.price} onChange={(e) => setEditDraft({ ...editDraft, price: e.target.value })} style={{ padding: 6 }} />
                 <input placeholder="Stock qty" value={editDraft.stock} onChange={(e) => setEditDraft({ ...editDraft, stock: e.target.value })} style={{ padding: 6 }} />
+                <input placeholder="Min stock" value={editDraft.minStock} onChange={(e) => setEditDraft({ ...editDraft, minStock: e.target.value })} style={{ padding: 6 }} />
+                <input placeholder="Category" value={editDraft.category} onChange={(e) => setEditDraft({ ...editDraft, category: e.target.value })} style={{ padding: 6 }} />
                 <input placeholder="SKU" value={editDraft.sku} onChange={(e) => setEditDraft({ ...editDraft, sku: e.target.value })} style={{ padding: 6 }} />
                 <textarea placeholder="Description" value={editDraft.description} onChange={(e) => setEditDraft({ ...editDraft, description: e.target.value })} style={{ padding: 6, minHeight: 50, resize: "vertical" }} />
                 <div style={{ display: "flex", gap: 6 }}>
@@ -258,9 +264,18 @@ export function InventoryPanel({ businessId }: { businessId: string }) {
                 {p.price && <div style={{ fontSize: 14, fontWeight: 600 }}>৳ {p.price}</div>}
 
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {p.category && <span style={badgeStyle("info")}>{p.category}</span>}
                   {p.stock && <span style={badgeStyle(/out/i.test(p.stock) ? "error" : "ok")}>{p.stock}</span>}
                   {p.sku && <span style={{ fontSize: 11, color: "var(--text-faint)" }}>SKU: {p.sku}</span>}
                 </div>
+
+                {p.stock && p.minStock > 0 && !/out/i.test(p.stock) && (() => {
+                  const qty = parseInt(p.stock, 10);
+                  if (!isNaN(qty) && qty <= p.minStock) {
+                    return <div style={{ fontSize: 11, color: "var(--warning)", fontWeight: 500 }}>Low stock ({qty} / {p.minStock} min)</div>;
+                  }
+                  return null;
+                })()}
 
                 {p.description && (
                   <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
