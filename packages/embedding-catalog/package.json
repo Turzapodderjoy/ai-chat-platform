@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@ai-chat-platform/embedding-manager": "workspace:*",
-    "@ai-chat-platform/mistral": "workspace:*"
+    "@ai-chat-platform/mistral": "workspace:*",
+    "@ai-chat-platform/openrouter": "workspace:*"
   }
 }
