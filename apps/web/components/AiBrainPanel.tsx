@@ -1,8 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useState } from "react";
-
-import { cardStyle, cellStyle, subtleTextStyle, primaryButtonStyle } from "./dashboard-styles";
+import { cardStyle, labelTextStyle } from "./dashboard-styles";
 
 interface AiConfig {
   id: string;
@@ -18,23 +17,16 @@ interface AiConfig {
 }
 
 const LANGUAGE_OPTIONS: { value: string; label: string }[] = [
-  { value: "auto", label: "Auto — match whatever language the customer uses" },
+  { value: "auto", label: "Auto — match customer language" },
   { value: "english", label: "English only" },
-  { value: "bangla", label: "Bangla only (Bengali script)" },
-  { value: "banglish", label: "Banglish only (Bangla in Latin letters)" },
+  { value: "bangla", label: "Bangla only" },
+  { value: "banglish", label: "Banglish only" },
 ];
 
 interface AiBrainPanelProps {
-  /** Omit for the mother dashboard's platform-wide default. A client
-   * with no saved config of its own inherits that default until it
-   * saves its own change here, at which point it gets its own history
-   * independent of the platform and every other client. */
   businessId?: string;
 }
 
-/** The system prompt and the knobs that control how eagerly the AI hands
- * off vs. tries to answer, and how creative it is — editable here instead
- * of hardcoded, with every change kept as a permanent version. */
 export function AiBrainPanel({ businessId }: AiBrainPanelProps) {
   const [current, setCurrent] = useState<AiConfig | null>(null);
   const [history, setHistory] = useState<AiConfig[] | null>(null);
@@ -80,7 +72,6 @@ export function AiBrainPanel({ businessId }: AiBrainPanelProps) {
   async function saveLanguage() {
     setSavingLanguage(true);
     setLanguageMessage("");
-
     try {
       const res = await fetch("/api/admin/ai-config/language", {
         method: "POST",
@@ -88,16 +79,8 @@ export function AiBrainPanel({ businessId }: AiBrainPanelProps) {
         body: JSON.stringify({ languageMode: languageDraft, businessId }),
       });
       const result = await res.json();
-
-      setLanguageMessage(
-        res.ok
-          ? "Saved — takes effect on the very next chat message."
-          : `Error: ${result.error}`
-      );
-
-      if (res.ok) {
-        refresh();
-      }
+      setLanguageMessage(res.ok ? "Saved — takes effect on next message." : `Error: ${result.error}`);
+      if (res.ok) refresh();
     } finally {
       setSavingLanguage(false);
     }
@@ -106,7 +89,6 @@ export function AiBrainPanel({ businessId }: AiBrainPanelProps) {
   async function saveUpdate() {
     setSaving(true);
     setMessage("");
-
     try {
       const res = await fetch("/api/admin/ai-config", {
         method: "POST",
@@ -121,17 +103,8 @@ export function AiBrainPanel({ businessId }: AiBrainPanelProps) {
         }),
       });
       const result = await res.json();
-
-      setMessage(
-        res.ok
-          ? "Saved — takes effect on the very next chat message, no restart needed."
-          : `Error: ${result.error}`
-      );
-
-      if (res.ok) {
-        setUpdateNote("");
-        refresh();
-      }
+      setMessage(res.ok ? "Saved — takes effect on next message." : `Error: ${result.error}`);
+      if (res.ok) { setUpdateNote(""); refresh(); }
     } finally {
       setSaving(false);
     }
@@ -140,7 +113,6 @@ export function AiBrainPanel({ businessId }: AiBrainPanelProps) {
   async function saveAppend() {
     if (!addText.trim()) return;
     setAdding(true);
-
     try {
       const res = await fetch("/api/admin/ai-config/append", {
         method: "POST",
@@ -148,212 +120,291 @@ export function AiBrainPanel({ businessId }: AiBrainPanelProps) {
         body: JSON.stringify({ text: addText, note: addNote, businessId }),
       });
       const result = await res.json();
-
-      setMessage(
-        res.ok
-          ? "Added to the end of the current prompt as a new version."
-          : `Error: ${result.error}`
-      );
-
-      if (res.ok) {
-        setAddText("");
-        setAddNote("");
-        refresh();
-      }
+      setMessage(res.ok ? "Added to prompt as new version." : `Error: ${result.error}`);
+      if (res.ok) { setAddText(""); setAddNote(""); refresh(); }
     } finally {
       setAdding(false);
     }
   }
 
   return (
-    <section style={cardStyle}>
-      <h2 style={{ marginTop: 0 }}>AI Brain</h2>
-      <p style={subtleTextStyle}>
-        What the AI is told to do, and when it should ask for a human instead.
-        {businessId ? " Unsaved settings use the platform default." : ""}
-      </p>
+    <section>
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>AI Brain</h2>
+        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
+          Configure AI behavior, system prompts, and response parameters.
+          {businessId ? " Client-specific settings override platform defaults." : ""}
+        </p>
+      </div>
 
-      {!current && <p style={subtleTextStyle}>Loading…</p>}
-
-      {current && (
-        <>
-          <div style={{ ...cardStyle, marginBottom: 20 }}>
-            <h3 style={{ marginTop: 0 }}>Reply language</h3>
-            <p style={subtleTextStyle}>Lock the AI's reply language, or leave it on Auto to match the customer.</p>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <select
-                value={languageDraft}
-                onChange={(e) => setLanguageDraft(e.target.value)}
-                style={{ padding: 8 }}
-              >
-                {LANGUAGE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              <button onClick={saveLanguage} disabled={savingLanguage || languageDraft === current.languageMode} style={primaryButtonStyle}>
-                {savingLanguage ? "Saving…" : "Save"}
-              </button>
-              {current.languageMode !== "auto" && (
-                <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  Locked to: {LANGUAGE_OPTIONS.find((o) => o.value === current.languageMode)?.label}
-                </span>
-              )}
-            </div>
-            {languageMessage && <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 8 }}>{languageMessage}</p>}
-          </div>
-
-          <h3>Current prompt</h3>
-          <textarea
-            value={promptDraft}
-            onChange={(e) => setPromptDraft(e.target.value)}
-            style={{
-              width: "100%",
-              minHeight: 280,
-              padding: 8,
-              fontFamily: "monospace",
-              fontSize: 12,
-              boxSizing: "border-box",
-            }}
-          />
-
-          <div style={{ display: "flex", gap: 16, marginTop: 12, flexWrap: "wrap" }}>
-            <label>
-              Handoff confidence floor{" "}
-              <input
-                type="number"
-                min={0}
-                max={1}
-                step={0.05}
-                value={floorDraft}
-                onChange={(e) => setFloorDraft(Number(e.target.value))}
-                style={{ width: 80, padding: 4 }}
-              />
-            </label>
-            <label>
-              Conversation history turns{" "}
-              <input
-                type="number"
-                min={0}
-                value={turnsDraft}
-                onChange={(e) => setTurnsDraft(Number(e.target.value))}
-                style={{ width: 80, padding: 4 }}
-              />
-            </label>
-          </div>
-
-          <div style={{ marginTop: 16 }}>
-            <label>
-              AI Temperature (Creativity){" "}
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.1}
-                value={temperatureDraft}
-                onChange={(e) => setTemperatureDraft(Number(e.target.value))}
-                style={{ verticalAlign: "middle" }}
-              />{" "}
-              <strong>{temperatureDraft.toFixed(1)}</strong>
-            </label>
-            <p style={{ ...subtleTextStyle, marginTop: 4 }}>
-              0.1 = strict &amp; factual · 0.7+ = creative &amp; chatty
-            </p>
-          </div>
-
-          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-            <input
-              style={{ flex: 1 }}
-              placeholder="What changed and why (kept in the history log)"
-              value={updateNote}
-              onChange={(e) => setUpdateNote(e.target.value)}
-            />
-            <button onClick={saveUpdate} disabled={saving} style={primaryButtonStyle}>
-              {saving ? "Saving…" : "Update"}
-            </button>
-          </div>
-
-          <h3 style={{ marginTop: 24 }}>Add an instruction</h3>
-          <p style={subtleTextStyle}>
-            Appends a new rule to the end of the prompt — e.g. &quot;Never mention competitor pricing.&quot;
-          </p>
-          <textarea
-            value={addText}
-            onChange={(e) => setAddText(e.target.value)}
-            placeholder="New rule to add…"
-            style={{ width: "100%", minHeight: 60, boxSizing: "border-box" }}
-          />
-          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <input
-              style={{ flex: 1 }}
-              placeholder="Note (optional — defaults to the added text)"
-              value={addNote}
-              onChange={(e) => setAddNote(e.target.value)}
-            />
-            <button onClick={saveAppend} disabled={adding} style={primaryButtonStyle}>
-              {adding ? "Adding…" : "Add"}
-            </button>
-          </div>
-
-          {message && <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 8 }}>{message}</p>}
-        </>
+      {!current && (
+        <div style={{ ...cardStyle, padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Loading configuration...</div>
       )}
 
-      <h3 style={{ marginTop: 24 }}>History</h3>
-      {!history && <p style={subtleTextStyle}>Loading…</p>}
-      {history && (
-        <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th style={cellStyle}>When</th>
-              <th style={cellStyle}>Type</th>
-              <th style={cellStyle}>Note</th>
-              <th style={cellStyle}>Floor</th>
-              <th style={cellStyle}>Turns</th>
-              <th style={cellStyle}>Temp</th>
-              <th style={cellStyle}>Language</th>
-              <th style={cellStyle}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {history.map((v) => (
-              <Fragment key={v.id}>
+      {current && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          {/* Left Column - Prompt Editor */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* System Prompt */}
+            <div style={cardStyle}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <div style={labelTextStyle}>System Prompt</div>
+                <div style={{ fontSize: 11, color: "var(--text-faint)", fontFamily: "monospace" }}>
+                  {promptDraft.length} chars
+                </div>
+              </div>
+              <textarea
+                value={promptDraft}
+                onChange={(e) => setPromptDraft(e.target.value)}
+                style={{
+                  width: "100%",
+                  minHeight: 320,
+                  padding: "12px",
+                  fontFamily: "'SF Mono', 'Fira Code', monospace",
+                  fontSize: 12,
+                  lineHeight: 1.6,
+                  background: "var(--bg)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-sm)",
+                  color: "var(--text)",
+                  resize: "vertical",
+                }}
+              />
+            </div>
+
+            {/* Append Rule */}
+            <div style={cardStyle}>
+              <div style={labelTextStyle}>Add Instruction</div>
+              <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
+                Append a new rule to the system prompt
+              </p>
+              <textarea
+                value={addText}
+                onChange={(e) => setAddText(e.target.value)}
+                placeholder="e.g., Never mention competitor pricing..."
+                style={{
+                  width: "100%",
+                  minHeight: 80,
+                  padding: "10px 12px",
+                  fontSize: 13,
+                  background: "var(--bg)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-sm)",
+                  color: "var(--text)",
+                  resize: "vertical",
+                  marginBottom: 8,
+                }}
+              />
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  style={{
+                    flex: 1,
+                    padding: "8px 12px",
+                    fontSize: 12,
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-sm)",
+                    color: "var(--text)",
+                  }}
+                  placeholder="Note (optional)"
+                  value={addNote}
+                  onChange={(e) => setAddNote(e.target.value)}
+                />
+                <button onClick={saveAppend} disabled={adding} className="primary" style={{ padding: "8px 16px", fontSize: 12 }}>
+                  {adding ? "Adding..." : "Add Rule"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column - Parameters */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Language */}
+            <div style={cardStyle}>
+              <div style={labelTextStyle}>Reply Language</div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <select
+                  value={languageDraft}
+                  onChange={(e) => setLanguageDraft(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: "8px 12px",
+                    fontSize: 13,
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-sm)",
+                    color: "var(--text)",
+                  }}
+                >
+                  {LANGUAGE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+                <button onClick={saveLanguage} disabled={savingLanguage || languageDraft === current.languageMode} className="primary" style={{ padding: "8px 16px", fontSize: 12 }}>
+                  {savingLanguage ? "Saving..." : "Save"}
+                </button>
+              </div>
+              {languageMessage && <p style={{ fontSize: 12, color: "var(--accent)", marginTop: 8 }}>{languageMessage}</p>}
+            </div>
+
+            {/* Parameters */}
+            <div style={cardStyle}>
+              <div style={labelTextStyle}>Parameters</div>
+              
+              {/* Handoff Floor */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                  <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Handoff Confidence Floor</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)", fontFamily: "monospace" }}>{floorDraft.toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={floorDraft}
+                  onChange={(e) => setFloorDraft(Number(e.target.value))}
+                  style={{ width: "100%", accentColor: "var(--accent)" }}
+                />
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--text-faint)", marginTop: 4 }}>
+                  <span>More handoffs</span>
+                  <span>More AI answers</span>
+                </div>
+              </div>
+
+              {/* History Turns */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                  <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Conversation History Turns</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)", fontFamily: "monospace" }}>{turnsDraft}</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={30}
+                  step={1}
+                  value={turnsDraft}
+                  onChange={(e) => setTurnsDraft(Number(e.target.value))}
+                  style={{ width: "100%", accentColor: "var(--accent)" }}
+                />
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--text-faint)", marginTop: 4 }}>
+                  <span>Less context</span>
+                  <span>More context</span>
+                </div>
+              </div>
+
+              {/* Temperature */}
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                  <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Temperature (Creativity)</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)", fontFamily: "monospace" }}>{temperatureDraft.toFixed(1)}</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.1}
+                  value={temperatureDraft}
+                  onChange={(e) => setTemperatureDraft(Number(e.target.value))}
+                  style={{ width: "100%", accentColor: "var(--accent)" }}
+                />
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--text-faint)", marginTop: 4 }}>
+                  <span>Strict & factual</span>
+                  <span>Creative & chatty</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Save */}
+            <div style={cardStyle}>
+              <div style={labelTextStyle}>Save Changes</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  style={{
+                    flex: 1,
+                    padding: "8px 12px",
+                    fontSize: 12,
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-sm)",
+                    color: "var(--text)",
+                  }}
+                  placeholder="What changed and why..."
+                  value={updateNote}
+                  onChange={(e) => setUpdateNote(e.target.value)}
+                />
+                <button onClick={saveUpdate} disabled={saving} className="primary" style={{ padding: "8px 20px", fontSize: 12 }}>
+                  {saving ? "Saving..." : "Update"}
+                </button>
+              </div>
+              {message && <p style={{ fontSize: 12, color: "var(--accent)", marginTop: 8 }}>{message}</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History */}
+      {history && history.length > 0 && (
+        <div style={{ ...cardStyle, marginTop: 16 }}>
+          <div style={labelTextStyle}>Configuration History</div>
+          <div className="table-scroll">
+            <table>
+              <thead>
                 <tr>
-                  <td style={cellStyle}>{new Date(v.createdAt).toLocaleString()}</td>
-                  <td style={cellStyle}>{v.changeType}</td>
-                  <td style={cellStyle}>{v.note ?? "—"}</td>
-                  <td style={cellStyle}>{v.handoffFloor}</td>
-                  <td style={cellStyle}>{v.historyTurns}</td>
-                  <td style={cellStyle}>{v.temperature}</td>
-                  <td style={cellStyle}>{v.languageMode}</td>
-                  <td style={cellStyle}>
-                    <button onClick={() => setExpandedId(expandedId === v.id ? null : v.id)}>
-                      {expandedId === v.id ? "Hide" : "View prompt"}
-                    </button>
-                  </td>
+                  <th>When</th>
+                  <th>Type</th>
+                  <th>Note</th>
+                  <th>Floor</th>
+                  <th>Turns</th>
+                  <th>Temp</th>
+                  <th>Language</th>
+                  <th></th>
                 </tr>
-                {expandedId === v.id && (
-                  <tr>
-                    <td style={cellStyle} colSpan={8}>
-                      <pre style={{ whiteSpace: "pre-wrap", fontSize: 12, margin: 0 }}>
-                        {v.systemPrompt}
-                      </pre>
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-            ))}
-            {history.length === 0 && (
-              <tr>
-                <td style={cellStyle} colSpan={8}>
-                  No history yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {history.map((v) => (
+                  <Fragment key={v.id}>
+                    <tr>
+                      <td style={{ fontSize: 12 }}>{new Date(v.createdAt).toLocaleString()}</td>
+                      <td>
+                        <span style={{
+                          padding: "2px 8px",
+                          borderRadius: "var(--radius-full)",
+                          fontSize: 11,
+                          fontWeight: 500,
+                          background: v.changeType === "update" ? "var(--accent-subtle)" : "var(--success-subtle)",
+                          color: v.changeType === "update" ? "var(--accent)" : "var(--success)",
+                        }}>
+                          {v.changeType}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{v.note ?? "—"}</td>
+                      <td style={{ fontFamily: "monospace", fontSize: 12 }}>{v.handoffFloor}</td>
+                      <td style={{ fontFamily: "monospace", fontSize: 12 }}>{v.historyTurns}</td>
+                      <td style={{ fontFamily: "monospace", fontSize: 12 }}>{v.temperature}</td>
+                      <td style={{ fontSize: 12 }}>{v.languageMode}</td>
+                      <td>
+                        <button onClick={() => setExpandedId(expandedId === v.id ? null : v.id)} className="ghost" style={{ fontSize: 11, padding: "4px 8px" }}>
+                          {expandedId === v.id ? "Hide" : "View"}
+                        </button>
+                      </td>
+                    </tr>
+                    {expandedId === v.id && (
+                      <tr>
+                        <td colSpan={8} style={{ padding: 0 }}>
+                          <div style={{ padding: "12px 16px", background: "var(--bg)", borderTop: "1px solid var(--border-subtle)" }}>
+                            <pre style={{ whiteSpace: "pre-wrap", fontSize: 11, margin: 0, fontFamily: "'SF Mono', monospace", color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                              {v.systemPrompt}
+                            </pre>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </section>

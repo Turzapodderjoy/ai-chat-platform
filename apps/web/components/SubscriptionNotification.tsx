@@ -12,7 +12,6 @@ export function SubscriptionNotification() {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    // Check every 6 hours (21600000ms) but for demo we check on mount
     const checkSubscription = () => {
       fetch("/api/billing/subscription")
         .then((r) => r.json())
@@ -32,49 +31,75 @@ export function SubscriptionNotification() {
     };
 
     checkSubscription();
-    const interval = setInterval(checkSubscription, 6 * 60 * 60 * 1000); // Every 6 hours
+    const interval = setInterval(checkSubscription, 6 * 60 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
   if (!warning || dismissed) return null;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 16,
-        right: 16,
-        zIndex: 1000,
-        maxWidth: 360,
-        padding: 16,
-        backgroundColor: "#fffbeb",
-        border: "1px solid #fcd34d",
-        borderRadius: 8,
-        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-      }}
-    >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 20 }}>⚠️</span>
-          <strong style={{ fontSize: 14, color: "#92400e" }}>Subscription Expiring</strong>
+    <div style={{
+      position: "fixed",
+      top: 16,
+      right: 16,
+      zIndex: 1000,
+      maxWidth: 360,
+      padding: 16,
+      background: "var(--surface)",
+      border: "1px solid var(--warning)",
+      borderRadius: "var(--radius-md, 12px)",
+      boxShadow: "var(--shadow-lg)",
+      animation: "slideIn 0.3s ease-out",
+    }}>
+      <style>{`
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateX(20px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+      `}</style>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{
+            width: 32,
+            height: 32,
+            borderRadius: "var(--radius-sm)",
+            background: "var(--warning-subtle)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "var(--warning)",
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+              <path d="M12 9v4" /><path d="M12 17h.01" />
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Subscription Expiring</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Action required</div>
+          </div>
         </div>
         <button
           onClick={() => setDismissed(true)}
           style={{
-            background: "none",
+            background: "transparent",
             border: "none",
-            fontSize: 18,
-            color: "#92400e",
+            padding: 4,
+            color: "var(--text-muted)",
             cursor: "pointer",
-            padding: 0,
-            lineHeight: 1,
+            borderRadius: "var(--radius-xs)",
           }}
         >
-          ×
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
         </button>
       </div>
-      <p style={{ fontSize: 13, color: "#92400e", margin: 0, lineHeight: 1.5 }}>
-        Your subscription expires in <strong>{warning.daysLeft} day{warning.daysLeft > 1 ? "s" : ""}</strong>.
+      <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0, lineHeight: 1.5 }}>
+        Your subscription expires in{" "}
+        <strong style={{ color: "var(--warning)" }}>
+          {warning.daysLeft} day{warning.daysLeft > 1 ? "s" : ""}
+        </strong>.
         Please contact support to renew.
       </p>
     </div>

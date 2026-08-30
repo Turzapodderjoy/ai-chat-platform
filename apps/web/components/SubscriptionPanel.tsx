@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { cardStyle, primaryButtonStyle, subtleTextStyle } from "./dashboard-styles";
+import { cardStyle, primaryButtonStyle, subtleTextStyle, inputStyle, labelTextStyle } from "./dashboard-styles";
 import { SUBSCRIPTION_CURRENCIES, currencySymbol } from "../lib/currency";
 
 interface Client {
@@ -131,34 +131,34 @@ export function SubscriptionPanel() {
               </div>
 
               {isEditing ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-                  <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border-subtle)" }}>
+                  <div style={{ display: "flex", gap: 12 }}>
                     <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: 12, color: "#6b7280" }}>Plan Name</label>
+                      <label style={labelTextStyle}>Plan Name</label>
                       <input
                         type="text"
                         value={form.planName}
                         onChange={(e) => setForm({ ...form, planName: e.target.value })}
                         placeholder="e.g., Pro, Enterprise"
-                        style={{ width: "100%", padding: "6px 8px", border: "1px solid #d1d5db", borderRadius: 4, fontSize: 14 }}
+                        style={inputStyle}
                       />
                     </div>
                     <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: 12, color: "#6b7280" }}>Monthly Fee</label>
+                      <label style={labelTextStyle}>Monthly Fee</label>
                       <input
                         type="number"
                         value={form.fee}
                         onChange={(e) => setForm({ ...form, fee: e.target.value })}
                         placeholder="5000"
-                        style={{ width: "100%", padding: "6px 8px", border: "1px solid #d1d5db", borderRadius: 4, fontSize: 14 }}
+                        style={inputStyle}
                       />
                     </div>
-                    <div style={{ width: 90 }}>
-                      <label style={{ fontSize: 12, color: "#6b7280" }}>Currency</label>
+                    <div style={{ width: 100 }}>
+                      <label style={labelTextStyle}>Currency</label>
                       <select
                         value={form.currency}
                         onChange={(e) => setForm({ ...form, currency: e.target.value })}
-                        style={{ width: "100%", padding: "6px 8px", border: "1px solid #d1d5db", borderRadius: 4, fontSize: 14 }}
+                        style={inputStyle}
                       >
                         {SUBSCRIPTION_CURRENCIES.map((c) => (
                           <option key={c} value={c}>{c}</option>
@@ -166,28 +166,28 @@ export function SubscriptionPanel() {
                       </select>
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ display: "flex", gap: 12 }}>
                     <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: 12, color: "#6b7280" }}>Start Date</label>
+                      <label style={labelTextStyle}>Start Date</label>
                       <input
                         type="date"
                         value={form.startDate}
                         onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                        style={{ width: "100%", padding: "6px 8px", border: "1px solid #d1d5db", borderRadius: 4, fontSize: 14 }}
+                        style={inputStyle}
                       />
                     </div>
                     <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: 12, color: "#6b7280" }}>End Date</label>
+                      <label style={labelTextStyle}>End Date</label>
                       <input
                         type="date"
                         value={form.endDate}
                         onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                        style={{ width: "100%", padding: "6px 8px", border: "1px solid #d1d5db", borderRadius: 4, fontSize: 14 }}
+                        style={inputStyle}
                       />
                     </div>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <label style={{ fontSize: 12, color: "#6b7280" }}>Active</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Active</label>
                     <button
                       onClick={() => setForm({ ...form, active: !form.active })}
                       style={{
@@ -195,9 +195,10 @@ export function SubscriptionPanel() {
                         height: 24,
                         borderRadius: 12,
                         border: "none",
-                        backgroundColor: form.active ? "#10b981" : "#d1d5db",
+                        backgroundColor: form.active ? "var(--success)" : "var(--surface-hover)",
                         position: "relative",
                         cursor: "pointer",
+                        transition: "background-color 0.2s",
                       }}
                     >
                       <div
@@ -213,19 +214,19 @@ export function SubscriptionPanel() {
                         }}
                       />
                     </button>
-                    <span style={{ fontSize: 12, color: "#6b7280" }}>{form.active ? "Enabled" : "Disabled"}</span>
+                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{form.active ? "Enabled" : "Disabled"}</span>
                   </div>
-                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                    <button onClick={save} disabled={saving} style={{ ...primaryButtonStyle, fontSize: 12, padding: "6px 16px" }}>
+                  <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                    <button onClick={save} disabled={saving} className="primary" style={{ fontSize: 13, padding: "8px 16px" }}>
                       {saving ? "Saving..." : "Save"}
                     </button>
-                    <button onClick={() => setEditingId(null)} style={{ fontSize: 12, padding: "6px 16px", border: "1px solid #d1d5db", borderRadius: 4, backgroundColor: "white", cursor: "pointer" }}>
+                    <button onClick={() => setEditingId(null)} className="ghost" style={{ fontSize: 13, padding: "8px 16px" }}>
                       Cancel
                     </button>
                   </div>
                 </div>
               ) : (
-                <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
+                <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>
                   {client.subscriptionPlanName && <span>Plan: <strong>{client.subscriptionPlanName}</strong></span>}
                   {client.subscriptionFee && <span style={{ marginLeft: 12 }}>Fee: {currencySymbol(client.subscriptionCurrency)}{client.subscriptionFee.toLocaleString()}/mo</span>}
                   {client.subscriptionStartDate && client.subscriptionEndDate && (

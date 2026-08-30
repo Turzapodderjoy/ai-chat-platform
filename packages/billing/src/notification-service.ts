@@ -6,7 +6,7 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 interface ExpiringBusiness {
   id: string;
   name: string;
-  subscriptionEndDate: Date;
+  subscriptionEndDate: Date | null;
   subscriptionPlanName: string | null;
   subscriptionFee: number | null;
   subscriptionCurrency: string;
@@ -53,6 +53,8 @@ export async function sendExpirationEmail(business: ExpiringBusiness): Promise<b
     console.log("[Billing] RESEND_API_KEY not set, skipping email");
     return false;
   }
+
+  if (!business.subscriptionEndDate) return false;
 
   const daysLeft = Math.ceil(
     (business.subscriptionEndDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)

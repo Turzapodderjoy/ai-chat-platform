@@ -10,9 +10,6 @@ export default function HomeClient() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  // Real credential check — the fixed admin identity lands on the mother
-  // dashboard; a client account (created in the mother dashboard's
-  // Client Access panel) lands only on that business's own dashboard.
   async function enter(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (submitting) return;
@@ -53,51 +50,113 @@ export default function HomeClient() {
 
   return (
     <main className={styles.page}>
-      <div className={styles.container}>
-        <div className={styles.logoSection}>
-          <div className={styles.logoIcon}>
+      {/* Left branding panel */}
+      <div className={styles.leftPanel}>
+        <div className={styles.brandContent}>
+          <div className={styles.brandIcon}>
             <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18L19.35 8 12 11.82 4.65 8 12 4.18zM4 9.04l7 3.5V19.5l-7-3.5V9.04zm9 10.46v-6.96l7-3.5v6.96l-7 3.5z" />
+              <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" fill="white" fillOpacity="0.2"/>
+              <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/>
+              <path d="M8 12L11 15L16 9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <h1>Welcome back</h1>
-          <p>Sign in to your account to continue</p>
+          <h1 className={styles.brandTitle}>AIVA</h1>
+          <p className={styles.brandSubtitle}>
+            AI-powered customer support platform. Automate responses, 
+            manage conversations, and scale your business.
+          </p>
+          <div className={styles.features}>
+            <div className={styles.feature}>
+              <div className={styles.featureIcon}>
+                <svg viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+              </div>
+              <span>AI-powered instant responses</span>
+            </div>
+            <div className={styles.feature}>
+              <div className={styles.featureIcon}>
+                <svg viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </div>
+              <span>Multi-tenant business management</span>
+            </div>
+            <div className={styles.feature}>
+              <div className={styles.featureIcon}>
+                <svg viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <line x1="3" y1="9" x2="21" y2="9" />
+                  <line x1="9" y1="21" x2="9" y2="9" />
+                </svg>
+              </div>
+              <span>Real-time analytics dashboard</span>
+            </div>
+          </div>
         </div>
+      </div>
 
-        <div className={styles.card}>
-          {error && <div className={styles.errorMessage}>{error}</div>}
+      {/* Right form panel */}
+      <div className={styles.rightPanel}>
+        <div className={styles.formContainer}>
+          <div className={styles.formHeader}>
+            <h1 className={styles.formTitle}>Welcome back</h1>
+            <p className={styles.formSubtitle}>Sign in to your account to continue</p>
+          </div>
 
-          <form onSubmit={enter} noValidate>
-            <div className={styles.formGroup}>
-              <label htmlFor="username">Username</label>
-              <input type="text" id="username" name="username" placeholder="yourname" autoComplete="username" />
+          <form className={styles.form} onSubmit={enter} noValidate>
+            {error && <div className={styles.errorMessage}>{error}</div>}
+
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="username">Username</label>
+              <input
+                className={styles.input}
+                type="text"
+                id="username"
+                name="username"
+                placeholder="Enter your username"
+                autoComplete="username"
+              />
             </div>
 
-            <div className={styles.formGroup}>
-              <label htmlFor="password">Password</label>
-              <input type="password" id="password" name="password" placeholder="Enter your password" autoComplete="current-password" />
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="password">Password</label>
+              <input
+                className={styles.input}
+                type="password"
+                id="password"
+                name="password"
+                placeholder="Enter your password"
+                autoComplete="current-password"
+              />
             </div>
 
-            <div className={styles.formRow}>
+            <div className={styles.formOptions}>
               <div className={styles.checkboxGroup}>
-                <input type="checkbox" id="remember" name="remember" />
-                <label htmlFor="remember">Remember me</label>
+                <input className={styles.checkbox} type="checkbox" id="remember" name="remember" />
+                <label className={styles.checkboxLabel} htmlFor="remember">Remember me</label>
               </div>
               <a href="#" className={styles.forgotLink} onClick={(e) => e.preventDefault()}>
                 Forgot password?
               </a>
             </div>
 
-            <button type="submit" className={styles.btnPrimary} disabled={submitting}>
-              {submitting ? "Signing in…" : "Sign in"}
+            <button type="submit" className={styles.submitBtn} disabled={submitting}>
+              {submitting ? "Signing in..." : "Sign in"}
             </button>
           </form>
-        </div>
 
-        <p className={styles.legalText}>
-          By signing in, you agree to our <a href="#" onClick={(e) => e.preventDefault()}>Terms of Service</a> and{" "}
-          <a href="/privacy">Privacy Policy</a>.
-        </p>
+          <p className={styles.footer}>
+            By signing in, you agree to our{" "}
+            <a href="#" onClick={(e) => e.preventDefault()}>Terms of Service</a>
+            {" "}and{" "}
+            <a href="/privacy">Privacy Policy</a>.
+          </p>
+        </div>
       </div>
     </main>
   );
