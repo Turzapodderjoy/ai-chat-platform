@@ -19,7 +19,7 @@
 // mid-swap while this script is running, the source checkout never is.
 
 import { execFileSync, execSync } from "node:child_process";
-import { existsSync, mkdirSync, appendFileSync, writeFileSync, readFileSync, rmSync, symlinkSync, lstatSync, readdirSync, statSync, copyFileSync } from "node:fs";
+import { existsSync, mkdirSync, appendFileSync, writeFileSync, readFileSync, rmSync, symlinkSync, lstatSync, readdirSync, statSync, copyFileSync, openSync, closeSync } from "node:fs";
 import { join } from "node:path";
 
 const REPO_SOURCE = "E:/Startup/ai-chat-platform";
@@ -28,6 +28,8 @@ const CURRENT_LINK = "E:/Startup/ai-chat-platform-current";
 const SECRETS_DIR = "E:/Startup/ai-chat-platform-secrets";
 const OPS_DIR = "E:/Startup/ai-chat-platform-ops";
 const LOG_FILE = join(OPS_DIR, "deploy.log");
+const LOCK_FILE = join(OPS_DIR, "deploy.lock");
+const LOCK_STALE_MS = 15 * 60 * 1000;
 const KEEP_RELEASES = 3;
 
 function log(msg) {
@@ -35,6 +37,37 @@ function log(msg) {
   console.log(line);
   mkdirSync(OPS_DIR, { recursive: true });
   appendFileSync(LOG_FILE, line + "\n");
+}
+
+// Confirmed live: a GitHub Actions webhook deploy and a manually-run
+// deploy landed within 3 seconds of each other, and the second one's
+// "clean up a stale-looking release dir" step deleted files out from
+// under the FIRST one's still-running pnpm install -- both failed, one
+// with an EPERM Windows couldn't even explain cleanly. The build-first-
+// swap-second design meant the live site was never at risk, but two
+// deploys stepping on each other's release folder is still a real bug.
+// A single lock file (exclusive create, 'wx') serializes every deploy
+// regardless of how it was triggered; LOCK_STALE_MS lets a later run
+// recover automatically if a prior one crashed without cleaning up
+// instead of blocking every future deploy forever.
+function acquireLock() {
+  mkdirSync(OPS_DIR, { recursive: true });
+  if (existsSync(LOCK_FILE)) {
+    const age = Date.now() - statSync(LOCK_FILE).mtimeMs;
+    if (age < LOCK_STALE_MS) return false;
+    log(`Lock file is ${Math.round(age / 1000)}s old (stale threshold ${LOCK_STALE_MS / 1000}s) -- assuming the previous run died and taking over.`);
+    rmSync(LOCK_FILE, { force: true });
+  }
+  try {
+    closeSync(openSync(LOCK_FILE, "wx"));
+    return true;
+  } catch {
+    return false; // lost the race to another process between the check above and this open
+  }
+}
+
+function releaseLock() {
+  rmSync(LOCK_FILE, { force: true });
 }
 
 function run(cmd, cwd) {
@@ -90,6 +123,19 @@ function swapCurrent(releaseDir) {
 }
 
 async function main() {
+  if (!acquireLock()) {
+    log("Another deploy is already running (lock held) -- skipping this run.");
+    return;
+  }
+
+  try {
+    await deploy();
+  } finally {
+    releaseLock();
+  }
+}
+
+async function deploy() {
   log("=== Deploy check starting ===");
   run("git fetch origin main", REPO_SOURCE);
 
