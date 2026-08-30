@@ -239,6 +239,22 @@ export class ClientAuthService {
       }
     }
 
+    // A second login for a client that already has one shouldn't start
+    // wide open (allowedPanels null = every panel) while their first
+    // login is deliberately restricted -- copy whatever the most
+    // recently created existing login for this business has, restricted
+    // or not, so a new staff account matches what's already in place
+    // until the admin changes it by hand.
+    let allowedPanels: string[] | null = null;
+    if (!isAdmin && businessId) {
+      const template = await prisma.clientAccount.findFirst({
+        where: { businessId, isAdmin: false },
+        orderBy: { createdAt: "desc" },
+        select: { allowedPanels: true },
+      });
+      if (template) allowedPanels = template.allowedPanels as string[] | null;
+    }
+
     return prisma.clientAccount.create({
       data: {
         businessId: isAdmin ? null : businessId,
@@ -246,6 +262,7 @@ export class ClientAuthService {
         passwordHash: hashPassword(password),
         isAdmin,
         isAgent,
+        allowedPanels: allowedPanels ?? undefined,
       },
     });
   }
