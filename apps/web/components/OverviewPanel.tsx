@@ -220,7 +220,7 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
           </div>
         )}
         {knowledgeChartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={200}>
+          <ResponsiveContainer width="100%" height={220}>
             <BarChart data={knowledgeChartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: "var(--text-muted)" }} axisLine={false} tickLine={false} />
@@ -231,7 +231,13 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
             </BarChart>
           </ResponsiveContainer>
         ) : (
-          <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 13 }}>Loading chart data...</div>
+          <div className="empty-state" style={{ height: 220 }}>
+            <svg className="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M4 7V4h16v3M9 20h6M12 4v16" />
+            </svg>
+            <div className="empty-state-title">No knowledge base data</div>
+            <div className="empty-state-description">Add clients and upload documents to see analytics here.</div>
+          </div>
         )}
       </div>
 
@@ -259,7 +265,12 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div style={{ width: 120, height: 120, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 12 }}>No data</div>
+                <div style={{ width: 120, height: 120, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" strokeWidth="1.5" opacity={0.5}>
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 6v6l4 2" />
+                  </svg>
+                </div>
               )}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -290,7 +301,12 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div style={{ width: 120, height: 120, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 12 }}>No data</div>
+                <div style={{ width: 120, height: 120, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" strokeWidth="1.5" opacity={0.5}>
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 6v6l4 2" />
+                  </svg>
+                </div>
               )}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
