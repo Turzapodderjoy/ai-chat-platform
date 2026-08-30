@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { cardStyle, primaryButtonStyle, subtleTextStyle } from "./dashboard-styles";
+import { cardStyle, primaryButtonStyle, labelTextStyle } from "./dashboard-styles";
 
 interface Client {
   id: string;
@@ -79,23 +79,33 @@ export function SubscriptionPanel() {
   }
 
   function getStatus(client: Client) {
-    if (!client.subscriptionActive) return { label: "Disabled", color: "#6b7280" };
-    if (!client.subscriptionEndDate) return { label: "Active", color: "#10b981" };
+    if (!client.subscriptionActive) return { label: "Disabled", color: "var(--text-muted)", bg: "var(--surface-hover)" };
+    if (!client.subscriptionEndDate) return { label: "Active", color: "var(--success)", bg: "var(--success-subtle)" };
     const end = new Date(client.subscriptionEndDate);
     const now = new Date();
     const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
-    if (end.getTime() < now.getTime() - twoDaysMs) return { label: "Expired", color: "#ef4444" };
-    if (end.getTime() < now.getTime()) return { label: "Grace Period", color: "#f59e0b" };
+    if (end.getTime() < now.getTime() - twoDaysMs) return { label: "Expired", color: "var(--danger)", bg: "var(--danger-subtle)" };
+    if (end.getTime() < now.getTime()) return { label: "Grace Period", color: "var(--warning)", bg: "var(--warning-subtle)" };
     const daysLeft = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    if (daysLeft <= 7) return { label: `Expiring in ${daysLeft}d`, color: "#f59e0b" };
-    return { label: "Active", color: "#10b981" };
+    if (daysLeft <= 7) return { label: `Expiring in ${daysLeft}d`, color: "var(--warning)", bg: "var(--warning-subtle)" };
+    return { label: "Active", color: "var(--success)", bg: "var(--success-subtle)" };
   }
 
-  if (!clients) return <div style={{ padding: 24 }}>Loading...</div>;
+  if (!clients) {
+    return (
+      <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>
+        <div style={{ fontSize: 24, marginBottom: 8 }}>⏳</div>
+        Loading subscriptions...
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: 24 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 16 }}>Subscription Management</h2>
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Subscription Management</h2>
+        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Manage client subscriptions, billing, and access control.</p>
+      </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {clients.map((client) => {
@@ -104,20 +114,44 @@ export function SubscriptionPanel() {
 
           return (
             <div key={client.id} style={{ ...cardStyle, padding: 16 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <div>
-                  <strong>{client.name}</strong>
-                  <span style={{ marginLeft: 8, padding: "2px 8px", borderRadius: 4, fontSize: 12, backgroundColor: status.color + "20", color: status.color }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: "var(--radius-sm)",
+                    background: "var(--accent-subtle)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 16,
+                    fontWeight: 600,
+                    color: "var(--accent)",
+                  }}>
+                    {client.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 500, color: "var(--text)" }}>{client.name}</div>
+                    <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{client.slug}</div>
+                  </div>
+                  <span style={{
+                    padding: "4px 10px",
+                    borderRadius: "var(--radius-full)",
+                    fontSize: 12,
+                    fontWeight: 500,
+                    backgroundColor: status.bg,
+                    color: status.color,
+                  }}>
                     {status.label}
                   </span>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   {!isEditing && (
                     <>
-                      <button onClick={() => startEdit(client)} style={{ ...primaryButtonStyle, fontSize: 12, padding: "4px 12px" }}>
+                      <button onClick={() => startEdit(client)} style={{ fontSize: 12, padding: "6px 12px" }}>
                         Edit
                       </button>
-                      <button onClick={() => renew(client)} style={{ ...primaryButtonStyle, fontSize: 12, padding: "4px 12px", backgroundColor: "#10b981" }}>
+                      <button onClick={() => renew(client)} style={{ fontSize: 12, padding: "6px 12px", background: "var(--success)", borderColor: "var(--success)", color: "white" }}>
                         Renew +1 Month
                       </button>
                     </>
@@ -126,51 +160,43 @@ export function SubscriptionPanel() {
               </div>
 
               {isEditing ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: 12, color: "#6b7280" }}>Plan Name</label>
-                      <input
-                        type="text"
-                        value={form.planName}
-                        onChange={(e) => setForm({ ...form, planName: e.target.value })}
-                        placeholder="e.g., Pro, Enterprise"
-                        style={{ width: "100%", padding: "6px 8px", border: "1px solid #d1d5db", borderRadius: 4, fontSize: 14 }}
-                      />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: 12, color: "#6b7280" }}>Monthly Fee (BDT)</label>
-                      <input
-                        type="number"
-                        value={form.fee}
-                        onChange={(e) => setForm({ ...form, fee: e.target.value })}
-                        placeholder="5000"
-                        style={{ width: "100%", padding: "6px 8px", border: "1px solid #d1d5db", borderRadius: 4, fontSize: 14 }}
-                      />
-                    </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, padding: "12px 0", borderTop: "1px solid var(--border-subtle)" }}>
+                  <div>
+                    <label style={labelTextStyle}>Plan Name</label>
+                    <input
+                      type="text"
+                      value={form.planName}
+                      onChange={(e) => setForm({ ...form, planName: e.target.value })}
+                      placeholder="e.g., Pro, Enterprise"
+                    />
                   </div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: 12, color: "#6b7280" }}>Start Date</label>
-                      <input
-                        type="date"
-                        value={form.startDate}
-                        onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                        style={{ width: "100%", padding: "6px 8px", border: "1px solid #d1d5db", borderRadius: 4, fontSize: 14 }}
-                      />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: 12, color: "#6b7280" }}>End Date</label>
-                      <input
-                        type="date"
-                        value={form.endDate}
-                        onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                        style={{ width: "100%", padding: "6px 8px", border: "1px solid #d1d5db", borderRadius: 4, fontSize: 14 }}
-                      />
-                    </div>
+                  <div>
+                    <label style={labelTextStyle}>Monthly Fee (BDT)</label>
+                    <input
+                      type="number"
+                      value={form.fee}
+                      onChange={(e) => setForm({ ...form, fee: e.target.value })}
+                      placeholder="5000"
+                    />
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <label style={{ fontSize: 12, color: "#6b7280" }}>Active</label>
+                  <div>
+                    <label style={labelTextStyle}>Start Date</label>
+                    <input
+                      type="date"
+                      value={form.startDate}
+                      onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label style={labelTextStyle}>End Date</label>
+                    <input
+                      type="date"
+                      value={form.endDate}
+                      onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                    />
+                  </div>
+                  <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 12 }}>
+                    <label style={labelTextStyle}>Status</label>
                     <button
                       onClick={() => setForm({ ...form, active: !form.active })}
                       style={{
@@ -178,43 +204,58 @@ export function SubscriptionPanel() {
                         height: 24,
                         borderRadius: 12,
                         border: "none",
-                        backgroundColor: form.active ? "#10b981" : "#d1d5db",
+                        background: form.active ? "var(--success)" : "var(--border-strong)",
                         position: "relative",
                         cursor: "pointer",
+                        transition: "background 0.2s",
                       }}
                     >
-                      <div
-                        style={{
-                          width: 20,
-                          height: 20,
-                          borderRadius: "50%",
-                          backgroundColor: "white",
-                          position: "absolute",
-                          top: 2,
-                          left: form.active ? 22 : 2,
-                          transition: "left 0.2s",
-                        }}
-                      />
+                      <div style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: "50%",
+                        background: "white",
+                        position: "absolute",
+                        top: 3,
+                        left: form.active ? 23 : 3,
+                        transition: "left 0.2s",
+                        boxShadow: "var(--shadow-sm)",
+                      }} />
                     </button>
-                    <span style={{ fontSize: 12, color: "#6b7280" }}>{form.active ? "Enabled" : "Disabled"}</span>
+                    <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
+                      {form.active ? "Active" : "Disabled"}
+                    </span>
                   </div>
-                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                    <button onClick={save} disabled={saving} style={{ ...primaryButtonStyle, fontSize: 12, padding: "6px 16px" }}>
-                      {saving ? "Saving..." : "Save"}
+                  <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8, marginTop: 8 }}>
+                    <button onClick={save} disabled={saving} className="primary" style={{ padding: "8px 16px" }}>
+                      {saving ? "Saving..." : "Save Changes"}
                     </button>
-                    <button onClick={() => setEditingId(null)} style={{ fontSize: 12, padding: "6px 16px", border: "1px solid #d1d5db", borderRadius: 4, backgroundColor: "white", cursor: "pointer" }}>
+                    <button onClick={() => setEditingId(null)} style={{ padding: "8px 16px" }}>
                       Cancel
                     </button>
                   </div>
                 </div>
               ) : (
-                <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
-                  {client.subscriptionPlanName && <span>Plan: <strong>{client.subscriptionPlanName}</strong></span>}
-                  {client.subscriptionFee && <span style={{ marginLeft: 12 }}>Fee: ৳{client.subscriptionFee.toLocaleString()}/mo</span>}
+                <div style={{ display: "flex", gap: 16, fontSize: 13, color: "var(--text-muted)", paddingTop: 8, borderTop: "1px solid var(--border-subtle)" }}>
+                  {client.subscriptionPlanName && (
+                    <div>
+                      <span style={{ color: "var(--text-faint)" }}>Plan: </span>
+                      <span style={{ color: "var(--text)", fontWeight: 500 }}>{client.subscriptionPlanName}</span>
+                    </div>
+                  )}
+                  {client.subscriptionFee && (
+                    <div>
+                      <span style={{ color: "var(--text-faint)" }}>Fee: </span>
+                      <span style={{ color: "var(--text)", fontWeight: 500 }}>৳{client.subscriptionFee.toLocaleString()}/mo</span>
+                    </div>
+                  )}
                   {client.subscriptionStartDate && client.subscriptionEndDate && (
-                    <span style={{ marginLeft: 12 }}>
-                      {new Date(client.subscriptionStartDate).toLocaleDateString()} — {new Date(client.subscriptionEndDate).toLocaleDateString()}
-                    </span>
+                    <div>
+                      <span style={{ color: "var(--text-faint)" }}>Period: </span>
+                      <span style={{ color: "var(--text)", fontWeight: 500 }}>
+                        {new Date(client.subscriptionStartDate).toLocaleDateString()} — {new Date(client.subscriptionEndDate).toLocaleDateString()}
+                      </span>
+                    </div>
                   )}
                   {!client.subscriptionPlanName && !client.subscriptionFee && !client.subscriptionStartDate && (
                     <span style={{ fontStyle: "italic" }}>No subscription configured</span>

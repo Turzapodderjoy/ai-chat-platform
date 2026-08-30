@@ -1,18 +1,9 @@
 import type { CSSProperties } from "react";
 
-// th/td already get their look from the global `.app-shell th/td` rules
-// in globals.css — this is kept only for panels that still pass it
-// explicitly, and no longer overrides border/padding so it doesn't
-// fight the shared table styling.
 export const cellStyle: CSSProperties = {
   textAlign: "left",
 };
 
-/** Short, human-readable form of a cuid/token for display — last 6
- * chars, uppercased. Never used as the real id in a request, only shown
- * to a human (an agent reading it off the screen, or a customer asked
- * to quote it on the phone) — the full id is still what's actually
- * stored/queried everywhere. */
 export function shortId(id: string): string {
   return id.slice(-6).toUpperCase();
 }
@@ -23,64 +14,154 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-// Shared visual primitives added for the dashboard redesign — opt-in,
-// additive only. Existing panels keep their own markup/data-fetching;
-// these just give every panel the same card/badge look instead of each
-// one improvising its own <section> + ad-hoc emoji status text.
-
-// MD3 "elevation 1" surface: a card is a resting surface tonally
-// lighter than the page background, not just a bordered box — the
-// border stays (helps separation on the flattest monitors/screenshots)
-// but is no longer doing all the work.
+// Card styles
 export const cardStyle: CSSProperties = {
-  background: "var(--md-surface-1, var(--bg-elevated))",
+  background: "var(--surface)",
   border: "1px solid var(--border)",
-  borderRadius: "var(--md-shape-lg, var(--radius))",
-  padding: 22,
-  marginBottom: 20,
-  boxShadow: "var(--shadow)",
+  borderRadius: "var(--radius-md, 12px)",
+  padding: 20,
+  marginBottom: 16,
 };
 
+export const cardHoverStyle: CSSProperties = {
+  ...cardStyle,
+  transition: "all 0.2s ease",
+  cursor: "default",
+};
+
+// Text styles
 export const subtleTextStyle: CSSProperties = {
   color: "var(--text-muted)",
   fontSize: 13,
   marginTop: 4,
 };
 
-/** A real primary action button — most panels never had a distinct
- * "this is the main verb" style, just a bare <button>. Spread this onto
- * the one or two calls-to-action that matter per panel (Create, Save,
- * Send…); everything else keeps the plain button look from globals.css. */
+export const labelTextStyle: CSSProperties = {
+  fontSize: 11,
+  fontWeight: 600,
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
+  color: "var(--text-muted)",
+  marginBottom: 8,
+};
+
+// Button styles
 export const primaryButtonStyle: CSSProperties = {
   background: "var(--accent)",
   borderColor: "var(--accent)",
-  color: "#08111f",
-  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.3)",
+  color: "white",
+  fontWeight: 500,
 };
 
+export const secondaryButtonStyle: CSSProperties = {
+  background: "var(--surface)",
+  borderColor: "var(--border)",
+  color: "var(--text)",
+};
+
+export const dangerButtonStyle: CSSProperties = {
+  background: "var(--danger)",
+  borderColor: "var(--danger)",
+  color: "white",
+};
+
+// Badge styles
 export type BadgeTone = "ok" | "warn" | "error" | "neutral" | "info";
 
 const BADGE_COLORS: Record<BadgeTone, { bg: string; fg: string }> = {
-  ok: { bg: "var(--success-soft)", fg: "var(--success)" },
-  warn: { bg: "var(--warning-soft)", fg: "var(--warning)" },
-  error: { bg: "var(--danger-soft)", fg: "var(--danger)" },
-  neutral: { bg: "rgba(144, 160, 183, 0.14)", fg: "var(--text-muted)" },
-  info: { bg: "var(--accent-soft)", fg: "var(--accent)" },
+  ok: { bg: "var(--success-subtle)", fg: "var(--success)" },
+  warn: { bg: "var(--warning-subtle)", fg: "var(--warning)" },
+  error: { bg: "var(--danger-subtle)", fg: "var(--danger)" },
+  neutral: { bg: "var(--surface-hover)", fg: "var(--text-secondary)" },
+  info: { bg: "var(--info-subtle)", fg: "var(--info)" },
 };
 
-/** A small colored pill — `<span style={badgeStyle("ok")}>Healthy</span>` —
- * replacing the scattered "✅/❌/🟢/⚪ + text" conventions each panel used
- * to invent on its own with one consistent look. */
 export function badgeStyle(tone: BadgeTone): CSSProperties {
   const c = BADGE_COLORS[tone];
   return {
-    display: "inline-block",
-    padding: "2px 10px",
-    borderRadius: 999,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "4px 10px",
+    borderRadius: "var(--radius-full, 9999px)",
     fontSize: 12,
-    fontWeight: 600,
+    fontWeight: 500,
     background: c.bg,
     color: c.fg,
     whiteSpace: "nowrap",
   };
 }
+
+// Input styles
+export const inputStyle: CSSProperties = {
+  width: "100%",
+  padding: "10px 14px",
+  fontSize: 14,
+  background: "var(--surface)",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm, 8px)",
+  color: "var(--text)",
+  outline: "none",
+};
+
+// Section header style
+export const sectionHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  marginBottom: 16,
+};
+
+// Grid layouts
+export const gridStyle: CSSProperties = {
+  display: "grid",
+  gap: 16,
+};
+
+export const grid2Style: CSSProperties = {
+  ...gridStyle,
+  gridTemplateColumns: "repeat(2, 1fr)",
+};
+
+export const grid3Style: CSSProperties = {
+  ...gridStyle,
+  gridTemplateColumns: "repeat(3, 1fr)",
+};
+
+export const grid4Style: CSSProperties = {
+  ...gridStyle,
+  gridTemplateColumns: "repeat(4, 1fr)",
+};
+
+// Responsive grid
+export const responsiveGridStyle: CSSProperties = {
+  display: "grid",
+  gap: 16,
+  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+};
+
+// Flex styles
+export const flexCenterStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+export const flexBetweenStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+};
+
+export const flexGapStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+};
+
+// Divider
+export const dividerStyle: CSSProperties = {
+  height: 1,
+  background: "var(--border-subtle)",
+  margin: "16px 0",
+};

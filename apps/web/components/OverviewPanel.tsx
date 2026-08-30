@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 import { StatCard, StatCardRow } from "./StatCard";
-import { StatusBadge } from "./StatusBadge";
-import { subtleTextStyle, cardStyle, cellStyle, primaryButtonStyle } from "./dashboard-styles";
+import { cardStyle, labelTextStyle } from "./dashboard-styles";
 
 interface BusinessKnowledgeStatus {
   businessId: string;
@@ -13,6 +13,14 @@ interface BusinessKnowledgeStatus {
   documentCount: number;
   masterCsv: { updatedAt: string | null; sourceCount: number };
   lastRunAt: string | null;
+}
+
+interface ProviderStatus {
+  name: string;
+  healthy: boolean;
+  hasUsableKey: boolean;
+  maskedKey: string;
+  enabled: boolean;
 }
 
 interface Counts {
@@ -28,12 +36,50 @@ interface Counts {
   embeddingTotal: number | null;
 }
 
-/**
- * Mother dashboard's landing tab — every number here is read from an
- * endpoint another tab already uses (nothing new on the backend), just
- * surfaced together so there's one place to see the platform's overall
- * state before drilling into a specific section.
- */
+const CHART_COLORS = {
+  accent: "#6366f1",
+  success: "#10b981",
+  warning: "#f59e0b",
+  danger: "#ef4444",
+  muted: "#475569",
+};
+
+function ProviderList({ providers }: { providers: ProviderStatus[] }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
+      {providers.map((p) => (
+        <div key={p.name} style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "8px 10px",
+          background: "var(--surface-hover)",
+          borderRadius: "var(--radius-xs, 6px)",
+          fontSize: 12,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: p.enabled && p.healthy ? "var(--success)" : p.enabled ? "var(--danger)" : "var(--text-faint)",
+            }} />
+            <span style={{ color: "var(--text)", fontWeight: 500, textTransform: "capitalize" }}>{p.name}</span>
+          </div>
+          <span style={{ color: "var(--text-muted)", fontSize: 11 }}>
+            {p.maskedKey || "No key"}
+          </span>
+        </div>
+      ))}
+      {providers.length === 0 && (
+        <div style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "center", padding: 12 }}>
+          No providers configured
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function OverviewPanel({ active = true }: { active?: boolean }) {
   const [counts, setCounts] = useState<Counts>({
     clients: null,
@@ -48,6 +94,8 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
     embeddingTotal: null,
   });
   const [knowledgeStatus, setKnowledgeStatus] = useState<BusinessKnowledgeStatus[] | null>(null);
+  const [aiProviders, setAiProviders] = useState<ProviderStatus[]>([]);
+  const [embeddingProviders, setEmbeddingProviders] = useState<ProviderStatus[]>([]);
   const [refreshingAll, setRefreshingAll] = useState(false);
   const [refreshAllMessage, setRefreshAllMessage] = useState("");
 
@@ -59,28 +107,22 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
 
   async function runRefreshAll() {
     setRefreshingAll(true);
-    setRefreshAllMessage("Started — recrawling and rebuilding the master CSV for every client, this runs in the background and can take several minutes per client…");
-
+    setRefreshAllMessage("Recrawling and rebuilding knowledge base for all clients...");
     try {
       await fetch("/api/admin/knowledge/refresh-all", { method: "POST" });
-
       const poll = setInterval(refreshKnowledgeStatus, 8000);
       setTimeout(() => {
         clearInterval(poll);
         setRefreshingAll(false);
+        setRefreshAllMessage("");
         refreshKnowledgeStatus();
       }, 60000);
     } catch {
       setRefreshingAll(false);
-      setRefreshAllMessage("Failed to start.");
+      setRefreshAllMessage("Failed to start refresh.");
     }
   }
 
-  // Refetches every time this tab becomes active (not just on first
-  // mount) — panels stay permanently mounted across tab switches (so
-  // Chat Demo's conversation survives), which previously meant this
-  // panel's numbers went stale forever after the first load since
-  // nothing ever triggered a second fetch.
   useEffect(() => {
     if (!active) return;
 
@@ -114,149 +156,203 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
 
     fetch("/api/admin/providers")
       .then((r) => r.json())
-      .then((d: { status: { enabled: boolean; healthy: boolean }[] }) =>
+      .then((d: { status: ProviderStatus[] }) => {
+        setAiProviders(d.status);
         setCounts((c) => ({
           ...c,
           aiTotal: d.status.length,
           aiHealthy: d.status.filter((p) => p.enabled && p.healthy).length,
-        }))
-      );
+        }));
+      });
 
     fetch("/api/admin/embedding-providers")
       .then((r) => r.json())
-      .then((d: { status: { enabled: boolean; healthy: boolean }[] }) =>
+      .then((d: { status: ProviderStatus[] }) => {
+        setEmbeddingProviders(d.status);
         setCounts((c) => ({
           ...c,
           embeddingTotal: d.status.length,
           embeddingHealthy: d.status.filter((p) => p.enabled && p.healthy).length,
-        }))
-      );
+        }));
+      });
 
     refreshKnowledgeStatus();
   }, [active]);
 
-  const val = (n: number | null) => (n === null ? "…" : String(n));
+  const val = (n: number | null) => (n === null ? "—" : String(n));
+
+  const knowledgeChartData = knowledgeStatus?.slice(0, 6).map((s) => ({
+    name: s.businessName.length > 10 ? s.businessName.slice(0, 10) + "…" : s.businessName,
+    documents: s.documentCount,
+    crawlTargets: s.crawlTargets.total,
+  })) ?? [];
+
+  const aiPieData = [
+    { name: "Healthy", value: counts.aiHealthy ?? 0, color: CHART_COLORS.success },
+    { name: "Unhealthy", value: (counts.aiTotal ?? 0) - (counts.aiHealthy ?? 0), color: CHART_COLORS.danger },
+  ].filter((d) => d.value > 0);
+
+  const embeddingPieData = [
+    { name: "Healthy", value: counts.embeddingHealthy ?? 0, color: CHART_COLORS.success },
+    { name: "Unhealthy", value: (counts.embeddingTotal ?? 0) - (counts.embeddingHealthy ?? 0), color: CHART_COLORS.danger },
+  ].filter((d) => d.value > 0);
 
   return (
     <section>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ marginBottom: 4 }}>Overview</h1>
-        <p style={subtleTextStyle}>
-          Platform-wide snapshot — every number below comes from the tab it
-          summarizes, use the sidebar to drill in.
-        </p>
-      </div>
-
       <StatCardRow>
-        <StatCard label="Clients" value={val(counts.clients)} tone="info" />
-        <StatCard
-          label="Open handoffs"
-          value={val(counts.openHandoffs)}
-          hint={counts.totalHandoffs !== null ? `${counts.totalHandoffs} total` : undefined}
-          tone={counts.openHandoffs !== null && counts.openHandoffs > 0 ? "warning" : "success"}
-        />
-        <StatCard
-          label="Pending AI Brain suggestions"
-          value={val(counts.pendingSuggestions)}
-          tone={counts.pendingSuggestions !== null && counts.pendingSuggestions > 0 ? "warning" : "success"}
-        />
-        <StatCard
-          label="QA feedback awaiting review"
-          value={val(counts.qaUnprocessed)}
-          hint={counts.qaTotal !== null ? `${counts.qaTotal} total submitted` : undefined}
-          tone={counts.qaUnprocessed !== null && counts.qaUnprocessed > 0 ? "warning" : "success"}
-        />
-        <StatCard
-          label="AI providers healthy"
-          value={counts.aiHealthy !== null && counts.aiTotal !== null ? `${counts.aiHealthy}/${counts.aiTotal}` : "…"}
-          tone={counts.aiHealthy !== null && counts.aiTotal !== null && counts.aiHealthy === counts.aiTotal ? "success" : "warning"}
-        />
-        <StatCard
-          label="Embedding providers healthy"
-          value={
-            counts.embeddingHealthy !== null && counts.embeddingTotal !== null
-              ? `${counts.embeddingHealthy}/${counts.embeddingTotal}`
-              : "…"
-          }
-          tone={
-            counts.embeddingHealthy !== null &&
-            counts.embeddingTotal !== null &&
-            counts.embeddingHealthy === counts.embeddingTotal
-              ? "success"
-              : "warning"
-          }
-        />
+        <StatCard label="Total Clients" value={val(counts.clients)} tone="accent" icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /></svg>} />
+        <StatCard label="Open Handoffs" value={val(counts.openHandoffs)} hint={counts.totalHandoffs !== null ? `${counts.totalHandoffs} total` : undefined} tone={counts.openHandoffs !== null && counts.openHandoffs > 0 ? "warning" : "success"} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /></svg>} />
+        <StatCard label="AI Suggestions" value={val(counts.pendingSuggestions)} tone={counts.pendingSuggestions !== null && counts.pendingSuggestions > 0 ? "warning" : "success"} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" /></svg>} />
+        <StatCard label="QA Pending" value={val(counts.qaUnprocessed)} hint={counts.qaTotal !== null ? `${counts.qaTotal} total` : undefined} tone={counts.qaUnprocessed !== null && counts.qaUnprocessed > 0 ? "warning" : "success"} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" /></svg>} />
       </StatCardRow>
 
+      {/* Knowledge Base Chart */}
+      <div style={{ ...cardStyle, marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div style={labelTextStyle}>Knowledge Base Overview</div>
+          <button onClick={runRefreshAll} disabled={refreshingAll} className="primary" style={{ fontSize: 12, padding: "6px 12px" }}>
+            {refreshingAll ? "Refreshing..." : "Refresh All"}
+          </button>
+        </div>
+        {refreshAllMessage && (
+          <div style={{ padding: "10px 12px", background: "var(--accent-subtle)", borderRadius: "var(--radius-sm)", marginBottom: 12, fontSize: 12, color: "var(--accent)" }}>
+            {refreshAllMessage}
+          </div>
+        )}
+        {knowledgeChartData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={knowledgeChartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "var(--text-muted)" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "var(--text-muted)" }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} labelStyle={{ color: "var(--text)", fontWeight: 500 }} />
+              <Bar dataKey="documents" fill={CHART_COLORS.accent} radius={[4, 4, 0, 0]} name="Documents" />
+              <Bar dataKey="crawlTargets" fill={CHART_COLORS.muted} radius={[4, 4, 0, 0]} opacity={0.5} name="Crawl Targets" />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 13 }}>Loading chart data...</div>
+        )}
+      </div>
+
+      {/* Provider Health Row */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+        {/* AI Providers */}
+        <div style={cardStyle}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={labelTextStyle}>AI Providers</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+              {counts.aiHealthy ?? 0}/{counts.aiTotal ?? 0} healthy
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+            <div style={{ flexShrink: 0 }}>
+              {aiPieData.length > 0 ? (
+                <ResponsiveContainer width={120} height={120}>
+                  <PieChart>
+                    <Pie data={aiPieData} cx="50%" cy="50%" innerRadius={35} outerRadius={50} paddingAngle={4} dataKey="value">
+                      {aiPieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ width: 120, height: 120, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 12 }}>No data</div>
+              )}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <ProviderList providers={aiProviders} />
+            </div>
+          </div>
+        </div>
+
+        {/* Embedding Providers */}
+        <div style={cardStyle}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={labelTextStyle}>Embedding Providers</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+              {counts.embeddingHealthy ?? 0}/{counts.embeddingTotal ?? 0} healthy
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+            <div style={{ flexShrink: 0 }}>
+              {embeddingPieData.length > 0 ? (
+                <ResponsiveContainer width={120} height={120}>
+                  <PieChart>
+                    <Pie data={embeddingPieData} cx="50%" cy="50%" innerRadius={35} outerRadius={50} paddingAngle={4} dataKey="value">
+                      {embeddingPieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ width: 120, height: 120, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 12 }}>No data</div>
+              )}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <ProviderList providers={embeddingProviders} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Client Knowledge Status Table */}
       <div style={cardStyle}>
-        <h3 style={{ marginTop: 0 }}>Knowledge base — all clients</h3>
-        <p style={subtleTextStyle}>
-          Recrawls every site, re-processes every uploaded document, and rebuilds one master CSV per
-          client, for every business at once. Each client's refresh runs independently and can take
-          several minutes — that's expected. On the platform's current hosting, a single run may not
-          finish a large site in one pass; auto-heal (every 30 minutes) picks up anything left stuck.
-        </p>
-        <button onClick={runRefreshAll} disabled={refreshingAll} style={primaryButtonStyle}>
-          {refreshingAll ? "Running…" : "Refresh all clients now"}
-        </button>
-        {refreshAllMessage && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{refreshAllMessage}</p>}
-
-        {!knowledgeStatus && <p style={subtleTextStyle}>Loading…</p>}
-
-        {knowledgeStatus && (
-          <div className="table-scroll">
-          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12 }}>
+        <div style={labelTextStyle}>Client Knowledge Status</div>
+        <div className="table-scroll">
+          <table>
             <thead>
               <tr>
-                <th style={cellStyle}>Client</th>
-                <th style={cellStyle}>Crawl targets</th>
-                <th style={cellStyle}>Documents indexed</th>
-                <th style={cellStyle}>Master CSV</th>
-                <th style={cellStyle}>Last refresh</th>
+                <th>Client</th>
+                <th>Documents</th>
+                <th>Crawl Targets</th>
+                <th>Master CSV</th>
+                <th>Last Refresh</th>
               </tr>
             </thead>
             <tbody>
-              {knowledgeStatus.map((s) => {
+              {knowledgeStatus?.map((s) => {
                 const csvOk = s.masterCsv.updatedAt !== null && s.masterCsv.sourceCount >= s.documentCount;
                 const targetsOk = s.crawlTargets.total === 0 || (s.crawlTargets.done === s.crawlTargets.total && s.crawlTargets.stuck === 0);
                 return (
                   <tr key={s.businessId}>
-                    <td style={cellStyle}>{s.businessName}</td>
-                    <td style={cellStyle}>
+                    <td style={{ fontWeight: 500, color: "var(--text)" }}>{s.businessName}</td>
+                    <td>{s.documentCount}</td>
+                    <td>
                       {s.crawlTargets.total === 0 ? (
-                        "—"
+                        <span style={{ color: "var(--text-muted)" }}>—</span>
                       ) : (
-                        <StatusBadge tone={targetsOk ? "ok" : "warn"}>
+                        <span style={{ color: targetsOk ? "var(--success)" : "var(--warning)" }}>
                           {s.crawlTargets.done}/{s.crawlTargets.total} done
                           {s.crawlTargets.stuck > 0 ? ` (${s.crawlTargets.stuck} stuck)` : ""}
-                        </StatusBadge>
+                        </span>
                       )}
                     </td>
-                    <td style={cellStyle}>{s.documentCount}</td>
-                    <td style={cellStyle}>
+                    <td>
                       {s.masterCsv.updatedAt ? (
-                        <StatusBadge tone={csvOk ? "ok" : "warn"}>
+                        <span style={{ color: csvOk ? "var(--success)" : "var(--warning)" }}>
                           {s.masterCsv.sourceCount}/{s.documentCount} sources
-                        </StatusBadge>
+                        </span>
                       ) : (
-                        <span style={subtleTextStyle}>not generated</span>
+                        <span style={{ color: "var(--text-muted)" }}>Not generated</span>
                       )}
                     </td>
-                    <td style={cellStyle}>
-                      {s.lastRunAt ? new Date(s.lastRunAt).toLocaleString() : "never"}
+                    <td style={{ color: "var(--text-muted)" }}>
+                      {s.lastRunAt ? new Date(s.lastRunAt).toLocaleDateString() : "Never"}
                     </td>
                   </tr>
                 );
               })}
-              {knowledgeStatus.length === 0 && (
-                <tr>
-                  <td style={cellStyle} colSpan={5}>No clients yet.</td>
-                </tr>
+              {knowledgeStatus && knowledgeStatus.length === 0 && (
+                <tr><td colSpan={5} style={{ color: "var(--text-muted)", textAlign: "center", padding: "24px" }}>No clients configured yet</td></tr>
               )}
             </tbody>
           </table>
-          </div>
-        )}
+        </div>
       </div>
     </section>
   );
