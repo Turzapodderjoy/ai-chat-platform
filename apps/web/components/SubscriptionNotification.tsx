@@ -17,14 +17,14 @@ export function SubscriptionNotification() {
         .then((r) => r.json())
         .then((data) => {
           const sub = data.subscription;
-          if (!sub || !sub.active || !sub.endDate) return;
+          if (!sub || !sub.subscriptionActive || !sub.subscriptionEndDate) return;
 
-          const end = new Date(sub.endDate);
+          const end = new Date(sub.subscriptionEndDate);
           const now = new Date();
           const daysLeft = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
           if (daysLeft <= 7 && daysLeft > 0) {
-            setWarning({ daysLeft, endDate: sub.endDate });
+            setWarning({ daysLeft, endDate: sub.subscriptionEndDate });
           }
         })
         .catch(() => {});

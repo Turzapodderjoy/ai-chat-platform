@@ -11,6 +11,7 @@
     "check-types": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@ai-chat-platform/billing": "workspace:*",
     "@ai-chat-platform/bootstrap": "workspace:*",
     "@ai-chat-platform/chunker": "workspace:*",
     "@ai-chat-platform/client-auth": "workspace:*",

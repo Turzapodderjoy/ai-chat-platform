@@ -50,6 +50,7 @@ model Business {
   // Subscription fields (manual management by admin)
   subscriptionPlanName  String?
   subscriptionFee       Float?
+  subscriptionCurrency  String    @default("BDT")
   subscriptionStartDate DateTime?
   subscriptionEndDate   DateTime?
   subscriptionActive    Boolean   @default(true)
@@ -949,6 +950,10 @@ model Order {
 
   customerName    String
   phone           String
+  // Nullable -- the AI order-taking chat flow doesn't collect an email
+  // today, so this starts empty and is filled in by staff by hand (see
+  // OrderService.UpdateDeliveryInput.email) until/unless that changes.
+  email           String?
   deliveryAddress String
   products        String
   paymentMethod   String
@@ -1037,6 +1042,27 @@ model EmailSenderConfig {
   fromEmail       String
   trackingPageUrl String?
   updatedAt       DateTime @updatedAt
+}
+
+// One editable email template per (business, kind, status) -- kind is
+// "order_status" or "repair_status", statusValue matches
+// DELIVERY_STATUSES / the repair status list. Rendered with {{placeholder}}
+// tokens (see renderTemplate in packages/email) and sent through the
+// business's own connected Gmail account (GmailEmailClient), not through
+// the paid Resend path EmailSenderConfig backs.
+model StatusEmailTemplate {
+  id          String   @id @default(cuid())
+  businessId  String
+  kind        String
+  statusValue String
+  subject     String
+  bodyHtml    String
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([businessId, kind, statusValue])
+  @@index([businessId])
 }
 
 // CRM layer (Contacts/Companies/Deals) — a real customer record instead

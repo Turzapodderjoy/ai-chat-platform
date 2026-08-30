@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { cardStyle, labelTextStyle } from "./dashboard-styles";
+import { cardStyle } from "./dashboard-styles";
+import { currencySymbol } from "../lib/currency";
 
 interface SubscriptionStatus {
-  planName: string | null;
-  fee: number | null;
-  startDate: string | null;
-  endDate: string | null;
-  active: boolean;
+  subscriptionPlanName: string | null;
+  subscriptionFee: number | null;
+  subscriptionCurrency: string;
+  subscriptionStartDate: string | null;
+  subscriptionEndDate: string | null;
+  subscriptionActive: boolean;
 }
 
 export function SubscriptionStatus() {
@@ -25,81 +27,71 @@ export function SubscriptionStatus() {
       .catch(() => setLoading(false));
   }, []);
 
-  if (loading) {
-    return (
-      <div style={{ ...cardStyle, padding: 20, textAlign: "center", color: "var(--text-muted)" }}>
-        Loading subscription...
-      </div>
-    );
-  }
+  if (loading) return <div style={{ padding: 16, fontSize: 13 }}>Loading subscription...</div>;
   if (!subscription) return null;
 
   const getStatus = () => {
-    if (!subscription.active) return { label: "Disabled", color: "var(--text-muted)", bg: "var(--surface-hover)", icon: "⏸" };
-    if (!subscription.endDate) return { label: "Active", color: "var(--success)", bg: "var(--success-subtle)", icon: "✓" };
-    const end = new Date(subscription.endDate);
+    if (!subscription.subscriptionActive) return { label: "Disabled", color: "#6b7280", bg: "#f3f4f6" };
+    if (!subscription.subscriptionEndDate) return { label: "Active", color: "#10b981", bg: "#ecfdf5" };
+    const end = new Date(subscription.subscriptionEndDate);
     const now = new Date();
     const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
-    if (end.getTime() < now.getTime() - twoDaysMs) return { label: "Expired", color: "var(--danger)", bg: "var(--danger-subtle)", icon: "✕" };
-    if (end.getTime() < now.getTime()) return { label: "Grace Period", color: "var(--warning)", bg: "var(--warning-subtle)", icon: "⚠" };
+    if (end.getTime() < now.getTime() - twoDaysMs) return { label: "Expired", color: "#ef4444", bg: "#fef2f2" };
+    if (end.getTime() < now.getTime()) return { label: "Grace Period", color: "#f59e0b", bg: "#fffbeb" };
     const daysLeft = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    if (daysLeft <= 7) return { label: `Expiring in ${daysLeft}d`, color: "var(--warning)", bg: "var(--warning-subtle)", icon: "⚠" };
-    return { label: "Active", color: "var(--success)", bg: "var(--success-subtle)", icon: "✓" };
+    if (daysLeft <= 7) return { label: `Expiring in ${daysLeft}d`, color: "#f59e0b", bg: "#fffbeb" };
+    return { label: "Active", color: "#10b981", bg: "#ecfdf5" };
   };
 
   const status = getStatus();
 
   return (
-    <div style={cardStyle}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <div style={labelTextStyle}>Subscription</div>
-        <span style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          padding: "6px 12px",
-          borderRadius: "var(--radius-full)",
-          fontSize: 13,
-          fontWeight: 500,
-          backgroundColor: status.bg,
-          color: status.color,
-        }}>
-          <span>{status.icon}</span>
+    <div style={{ ...cardStyle, padding: 16, marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>Subscription</h3>
+        <span
+          style={{
+            padding: "4px 12px",
+            borderRadius: 16,
+            fontSize: 12,
+            fontWeight: 500,
+            backgroundColor: status.bg,
+            color: status.color,
+          }}
+        >
           {status.label}
         </span>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 16 }}>
-        {subscription.planName && (
-          <div style={{ padding: "12px", background: "var(--surface-hover)", borderRadius: "var(--radius-sm)" }}>
-            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Plan</div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>{subscription.planName}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, fontSize: 13 }}>
+        {subscription.subscriptionPlanName && (
+          <div>
+            <div style={{ color: "#6b7280", marginBottom: 2 }}>Plan</div>
+            <div style={{ fontWeight: 500 }}>{subscription.subscriptionPlanName}</div>
           </div>
         )}
-        {subscription.fee && (
-          <div style={{ padding: "12px", background: "var(--surface-hover)", borderRadius: "var(--radius-sm)" }}>
-            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Monthly Fee</div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>৳{subscription.fee.toLocaleString()}</div>
+        {subscription.subscriptionFee && (
+          <div>
+            <div style={{ color: "#6b7280", marginBottom: 2 }}>Monthly Fee</div>
+            <div style={{ fontWeight: 500 }}>{currencySymbol(subscription.subscriptionCurrency)}{subscription.subscriptionFee.toLocaleString()}</div>
           </div>
         )}
-        {subscription.startDate && (
-          <div style={{ padding: "12px", background: "var(--surface-hover)", borderRadius: "var(--radius-sm)" }}>
-            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Start Date</div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>{new Date(subscription.startDate).toLocaleDateString()}</div>
+        {subscription.subscriptionStartDate && (
+          <div>
+            <div style={{ color: "#6b7280", marginBottom: 2 }}>Start Date</div>
+            <div style={{ fontWeight: 500 }}>{new Date(subscription.subscriptionStartDate).toLocaleDateString()}</div>
           </div>
         )}
-        {subscription.endDate && (
-          <div style={{ padding: "12px", background: "var(--surface-hover)", borderRadius: "var(--radius-sm)" }}>
-            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>End Date</div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>{new Date(subscription.endDate).toLocaleDateString()}</div>
+        {subscription.subscriptionEndDate && (
+          <div>
+            <div style={{ color: "#6b7280", marginBottom: 2 }}>End Date</div>
+            <div style={{ fontWeight: 500 }}>{new Date(subscription.subscriptionEndDate).toLocaleDateString()}</div>
           </div>
         )}
       </div>
 
-      {!subscription.planName && !subscription.fee && !subscription.startDate && (
-        <div style={{ padding: "16px", background: "var(--surface-hover)", borderRadius: "var(--radius-sm)", textAlign: "center" }}>
-          <div style={{ fontSize: 13, color: "var(--text-muted)", fontStyle: "italic" }}>No subscription configured</div>
-        </div>
+      {!subscription.subscriptionPlanName && !subscription.subscriptionFee && !subscription.subscriptionStartDate && (
+        <div style={{ fontSize: 13, color: "#6b7280", fontStyle: "italic" }}>No subscription configured</div>
       )}
     </div>
   );

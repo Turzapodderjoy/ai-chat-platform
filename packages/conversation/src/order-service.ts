@@ -12,6 +12,7 @@ export interface OrderInput {
 
 export interface Order extends OrderInput {
   id: string;
+  email: string | null;
   courier: string | null;
   trackingId: string | null;
   deliveryStatus: string;
@@ -21,6 +22,7 @@ export interface Order extends OrderInput {
 export const DELIVERY_STATUSES = ["pending", "picked_up", "in_transit", "delivered", "returned"] as const;
 
 export interface UpdateDeliveryInput {
+  email?: string | null;
   courier?: string | null;
   trackingId?: string | null;
   deliveryStatus?: string;
@@ -32,6 +34,7 @@ function toOrder(row: {
   conversationId: string;
   customerName: string;
   phone: string;
+  email: string | null;
   deliveryAddress: string;
   products: string;
   paymentMethod: string;

@@ -1,6 +1,6 @@
 import { ConversationService } from "@ai-chat-platform/conversation";
 import { RepairAppointmentService } from "@ai-chat-platform/repairs";
-import { EmailSenderConfigService, ResendEmailClient } from "@ai-chat-platform/email";
+import { EmailSenderConfigService, ResendEmailClient, StatusEmailService } from "@ai-chat-platform/email";
 import { TenantService } from "@ai-chat-platform/tenant";
 import { ContactService, DealService } from "@ai-chat-platform/crm";
 
@@ -28,7 +28,8 @@ export class RepairController {
     private readonly emailClient: ResendEmailClient,
     private readonly tenants: TenantService,
     private readonly contacts: ContactService,
-    private readonly deals: DealService
+    private readonly deals: DealService,
+    private readonly statusEmails: StatusEmailService
   ) {}
 
   async book(input: BookRepairInput): Promise<{ trackingToken: string }> {
@@ -137,6 +138,14 @@ export class RepairController {
     // customer's own messages live in — shows up right in the thread
     // with a real timestamp, no separate history table needed.
     await this.conversations.addMessage(appointment.trackingToken, "system", `Status updated to ${REPAIR_STATUS_LABEL[status] ?? status}`);
+
+    // Best-effort, same pattern as sendBookingEmail above — no-ops
+    // silently if there's no template for this status, no customer
+    // email, or no connected Gmail account.
+    this.statusEmails.sendForRepairStatusChange(appointment).catch((err) =>
+      console.error("[RepairController] status email failed:", err)
+    );
+
     return appointment;
   }
 

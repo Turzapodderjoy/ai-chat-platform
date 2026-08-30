@@ -21,6 +21,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       data: {
         subscriptionPlanName: body.subscriptionPlanName ?? business.subscriptionPlanName,
         subscriptionFee: body.subscriptionFee ?? business.subscriptionFee,
+        subscriptionCurrency: body.subscriptionCurrency ?? business.subscriptionCurrency,
         subscriptionStartDate: body.subscriptionStartDate ? new Date(body.subscriptionStartDate) : business.subscriptionStartDate,
         subscriptionEndDate: body.subscriptionEndDate ? new Date(body.subscriptionEndDate) : business.subscriptionEndDate,
         subscriptionActive: body.subscriptionActive ?? business.subscriptionActive,

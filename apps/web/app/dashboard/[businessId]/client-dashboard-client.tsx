@@ -12,6 +12,7 @@ import { ChatLearningPanel } from "../../../components/ChatLearningPanel";
 import { ChannelsPanel } from "../../../components/ChannelsPanel";
 import { ProductCatalogPanel } from "../../../components/ProductCatalogPanel";
 import { InventoryPanel } from "../../../components/InventoryPanel";
+import { StatusEmailTemplatesPanel } from "../../../components/StatusEmailTemplatesPanel";
 import { OrdersPanel } from "../../../components/OrdersPanel";
 import { DeliveryPanel } from "../../../components/DeliveryPanel";
 import { RepairsPanel } from "../../../components/RepairsPanel";
@@ -29,7 +30,7 @@ import { DashboardShell, type NavGroup } from "../../../components/DashboardShel
 import { RemovableSection } from "../../../components/RemovableSection";
 import { AgentConsole } from "../../../components/AgentConsole";
 
-type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "inventory" | "orders" | "delivery" | "repairs" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "deals" | "quotes" | "invoices" | "reports";
+type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "inventory" | "orders" | "delivery" | "repairs" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "deals" | "quotes" | "invoices" | "reports" | "notifications";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }, { id: "reports", label: "Reports" }] },
@@ -54,6 +55,7 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
       { id: "repairs", label: "Repairs" },
       { id: "products", label: "Product Catalog" },
       { id: "inventory", label: "Inventory" },
+      { id: "notifications", label: "Notifications" },
     ],
   },
   {
@@ -317,6 +319,7 @@ export default function ClientDashboardClient() {
         ["knowledge", <KnowledgeHubPanel key="knowledge" businessId={businessId} active={tab === "knowledge"} />],
         ["products", <ProductCatalogPanel key="products" businessId={businessId} />],
         ["inventory", <InventoryPanel key="inventory" businessId={businessId} />],
+        ["notifications", <StatusEmailTemplatesPanel key="notifications" businessId={businessId} />],
         ["orders", <OrdersPanel key="orders" businessId={businessId} />],
         ["delivery", <DeliveryPanel key="delivery" businessId={businessId} />],
         ["repairs", <RepairsPanel key="repairs" businessId={businessId} active={tab === "repairs"} />],

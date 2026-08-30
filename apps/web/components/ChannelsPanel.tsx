@@ -202,7 +202,7 @@ export function ChannelsPanel({ businessId }: { businessId: string }) {
                   </>
                 ) : entry.supportsOAuth ? (
                   <a href={`/api/oauth/${entry.id}/start?businessId=${encodeURIComponent(businessId)}`}>
-                    <button>Connect via Facebook</button>
+                    <button>Connect {entry.label}</button>
                   </a>
                 ) : (
                   <p style={{ opacity: 0.6, fontSize: 13 }}>

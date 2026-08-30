@@ -25,6 +25,7 @@ import { ReportingController } from "./reporting-controller";
 import { WidgetVisibilityController } from "./widget-visibility-controller";
 import { DashboardThemeController } from "./dashboard-theme-controller";
 import { ApprovalController } from "./approval-controller";
+import { StatusEmailTemplateController } from "./status-email-template-controller";
 
 export class ApiRouter {
   constructor(
@@ -54,6 +55,7 @@ export class ApiRouter {
     readonly reporting: ReportingController,
     readonly widgetVisibility: WidgetVisibilityController,
     readonly dashboardTheme: DashboardThemeController,
-    readonly approvals: ApprovalController
+    readonly approvals: ApprovalController,
+    readonly statusEmailTemplates: StatusEmailTemplateController
   ) {}
 }

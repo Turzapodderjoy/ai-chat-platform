@@ -9,6 +9,7 @@ interface Order {
   id: string;
   customerName: string;
   phone: string;
+  email: string | null;
   deliveryAddress: string;
   products: string;
   courier: string | null;
@@ -48,6 +49,7 @@ export function DeliveryPanel({ businessId }: { businessId: string }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [courierDraft, setCourierDraft] = useState("");
   const [trackingDraft, setTrackingDraft] = useState("");
+  const [emailDraft, setEmailDraft] = useState("");
 
   function refresh() {
     fetch(`/api/admin/orders?businessId=${encodeURIComponent(businessId)}`)
@@ -68,6 +70,7 @@ export function DeliveryPanel({ businessId }: { businessId: string }) {
     setExpandedId(order.id);
     setCourierDraft(order.courier ?? "");
     setTrackingDraft(order.trackingId ?? "");
+    setEmailDraft(order.email ?? "");
   }
 
   async function saveDelivery(order: Order) {
@@ -76,7 +79,7 @@ export function DeliveryPanel({ businessId }: { businessId: string }) {
       await fetch("/api/admin/orders", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: order.id, courier: courierDraft, trackingId: trackingDraft }),
+        body: JSON.stringify({ id: order.id, courier: courierDraft, trackingId: trackingDraft, email: emailDraft || null }),
       });
       refresh();
     } finally {
@@ -215,6 +218,12 @@ export function DeliveryPanel({ businessId }: { businessId: string }) {
                             placeholder="Tracking ID"
                             value={trackingDraft}
                             onChange={(e) => setTrackingDraft(e.target.value)}
+                          />
+                          <input
+                            style={{ padding: 6, fontSize: 12 }}
+                            placeholder="Customer email (for status update emails)"
+                            value={emailDraft}
+                            onChange={(e) => setEmailDraft(e.target.value)}
                           />
                           <button onClick={() => saveDelivery(o)} disabled={busyId === o.id} style={{ fontSize: 11, padding: "5px 10px" }}>
                             Save
