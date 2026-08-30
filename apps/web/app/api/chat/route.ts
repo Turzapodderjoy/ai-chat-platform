@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@ai-chat-platform/database";
 
 import { getApp } from "../../../lib/app";
 
@@ -31,12 +32,52 @@ export async function POST(req: NextRequest) {
   const businessId = typeof body.businessId === "string" ? body.businessId : undefined;
   const languageHint = typeof body.languageHint === "string" ? body.languageHint : undefined;
 
+  // Check subscription status for the business (2-day grace period)
+  if (businessId) {
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: {
+        subscriptionActive: true,
+        subscriptionEndDate: true,
+      },
+    });
+
+    if (business) {
+      const isDisabled = !business.subscriptionActive;
+      const isExpired = business.subscriptionEndDate &&
+        business.subscriptionEndDate < new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+
+      if (isDisabled || isExpired) {
+        return NextResponse.json(
+          {
+            answer: "This service is currently unavailable. Please contact the business owner to renew your subscription.",
+            provider: "system",
+            tokens: 0,
+            confidence: 1,
+            handoff: true,
+          },
+          { headers: CORS_HEADERS }
+        );
+      }
+    }
+  }
+
   try {
     const app = await getApp();
     const answer = await withTimeout(
       app.container.router.chat.post(sessionId, body.message, businessId, undefined, languageHint, imageUrl),
       55_000
     );
+
+    // Track usage for billing (fire and forget - don't block response)
+    if (businessId) {
+      prisma.businessUsage.upsert({
+        where: { businessId },
+        update: { chatCount: { increment: 1 } },
+        create: { businessId, chatCount: 1 },
+      }).catch((err) => console.error("[Usage] Failed to track chat:", err));
+    }
+
     return NextResponse.json(answer, { headers: CORS_HEADERS });
   } catch (err) {
     // 55s, not the old 12s: retrieval alone has taken up to ~12s under

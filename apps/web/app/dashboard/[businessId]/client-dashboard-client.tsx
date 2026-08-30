@@ -23,6 +23,8 @@ import { ReportsPanel } from "../../../components/ReportsPanel";
 import { ClientOverviewPanel } from "../../../components/ClientOverviewPanel";
 import { ClientTagDashboardPanel } from "../../../components/ClientTagDashboardPanel";
 import { TrainingArenaPanel } from "../../../components/TrainingArenaPanel";
+import { SubscriptionStatus } from "../../../components/SubscriptionStatus";
+import { SubscriptionNotification } from "../../../components/SubscriptionNotification";
 import { DashboardShell, type NavGroup } from "../../../components/DashboardShell";
 import { RemovableSection } from "../../../components/RemovableSection";
 import { AgentConsole } from "../../../components/AgentConsole";
@@ -282,6 +284,7 @@ export default function ClientDashboardClient() {
       onLogout={logout}
       backHref={isAdmin ? "/dashboard" : undefined}
     >
+      <SubscriptionNotification />
       {previewAsClient && isAdmin && (
         <div
           style={{
@@ -304,7 +307,12 @@ export default function ClientDashboardClient() {
         </div>
       )}
       {([
-        ["overview", <ClientOverviewPanel key="overview" businessId={businessId} active={tab === "overview"} />],
+        ["overview", (
+          <div key="overview">
+            <SubscriptionStatus />
+            <ClientOverviewPanel businessId={businessId} active={tab === "overview"} />
+          </div>
+        )],
         ["tagdashboard", <ClientTagDashboardPanel key="tagdashboard" businessId={businessId} />],
         ["knowledge", <KnowledgeHubPanel key="knowledge" businessId={businessId} active={tab === "knowledge"} />],
         ["products", <ProductCatalogPanel key="products" businessId={businessId} />],

@@ -49,6 +49,14 @@ function toOrder(row: {
 export class OrderService {
   async create(input: OrderInput): Promise<Order> {
     const row = await prisma.order.create({ data: input });
+
+    // Track usage for billing (fire and forget)
+    prisma.businessUsage.upsert({
+      where: { businessId: input.businessId },
+      update: { orderCount: { increment: 1 } },
+      create: { businessId: input.businessId, orderCount: 1 },
+    }).catch((err) => console.error("[Usage] Failed to track order:", err));
+
     return toOrder(row);
   }
 

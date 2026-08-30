@@ -39,6 +39,7 @@ model Business {
   slug          String        @unique
 
   members       Membership[]
+  usage         BusinessUsage?
 
   // How many agent (handoff-team) logins this business is allowed to
   // create for itself under Client Access -- 0 means the feature isn't
@@ -46,8 +47,28 @@ model Business {
   // Agents panel enforces this but never raises it.
   maxAgents     Int      @default(0)
 
+  // Subscription fields (manual management by admin)
+  subscriptionPlanName  String?
+  subscriptionFee       Float?
+  subscriptionStartDate DateTime?
+  subscriptionEndDate   DateTime?
+  subscriptionActive    Boolean   @default(true)
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+// Usage tracking for billing and plan limits
+model BusinessUsage {
+  id              String    @id @default(cuid())
+  businessId      String    @unique
+  chatCount       Int       @default(0)  // Total AI messages this period
+  orderCount      Int       @default(0)  // Orders collected this period
+  lastResetAt     DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  business        Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
 
 model Membership {
