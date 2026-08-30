@@ -48,7 +48,7 @@ a {
   --text: #e2e8f0;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
-  --text-faint: #475569;
+  --text-faint: #64748b;
   
   /* Accent - Indigo */
   --accent: #6366f1;
@@ -104,7 +104,7 @@ a {
   --text: #0f172a;
   --text-secondary: #475569;
   --text-muted: #64748b;
-  --text-faint: #94a3b8;
+  --text-faint: #64748b;
   
   --accent: #6366f1;
   --accent-hover: #4f46e5;
@@ -318,6 +318,9 @@ a {
   background: var(--bg-elevated);
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .app-shell th:first-child {
@@ -340,6 +343,14 @@ a {
 }
 
 .app-shell tbody tr:hover {
+  background: var(--surface-hover);
+}
+
+.app-shell tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.app-shell tbody tr:nth-child(even):hover {
   background: var(--surface-hover);
 }
 
@@ -447,4 +458,107 @@ a {
 .recharts-cartesian-grid-horizontal line,
 .recharts-cartesian-grid-vertical line {
   stroke: var(--border-subtle) !important;
+}
+
+/* ===================================================================
+   Skeleton Loader
+   =================================================================== */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+
+.skeleton {
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-text {
+  height: 12px;
+  margin-bottom: 8px;
+  border-radius: var(--radius-xs);
+}
+
+.skeleton-text:last-child {
+  width: 60%;
+}
+
+.skeleton-circle {
+  border-radius: 50%;
+}
+
+.skeleton-card {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+}
+
+/* ===================================================================
+   Focus Animations (Login & Forms)
+   =================================================================== */
+.login-input {
+  transition: all 0.2s ease;
+  border: 1px solid var(--border);
+}
+
+.login-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+.login-input:hover:not(:focus) {
+  border-color: var(--border-strong);
+}
+
+/* ===================================================================
+   Empty State Illustrations
+   =================================================================== */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.empty-state-icon {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 20px;
+  color: var(--text-faint);
+  opacity: 0.5;
+}
+
+.empty-state-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.empty-state-description {
+  font-size: 13px;
+  color: var(--text-muted);
+  max-width: 280px;
+  line-height: 1.5;
+}
+
+/* ===================================================================
+   Button Loading State
+   =================================================================== */
+@keyframes button-spin {
+  to { transform: rotate(360deg); }
+}
+
+button .spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: button-spin 0.6s linear infinite;
 }
