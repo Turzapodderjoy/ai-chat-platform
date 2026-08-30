@@ -130,6 +130,9 @@ importers:
       '@ai-chat-platform/ai-manager':
         specifier: workspace:*
         version: link:../ai-manager
+      '@ai-chat-platform/approvals':
+        specifier: workspace:*
+        version: link:../approvals
       '@ai-chat-platform/auto-heal':
         specifier: workspace:*
         version: link:../auto-heal
@@ -221,6 +224,12 @@ importers:
         specifier: workspace:*
         version: link:../widget-visibility
 
+  packages/approvals:
+    dependencies:
+      '@ai-chat-platform/database':
+        specifier: workspace:*
+        version: link:../database
+
   packages/auto-heal:
     dependencies:
       '@ai-chat-platform/database':
@@ -253,6 +262,9 @@ importers:
       '@ai-chat-platform/api':
         specifier: workspace:*
         version: link:../api
+      '@ai-chat-platform/approvals':
+        specifier: workspace:*
+        version: link:../approvals
       '@ai-chat-platform/auto-heal':
         specifier: workspace:*
         version: link:../auto-heal

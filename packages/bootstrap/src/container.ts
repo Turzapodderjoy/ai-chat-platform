@@ -42,7 +42,8 @@ import { FeedbackController } from "@ai-chat-platform/api";
 import { AutoHealController } from "@ai-chat-platform/api";
 import { TagController } from "@ai-chat-platform/api";
 import { ClientAuthController } from "@ai-chat-platform/api";
-import { WidgetConfigController, DashboardThemeController } from "@ai-chat-platform/api";
+import { WidgetConfigController, DashboardThemeController, ApprovalController } from "@ai-chat-platform/api";
+import { ApprovalService } from "@ai-chat-platform/approvals";
 import { KnowledgeRefreshController } from "@ai-chat-platform/api";
 import { ClientHealthController, ProductController, OrderController, RepairController, EmailController, CrmController, RevenueController, ReportingController, WidgetVisibilityController } from "@ai-chat-platform/api";
 import { RepairAppointmentService } from "@ai-chat-platform/repairs";
@@ -261,6 +262,9 @@ export class Container {
     const dashboardTheme =
       new DashboardThemeService();
 
+    const approvals =
+      new ApprovalService();
+
     this.router =
       new ApiRouter(
         new ChatController(rag),
@@ -307,7 +311,8 @@ export class Container {
         new RevenueController(quotes, invoices, payments),
         new ReportingController(reporting),
         new WidgetVisibilityController(widgetVisibility),
-        new DashboardThemeController(dashboardTheme)
+        new DashboardThemeController(dashboardTheme),
+        new ApprovalController(approvals)
       );
   }
 

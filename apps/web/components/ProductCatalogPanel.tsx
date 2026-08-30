@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
-import { cardStyle, subtleTextStyle, badgeStyle, primaryButtonStyle } from "./dashboard-styles";
+import { cardStyle, subtleTextStyle, badgeStyle } from "./dashboard-styles";
 
 interface Product {
   id: string;
@@ -17,18 +17,13 @@ interface Product {
 }
 
 const PAGE_SIZE = 25;
-const EMPTY_DRAFT = { name: "", price: "", stock: "", sku: "", description: "" };
 
 /** Per-client browsable product list — real columns, plain search, no
  * LLM call and no per-message token budget in the way (see
  * ProductSyncService's own comment on why this table exists at all).
- * Kept current automatically by every recrawl; also directly editable
- * here for a client who wants to track inventory themselves (manual
- * add/edit/delete, or bulk CSV/XLSX import) rather than only via
- * crawled-site sync. Manually managed rows are NOT taught to the AI
- * chat (that stays crawl/upload-only via Knowledge Hub) -- this is
- * purely the inventory record, same scope the read-only view already
- * had. */
+ * Kept current automatically by every recrawl; this panel is read-only.
+ * For manually adding/editing/importing inventory directly, see
+ * InventoryPanel — a separate tab, same underlying Product table. */
 export function ProductCatalogPanel({ businessId }: { businessId: string }) {
   const [products, setProducts] = useState<Product[] | null>(null);
   const [total, setTotal] = useState(0);
@@ -36,16 +31,6 @@ export function ProductCatalogPanel({ businessId }: { businessId: string }) {
   const [offset, setOffset] = useState(0);
   const [captioning, setCaptioning] = useState(false);
   const [captionMsg, setCaptionMsg] = useState("");
-
-  const [showAdd, setShowAdd] = useState(false);
-  const [draft, setDraft] = useState(EMPTY_DRAFT);
-  const [saving, setSaving] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState(EMPTY_DRAFT);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [importing, setImporting] = useState(false);
-  const [importMsg, setImportMsg] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function captionImages() {
     setCaptioning(true);
@@ -69,7 +54,7 @@ export function ProductCatalogPanel({ businessId }: { businessId: string }) {
     }
   }
 
-  function refresh() {
+  useEffect(() => {
     setProducts(null);
     const params = new URLSearchParams({
       businessId,
@@ -84,85 +69,7 @@ export function ProductCatalogPanel({ businessId }: { businessId: string }) {
         setProducts(data.products);
         setTotal(data.total);
       });
-  }
-
-  useEffect(refresh, [businessId, search, offset]);
-
-  async function addProduct() {
-    if (!draft.name.trim()) return;
-    setSaving(true);
-    try {
-      const res = await fetch("/api/admin/products", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, ...draft }),
-      });
-      if (res.ok) {
-        setDraft(EMPTY_DRAFT);
-        setShowAdd(false);
-        refresh();
-      }
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function startEdit(p: Product) {
-    setEditId(p.id);
-    setEditDraft({ name: p.name, price: p.price ?? "", stock: p.stock ?? "", sku: p.sku ?? "", description: p.description ?? "" });
-  }
-
-  async function saveEdit(id: string) {
-    setBusyId(id);
-    try {
-      const res = await fetch("/api/admin/products", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, ...editDraft }),
-      });
-      if (res.ok) {
-        setEditId(null);
-        refresh();
-      }
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function deleteProduct(p: Product) {
-    if (!window.confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
-    setBusyId(p.id);
-    try {
-      await fetch(`/api/admin/products?id=${encodeURIComponent(p.id)}`, { method: "DELETE" });
-      setProducts((prev) => prev?.filter((x) => x.id !== p.id) ?? prev);
-      setTotal((t) => Math.max(0, t - 1));
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function importFile(file: File) {
-    setImporting(true);
-    setImportMsg("");
-    try {
-      const form = new FormData();
-      form.set("businessId", businessId);
-      form.set("file", file);
-      const res = await fetch("/api/admin/products/import", { method: "POST", body: form });
-      const data = await res.json();
-      if (!res.ok) {
-        setImportMsg(`Error: ${data.error ?? "import failed"}`);
-        return;
-      }
-      setImportMsg(`Imported: ${data.created} added, ${data.updated} updated${data.skipped ? `, ${data.skipped} skipped` : ""}.`);
-      refresh();
-    } catch {
-      setImportMsg("Couldn't import that file — check it's a valid CSV or .xlsx.");
-    } finally {
-      setImporting(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  }
+  }, [businessId, search, offset]);
 
   const page = Math.floor(offset / PAGE_SIZE) + 1;
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -171,46 +78,19 @@ export function ProductCatalogPanel({ businessId }: { businessId: string }) {
     <section style={cardStyle}>
       <h2 style={{ marginTop: 0 }}>Product Catalog</h2>
       <p style={subtleTextStyle}>
-        Every product extracted from this client&apos;s crawled site, plus anything added or imported here
-        directly — your own inventory record, editable any time.
+        Every product extracted from this client&apos;s crawled site — kept current automatically on every
+        recrawl, no chat/LLM call needed to browse it.
       </p>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
-        <button onClick={() => setShowAdd((s) => !s)} style={primaryButtonStyle}>
-          {showAdd ? "Cancel" : "+ Add product"}
-        </button>
-        <button onClick={() => fileInputRef.current?.click()} disabled={importing} style={{ fontSize: 12, padding: "6px 10px" }}>
-          {importing ? "Importing…" : "Import CSV / XLSX"}
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".csv,.xlsx,.xls"
-          style={{ display: "none" }}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) importFile(file);
-          }}
-        />
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
         <button onClick={captionImages} disabled={captioning} style={{ fontSize: 12, padding: "6px 10px" }}>
           {captioning ? "Starting…" : "Caption product images"}
         </button>
+        <span style={{ ...subtleTextStyle, marginTop: 0 }}>
+          Lets a customer&apos;s own photo be matched to a product — see each row&apos;s photo below.
+          {captionMsg && <> {captionMsg}</>}
+        </span>
       </div>
-      {importMsg && <p style={{ ...subtleTextStyle, marginTop: 0 }}>{importMsg}</p>}
-      {captionMsg && <p style={{ ...subtleTextStyle, marginTop: 0 }}>{captionMsg}</p>}
-
-      {showAdd && (
-        <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 14, marginBottom: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input placeholder="Name *" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} style={{ padding: 8, minWidth: 160 }} />
-          <input placeholder="Price" value={draft.price} onChange={(e) => setDraft({ ...draft, price: e.target.value })} style={{ padding: 8, width: 100 }} />
-          <input placeholder="Stock qty" value={draft.stock} onChange={(e) => setDraft({ ...draft, stock: e.target.value })} style={{ padding: 8, width: 100 }} />
-          <input placeholder="SKU" value={draft.sku} onChange={(e) => setDraft({ ...draft, sku: e.target.value })} style={{ padding: 8, width: 120 }} />
-          <input placeholder="Description" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} style={{ padding: 8, flex: 1, minWidth: 180 }} />
-          <button onClick={addProduct} disabled={saving || !draft.name.trim()} style={primaryButtonStyle}>
-            {saving ? "Saving…" : "Save"}
-          </button>
-        </div>
-      )}
 
       <div style={{ display: "flex", gap: 8, margin: "16px 0" }}>
         <input
@@ -234,25 +114,7 @@ export function ProductCatalogPanel({ businessId }: { businessId: string }) {
 
       {products && products.length > 0 && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 }}>
-          {products.map((p) =>
-            editId === p.id ? (
-              <div
-                key={p.id}
-                style={{ border: "1px solid var(--accent)", borderRadius: 8, padding: 12, display: "flex", flexDirection: "column", gap: 6 }}
-              >
-                <input placeholder="Name" value={editDraft.name} onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })} style={{ padding: 6 }} />
-                <input placeholder="Price" value={editDraft.price} onChange={(e) => setEditDraft({ ...editDraft, price: e.target.value })} style={{ padding: 6 }} />
-                <input placeholder="Stock qty" value={editDraft.stock} onChange={(e) => setEditDraft({ ...editDraft, stock: e.target.value })} style={{ padding: 6 }} />
-                <input placeholder="SKU" value={editDraft.sku} onChange={(e) => setEditDraft({ ...editDraft, sku: e.target.value })} style={{ padding: 6 }} />
-                <textarea placeholder="Description" value={editDraft.description} onChange={(e) => setEditDraft({ ...editDraft, description: e.target.value })} style={{ padding: 6, minHeight: 50, resize: "vertical" }} />
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button onClick={() => saveEdit(p.id)} disabled={busyId === p.id} style={{ ...primaryButtonStyle, flex: 1, fontSize: 12 }}>
-                    {busyId === p.id ? "Saving…" : "Save"}
-                  </button>
-                  <button onClick={() => setEditId(null)} style={{ fontSize: 12 }}>Cancel</button>
-                </div>
-              </div>
-            ) : (
+          {products.map((p) => (
             <div
               key={p.id}
               style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 12, display: "flex", flexDirection: "column", gap: 6 }}
@@ -304,18 +166,8 @@ export function ProductCatalogPanel({ businessId }: { businessId: string }) {
                   View on site →
                 </a>
               )}
-
-              <div style={{ display: "flex", gap: 6, marginTop: "auto", paddingTop: 4 }}>
-                <button onClick={() => startEdit(p)} disabled={busyId === p.id} style={{ fontSize: 11, padding: "4px 8px", flex: 1 }}>
-                  Edit
-                </button>
-                <button onClick={() => deleteProduct(p)} disabled={busyId === p.id} style={{ fontSize: 11, padding: "4px 8px" }}>
-                  {busyId === p.id ? "…" : "Delete"}
-                </button>
-              </div>
             </div>
-            )
-          )}
+          ))}
         </div>
       )}
 

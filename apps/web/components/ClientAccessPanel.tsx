@@ -20,6 +20,16 @@ interface ClientAccount {
   createdAt: string;
   allowedPanels: string[] | null;
   isAdmin: boolean;
+  teamId: string | null;
+}
+
+interface Team {
+  id: string;
+  businessId: string;
+  name: string;
+  parentTeamId: string | null;
+  defaultAllowedPanels: string[] | null;
+  memberCount: number;
 }
 
 // Kept in sync by hand with the client dashboard's own NAV_GROUPS
@@ -34,6 +44,7 @@ const ALL_PANELS: { id: string; label: string }[] = [
   { id: "tagdashboard", label: "Dashboard" },
   { id: "knowledge", label: "Knowledge Hub" },
   { id: "products", label: "Product Catalog" },
+  { id: "inventory", label: "Inventory" },
   { id: "orders", label: "Orders" },
   { id: "delivery", label: "Delivery" },
   { id: "repairs", label: "Repairs" },
@@ -126,6 +137,93 @@ export function ClientAccessPanel() {
     fetch(`/api/admin/client-accounts/activity?id=${encodeURIComponent(accountId)}`)
       .then((r) => r.json())
       .then((d: { history: ActivityEntry[] }) => setActivity((prev) => ({ ...prev, [accountId]: d.history ?? [] })));
+  }
+
+  // Teams -- RBAC hierarchy layer (Day 1 AM). Scoped to whichever
+  // business the create-login form currently targets, same businessId
+  // state the rest of this panel already uses -- no separate picker.
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [newTeamName, setNewTeamName] = useState("");
+  const [creatingTeam, setCreatingTeam] = useState(false);
+  const [teamMessage, setTeamMessage] = useState("");
+  const [teamPanelsExpandedId, setTeamPanelsExpandedId] = useState<string | null>(null);
+  const [pendingTeamPanels, setPendingTeamPanels] = useState<Record<string, string[]>>({});
+
+  function refreshTeams(forBusinessId: string) {
+    if (!forBusinessId) return;
+    fetch(`/api/admin/teams?businessId=${encodeURIComponent(forBusinessId)}`)
+      .then((r) => r.json())
+      .then((d: { teams: Team[] }) => setTeams(d.teams ?? []));
+  }
+
+  useEffect(() => {
+    if (businessId) refreshTeams(businessId);
+  }, [businessId]);
+
+  async function createTeam() {
+    if (!newTeamName.trim() || !businessId) return;
+    setCreatingTeam(true);
+    setTeamMessage("");
+    try {
+      const res = await fetch("/api/admin/teams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, name: newTeamName }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        setTeamMessage(`Error: ${result.error}`);
+        return;
+      }
+      setNewTeamName("");
+      refreshTeams(businessId);
+    } finally {
+      setCreatingTeam(false);
+    }
+  }
+
+  async function deleteTeam(team: Team) {
+    if (!window.confirm(`Delete team "${team.name}"? Members keep their own login, just lose this team's default panel access.`)) return;
+    await fetch(`/api/admin/teams?id=${encodeURIComponent(team.id)}`, { method: "DELETE" });
+    refreshTeams(businessId);
+  }
+
+  function toggleTeamPanelsBox(team: Team) {
+    if (teamPanelsExpandedId === team.id) {
+      setTeamPanelsExpandedId(null);
+      return;
+    }
+    setTeamPanelsExpandedId(team.id);
+    setPendingTeamPanels((prev) => ({
+      ...prev,
+      [team.id]: prev[team.id] ?? team.defaultAllowedPanels ?? ALL_PANELS.map((p) => p.id),
+    }));
+  }
+
+  async function saveTeamPanels(team: Team) {
+    const selected = pendingTeamPanels[team.id] ?? [];
+    const defaultAllowedPanels = selected.length === ALL_PANELS.length ? null : selected;
+    await fetch("/api/admin/teams", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: team.id, defaultAllowedPanels }),
+    });
+    setTeamPanelsExpandedId(null);
+    refreshTeams(businessId);
+  }
+
+  async function assignTeam(account: ClientAccount, teamId: string) {
+    setBusyId(account.id);
+    try {
+      await fetch("/api/admin/client-accounts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: account.id, teamId: teamId || null }),
+      });
+      refresh();
+    } finally {
+      setBusyId(null);
+    }
   }
 
   function refresh() {
@@ -367,6 +465,78 @@ export function ClientAccessPanel() {
 
       {message && <p style={{ fontSize: 13, opacity: 0.85, marginTop: 8 }}>{message}</p>}
 
+      {!isAdmin && businessId && (
+        <div style={{ marginTop: 20, border: "1px solid var(--border)", borderRadius: 8, padding: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 8 }}>
+            Teams — {clients?.find((c) => c.id === businessId)?.name ?? "this client"}
+          </div>
+          <p style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 0 }}>
+            A login with no allow-list of its own falls back to its team&apos;s default panels, if it has one —
+            its own allow-list still wins whenever it&apos;s set.
+          </p>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: teams.length > 0 ? 10 : 0 }}>
+            {teams.map((t) => (
+              <span key={t.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "4px 10px", borderRadius: 999, background: "var(--surface)", border: "1px solid var(--border)" }}>
+                {t.name} <span style={{ color: "var(--text-faint)" }}>({t.memberCount})</span>
+                <button onClick={() => toggleTeamPanelsBox(t)} className="plain" style={{ fontSize: 11, color: "var(--accent)" }}>
+                  panels
+                </button>
+                <button onClick={() => deleteTeam(t)} className="plain" style={{ color: "var(--danger)", fontSize: 11, padding: 0 }}>✕</button>
+              </span>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <input
+              style={{ padding: 6, fontSize: 12, flex: 1, maxWidth: 200 }}
+              placeholder="New team name"
+              value={newTeamName}
+              onChange={(e) => setNewTeamName(e.target.value)}
+            />
+            <button onClick={createTeam} disabled={creatingTeam || !newTeamName.trim()} style={{ fontSize: 12, padding: "6px 10px" }}>
+              {creatingTeam ? "Adding…" : "+ Add team"}
+            </button>
+          </div>
+          {teamMessage && <p style={{ fontSize: 12, marginTop: 6 }}>{teamMessage}</p>}
+
+          {teamPanelsExpandedId && (
+            <div style={{ marginTop: 14 }}>
+              <Collapsible title={`Default panels for "${teams.find((t) => t.id === teamPanelsExpandedId)?.name}"`} defaultOpen>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
+                  {ALL_PANELS.map((p) => {
+                    const selected = pendingTeamPanels[teamPanelsExpandedId] ?? [];
+                    return (
+                      <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                        <input
+                          type="checkbox"
+                          checked={selected.includes(p.id)}
+                          onChange={() =>
+                            setPendingTeamPanels((prev) => {
+                              const current = prev[teamPanelsExpandedId] ?? [];
+                              const next = current.includes(p.id) ? current.filter((x) => x !== p.id) : [...current, p.id];
+                              return { ...prev, [teamPanelsExpandedId]: next };
+                            })
+                          }
+                        />
+                        {p.label}
+                      </label>
+                    );
+                  })}
+                </div>
+                <div style={{ marginTop: 14, display: "flex", gap: 8 }}>
+                  <button
+                    onClick={() => saveTeamPanels(teams.find((t) => t.id === teamPanelsExpandedId)!)}
+                    style={primaryButtonStyle}
+                  >
+                    Save
+                  </button>
+                  <button onClick={() => setTeamPanelsExpandedId(null)}>Cancel</button>
+                </div>
+              </Collapsible>
+            </div>
+          )}
+        </div>
+      )}
+
       <div style={{ marginTop: 24, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h3 style={{ margin: 0 }}>Every client</h3>
         <input
@@ -388,6 +558,7 @@ export function ClientAccessPanel() {
               <th style={cellStyle}>Client</th>
               <th style={cellStyle}>Status</th>
               <th style={cellStyle}>Panels</th>
+              <th style={cellStyle}>Team</th>
               <th style={cellStyle}>Password</th>
               <th style={cellStyle}>Last login</th>
               <th style={cellStyle}>Created</th>
@@ -404,7 +575,7 @@ export function ClientAccessPanel() {
                     <span style={badgeStyle("warn")}>No login set</span>
                   </td>
                   <td style={cellStyle}>{client.name}</td>
-                  <td style={cellStyle} colSpan={5}>
+                  <td style={cellStyle} colSpan={6}>
                     <span style={{ fontSize: 12, color: "var(--text-faint)" }}>This client can&apos;t log in yet.</span>
                   </td>
                   <td style={cellStyle}>
@@ -416,7 +587,7 @@ export function ClientAccessPanel() {
             {adminAccounts.map((a) => renderAccountRow(a))}
             {clientRows.length === 0 && (
               <tr>
-                <td style={cellStyle} colSpan={8}>
+                <td style={cellStyle} colSpan={9}>
                   {clients?.length === 0 ? "No clients yet — add one in the Clients tab." : "No clients match that filter."}
                 </td>
               </tr>
@@ -453,6 +624,27 @@ export function ClientAccessPanel() {
             )}
           </td>
           <td style={cellStyle}>
+            {a.isAdmin ? (
+              <span style={{ fontSize: 12, color: "var(--text-faint)" }}>—</span>
+            ) : a.businessId === businessId ? (
+              <select
+                value={a.teamId ?? ""}
+                onChange={(e) => assignTeam(a, e.target.value)}
+                disabled={busyId === a.id}
+                style={{ fontSize: 12, padding: 4 }}
+              >
+                <option value="">No team</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            ) : (
+              <span style={{ fontSize: 12, color: "var(--text-faint)" }}>
+                {teams.find((t) => t.id === a.teamId)?.name ?? "—"}
+              </span>
+            )}
+          </td>
+          <td style={cellStyle}>
             <button onClick={() => togglePasswordBox(a)} className="plain" style={{ fontSize: 12, color: "var(--text-muted)" }}>
               Change / history
             </button>
@@ -470,7 +662,7 @@ export function ClientAccessPanel() {
         </tr>
         {expandedId === a.id && (
           <tr>
-            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={7}>
+            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={8}>
               <Collapsible title={`Which panels can "${a.username}" see?`} defaultOpen>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
                   {ALL_PANELS.map((p) => (
@@ -496,7 +688,7 @@ export function ClientAccessPanel() {
         )}
         {pwExpandedId === a.id && (
           <tr>
-            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={7}>
+            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={8}>
               <Collapsible title={`Password & activity for "${a.username}"`} defaultOpen>
                 <p style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 0 }}>
                   Existing passwords can&apos;t be viewed (stored hashed, never in plain text) — set a new one
