@@ -148,7 +148,7 @@ export function DashboardShell<T extends string>({
           left: 0,
           alignSelf: "flex-start",
           height: "100vh",
-          overflowY: "auto",
+          overflowY: "hidden",
           overflowX: "hidden",
           zIndex: 50,
           transform: isMobile && !sidebarOpen ? "translateX(-100%)" : "translateX(0)",
@@ -172,21 +172,22 @@ export function DashboardShell<T extends string>({
                   width: 36,
                   height: 36,
                   borderRadius: "var(--radius-sm)",
-                  background: "var(--accent)",
+                  background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-                  <path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18L19.35 8 12 11.82 4.65 8 12 4.18zM4 9.04l7 3.5V19.5l-7-3.5V9.04zm9 10.46v-6.96l7-3.5v6.96l-7 3.5z" />
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" fill="white" fillOpacity="0.2"/>
+                  <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/>
+                  <path d="M8 12L11 15L16 9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", letterSpacing: "-0.01em" }}>
+                <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.02em" }}>
                   {sidebarLabel}
                 </div>
-                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1 }}>Command Center</div>
               </div>
             </div>
           )}
@@ -196,14 +197,16 @@ export function DashboardShell<T extends string>({
                 width: 36,
                 height: 36,
                 borderRadius: "var(--radius-sm)",
-                background: "var(--accent)",
+                background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-                <path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18L19.35 8 12 11.82 4.65 8 12 4.18zM4 9.04l7 3.5V19.5l-7-3.5V9.04zm9 10.46v-6.96l7-3.5v6.96l-7 3.5z" />
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" fill="white" fillOpacity="0.2"/>
+                <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/>
+                <path d="M8 12L11 15L16 9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
           )}
@@ -234,7 +237,7 @@ export function DashboardShell<T extends string>({
         </div>
 
         {/* Navigation */}
-        <nav style={{ flex: 1, padding: "12px 8px", overflowY: "auto" }}>
+        <nav style={{ flex: 1, padding: "12px 8px", overflowY: "hidden" }}>
           {groups.map((group, i) => {
             const groupCollapsed = collapsedGroups[i];
             return (

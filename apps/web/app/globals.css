@@ -410,3 +410,36 @@ a {
   background: var(--bg-elevated);
   font-weight: 600;
 }
+
+/* Recharts tooltip */
+.recharts-tooltip-wrapper {
+  outline: none !important;
+}
+
+.recharts-default-tooltip {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+.recharts-tooltip-label {
+  color: var(--text) !important;
+  font-weight: 600 !important;
+  margin-bottom: 4px !important;
+}
+
+.recharts-tooltip-item {
+  color: var(--text-secondary) !important;
+  font-size: 12px !important;
+}
+
+.recharts-cartesian-axis-tick-value {
+  fill: var(--text-muted) !important;
+  font-size: 11px !important;
+}
+
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: var(--border-subtle) !important;
+}

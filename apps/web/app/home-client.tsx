@@ -55,13 +55,15 @@ export default function HomeClient() {
         <div className={styles.brandContent}>
           <div className={styles.brandIcon}>
             <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18L19.35 8 12 11.82 4.65 8 12 4.18zM4 9.04l7 3.5V19.5l-7-3.5V9.04zm9 10.46v-6.96l7-3.5v6.96l-7 3.5z" />
+              <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" fill="white" fillOpacity="0.2"/>
+              <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/>
+              <path d="M8 12L11 15L16 9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <h1 className={styles.brandTitle}>AI Chat Platform</h1>
+          <h1 className={styles.brandTitle}>AIVA</h1>
           <p className={styles.brandSubtitle}>
-            Intelligent customer support powered by AI. Automate responses, 
-            manage conversations, and delight your customers.
+            AI-powered customer support platform. Automate responses, 
+            manage conversations, and scale your business.
           </p>
           <div className={styles.features}>
             <div className={styles.feature}>
