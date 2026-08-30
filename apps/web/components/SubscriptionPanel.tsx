@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { cardStyle, primaryButtonStyle, subtleTextStyle } from "./dashboard-styles";
+import { SUBSCRIPTION_CURRENCIES, currencySymbol } from "../lib/currency";
 
 interface Client {
   id: string;
@@ -9,6 +10,7 @@ interface Client {
   slug: string;
   subscriptionPlanName: string | null;
   subscriptionFee: number | null;
+  subscriptionCurrency: string;
   subscriptionStartDate: string | null;
   subscriptionEndDate: string | null;
   subscriptionActive: boolean;
@@ -20,6 +22,7 @@ export function SubscriptionPanel() {
   const [form, setForm] = useState({
     planName: "",
     fee: "",
+    currency: "BDT",
     startDate: "",
     endDate: "",
     active: true,
@@ -39,6 +42,7 @@ export function SubscriptionPanel() {
     setForm({
       planName: client.subscriptionPlanName || "",
       fee: client.subscriptionFee?.toString() || "",
+      currency: client.subscriptionCurrency || "BDT",
       startDate: client.subscriptionStartDate ? client.subscriptionStartDate.split("T")[0] || "" : "",
       endDate: client.subscriptionEndDate ? client.subscriptionEndDate.split("T")[0] || "" : "",
       active: client.subscriptionActive,
@@ -55,6 +59,7 @@ export function SubscriptionPanel() {
         body: JSON.stringify({
           subscriptionPlanName: form.planName || null,
           subscriptionFee: form.fee ? parseFloat(form.fee) : null,
+          subscriptionCurrency: form.currency,
           subscriptionStartDate: form.startDate ? new Date(form.startDate).toISOString() : null,
           subscriptionEndDate: form.endDate ? new Date(form.endDate).toISOString() : null,
           subscriptionActive: form.active,
@@ -139,7 +144,7 @@ export function SubscriptionPanel() {
                       />
                     </div>
                     <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: 12, color: "#6b7280" }}>Monthly Fee (BDT)</label>
+                      <label style={{ fontSize: 12, color: "#6b7280" }}>Monthly Fee</label>
                       <input
                         type="number"
                         value={form.fee}
@@ -147,6 +152,18 @@ export function SubscriptionPanel() {
                         placeholder="5000"
                         style={{ width: "100%", padding: "6px 8px", border: "1px solid #d1d5db", borderRadius: 4, fontSize: 14 }}
                       />
+                    </div>
+                    <div style={{ width: 90 }}>
+                      <label style={{ fontSize: 12, color: "#6b7280" }}>Currency</label>
+                      <select
+                        value={form.currency}
+                        onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                        style={{ width: "100%", padding: "6px 8px", border: "1px solid #d1d5db", borderRadius: 4, fontSize: 14 }}
+                      >
+                        {SUBSCRIPTION_CURRENCIES.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
@@ -210,7 +227,7 @@ export function SubscriptionPanel() {
               ) : (
                 <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
                   {client.subscriptionPlanName && <span>Plan: <strong>{client.subscriptionPlanName}</strong></span>}
-                  {client.subscriptionFee && <span style={{ marginLeft: 12 }}>Fee: ৳{client.subscriptionFee.toLocaleString()}/mo</span>}
+                  {client.subscriptionFee && <span style={{ marginLeft: 12 }}>Fee: {currencySymbol(client.subscriptionCurrency)}{client.subscriptionFee.toLocaleString()}/mo</span>}
                   {client.subscriptionStartDate && client.subscriptionEndDate && (
                     <span style={{ marginLeft: 12 }}>
                       {new Date(client.subscriptionStartDate).toLocaleDateString()} — {new Date(client.subscriptionEndDate).toLocaleDateString()}

@@ -50,6 +50,7 @@ model Business {
   // Subscription fields (manual management by admin)
   subscriptionPlanName  String?
   subscriptionFee       Float?
+  subscriptionCurrency  String    @default("BDT")
   subscriptionStartDate DateTime?
   subscriptionEndDate   DateTime?
   subscriptionActive    Boolean   @default(true)

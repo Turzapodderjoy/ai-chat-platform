@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { cardStyle } from "./dashboard-styles";
+import { currencySymbol } from "../lib/currency";
 
 interface SubscriptionStatus {
-  planName: string | null;
-  fee: number | null;
-  startDate: string | null;
-  endDate: string | null;
-  active: boolean;
+  subscriptionPlanName: string | null;
+  subscriptionFee: number | null;
+  subscriptionCurrency: string;
+  subscriptionStartDate: string | null;
+  subscriptionEndDate: string | null;
+  subscriptionActive: boolean;
 }
 
 export function SubscriptionStatus() {
@@ -29,9 +31,9 @@ export function SubscriptionStatus() {
   if (!subscription) return null;
 
   const getStatus = () => {
-    if (!subscription.active) return { label: "Disabled", color: "#6b7280", bg: "#f3f4f6" };
-    if (!subscription.endDate) return { label: "Active", color: "#10b981", bg: "#ecfdf5" };
-    const end = new Date(subscription.endDate);
+    if (!subscription.subscriptionActive) return { label: "Disabled", color: "#6b7280", bg: "#f3f4f6" };
+    if (!subscription.subscriptionEndDate) return { label: "Active", color: "#10b981", bg: "#ecfdf5" };
+    const end = new Date(subscription.subscriptionEndDate);
     const now = new Date();
     const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
     if (end.getTime() < now.getTime() - twoDaysMs) return { label: "Expired", color: "#ef4444", bg: "#fef2f2" };
@@ -62,33 +64,33 @@ export function SubscriptionStatus() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, fontSize: 13 }}>
-        {subscription.planName && (
+        {subscription.subscriptionPlanName && (
           <div>
             <div style={{ color: "#6b7280", marginBottom: 2 }}>Plan</div>
-            <div style={{ fontWeight: 500 }}>{subscription.planName}</div>
+            <div style={{ fontWeight: 500 }}>{subscription.subscriptionPlanName}</div>
           </div>
         )}
-        {subscription.fee && (
+        {subscription.subscriptionFee && (
           <div>
             <div style={{ color: "#6b7280", marginBottom: 2 }}>Monthly Fee</div>
-            <div style={{ fontWeight: 500 }}>৳{subscription.fee.toLocaleString()}</div>
+            <div style={{ fontWeight: 500 }}>{currencySymbol(subscription.subscriptionCurrency)}{subscription.subscriptionFee.toLocaleString()}</div>
           </div>
         )}
-        {subscription.startDate && (
+        {subscription.subscriptionStartDate && (
           <div>
             <div style={{ color: "#6b7280", marginBottom: 2 }}>Start Date</div>
-            <div style={{ fontWeight: 500 }}>{new Date(subscription.startDate).toLocaleDateString()}</div>
+            <div style={{ fontWeight: 500 }}>{new Date(subscription.subscriptionStartDate).toLocaleDateString()}</div>
           </div>
         )}
-        {subscription.endDate && (
+        {subscription.subscriptionEndDate && (
           <div>
             <div style={{ color: "#6b7280", marginBottom: 2 }}>End Date</div>
-            <div style={{ fontWeight: 500 }}>{new Date(subscription.endDate).toLocaleDateString()}</div>
+            <div style={{ fontWeight: 500 }}>{new Date(subscription.subscriptionEndDate).toLocaleDateString()}</div>
           </div>
         )}
       </div>
 
-      {!subscription.planName && !subscription.fee && !subscription.startDate && (
+      {!subscription.subscriptionPlanName && !subscription.subscriptionFee && !subscription.subscriptionStartDate && (
         <div style={{ fontSize: 13, color: "#6b7280", fontStyle: "italic" }}>No subscription configured</div>
       )}
     </div>

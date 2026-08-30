@@ -8,7 +8,11 @@ interface ExpiringBusiness {
   name: string;
   subscriptionEndDate: Date;
   subscriptionPlanName: string | null;
+  subscriptionFee: number | null;
+  subscriptionCurrency: string;
 }
+
+const CURRENCY_SYMBOLS: Record<string, string> = { BDT: "৳", USD: "$", EUR: "€" };
 
 /**
  * Find businesses with subscriptions expiring within the next 7 days
@@ -31,6 +35,8 @@ export async function getExpiringSubscriptions(): Promise<ExpiringBusiness[]> {
       name: true,
       subscriptionEndDate: true,
       subscriptionPlanName: true,
+      subscriptionFee: true,
+      subscriptionCurrency: true,
     },
   });
 
@@ -62,6 +68,7 @@ export async function sendExpirationEmail(business: ExpiringBusiness): Promise<b
       <div style="background: #f9fafb; border-radius: 8px; padding: 16px; margin: 16px 0;">
         <p style="margin: 4px 0; color: #374151;"><strong>Business:</strong> ${business.name}</p>
         ${business.subscriptionPlanName ? `<p style="margin: 4px 0; color: #374151;"><strong>Plan:</strong> ${business.subscriptionPlanName}</p>` : ""}
+        ${business.subscriptionFee ? `<p style="margin: 4px 0; color: #374151;"><strong>Fee:</strong> ${CURRENCY_SYMBOLS[business.subscriptionCurrency] || business.subscriptionCurrency + " "}${business.subscriptionFee.toLocaleString()}/mo</p>` : ""}
         <p style="margin: 4px 0; color: #374151;"><strong>Expires:</strong> ${business.subscriptionEndDate.toLocaleDateString()}</p>
       </div>
       <p style="color: #374151; line-height: 1.5;">

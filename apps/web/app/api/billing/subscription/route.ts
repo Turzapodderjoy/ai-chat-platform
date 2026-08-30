@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
     select: {
       subscriptionPlanName: true,
       subscriptionFee: true,
+      subscriptionCurrency: true,
       subscriptionStartDate: true,
       subscriptionEndDate: true,
       subscriptionActive: true,
