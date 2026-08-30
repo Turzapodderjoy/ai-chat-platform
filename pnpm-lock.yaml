@@ -518,6 +518,9 @@ importers:
       '@ai-chat-platform/mistral':
         specifier: workspace:*
         version: link:../mistral
+      '@ai-chat-platform/openrouter':
+        specifier: workspace:*
+        version: link:../openrouter
 
   packages/embedding-manager:
     dependencies:
@@ -641,6 +644,9 @@ importers:
 
   packages/openrouter:
     dependencies:
+      '@ai-chat-platform/embedding-manager':
+        specifier: workspace:^
+        version: link:../embedding-manager
       '@ai-chat-platform/types':
         specifier: workspace:^
         version: link:../types

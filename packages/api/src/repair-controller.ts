@@ -162,6 +162,22 @@ export class RepairController {
     return this.repairs.updatePhotos(id, images);
   }
 
+  findByToken(trackingToken: string) {
+    return this.repairs.findByToken(trackingToken);
+  }
+
+  async requestCancel(id: string, reason: string | null) {
+    const appointment = await this.repairs.requestCancel(id, reason ?? undefined);
+    await this.conversations.addMessage(appointment.trackingToken, "system", `Cancellation requested${reason ? `: ${reason}` : ""}`);
+    return appointment;
+  }
+
+  async requestReschedule(id: string, newDate: string) {
+    const appointment = await this.repairs.requestReschedule(id, newDate);
+    await this.conversations.addMessage(appointment.trackingToken, "system", `Reschedule requested to ${new Date(newDate).toLocaleString()}`);
+    return appointment;
+  }
+
   async approveReschedule(id: string) {
     const appointment = await this.repairs.approveReschedule(id);
     await this.conversations.addMessage(appointment.trackingToken, "system", `Appointment rescheduled to ${new Date(appointment.appointmentDate).toLocaleString()}`);
@@ -200,7 +216,6 @@ export class RepairController {
   deleteStaff(id: string) {
     return this.staff.delete(id);
   }
-}
 
   async deleteAppointment(id: string): Promise<{ ok: true }> {
     const appointment = await this.repairs.findById(id);
