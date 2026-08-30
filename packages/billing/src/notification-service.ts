@@ -34,7 +34,9 @@ export async function getExpiringSubscriptions(): Promise<ExpiringBusiness[]> {
     },
   });
 
-  return businesses;
+  // Prisma's generated type keeps subscriptionEndDate as Date | null even
+  // though the "not: null" filter above guarantees it's set on every row.
+  return businesses.map((b) => ({ ...b, subscriptionEndDate: b.subscriptionEndDate! }));
 }
 
 /**
