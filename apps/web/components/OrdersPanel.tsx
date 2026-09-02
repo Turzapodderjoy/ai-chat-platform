@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { cardStyle, cellStyle, subtleTextStyle, shortId } from "./dashboard-styles";
+import { cardStyle, cellStyle, subtleTextStyle, shortId, primaryButtonStyle } from "./dashboard-styles";
 import { MessageTagControl } from "./MessageTagControl";
+import { OrderManagementPanel } from "./OrderManagementPanel";
 
 interface Order {
   id: string;
@@ -38,6 +39,7 @@ interface TagAssignment {
  * (what was ordered vs. where the shipment is), confirmed live this
  * needed to be split rather than kept as one combined view. */
 export function OrdersPanel({ businessId }: { businessId: string }) {
+  const [view, setView] = useState<"ai" | "service">("ai");
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [search, setSearch] = useState("");
   const [tagCatalog, setTagCatalog] = useState<Tag[]>([]);
@@ -98,6 +100,20 @@ export function OrdersPanel({ businessId }: { businessId: string }) {
   return (
     <section style={cardStyle}>
       <h2 style={{ marginTop: 0 }}>Order Management</h2>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <button onClick={() => setView("ai")} className={view === "ai" ? "primary" : "ghost"} style={{ fontSize: 13, padding: "6px 14px" }}>
+          AI Orders
+        </button>
+        <button onClick={() => setView("service")} className={view === "service" ? "primary" : "ghost"} style={{ fontSize: 13, padding: "6px 14px" }}>
+          Service Orders
+        </button>
+      </div>
+
+      {view === "service" ? (
+        <OrderManagementPanel businessId={businessId} />
+      ) : (
+        <>
       <p style={subtleTextStyle}>
         Every order the AI has taken directly inside a chat — collected conversationally (name,
         phone, delivery address, products &amp; quantity, payment method) and confirmed to the
@@ -153,6 +169,8 @@ export function OrdersPanel({ businessId }: { businessId: string }) {
             </tbody>
           </table>
         </div>
+      )}
+        </>
       )}
     </section>
   );

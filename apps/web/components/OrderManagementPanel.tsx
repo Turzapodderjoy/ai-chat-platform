@@ -224,11 +224,10 @@ export function OrderManagementPanel({ businessId }: { businessId: string }) {
   if (!orders) return <div style={{ padding: 24 }}>Loading…</div>;
 
   return (
-    <section style={cardStyle}>
-      <h2 style={{ marginTop: 0 }}>Order Management</h2>
+    <div>
       <p style={subtleTextStyle}>
-        Parts and services billing for repair jobs — wired to Inventory (stock decrements as parts are used) and
-        generates real Invoices.
+        Parts and services billing for repair/service jobs — wired to Inventory (stock decrements as parts are
+        used) and generates real Invoices.
       </p>
 
       <button onClick={() => setShowNew((s) => !s)} style={primaryButtonStyle}>
@@ -274,6 +273,6 @@ export function OrderManagementPanel({ businessId }: { businessId: string }) {
           </div>
         ))}
       </div>
-    </section>
+    </div>
   );
 }

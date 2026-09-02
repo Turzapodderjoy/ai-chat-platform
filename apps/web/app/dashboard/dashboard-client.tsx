@@ -21,7 +21,7 @@ import { TrainingArenaPanel } from "../../components/TrainingArenaPanel";
 import { SubscriptionPanel } from "../../components/SubscriptionPanel";
 import { StatusBadge } from "../../components/StatusBadge";
 import { DashboardShell, type NavGroup } from "../../components/DashboardShell";
-import { cardStyle, cellStyle, formatBytes, subtleTextStyle, primaryButtonStyle } from "../../components/dashboard-styles";
+import { cardStyle, cellStyle, formatBytes, subtleTextStyle, primaryButtonStyle, inputStyle } from "../../components/dashboard-styles";
 
 // PLATFORM_CONFIG_ID as used by @ai-chat-platform/ai-config — kept as a
 // plain literal here rather than importing a backend package into this
@@ -441,15 +441,6 @@ function ClientsPanel() {
     refresh();
   }
 
-  async function setClientType(client: Client, nextType: string) {
-    await fetch(`/api/admin/clients/${client.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: nextType }),
-    });
-    refresh();
-  }
-
   return (
     <section style={cardStyle}>
       <h2 style={{ marginTop: 0 }}>Clients</h2>
@@ -462,7 +453,7 @@ function ClientsPanel() {
 
       <div style={{ display: "flex", gap: 8 }}>
         <input
-          style={{ flex: 1, padding: 8 }}
+          style={{ ...inputStyle, flex: 1 }}
           placeholder="Company name"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -470,7 +461,7 @@ function ClientsPanel() {
             if (e.key === "Enter") addClient();
           }}
         />
-        <select value={type} onChange={(e) => setType(e.target.value)} style={{ padding: 8 }}>
+        <select value={type} onChange={(e) => setType(e.target.value)} style={{ ...inputStyle, width: 130 }}>
           <option value="regular">Regular</option>
           <option value="repair">Repair</option>
         </select>
@@ -500,10 +491,7 @@ function ClientsPanel() {
               <tr key={c.id}>
                 <td style={cellStyle}>{c.name}</td>
                 <td style={cellStyle}>
-                  <select value={c.type} onChange={(e) => setClientType(c, e.target.value)} style={{ padding: 4 }}>
-                    <option value="regular">Regular</option>
-                    <option value="repair">Repair</option>
-                  </select>
+                  <span style={{ textTransform: "capitalize" }}>{c.type}</span>
                 </td>
                 <td style={cellStyle}>{new Date(c.createdAt).toLocaleDateString()}</td>
                 <td style={cellStyle}>
