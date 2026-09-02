@@ -13,7 +13,6 @@ import { ClientAccessPanel } from "../../components/ClientAccessPanel";
 import { OverviewPanel } from "../../components/OverviewPanel";
 import { ClientHealthPanel } from "../../components/ClientHealthPanel";
 import { ContactsPanel } from "../../components/ContactsPanel";
-import { DealsPanel } from "../../components/DealsPanel";
 import { QuotesPanel } from "../../components/QuotesPanel";
 import { InvoicesPanel } from "../../components/InvoicesPanel";
 import { ReportsPanel } from "../../components/ReportsPanel";
@@ -28,7 +27,7 @@ import { cardStyle, cellStyle, formatBytes, subtleTextStyle, primaryButtonStyle,
 // client component just for one string constant.
 const PLATFORM_CONFIG_ID = "__platform__";
 
-type Tab = "overview" | "health" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "access" | "knowledge" | "allchats" | "database" | "tags" | "contacts" | "deals" | "quotes" | "invoices" | "reports" | "subscription";
+type Tab = "overview" | "health" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "access" | "knowledge" | "allchats" | "database" | "tags" | "contacts" | "quotes" | "invoices" | "reports" | "subscription";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }, { id: "health", label: "Client Health" }, { id: "reports", label: "Reports" }] },
@@ -36,7 +35,6 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
     label: "CRM",
     items: [
       { id: "contacts", label: "Contacts" },
-      { id: "deals", label: "Deals" },
     ],
   },
   {
@@ -347,9 +345,6 @@ export default function DashboardClient() {
       </div>
       <div style={{ display: tab === "contacts" ? "block" : "none" }}>
         <ContactsPanel active={tab === "contacts"} />
-      </div>
-      <div style={{ display: tab === "deals" ? "block" : "none" }}>
-        <DealsPanel active={tab === "deals"} />
       </div>
       <div style={{ display: tab === "quotes" ? "block" : "none" }}>
         <QuotesPanel active={tab === "quotes"} />

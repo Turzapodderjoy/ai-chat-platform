@@ -2,7 +2,7 @@ import { ConversationService } from "@ai-chat-platform/conversation";
 import { RepairAppointmentService, StaffService, type AddOrderItemInput } from "@ai-chat-platform/repairs";
 import { EmailSenderConfigService, ResendEmailClient, StatusEmailService } from "@ai-chat-platform/email";
 import { TenantService } from "@ai-chat-platform/tenant";
-import { ContactService, DealService } from "@ai-chat-platform/crm";
+import { ContactService } from "@ai-chat-platform/crm";
 import { InvoiceService } from "@ai-chat-platform/revenue";
 
 export interface CreateOrderEntryInput {
@@ -41,7 +41,6 @@ export class RepairController {
     private readonly emailClient: ResendEmailClient,
     private readonly tenants: TenantService,
     private readonly contacts: ContactService,
-    private readonly deals: DealService,
     private readonly statusEmails: StatusEmailService,
     private readonly invoices: InvoiceService
   ) {}
@@ -71,18 +70,9 @@ export class RepairController {
       appointmentDate: new Date(input.appointmentDate),
     });
 
-    // Non-blocking — a booking every appointment naturally becomes an
-    // open sales opportunity, so this is auto-created here rather than
-    // left for staff to type in by hand.
+    // Non-blocking — never delay the booking response on CRM bookkeeping.
     this.contacts
       .upsert({ businessId: input.businessId, name: input.customerName, phone: input.phone, email: input.email })
-      .then((contact) =>
-        this.deals.create({
-          businessId: input.businessId,
-          contactId: contact.id,
-          title: `${input.deviceType}${input.deviceModel ? ` (${input.deviceModel})` : ""} repair — ${trackingToken}`,
-        })
-      )
       .catch(() => {});
 
     // No AI here at all — straight to a human handoff so the appointment

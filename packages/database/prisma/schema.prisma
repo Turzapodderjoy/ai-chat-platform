@@ -1196,7 +1196,7 @@ model StatusEmailTemplate {
   @@index([businessId])
 }
 
-// CRM layer (Contacts/Companies/Deals) — a real customer record instead
+// CRM layer (Contacts/Companies) — a real customer record instead
 // of the per-conversation name lookups ConversationService.
 // namesForConversations already does across Order/RepairAppointment.
 // Dedup happens in CrmService.upsertContact, scoped per business: a
@@ -1213,13 +1213,12 @@ model Contact {
   // instead of a separate Company entity/relation. Companies used to be
   // their own model+panel, but carried nothing beyond a name and a
   // domain and nothing else in the app ever referenced a companyId
-  // directly (not Deal, not Quote, not Invoice -- all key off Contact),
+  // directly (not Quote, not Invoice -- all key off Contact),
   // so the extra table/join bought nothing a Contact couldn't hold
   // itself.
   companyName   String?
   companyDomain String?
 
-  deals      Deal[]
   quotes     Quote[]
   invoices   Invoice[]
   repairAppointments RepairAppointment[]
@@ -1230,38 +1229,6 @@ model Contact {
   @@index([businessId])
   @@index([businessId, phone])
   @@index([businessId, email])
-}
-
-// A sales opportunity — separate from Order (an order is a completed
-// transaction; a Deal is the opportunity that may or may not become
-// one). `stage` is a plain string with a small fixed default set
-// (new/contacted/qualified/proposal/won/lost), same convention as
-// RepairAppointment.status, so it can be relabeled later without a
-// migration.
-model Deal {
-  id         String    @id @default(cuid())
-  businessId String
-  contactId  String?
-  title      String
-  amount     Float?
-  stage      String    @default("new")
-  status     String    @default("open") // open | won | lost
-  closeDate  DateTime?
-  // Required by DealService.updateStage before a move into "lost" is
-  // accepted — the one stage-requirement rule this pipeline enforces
-  // (full per-stage required-field config is real scope creep past what
-  // a 3-client operation needs right now).
-  lostReason String?
-
-  contact    Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  quotes     Quote[]
-  invoices   Invoice[]
-
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-
-  @@index([businessId])
-  @@index([businessId, stage])
 }
 
 // Per-business admin-only "remove this box" toggle — hovering any
@@ -1285,18 +1252,15 @@ model HiddenWidget {
 }
 
 // Revenue layer (Quote -> Invoice -> Payment), built on the same
-// Contact/Deal records as the rest of the CRM instead of a separate
-// billing database. A Quote is a proposal; accepting it turns it into
-// an Invoice (InvoiceService.generateFromQuote copies the line items,
-// not a live reference — a quote can keep changing after an invoice
-// already exists off an earlier version). Money fields are Float,
-// matching Deal.amount's existing convention in this schema rather than
-// introducing Decimal for only the newest tables.
+// Contact records as the rest of the CRM instead of a separate billing
+// database. A Quote is a proposal; accepting it turns it into an
+// Invoice (InvoiceService.generateFromQuote copies the line items, not
+// a live reference — a quote can keep changing after an invoice already
+// exists off an earlier version). Money fields are Float.
 model Quote {
   id         String   @id @default(cuid())
   businessId String
   contactId  String?
-  dealId     String?
   title      String
   // draft | sent | accepted | rejected | expired
   status     String   @default("draft")
@@ -1307,7 +1271,6 @@ model Quote {
   expiresAt  DateTime?
 
   contact    Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  deal       Deal?       @relation(fields: [dealId], references: [id], onDelete: SetNull)
   items      QuoteItem[]
   invoices   Invoice[]
 
@@ -1334,7 +1297,6 @@ model Invoice {
   id            String    @id @default(cuid())
   businessId    String
   contactId     String?
-  dealId        String?
   quoteId       String?
   // Set when this invoice was generated from a RepairAppointment's Order
   // Management items -- lets the Invoices panel join back for
@@ -1354,7 +1316,6 @@ model Invoice {
   dueDate       DateTime?
 
   contact       Contact?      @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  deal          Deal?         @relation(fields: [dealId], references: [id], onDelete: SetNull)
   quote         Quote?        @relation(fields: [quoteId], references: [id], onDelete: SetNull)
   repairAppointment RepairAppointment? @relation(fields: [repairAppointmentId], references: [id], onDelete: SetNull)
   items         InvoiceItem[]

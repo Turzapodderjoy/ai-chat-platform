@@ -48,7 +48,7 @@ import { KnowledgeRefreshController } from "@ai-chat-platform/api";
 import { ClientHealthController, ProductController, OrderController, RepairController, EmailController, CrmController, RevenueController, ReportingController, WidgetVisibilityController } from "@ai-chat-platform/api";
 import { RepairAppointmentService, StaffService } from "@ai-chat-platform/repairs";
 import { EmailSenderConfigService, ResendEmailClient, GmailSenderConfigService, GmailEmailClient, StatusEmailTemplateService, StatusEmailService } from "@ai-chat-platform/email";
-import { ContactService, DealService } from "@ai-chat-platform/crm";
+import { ContactService } from "@ai-chat-platform/crm";
 import { QuoteService, InvoiceService, PaymentService } from "@ai-chat-platform/revenue";
 import { ReportingService } from "@ai-chat-platform/reporting";
 import { WidgetVisibilityService } from "@ai-chat-platform/widget-visibility";
@@ -178,9 +178,6 @@ export class Container {
     const contacts =
       new ContactService();
 
-    const deals =
-      new DealService();
-
     const quotes =
       new QuoteService();
 
@@ -210,7 +207,6 @@ export class Container {
         masterCsv,
         orders,
         contacts,
-        deals,
         vision
       );
 
@@ -326,9 +322,9 @@ export class Container {
         new ClientHealthController(tenants, crawlerService, masterCsv, refreshSchedule, vectorStore, embeddings, conversations),
         new ProductController(productService, productSync),
         new OrderController(orders, statusEmails),
-        new RepairController(repairs, staff, conversations, emailSenderConfig, emailClient, tenants, contacts, deals, statusEmails, invoices),
+        new RepairController(repairs, staff, conversations, emailSenderConfig, emailClient, tenants, contacts, statusEmails, invoices),
         new EmailController(emailSenderConfig),
-        new CrmController(contacts, deals),
+        new CrmController(contacts),
         new RevenueController(quotes, invoices, payments),
         new ReportingController(reporting),
         new WidgetVisibilityController(widgetVisibility),

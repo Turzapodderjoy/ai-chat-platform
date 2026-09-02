@@ -11,16 +11,6 @@ export interface RevenueReport {
   quoteAcceptanceRate: number | null;
 }
 
-export interface SalesReport {
-  dealsByStage: { stage: string; count: number; value: number }[];
-  openPipelineValue: number;
-  wonValueAllTime: number;
-  wonValueThisMonth: number;
-  winRate: number | null;
-  avgWonDealSize: number | null;
-  lossReasons: { reason: string; count: number }[];
-}
-
 export interface DeliveryReport {
   totalOrders: number;
   ordersByDeliveryStatus: Record<string, number>;
@@ -40,7 +30,6 @@ export interface CrmReport {
 
 export interface OverviewReport {
   revenue: RevenueReport;
-  sales: SalesReport;
   delivery: DeliveryReport;
   repairs: RepairsReport;
   crm: CrmReport;
@@ -74,7 +63,7 @@ function bucketCount<T extends string>(rows: { field: T }[], keys: readonly stri
  * against a few thousand rows at most for this platform's real scale —
  * a materialized-view/caching layer is real scope creep until that
  * stops being true). Queries prisma directly rather than importing
- * QuoteService/InvoiceService/DealService, the same reasoning
+ * QuoteService/InvoiceService, the same reasoning
  * ContactService.getRecord already used: this cuts across
  * revenue/crm/conversation without introducing circular workspace
  * dependencies between those packages. */
@@ -89,7 +78,6 @@ export class ReportingService {
       invoices,
       quotes,
       payments,
-      deals,
       orders,
       appointments,
       totalContacts,
@@ -99,7 +87,6 @@ export class ReportingService {
       prisma.invoice.findMany({ where, select: { status: true, discount: true, tax: true, amountPaid: true, items: { select: { quantity: true, unitPrice: true } } } }),
       prisma.quote.findMany({ where, select: { status: true } }),
       prisma.payment.findMany({ where, select: { amount: true, paidAt: true } }),
-      prisma.deal.findMany({ where, select: { stage: true, status: true, amount: true, lostReason: true, updatedAt: true } }),
       prisma.order.findMany({ where, select: { deliveryStatus: true } }),
       prisma.repairAppointment.findMany({ where, select: { status: true } }),
       prisma.contact.count({ where }),
@@ -129,32 +116,6 @@ export class ReportingService {
     const decidedQuotes = (quotesByStatus.accepted ?? 0) + (quotesByStatus.rejected ?? 0) + (quotesByStatus.expired ?? 0);
     const quoteAcceptanceRate = decidedQuotes > 0 ? (quotesByStatus.accepted ?? 0) / decidedQuotes : null;
 
-    // --- Sales (Deals) ---
-    const stageMap = new Map<string, { count: number; value: number }>();
-    for (const d of deals) {
-      const bucket = stageMap.get(d.stage) ?? { count: 0, value: 0 };
-      bucket.count += 1;
-      bucket.value += d.amount ?? 0;
-      stageMap.set(d.stage, bucket);
-    }
-    const dealsByStage = Array.from(stageMap.entries()).map(([stage, v]) => ({ stage, ...v }));
-    const openDeals = deals.filter((d) => d.status === "open");
-    const wonDeals = deals.filter((d) => d.status === "won");
-    const lostDeals = deals.filter((d) => d.status === "lost");
-    const openPipelineValue = openDeals.reduce((sum, d) => sum + (d.amount ?? 0), 0);
-    const wonValueAllTime = wonDeals.reduce((sum, d) => sum + (d.amount ?? 0), 0);
-    const wonValueThisMonth = wonDeals.filter((d) => d.updatedAt >= thisMonth).reduce((sum, d) => sum + (d.amount ?? 0), 0);
-    const winRate = wonDeals.length + lostDeals.length > 0 ? wonDeals.length / (wonDeals.length + lostDeals.length) : null;
-    const avgWonDealSize = wonDeals.length > 0 ? wonValueAllTime / wonDeals.length : null;
-    const lossReasonMap = new Map<string, number>();
-    for (const d of lostDeals) {
-      const reason = d.lostReason ?? "(no reason given)";
-      lossReasonMap.set(reason, (lossReasonMap.get(reason) ?? 0) + 1);
-    }
-    const lossReasons = Array.from(lossReasonMap.entries())
-      .map(([reason, count]) => ({ reason, count }))
-      .sort((a, b) => b.count - a.count);
-
     // --- Delivery (Orders) ---
     const ordersByDeliveryStatus = bucketCount(
       orders.map((o) => ({ field: o.deliveryStatus })),
@@ -178,15 +139,6 @@ export class ReportingService {
         invoicesByStatus,
         quotesByStatus,
         quoteAcceptanceRate,
-      },
-      sales: {
-        dealsByStage,
-        openPipelineValue,
-        wonValueAllTime,
-        wonValueThisMonth,
-        winRate,
-        avgWonDealSize,
-        lossReasons,
       },
       delivery: {
         totalOrders: orders.length,

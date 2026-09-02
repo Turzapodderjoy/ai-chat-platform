@@ -17,15 +17,6 @@ interface OverviewReport {
     quotesByStatus: Record<string, number>;
     quoteAcceptanceRate: number | null;
   };
-  sales: {
-    dealsByStage: { stage: string; count: number; value: number }[];
-    openPipelineValue: number;
-    wonValueAllTime: number;
-    wonValueThisMonth: number;
-    winRate: number | null;
-    avgWonDealSize: number | null;
-    lossReasons: { reason: string; count: number }[];
-  };
   delivery: {
     totalOrders: number;
     ordersByDeliveryStatus: Record<string, number>;
@@ -43,7 +34,6 @@ interface OverviewReport {
   generatedAt: string;
 }
 
-const STAGE_LABEL: Record<string, string> = { new: "New", contacted: "Contacted", qualified: "Qualified", proposal: "Proposal", won: "Won", lost: "Lost" };
 const DELIVERY_LABEL: Record<string, string> = { pending: "Pending", picked_up: "Picked Up", in_transit: "In Transit", delivered: "Delivered", returned: "Returned" };
 const REPAIR_LABEL: Record<string, string> = { booked: "Booked", received: "Received", in_repair: "In Repair", ready: "Ready", completed: "Completed", cancelled: "Cancelled" };
 const INVOICE_TONE: Record<string, BadgeTone> = { draft: "neutral", issued: "info", partially_paid: "warn", paid: "ok", overdue: "error", void: "neutral" };
@@ -71,8 +61,8 @@ function BreakdownBar({ label, count, total, tone }: { label: string; count: num
 }
 
 /** HubSpot-style cross-domain reporting — one read-only rollup over
- * Revenue (Quotes/Invoices/Payments), Sales (Deals pipeline), Delivery
- * (Order tracking), Repairs, and CRM growth, all pulled from the same
+ * Revenue (Quotes/Invoices/Payments), Delivery (Order tracking), Repairs,
+ * and CRM growth, all pulled from the same
  * records every other panel already writes to. See
  * ReportingService.getOverview for the actual aggregation. */
 export function ReportsPanel({
@@ -121,17 +111,16 @@ export function ReportsPanel({
 
   const has = (id: string) => allowedPanels === null || allowedPanels.includes(id);
   const showRevenue = has("quotes") || has("invoices");
-  const showSales = has("deals");
   const showDelivery = has("delivery");
   const showRepairs = has("repairs");
   const showCrm = has("contacts");
 
-  const { revenue, sales, delivery, repairs, crm } = report;
+  const { revenue, delivery, repairs, crm } = report;
   const momDelta = revenue.collectedLastMonth > 0
     ? ((revenue.collectedThisMonth - revenue.collectedLastMonth) / revenue.collectedLastMonth) * 100
     : null;
 
-  if (!showRevenue && !showSales && !showDelivery && !showRepairs && !showCrm) {
+  if (!showRevenue && !showDelivery && !showRepairs && !showCrm) {
     return (
       <section style={cardStyle}>
         <h2 style={{ marginTop: 0 }}>Reports</h2>
@@ -175,40 +164,6 @@ export function ReportsPanel({
               <div key={status} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, marginBottom: 4 }}>
                 <span style={badgeStyle(QUOTE_TONE[status] ?? "neutral")}>{status}</span>
                 <span>{count}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section></RemovableSection>}
-
-      {showSales && <RemovableSection id="reports.sales" hidden={isHidden("reports.sales")} editable={editable} onToggle={toggle}><section style={cardStyle}>
-        <h2 style={{ marginTop: 0 }}>Sales</h2>
-        <p style={subtleTextStyle}>Pipeline health across every Deal, win/loss rate, and why deals are lost.</p>
-        <StatCardRow>
-          <StatCard label="Open Pipeline" value={money(sales.openPipelineValue)} tone="info" />
-          <StatCard label="Won (all time)" value={money(sales.wonValueAllTime)} tone="success" />
-          <StatCard label="Won This Month" value={money(sales.wonValueThisMonth)} tone="success" />
-          <StatCard label="Win Rate" value={pct(sales.winRate)} tone={sales.winRate != null && sales.winRate >= 0.5 ? "success" : "warning"} />
-          <StatCard label="Avg Won Deal Size" value={sales.avgWonDealSize != null ? money(sales.avgWonDealSize) : "—"} tone="neutral" />
-        </StatCardRow>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 24 }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 8 }}>Deals by stage</div>
-            {sales.dealsByStage.length === 0 && <span style={{ fontSize: 12, color: "var(--text-faint)" }}>No deals yet.</span>}
-            {sales.dealsByStage.map((s) => (
-              <div key={s.stage} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
-                <span>{STAGE_LABEL[s.stage] ?? s.stage}</span>
-                <span style={{ color: "var(--text-muted)" }}>{s.count} · {money(s.value)}</span>
-              </div>
-            ))}
-          </div>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 8 }}>Loss reasons</div>
-            {sales.lossReasons.length === 0 && <span style={{ fontSize: 12, color: "var(--text-faint)" }}>No lost deals yet.</span>}
-            {sales.lossReasons.map((r) => (
-              <div key={r.reason} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
-                <span>{r.reason}</span>
-                <span style={{ color: "var(--text-muted)" }}>{r.count}</span>
               </div>
             ))}
           </div>

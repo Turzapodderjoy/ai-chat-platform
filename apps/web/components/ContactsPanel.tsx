@@ -20,20 +20,18 @@ interface ContactRecord {
   contact: Contact;
   orders: { id: string; products: string; paymentMethod: string; createdAt: string }[];
   repairs: { id: string; trackingToken: string; deviceType: string; status: string; createdAt: string; amountPaid: number; total: number }[];
-  deals: { id: string; title: string; amount: number | null; stage: string; status: string }[];
   quotes: { id: string; title: string; status: string; total: number; currency: string }[];
   invoices: { id: string; invoiceNumber: string; status: string; total: number; balanceDue: number; currency: string }[];
   lifetimeValue: number;
 }
 
-const DEAL_TONE: Record<string, BadgeTone> = { open: "info", won: "ok", lost: "error" };
 const QUOTE_TONE: Record<string, BadgeTone> = { draft: "neutral", sent: "info", accepted: "ok", rejected: "error", expired: "warn" };
 const INVOICE_TONE: Record<string, BadgeTone> = { draft: "neutral", issued: "info", partially_paid: "warn", paid: "ok", overdue: "error", void: "neutral" };
 
 /** A real customer record, unifying what used to be resolved fresh per
  * conversation (see ConversationService.namesForConversations) — a
  * customer who orders/books more than once shows up once here, with
- * every order/repair/deal they've ever had attached to the same
+ * every order/repair they've ever had attached to the same
  * person instead of looking like separate customers each time. Click a
  * row to expand their full history — the actual "connected record"
  * this is for, not just a flat list. */
@@ -237,16 +235,6 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                                 <div key={r.id} style={{ marginBottom: 4 }}>
                                   {r.deviceType} — {r.status} <span style={{ color: "var(--text-faint)" }}>({r.trackingToken})</span>
                                   {r.total > 0 && <span style={{ marginLeft: 6 }}>৳{r.amountPaid.toLocaleString()} paid of ৳{r.total.toLocaleString()}</span>}
-                                </div>
-                              ))}
-                            </div>
-                            <div>
-                              <div style={{ fontWeight: 650, marginBottom: 6 }}>Deals ({record.deals.length})</div>
-                              {record.deals.length === 0 && <span style={{ color: "var(--text-faint)" }}>None</span>}
-                              {record.deals.map((d) => (
-                                <div key={d.id} style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
-                                  <span style={badgeStyle(DEAL_TONE[d.status] ?? "neutral")}>{d.stage}</span>
-                                  {d.title}{d.amount != null ? ` — ৳${d.amount.toLocaleString()}` : ""}
                                 </div>
                               ))}
                             </div>

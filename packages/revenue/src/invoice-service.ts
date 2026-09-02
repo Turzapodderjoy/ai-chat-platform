@@ -23,7 +23,6 @@ export interface Invoice {
   id: string;
   businessId: string;
   contactId: string | null;
-  dealId: string | null;
   quoteId: string | null;
   repairAppointmentId: string | null;
   invoiceNumber: string;
@@ -46,7 +45,6 @@ export interface Invoice {
 export interface CreateInvoiceInput {
   businessId: string;
   contactId?: string;
-  dealId?: string;
   quoteId?: string;
   repairAppointmentId?: string;
   items: LineItemInput[];
@@ -59,7 +57,6 @@ type InvoiceRow = {
   id: string;
   businessId: string;
   contactId: string | null;
-  dealId: string | null;
   quoteId: string | null;
   repairAppointmentId: string | null;
   invoiceNumber: string;
@@ -82,7 +79,6 @@ function toInvoice(row: InvoiceRow): Invoice {
     id: row.id,
     businessId: row.businessId,
     contactId: row.contactId,
-    dealId: row.dealId,
     quoteId: row.quoteId,
     repairAppointmentId: row.repairAppointmentId,
     invoiceNumber: row.invoiceNumber,
@@ -121,7 +117,6 @@ export class InvoiceService {
       data: {
         businessId: input.businessId,
         contactId: input.contactId,
-        dealId: input.dealId,
         quoteId: input.quoteId,
         repairAppointmentId: input.repairAppointmentId,
         invoiceNumber,
@@ -144,7 +139,6 @@ export class InvoiceService {
       data: {
         businessId: quote.businessId,
         contactId: quote.contactId,
-        dealId: quote.dealId,
         quoteId: quote.id,
         invoiceNumber,
         status: "issued",

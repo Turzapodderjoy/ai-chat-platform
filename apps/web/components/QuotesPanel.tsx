@@ -15,7 +15,6 @@ interface Quote {
   id: string;
   businessId: string;
   contactId: string | null;
-  dealId: string | null;
   title: string;
   status: string;
   currency: string;

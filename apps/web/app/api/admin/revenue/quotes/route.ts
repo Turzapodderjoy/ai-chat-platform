@@ -23,7 +23,6 @@ export async function POST(req: NextRequest) {
   const result = await app.container.router.revenue.createQuote({
     businessId: body.businessId,
     contactId: body.contactId || undefined,
-    dealId: body.dealId || undefined,
     title: body.title,
     items: body.items.map((i: { name: string; quantity: number; unitPrice: number }) => ({
       name: i.name,

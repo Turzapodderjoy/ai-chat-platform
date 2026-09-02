@@ -127,19 +127,16 @@ export class ContactService {
     await prisma.contact.delete({ where: { id } });
   }
 
-  /** The actual "connected record" — every Order, RepairAppointment,
-   * and Deal tied to this person, matched the same way upsert()
-   * dedupes them (normalized phone, then email) since none of those
-   * tables carry a contactId FK — they predate Contact and are
-   * customer-facing data entered by the AI/customer, not something
-   * that should require a schema migration just to link up. Deal DOES
-   * have a real contactId (created after Contact existed), so that one
-   * is a direct query. */
+  /** The actual "connected record" — every Order and RepairAppointment
+   * tied to this person, matched the same way upsert() dedupes them
+   * (normalized phone, then email) since neither table carries a
+   * contactId FK — they predate Contact and are customer-facing data
+   * entered by the AI/customer, not something that should require a
+   * schema migration just to link up. */
   async getRecord(id: string): Promise<{
     contact: Contact;
     orders: Array<{ id: string; products: string; paymentMethod: string; createdAt: string }>;
     repairs: Array<{ id: string; trackingToken: string; deviceType: string; status: string; createdAt: string; amountPaid: number; total: number }>;
-    deals: Array<{ id: string; title: string; amount: number | null; stage: string; status: string }>;
     quotes: Array<{ id: string; title: string; status: string; total: number; currency: string }>;
     invoices: Array<{ id: string; invoiceNumber: string; status: string; total: number; balanceDue: number; currency: string }>;
     lifetimeValue: number;
@@ -150,7 +147,7 @@ export class ContactService {
 
     const phoneSuffix = contact.phone ? contact.phone.slice(-10) : null;
 
-    const [orders, repairs, deals, quoteRows, invoiceRows] = await Promise.all([
+    const [orders, repairs, quoteRows, invoiceRows] = await Promise.all([
       phoneSuffix
         ? prisma.order.findMany({
             where: { businessId: contact.businessId, phone: { endsWith: phoneSuffix } },
@@ -165,11 +162,6 @@ export class ContactService {
             select: { id: true, trackingToken: true, deviceType: true, status: true, createdAt: true },
           })
         : Promise.resolve([]),
-      prisma.deal.findMany({
-        where: { contactId: id },
-        orderBy: { updatedAt: "desc" },
-        select: { id: true, title: true, amount: true, stage: true, status: true },
-      }),
       prisma.quote.findMany({
         where: { contactId: id },
         orderBy: { updatedAt: "desc" },
@@ -213,7 +205,6 @@ export class ContactService {
         amountPaid: invoiceByRepairId.get(r.id)?.amountPaid ?? 0,
       })),
       lifetimeValue,
-      deals,
       quotes: quoteRows.map((q) => ({
         id: q.id,
         title: q.title,

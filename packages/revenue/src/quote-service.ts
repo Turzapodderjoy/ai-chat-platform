@@ -15,7 +15,6 @@ export interface Quote {
   id: string;
   businessId: string;
   contactId: string | null;
-  dealId: string | null;
   title: string;
   status: string;
   currency: string;
@@ -33,7 +32,6 @@ export interface Quote {
 export interface CreateQuoteInput {
   businessId: string;
   contactId?: string;
-  dealId?: string;
   title: string;
   items: LineItemInput[];
   discount?: number;
@@ -46,7 +44,6 @@ function toQuote(row: {
   id: string;
   businessId: string;
   contactId: string | null;
-  dealId: string | null;
   title: string;
   status: string;
   currency: string;
@@ -63,7 +60,6 @@ function toQuote(row: {
     id: row.id,
     businessId: row.businessId,
     contactId: row.contactId,
-    dealId: row.dealId,
     title: row.title,
     status: row.status,
     currency: row.currency,
@@ -87,7 +83,6 @@ export class QuoteService {
       data: {
         businessId: input.businessId,
         contactId: input.contactId,
-        dealId: input.dealId,
         title: input.title,
         discount: input.discount ?? 0,
         tax: input.tax ?? 0,
