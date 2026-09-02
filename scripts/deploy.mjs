@@ -187,8 +187,19 @@ async function deploy() {
     try {
       execFileSync("git", ["worktree", "remove", releaseDir, "--force"], { cwd: REPO_SOURCE, stdio: "inherit" });
     } catch {
+      // git may already have deregistered the worktree even though this
+      // threw -- fall through to the unconditional rmSync below either way.
+    }
+    // Confirmed live: "git worktree remove --force" can deregister the
+    // worktree from git's own list while leaving the directory itself on
+    // disk (a Windows file-lock on something inside it, e.g. from a
+    // build process that hadn't fully released a handle) -- so this
+    // can't be conditional on the remove command having thrown. Always
+    // verify the directory is actually gone before the next worktree add.
+    if (existsSync(releaseDir)) {
       rmSync(releaseDir, { recursive: true, force: true });
     }
+    execFileSync("git", ["worktree", "prune"], { cwd: REPO_SOURCE, stdio: "inherit" });
   }
 
   mkdirSync(RELEASES_DIR, { recursive: true });
