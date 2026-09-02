@@ -118,7 +118,7 @@ function playPingSound() {
  * appointment's own details shown above it. Same optional-businessId
  * convention as AllChatsPanel/ClientOverviewPanel — works unscoped on
  * the mother dashboard too. */
-export function RepairsPanel({ businessId, active = true, businessType = "regular" }: { businessId?: string; active?: boolean; businessType?: string }) {
+export function RepairsPanel({ businessId, active = true }: { businessId?: string; active?: boolean }) {
   const [appointments, setAppointments] = useState<Appointment[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [calendarDay, setCalendarDay] = useState<string | null>(null);
@@ -128,11 +128,11 @@ export function RepairsPanel({ businessId, active = true, businessType = "regula
   const [products, setProducts] = useState<{ id: string; name: string; price: string | null; stock: string | null }[]>([]);
 
   useEffect(() => {
-    if (!businessId || businessType !== "repair") return;
+    if (!businessId) return;
     fetch(`/api/admin/products?businessId=${encodeURIComponent(businessId)}&limit=200`)
       .then((r) => r.json())
       .then((d: { products: { id: string; name: string; price: string | null; stock: string | null }[] }) => setProducts(d.products));
-  }, [businessId, businessType]);
+  }, [businessId]);
 
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [reply, setReply] = useState("");
@@ -600,11 +600,9 @@ export function RepairsPanel({ businessId, active = true, businessType = "regula
                   Cancel
                 </button>
               )}
-              {businessType === "repair" && (
-                <button onClick={() => setOrderOpen((o) => !o)} style={{ padding: "6px 10px", fontSize: 12 }}>
-                  {orderOpen ? "Close Order" : "Manage Order"}
-                </button>
-              )}
+              <button onClick={() => setOrderOpen((o) => !o)} style={{ padding: "6px 10px", fontSize: 12 }}>
+                {orderOpen ? "Close Order" : "Manage Order"}
+              </button>
               <button onClick={() => deleteAppointment(selected)} style={{ padding: "6px 10px", fontSize: 12 }}>
                 Delete
               </button>
@@ -645,7 +643,7 @@ export function RepairsPanel({ businessId, active = true, businessType = "regula
             <div style={{ gridColumn: "1 / -1" }}><span style={{ color: "var(--text-faint)" }}>Issue</span><br />{selected.issueDescription}</div>
           </div>
 
-          {businessType === "repair" && orderOpen && (
+          {orderOpen && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4 }}>
                 Order Management {selected.serialNumber ? `— ${selected.serialNumber}` : "(no serial number yet — save at least one item to assign one)"}

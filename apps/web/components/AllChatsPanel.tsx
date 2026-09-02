@@ -168,7 +168,7 @@ const STATUS_TABS: { id: StatusTab; label: string }[] = [
  * handoffs, orders) rather than inventing new ones. */
 const MOBILE_BREAKPOINT = 860;
 
-export function AllChatsPanel({ businessId, active = true, businessType = "regular" }: { businessId?: string; active?: boolean; businessType?: string }) {
+export function AllChatsPanel({ businessId, active = true }: { businessId?: string; active?: boolean }) {
   const [conversations, setConversations] = useState<ConversationSummary[] | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -461,20 +461,16 @@ export function AllChatsPanel({ businessId, active = true, businessType = "regul
 
     // repair-tracking conversations use the tracking token as their own
     // id (see RepairController) — same lookup shape as Order Actions
-    // above, just matched on trackingToken instead of conversationId. On
-    // a repair-type business this also checks non-repair-tracking chats,
+    // above, just matched on trackingToken instead of conversationId.
+    // Checked for every conversation (not just repair-tracking ones)
     // since the "Create Order" button (below) needs to know whether one
     // already exists for this conversation before offering to create one.
-    if (c.channel === "repair-tracking" || businessType === "repair") {
-      setRepairForSelected(undefined);
-      fetch(`/api/admin/repairs?businessId=${encodeURIComponent(c.businessId)}`)
-        .then((r) => r.json())
-        .then((d: { appointments: RepairAppointment[] }) =>
-          setRepairForSelected(d.appointments.find((a) => a.trackingToken === c.id) ?? null)
-        );
-    } else {
-      setRepairForSelected(undefined);
-    }
+    setRepairForSelected(undefined);
+    fetch(`/api/admin/repairs?businessId=${encodeURIComponent(c.businessId)}`)
+      .then((r) => r.json())
+      .then((d: { appointments: RepairAppointment[] }) =>
+        setRepairForSelected(d.appointments.find((a) => a.trackingToken === c.id) ?? null)
+      );
 
     setContactForSelected(undefined);
   }
@@ -1293,7 +1289,7 @@ export function AllChatsPanel({ businessId, active = true, businessType = "regul
                     </div>
                   )}
 
-                  {businessType === "repair" && selected.channel !== "repair-tracking" && repairForSelected !== undefined && (
+                  {selected.channel !== "repair-tracking" && repairForSelected !== undefined && (
                     <div style={{ marginBottom: 20 }}>
                       <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", marginBottom: 8 }}>
                         Order Management

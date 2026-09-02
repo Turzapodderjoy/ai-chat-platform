@@ -34,10 +34,6 @@ import { AgentConsole } from "../../../components/AgentConsole";
 
 type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "inventory" | "orders" | "delivery" | "repairs" | "staff" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "deals" | "quotes" | "invoices" | "reports" | "notifications" | "orderManagement";
 
-// Nav entries only meaningful for a "repair"-type business -- see
-// businessType filtering in the component below.
-const REPAIR_ONLY_PANEL_IDS = new Set<Tab>(["orderManagement"]);
-
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }, { id: "reports", label: "Reports" }] },
   {
@@ -136,17 +132,6 @@ export default function ClientDashboardClient() {
   // (AgentConsole), not just fewer nav tabs on the normal one.
   const [isAgent, setIsAgent] = useState(false);
   const [accountId, setAccountId] = useState<string | null>(null);
-  // "regular" | "repair" -- gates repair-only nav entries (Order
-  // Management) for every session type, admin included, since the
-  // feature is meaningless for a non-repair business.
-  const [businessType, setBusinessType] = useState("regular");
-
-  useEffect(() => {
-    fetch(`/api/admin/clients/${businessId}`)
-      .then((r) => r.json())
-      .then((d: { type?: string }) => setBusinessType(d.type ?? "regular"))
-      .catch(() => {});
-  }, [businessId]);
 
   function logout() {
     fetch("/api/auth/logout", { method: "POST" }).finally(() => router.push("/"));
@@ -226,22 +211,14 @@ export default function ClientDashboardClient() {
   // session's nav is filtered, by allowedPanels AND by any panel the
   // admin removed inline via RemovableSection. Same filter applies
   // when previewing as the client.
-  // Repair-only nav entries stay hidden for every session (admin included)
-  // on a "regular"-type business -- the feature has nothing to act on
-  // there. Applied before the allowedPanels filter below.
-  const typeFilteredGroups: NavGroup<Tab>[] = NAV_GROUPS.map((g) => ({
-    ...g,
-    items: g.items.filter((i) => !REPAIR_ONLY_PANEL_IDS.has(i.id) || businessType === "repair"),
-  })).filter((g) => g.items.length > 0);
-
   const visibleGroups: NavGroup<Tab>[] = actsAsClient
-    ? typeFilteredGroups.map((g) => ({
+    ? NAV_GROUPS.map((g) => ({
         ...g,
         items: g.items.filter(
           (i) => (allowedPanels === null || allowedPanels.includes(i.id)) && !hiddenWidgets.includes(`panel.${i.id}`)
         ),
       })).filter((g) => g.items.length > 0)
-    : typeFilteredGroups;
+    : NAV_GROUPS;
 
   // If a restriction kicks in after first paint and the currently-open
   // tab isn't in the allow-list, jump to the first tab that is —
@@ -349,7 +326,7 @@ export default function ClientDashboardClient() {
         ["notifications", <StatusEmailTemplatesPanel key="notifications" businessId={businessId} />],
         ["orders", <OrdersPanel key="orders" businessId={businessId} />],
         ["delivery", <DeliveryPanel key="delivery" businessId={businessId} />],
-        ["repairs", <RepairsPanel key="repairs" businessId={businessId} active={tab === "repairs"} businessType={businessType} />],
+        ["repairs", <RepairsPanel key="repairs" businessId={businessId} active={tab === "repairs"} />],
         ["orderManagement", <OrderManagementPanel key="orderManagement" businessId={businessId} />],
         ["staff", <StaffPanel key="staff" businessId={businessId} />],
         ["contacts", <ContactsPanel key="contacts" businessId={businessId} active={tab === "contacts"} />],
@@ -368,7 +345,7 @@ export default function ClientDashboardClient() {
             onToggleWidget={toggleWidget}
           />,
         ],
-        ["allchats", <AllChatsPanel key="allchats" businessId={businessId} active={tab === "allchats"} businessType={businessType} />],
+        ["allchats", <AllChatsPanel key="allchats" businessId={businessId} active={tab === "allchats"} />],
         ["storage", <StoragePanel key="storage" businessId={businessId} />],
         ["brain", <AiBrainPanel key="brain" businessId={businessId} />],
         ["parameters", <AiParametersPanel key="parameters" businessId={businessId} />],
