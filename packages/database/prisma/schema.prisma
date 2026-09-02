@@ -41,6 +41,11 @@ model Business {
   members       Membership[]
   usage         BusinessUsage?
 
+  // "regular" | "repair" -- gates repair-only features (Order Management)
+  // in the client dashboard nav. Set by platform admin in the mother
+  // dashboard's Clients panel.
+  type          String   @default("regular")
+
   // How many agent (handoff-team) logins this business is allowed to
   // create for itself under Client Access -- 0 means the feature isn't
   // enabled for them yet. Set by platform admin only; the client's own
@@ -917,6 +922,13 @@ model Product {
   businessId  String
   name        String
   price       String?
+  // Unit cost price -- what the business pays, separate from `price`
+  // (what it sells for). Same free-text-not-numeric convention as
+  // `price`/`stock` since this model deliberately never enforces a
+  // number format on money fields.
+  costPrice   String?
+  // "regular" | "premium" -- inventory tier, admin-set per item.
+  tier        String   @default("regular")
   description String?
   stock       String?
   category    String?
@@ -1053,11 +1065,47 @@ model RepairAppointment {
   // Warranty set on completion
   warrantyExpiry   DateTime?
 
+  // Order Management billing layer -- this same row IS an "order
+  // management" entry once it has a serial number/items; not a separate
+  // model (see RepairOrderItem's own comment for why).
+  serialNumber     String?
+  // Nullable FK to Contact so CLV/issue-history rolls up via a real
+  // relation instead of the phone-matching ContactService.getRecord
+  // otherwise falls back to.
+  contactId        String?
+  contact          Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  items            RepairOrderItem[]
+  invoices         Invoice[]
+
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   @@index([businessId, appointmentDate])
   @@index([businessId, status])
+}
+
+// A part or service line on a RepairAppointment's Order Management
+// billing layer -- same itemized shape as QuoteItem/InvoiceItem so
+// generating a real Invoice from these is a straight copy, not a new
+// pricing model. `productId` set (kind="part") means adding/removing
+// this item also adjusts that Product's live stock (see
+// RepairAppointmentService.addItem/removeItem) -- direct adjustment, no
+// reservation/hold system.
+model RepairOrderItem {
+  id                  String   @id @default(cuid())
+  repairAppointmentId String
+  productId           String?
+  kind                String   // "part" | "service"
+  name                String
+  quantity            Float    @default(1)
+  defaultPrice        Float
+  overridePrice       Float?
+
+  repairAppointment RepairAppointment @relation(fields: [repairAppointmentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([repairAppointmentId])
 }
 
 model Staff {
@@ -1150,6 +1198,7 @@ model Contact {
   deals      Deal[]
   quotes     Quote[]
   invoices   Invoice[]
+  repairAppointments RepairAppointment[]
 
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -1263,6 +1312,10 @@ model Invoice {
   contactId     String?
   dealId        String?
   quoteId       String?
+  // Set when this invoice was generated from a RepairAppointment's Order
+  // Management items -- lets the Invoices panel join back for
+  // device/issue context, same pattern as quoteId.
+  repairAppointmentId String?
   // Short, human-readable per-business sequence (e.g. "INV-0007"), not
   // the cuid id — same "simple worded short" convention the tracking
   // tokens/order IDs already follow elsewhere in this dashboard.
@@ -1279,6 +1332,7 @@ model Invoice {
   contact       Contact?      @relation(fields: [contactId], references: [id], onDelete: SetNull)
   deal          Deal?         @relation(fields: [dealId], references: [id], onDelete: SetNull)
   quote         Quote?        @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  repairAppointment RepairAppointment? @relation(fields: [repairAppointmentId], references: [id], onDelete: SetNull)
   items         InvoiceItem[]
   payments      Payment[]
 

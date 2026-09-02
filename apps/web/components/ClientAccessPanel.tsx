@@ -49,6 +49,7 @@ const ALL_PANELS: { id: string; label: string }[] = [
   { id: "orders", label: "Orders" },
   { id: "delivery", label: "Delivery" },
   { id: "repairs", label: "Repairs" },
+  { id: "orderManagement", label: "Order Management" },
   { id: "allchats", label: "All Chats" },
   { id: "storage", label: "Storage" },
   { id: "brain", label: "AI Brain" },

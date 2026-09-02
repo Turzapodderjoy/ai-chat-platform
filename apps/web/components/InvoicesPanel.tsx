@@ -9,6 +9,7 @@ interface Invoice {
   id: string;
   businessId: string;
   contactId: string | null;
+  repairAppointmentId: string | null;
   invoiceNumber: string;
   status: string;
   currency: string;
@@ -23,6 +24,8 @@ interface Invoice {
 interface Contact {
   id: string;
   name: string;
+  phone: string | null;
+  email: string | null;
 }
 
 const STATUSES = ["draft", "issued", "partially_paid", "paid", "overdue", "void"] as const;
@@ -32,9 +35,17 @@ const STATUS_TONE: Record<string, BadgeTone> = { draft: "neutral", issued: "info
  * recording a Payment here recomputes amountPaid/status server-side in
  * PaymentService.reconcileInvoice, so this list is always the source of
  * truth for what's actually still owed. */
+interface RepairSummary {
+  id: string;
+  deviceType: string;
+  deviceModel?: string;
+  issueDescription: string;
+}
+
 export function InvoicesPanel({ businessId, active = true }: { businessId?: string; active?: boolean }) {
   const [invoices, setInvoices] = useState<Invoice[] | null>(null);
   const [contacts, setContacts] = useState<Contact[] | null>(null);
+  const [repairs, setRepairs] = useState<RepairSummary[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   function refresh() {
@@ -45,6 +56,11 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
     fetch(`/api/admin/crm/contacts${qs}`)
       .then((r) => r.json())
       .then((d) => setContacts(d.contacts));
+    if (businessId) {
+      fetch(`/api/admin/repairs?businessId=${encodeURIComponent(businessId)}`)
+        .then((r) => r.json())
+        .then((d: { appointments: RepairSummary[] }) => setRepairs(d.appointments));
+    }
   }
 
   useEffect(() => {
@@ -52,7 +68,8 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [businessId, active]);
 
-  const contactName = useMemo(() => new Map((contacts ?? []).map((c) => [c.id, c.name])), [contacts]);
+  const contactById = useMemo(() => new Map((contacts ?? []).map((c) => [c.id, c])), [contacts]);
+  const repairById = useMemo(() => new Map(repairs.map((r) => [r.id, r])), [repairs]);
 
   const stats = useMemo(() => {
     if (!invoices) return null;
@@ -125,6 +142,7 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
               <tr>
                 <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Number</th>
                 <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Contact</th>
+                <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Device / Issue</th>
                 <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Total</th>
                 <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Paid</th>
                 <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Balance</th>
@@ -136,7 +154,25 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
               {invoices.map((inv) => (
                 <tr key={inv.id}>
                   <td style={{ padding: "6px 8px", fontWeight: 600 }}>{inv.invoiceNumber}</td>
-                  <td style={{ padding: "6px 8px" }}>{inv.contactId ? contactName.get(inv.contactId) ?? "—" : "—"}</td>
+                  <td style={{ padding: "6px 8px", fontSize: 12 }}>
+                    {inv.contactId && contactById.get(inv.contactId) ? (
+                      <>
+                        {contactById.get(inv.contactId)!.name}
+                        <div style={{ color: "var(--text-faint)" }}>
+                          {[contactById.get(inv.contactId)!.phone, contactById.get(inv.contactId)!.email].filter(Boolean).join(" · ")}
+                        </div>
+                      </>
+                    ) : "—"}
+                  </td>
+                  <td style={{ padding: "6px 8px", fontSize: 12 }}>
+                    {inv.repairAppointmentId && repairById.get(inv.repairAppointmentId) ? (
+                      <>
+                        {repairById.get(inv.repairAppointmentId)!.deviceType}
+                        {repairById.get(inv.repairAppointmentId)!.deviceModel ? ` (${repairById.get(inv.repairAppointmentId)!.deviceModel})` : ""}
+                        <div style={{ color: "var(--text-faint)" }}>{repairById.get(inv.repairAppointmentId)!.issueDescription}</div>
+                      </>
+                    ) : "—"}
+                  </td>
                   <td style={{ padding: "6px 8px" }}>{inv.currency}{inv.total.toLocaleString()}</td>
                   <td style={{ padding: "6px 8px" }}>{inv.currency}{inv.amountPaid.toLocaleString()}</td>
                   <td style={{ padding: "6px 8px", color: inv.balanceDue > 0 ? "var(--danger)" : "var(--success)" }}>{inv.currency}{inv.balanceDue.toLocaleString()}</td>

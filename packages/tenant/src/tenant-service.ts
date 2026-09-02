@@ -43,12 +43,16 @@ export class TenantService {
   /** Creates a new client. Its dashboard exists immediately at
    * /dashboard/{id} — that's one dynamic route serving every business,
    * not a page generated per client, so it needs no deploy. */
-  async createBusiness(name: string) {
+  async createBusiness(name: string, type: string = "regular") {
     const slug = `${name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`;
 
     return prisma.business.create({
-      data: { name, slug },
+      data: { name, slug, type },
     });
+  }
+
+  async setBusinessType(id: string, type: string) {
+    return prisma.business.update({ where: { id }, data: { type } });
   }
 
   /** Memberships cascade via the schema; conversations/crawl targets/

@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const app = await getApp();
-    const client = await app.container.router.admin.createClient(body.name);
+    const client = await app.container.router.admin.createClient(body.name, typeof body.type === "string" ? body.type : undefined);
     return NextResponse.json(client);
   } catch (err) {
     return NextResponse.json(

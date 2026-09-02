@@ -1,8 +1,20 @@
 import { ConversationService } from "@ai-chat-platform/conversation";
-import { RepairAppointmentService, StaffService } from "@ai-chat-platform/repairs";
+import { RepairAppointmentService, StaffService, type AddOrderItemInput } from "@ai-chat-platform/repairs";
 import { EmailSenderConfigService, ResendEmailClient, StatusEmailService } from "@ai-chat-platform/email";
 import { TenantService } from "@ai-chat-platform/tenant";
 import { ContactService, DealService } from "@ai-chat-platform/crm";
+import { InvoiceService } from "@ai-chat-platform/revenue";
+
+export interface CreateOrderEntryInput {
+  businessId: string;
+  conversationId?: string;
+  customerName: string;
+  phone: string;
+  email?: string;
+  deviceType: string;
+  deviceModel?: string;
+  issueDescription: string;
+}
 
 export interface BookRepairInput {
   businessId: string;
@@ -30,7 +42,8 @@ export class RepairController {
     private readonly tenants: TenantService,
     private readonly contacts: ContactService,
     private readonly deals: DealService,
-    private readonly statusEmails: StatusEmailService
+    private readonly statusEmails: StatusEmailService,
+    private readonly invoices: InvoiceService
   ) {}
 
   async book(input: BookRepairInput): Promise<{ trackingToken: string }> {
@@ -215,6 +228,85 @@ export class RepairController {
 
   deleteStaff(id: string) {
     return this.staff.delete(id);
+  }
+
+  // Order Management -- backs the "Create Order" button on a chat, the
+  // Order Management page's own "+ New", and (indirectly, since it's the
+  // same RepairAppointment row) the Repairs panel's "Manage Order"
+  // button, which just opens this same appointment's items sub-panel
+  // instead of calling this at all.
+  async createOrderEntry(input: CreateOrderEntryInput) {
+    const business = await this.tenants.getBusiness(input.businessId);
+    if (!business) {
+      throw new Error(`Unknown businessId: "${input.businessId}"`);
+    }
+
+    const trackingToken = input.conversationId ?? (await this.repairs.generateTrackingToken());
+
+    const appointment = await this.repairs.book({
+      businessId: input.businessId,
+      trackingToken,
+      customerName: input.customerName,
+      phone: input.phone,
+      email: input.email,
+      deviceType: input.deviceType,
+      deviceModel: input.deviceModel,
+      issueDescription: input.issueDescription,
+      appointmentDate: new Date(),
+    });
+
+    const serialNumber = await this.repairs.nextSerialNumber(input.businessId);
+    await this.repairs.setSerialNumber(appointment.id, serialNumber);
+
+    // Same auto-Contact pattern as book() above, but linked via the real
+    // contactId FK this time (rather than left phone-matched) so
+    // CLV/issue-history rolls up through a real relation.
+    const contact = await this.contacts.upsert({
+      businessId: input.businessId,
+      name: input.customerName,
+      phone: input.phone,
+      email: input.email,
+    });
+
+    return this.repairs.setContact(appointment.id, contact.id);
+  }
+
+  addOrderItem(repairAppointmentId: string, input: AddOrderItemInput) {
+    return this.repairs.addItem(repairAppointmentId, input);
+  }
+
+  updateOrderItemPrice(itemId: string, overridePrice: number | null) {
+    return this.repairs.updateItemPrice(itemId, overridePrice);
+  }
+
+  removeOrderItem(itemId: string) {
+    return this.repairs.removeItem(itemId);
+  }
+
+  async generateInvoice(repairAppointmentId: string) {
+    const appointment = await this.repairs.findById(repairAppointmentId);
+    if (!appointment) {
+      throw new Error("Order not found");
+    }
+    if (appointment.items.length === 0) {
+      throw new Error("Add at least one part or service before generating an invoice.");
+    }
+
+    return this.invoices.create({
+      businessId: appointment.businessId,
+      contactId: appointment.contactId,
+      repairAppointmentId: appointment.id,
+      // The invoice's own line-item shape is quantity*unitPrice. An
+      // override price is a flat total for the line, not a per-unit
+      // price, so it maps to quantity=1 at that flat amount -- otherwise
+      // it would get multiplied by quantity again here and double the
+      // real total.
+      items: appointment.items.map((item) =>
+        item.overridePrice !== undefined
+          ? { name: item.name, quantity: 1, unitPrice: item.overridePrice }
+          : { name: item.name, quantity: item.quantity, unitPrice: item.defaultPrice }
+      ),
+    });
   }
 
   async deleteAppointment(id: string): Promise<{ ok: true }> {

@@ -25,6 +25,7 @@ export interface Invoice {
   contactId: string | null;
   dealId: string | null;
   quoteId: string | null;
+  repairAppointmentId: string | null;
   invoiceNumber: string;
   status: string;
   currency: string;
@@ -47,6 +48,7 @@ export interface CreateInvoiceInput {
   contactId?: string;
   dealId?: string;
   quoteId?: string;
+  repairAppointmentId?: string;
   items: LineItemInput[];
   discount?: number;
   tax?: number;
@@ -59,6 +61,7 @@ type InvoiceRow = {
   contactId: string | null;
   dealId: string | null;
   quoteId: string | null;
+  repairAppointmentId: string | null;
   invoiceNumber: string;
   status: string;
   currency: string;
@@ -81,6 +84,7 @@ function toInvoice(row: InvoiceRow): Invoice {
     contactId: row.contactId,
     dealId: row.dealId,
     quoteId: row.quoteId,
+    repairAppointmentId: row.repairAppointmentId,
     invoiceNumber: row.invoiceNumber,
     status: row.status,
     currency: row.currency,
@@ -119,6 +123,7 @@ export class InvoiceService {
         contactId: input.contactId,
         dealId: input.dealId,
         quoteId: input.quoteId,
+        repairAppointmentId: input.repairAppointmentId,
         invoiceNumber,
         status: "issued",
         discount: input.discount ?? 0,

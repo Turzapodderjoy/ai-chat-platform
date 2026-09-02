@@ -164,6 +164,7 @@ interface Client {
   slug: string;
   createdAt: string;
   maxAgents: number;
+  type: string;
 }
 
 /** One provider = one card, not a spreadsheet row — a raw <table> for a
@@ -373,6 +374,7 @@ function ClientsPanel() {
   const [clients, setClients] = useState<Client[] | null>(null);
   const [storageByClient, setStorageByClient] = useState<Record<string, number>>({});
   const [name, setName] = useState("");
+  const [type, setType] = useState("regular");
   const [creating, setCreating] = useState(false);
 
   function refresh() {
@@ -405,9 +407,10 @@ function ClientsPanel() {
       await fetch("/api/admin/clients", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, type }),
       });
       setName("");
+      setType("regular");
       refresh();
     } finally {
       setCreating(false);
@@ -438,6 +441,15 @@ function ClientsPanel() {
     refresh();
   }
 
+  async function setClientType(client: Client, nextType: string) {
+    await fetch(`/api/admin/clients/${client.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: nextType }),
+    });
+    refresh();
+  }
+
   return (
     <section style={cardStyle}>
       <h2 style={{ marginTop: 0 }}>Clients</h2>
@@ -458,6 +470,10 @@ function ClientsPanel() {
             if (e.key === "Enter") addClient();
           }}
         />
+        <select value={type} onChange={(e) => setType(e.target.value)} style={{ padding: 8 }}>
+          <option value="regular">Regular</option>
+          <option value="repair">Repair</option>
+        </select>
         <button onClick={addClient} disabled={creating} style={primaryButtonStyle}>
           {creating ? "Adding…" : "Add company"}
         </button>
@@ -471,6 +487,7 @@ function ClientsPanel() {
           <thead>
             <tr>
               <th style={cellStyle}>Name</th>
+              <th style={cellStyle}>Type</th>
               <th style={cellStyle}>Created</th>
               <th style={cellStyle}>Storage used</th>
               <th style={cellStyle}>Max agents</th>
@@ -482,6 +499,12 @@ function ClientsPanel() {
             {clients.map((c) => (
               <tr key={c.id}>
                 <td style={cellStyle}>{c.name}</td>
+                <td style={cellStyle}>
+                  <select value={c.type} onChange={(e) => setClientType(c, e.target.value)} style={{ padding: 4 }}>
+                    <option value="regular">Regular</option>
+                    <option value="repair">Repair</option>
+                  </select>
+                </td>
                 <td style={cellStyle}>{new Date(c.createdAt).toLocaleDateString()}</td>
                 <td style={cellStyle}>
                   {storageByClient[c.id] !== undefined ? formatBytes(storageByClient[c.id]!) : "…"}
@@ -511,7 +534,7 @@ function ClientsPanel() {
             ))}
             {clients.length === 0 && (
               <tr>
-                <td style={cellStyle} colSpan={6}>
+                <td style={cellStyle} colSpan={7}>
                   No clients yet — add one above.
                 </td>
               </tr>

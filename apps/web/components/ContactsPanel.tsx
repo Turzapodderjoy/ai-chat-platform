@@ -19,10 +19,11 @@ interface Contact {
 interface ContactRecord {
   contact: Contact;
   orders: { id: string; products: string; paymentMethod: string; createdAt: string }[];
-  repairs: { id: string; trackingToken: string; deviceType: string; status: string; createdAt: string }[];
+  repairs: { id: string; trackingToken: string; deviceType: string; status: string; createdAt: string; amountPaid: number; total: number }[];
   deals: { id: string; title: string; amount: number | null; stage: string; status: string }[];
   quotes: { id: string; title: string; status: string; total: number; currency: string }[];
   invoices: { id: string; invoiceNumber: string; status: string; total: number; balanceDue: number; currency: string }[];
+  lifetimeValue: number;
 }
 
 const DEAL_TONE: Record<string, BadgeTone> = { open: "info", won: "ok", lost: "error" };
@@ -191,6 +192,13 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                       <td colSpan={7} style={{ ...cellStyle, background: "var(--surface)", padding: 14 }}>
                         {loadingRecord && <p style={subtleTextStyle}>Loading history…</p>}
                         {record && (
+                          <div style={{ marginBottom: 14, fontSize: 13 }}>
+                            <span style={{ fontWeight: 650 }}>Lifetime value: </span>
+                            <span style={{ fontWeight: 700, color: "var(--success, var(--text))" }}>৳{record.lifetimeValue.toLocaleString()}</span>
+                            <span style={{ ...subtleTextStyle, marginLeft: 8 }}>(real amount paid, across every invoice)</span>
+                          </div>
+                        )}
+                        {record && (
                           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, fontSize: 12.5 }}>
                             <div>
                               <div style={{ fontWeight: 650, marginBottom: 6 }}>Quotes ({record.quotes.length})</div>
@@ -223,11 +231,12 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                               ))}
                             </div>
                             <div>
-                              <div style={{ fontWeight: 650, marginBottom: 6 }}>Repairs ({record.repairs.length})</div>
+                              <div style={{ fontWeight: 650, marginBottom: 6 }}>Issue history ({record.repairs.length})</div>
                               {record.repairs.length === 0 && <span style={{ color: "var(--text-faint)" }}>None</span>}
                               {record.repairs.map((r) => (
                                 <div key={r.id} style={{ marginBottom: 4 }}>
                                   {r.deviceType} — {r.status} <span style={{ color: "var(--text-faint)" }}>({r.trackingToken})</span>
+                                  {r.total > 0 && <span style={{ marginLeft: 6 }}>৳{r.amountPaid.toLocaleString()} paid of ৳{r.total.toLocaleString()}</span>}
                                 </div>
                               ))}
                             </div>

@@ -6,6 +6,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import { StatCard, StatCardRow } from "./StatCard";
 import { cardStyle, subtleTextStyle, primaryButtonStyle, badgeStyle, shortId, type BadgeTone } from "./dashboard-styles";
 import { MarkdownMessage } from "./MarkdownMessage";
+import { OrderItemsEditor } from "./OrderManagementPanel";
 
 interface Appointment {
   id: string;
@@ -26,6 +27,9 @@ interface Appointment {
   rescheduleNewDate?: string;
   cancelRequested: boolean;
   cancelReason?: string;
+  serialNumber?: string;
+  contactId?: string;
+  items: { id: string; repairAppointmentId: string; productId?: string; kind: "part" | "service"; name: string; quantity: number; defaultPrice: number; overridePrice?: number; finalPrice: number }[];
   createdAt: string;
   updatedAt: string;
 }
@@ -114,12 +118,21 @@ function playPingSound() {
  * appointment's own details shown above it. Same optional-businessId
  * convention as AllChatsPanel/ClientOverviewPanel — works unscoped on
  * the mother dashboard too. */
-export function RepairsPanel({ businessId, active = true }: { businessId?: string; active?: boolean }) {
+export function RepairsPanel({ businessId, active = true, businessType = "regular" }: { businessId?: string; active?: boolean; businessType?: string }) {
   const [appointments, setAppointments] = useState<Appointment[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [calendarDay, setCalendarDay] = useState<string | null>(null);
   const [monthOffset, setMonthOffset] = useState(0);
   const [search, setSearch] = useState("");
+  const [orderOpen, setOrderOpen] = useState(false);
+  const [products, setProducts] = useState<{ id: string; name: string; price: string | null; stock: string | null }[]>([]);
+
+  useEffect(() => {
+    if (!businessId || businessType !== "repair") return;
+    fetch(`/api/admin/products?businessId=${encodeURIComponent(businessId)}&limit=200`)
+      .then((r) => r.json())
+      .then((d: { products: { id: string; name: string; price: string | null; stock: string | null }[] }) => setProducts(d.products));
+  }, [businessId, businessType]);
 
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [reply, setReply] = useState("");
@@ -587,6 +600,11 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
                   Cancel
                 </button>
               )}
+              {businessType === "repair" && (
+                <button onClick={() => setOrderOpen((o) => !o)} style={{ padding: "6px 10px", fontSize: 12 }}>
+                  {orderOpen ? "Close Order" : "Manage Order"}
+                </button>
+              )}
               <button onClick={() => deleteAppointment(selected)} style={{ padding: "6px 10px", fontSize: 12 }}>
                 Delete
               </button>
@@ -626,6 +644,15 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
             )}
             <div style={{ gridColumn: "1 / -1" }}><span style={{ color: "var(--text-faint)" }}>Issue</span><br />{selected.issueDescription}</div>
           </div>
+
+          {businessType === "repair" && orderOpen && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4 }}>
+                Order Management {selected.serialNumber ? `— ${selected.serialNumber}` : "(no serial number yet — save at least one item to assign one)"}
+              </div>
+              <OrderItemsEditor order={selected} products={products} onChanged={refresh} />
+            </div>
+          )}
 
           {/* Device Photos */}
           <div style={{ marginBottom: 12 }}>

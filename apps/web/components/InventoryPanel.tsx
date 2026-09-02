@@ -8,6 +8,8 @@ interface Product {
   id: string;
   name: string;
   price: string | null;
+  costPrice: string | null;
+  tier: string;
   description: string | null;
   stock: string | null;
   category: string | null;
@@ -19,7 +21,7 @@ interface Product {
 }
 
 const PAGE_SIZE = 25;
-const EMPTY_DRAFT = { name: "", price: "", stock: "", sku: "", description: "", category: "", minStock: "0" };
+const EMPTY_DRAFT = { name: "", price: "", costPrice: "", tier: "regular", stock: "", sku: "", description: "", category: "", minStock: "0" };
 
 /** A client's own inventory record -- manual add/edit/delete, or bulk
  * CSV/XLSX import, over the SAME Product table the (read-only) Product
@@ -86,7 +88,7 @@ export function InventoryPanel({ businessId }: { businessId: string }) {
 
   function startEdit(p: Product) {
     setEditId(p.id);
-    setEditDraft({ name: p.name, price: p.price ?? "", stock: p.stock ?? "", sku: p.sku ?? "", description: p.description ?? "", category: p.category ?? "", minStock: String(p.minStock ?? 0) });
+    setEditDraft({ name: p.name, price: p.price ?? "", costPrice: p.costPrice ?? "", tier: p.tier ?? "regular", stock: p.stock ?? "", sku: p.sku ?? "", description: p.description ?? "", category: p.category ?? "", minStock: String(p.minStock ?? 0) });
   }
 
   async function saveEdit(id: string) {
@@ -176,6 +178,11 @@ export function InventoryPanel({ businessId }: { businessId: string }) {
         <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 14, marginBottom: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>
           <input placeholder="Name *" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} style={{ padding: 8, minWidth: 160 }} />
           <input placeholder="Price" value={draft.price} onChange={(e) => setDraft({ ...draft, price: e.target.value })} style={{ padding: 8, width: 100 }} />
+          <input placeholder="Unit cost price" value={draft.costPrice} onChange={(e) => setDraft({ ...draft, costPrice: e.target.value })} style={{ padding: 8, width: 110 }} />
+          <select value={draft.tier} onChange={(e) => setDraft({ ...draft, tier: e.target.value })} style={{ padding: 8 }}>
+            <option value="regular">Regular</option>
+            <option value="premium">Premium</option>
+          </select>
           <input placeholder="Stock qty" value={draft.stock} onChange={(e) => setDraft({ ...draft, stock: e.target.value })} style={{ padding: 8, width: 100 }} />
           <input placeholder="Min stock" value={draft.minStock} onChange={(e) => setDraft({ ...draft, minStock: e.target.value })} style={{ padding: 8, width: 80 }} />
           <input placeholder="Category" value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })} style={{ padding: 8, width: 120 }} />
@@ -217,6 +224,11 @@ export function InventoryPanel({ businessId }: { businessId: string }) {
               >
                 <input placeholder="Name" value={editDraft.name} onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })} style={{ padding: 6 }} />
                 <input placeholder="Price" value={editDraft.price} onChange={(e) => setEditDraft({ ...editDraft, price: e.target.value })} style={{ padding: 6 }} />
+                <input placeholder="Unit cost price" value={editDraft.costPrice} onChange={(e) => setEditDraft({ ...editDraft, costPrice: e.target.value })} style={{ padding: 6 }} />
+                <select value={editDraft.tier} onChange={(e) => setEditDraft({ ...editDraft, tier: e.target.value })} style={{ padding: 6 }}>
+                  <option value="regular">Regular</option>
+                  <option value="premium">Premium</option>
+                </select>
                 <input placeholder="Stock qty" value={editDraft.stock} onChange={(e) => setEditDraft({ ...editDraft, stock: e.target.value })} style={{ padding: 6 }} />
                 <input placeholder="Min stock" value={editDraft.minStock} onChange={(e) => setEditDraft({ ...editDraft, minStock: e.target.value })} style={{ padding: 6 }} />
                 <input placeholder="Category" value={editDraft.category} onChange={(e) => setEditDraft({ ...editDraft, category: e.target.value })} style={{ padding: 6 }} />
@@ -262,8 +274,10 @@ export function InventoryPanel({ businessId }: { businessId: string }) {
                 <strong style={{ fontSize: 13, lineHeight: 1.3 }}>{p.name}</strong>
 
                 {p.price && <div style={{ fontSize: 14, fontWeight: 600 }}>৳ {p.price}</div>}
+                {p.costPrice && <div style={{ fontSize: 11, color: "var(--text-faint)" }}>Cost: ৳ {p.costPrice}</div>}
 
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {p.tier === "premium" && <span style={badgeStyle("info")}>Premium</span>}
                   {p.category && <span style={badgeStyle("info")}>{p.category}</span>}
                   {p.stock && <span style={badgeStyle(/out/i.test(p.stock) ? "error" : "ok")}>{p.stock}</span>}
                   {p.sku && <span style={{ fontSize: 11, color: "var(--text-faint)" }}>SKU: {p.sku}</span>}

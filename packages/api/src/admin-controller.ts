@@ -272,12 +272,20 @@ export class AdminController {
 
   /** Its dashboard exists immediately at /dashboard/{id} — one dynamic
    * route serves every client, so nothing needs deploying per company. */
-  createClient(name: string) {
+  createClient(name: string, type?: string) {
     if (!name.trim()) {
       throw new Error("Company name is required.");
     }
 
-    return this.tenants.createBusiness(name);
+    return this.tenants.createBusiness(name, type);
+  }
+
+  setClientType(id: string, type: string) {
+    return this.tenants.setBusinessType(id, type);
+  }
+
+  getClient(id: string) {
+    return this.tenants.getBusiness(id);
   }
 
   /** Removes a client and everything scoped to it: conversations (and

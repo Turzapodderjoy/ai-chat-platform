@@ -326,7 +326,7 @@ export class Container {
         new ClientHealthController(tenants, crawlerService, masterCsv, refreshSchedule, vectorStore, embeddings, conversations),
         new ProductController(productService, productSync),
         new OrderController(orders, statusEmails),
-        new RepairController(repairs, staff, conversations, emailSenderConfig, emailClient, tenants, contacts, deals, statusEmails),
+        new RepairController(repairs, staff, conversations, emailSenderConfig, emailClient, tenants, contacts, deals, statusEmails, invoices),
         new EmailController(emailSenderConfig),
         new CrmController(contacts, deals),
         new RevenueController(quotes, invoices, payments),

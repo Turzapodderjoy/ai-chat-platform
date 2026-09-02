@@ -97,6 +97,7 @@ interface RepairAppointment {
   issueDescription: string;
   appointmentDate: string;
   status: string;
+  serialNumber?: string;
 }
 
 const REPAIR_STATUS_OPTIONS = ["booked", "received", "in_repair", "ready", "completed", "cancelled"] as const;
@@ -167,7 +168,7 @@ const STATUS_TABS: { id: StatusTab; label: string }[] = [
  * handoffs, orders) rather than inventing new ones. */
 const MOBILE_BREAKPOINT = 860;
 
-export function AllChatsPanel({ businessId, active = true }: { businessId?: string; active?: boolean }) {
+export function AllChatsPanel({ businessId, active = true, businessType = "regular" }: { businessId?: string; active?: boolean; businessType?: string }) {
   const [conversations, setConversations] = useState<ConversationSummary[] | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -198,6 +199,9 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
   const [summaryBySession, setSummaryBySession] = useState<Record<string, string | null>>({});
   const [orderForSelected, setOrderForSelected] = useState<Order | null | undefined>(undefined);
   const [repairForSelected, setRepairForSelected] = useState<RepairAppointment | null | undefined>(undefined);
+  const [creatingOrder, setCreatingOrder] = useState(false);
+  const [newOrderForm, setNewOrderForm] = useState({ phone: "", deviceType: "", issueDescription: "" });
+  const [savingNewOrder, setSavingNewOrder] = useState(false);
   const [savingRepairStatus, setSavingRepairStatus] = useState(false);
   const [contactForSelected, setContactForSelected] = useState<Contact | null | undefined>(undefined);
   const [notes, setNotes] = useState<Note[] | null>(null);
@@ -457,8 +461,11 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
 
     // repair-tracking conversations use the tracking token as their own
     // id (see RepairController) — same lookup shape as Order Actions
-    // above, just matched on trackingToken instead of conversationId.
-    if (c.channel === "repair-tracking") {
+    // above, just matched on trackingToken instead of conversationId. On
+    // a repair-type business this also checks non-repair-tracking chats,
+    // since the "Create Order" button (below) needs to know whether one
+    // already exists for this conversation before offering to create one.
+    if (c.channel === "repair-tracking" || businessType === "repair") {
       setRepairForSelected(undefined);
       fetch(`/api/admin/repairs?businessId=${encodeURIComponent(c.businessId)}`)
         .then((r) => r.json())
@@ -488,6 +495,33 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
       .then((d: { contact: Contact | null }) => setContactForSelected(d.contact));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderForSelected, repairForSelected, selectedId]);
+
+  async function createOrderFromChat() {
+    if (!selected || !newOrderForm.phone.trim() || !newOrderForm.deviceType.trim() || !newOrderForm.issueDescription.trim()) return;
+    setSavingNewOrder(true);
+    try {
+      const res = await fetch("/api/admin/repairs/order-entry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessId: selected.businessId,
+          conversationId: selected.id,
+          customerName: displayName(selected),
+          phone: newOrderForm.phone,
+          deviceType: newOrderForm.deviceType,
+          issueDescription: newOrderForm.issueDescription,
+        }),
+      });
+      if (res.ok) {
+        const appointment = await res.json();
+        setRepairForSelected(appointment);
+        setCreatingOrder(false);
+        setNewOrderForm({ phone: "", deviceType: "", issueDescription: "" });
+      }
+    } finally {
+      setSavingNewOrder(false);
+    }
+  }
 
   async function updateRepairStatus(status: string) {
     if (!repairForSelected) return;
@@ -1255,6 +1289,50 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                         </div>
                       ) : (
                         <p style={{ fontSize: 12, color: "var(--text-faint)" }}>No order for this conversation.</p>
+                      )}
+                    </div>
+                  )}
+
+                  {businessType === "repair" && selected.channel !== "repair-tracking" && repairForSelected !== undefined && (
+                    <div style={{ marginBottom: 20 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", marginBottom: 8 }}>
+                        Order Management
+                      </div>
+                      {repairForSelected ? (
+                        <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                          Order {repairForSelected.serialNumber ?? shortId(repairForSelected.id)} already created for this chat — manage it from the Order Management tab.
+                        </p>
+                      ) : creatingOrder ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          <input
+                            placeholder="Phone *"
+                            value={newOrderForm.phone}
+                            onChange={(e) => setNewOrderForm({ ...newOrderForm, phone: e.target.value })}
+                            style={{ padding: 6, fontSize: 12 }}
+                          />
+                          <input
+                            placeholder="Device type *"
+                            value={newOrderForm.deviceType}
+                            onChange={(e) => setNewOrderForm({ ...newOrderForm, deviceType: e.target.value })}
+                            style={{ padding: 6, fontSize: 12 }}
+                          />
+                          <input
+                            placeholder="Issue *"
+                            value={newOrderForm.issueDescription}
+                            onChange={(e) => setNewOrderForm({ ...newOrderForm, issueDescription: e.target.value })}
+                            style={{ padding: 6, fontSize: 12 }}
+                          />
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button onClick={createOrderFromChat} disabled={savingNewOrder} className="primary" style={{ fontSize: 12, padding: "6px 10px" }}>
+                              {savingNewOrder ? "Creating…" : "Create"}
+                            </button>
+                            <button onClick={() => setCreatingOrder(false)} style={{ fontSize: 12, padding: "6px 10px" }}>Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button onClick={() => setCreatingOrder(true)} style={{ fontSize: 12, padding: "6px 10px" }}>
+                          + Create Order
+                        </button>
                       )}
                     </div>
                   )}

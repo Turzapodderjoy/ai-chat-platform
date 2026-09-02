@@ -138,10 +138,11 @@ export class ContactService {
   async getRecord(id: string): Promise<{
     contact: Contact;
     orders: Array<{ id: string; products: string; paymentMethod: string; createdAt: string }>;
-    repairs: Array<{ id: string; trackingToken: string; deviceType: string; status: string; createdAt: string }>;
+    repairs: Array<{ id: string; trackingToken: string; deviceType: string; status: string; createdAt: string; amountPaid: number; total: number }>;
     deals: Array<{ id: string; title: string; amount: number | null; stage: string; status: string }>;
     quotes: Array<{ id: string; title: string; status: string; total: number; currency: string }>;
     invoices: Array<{ id: string; invoiceNumber: string; status: string; total: number; balanceDue: number; currency: string }>;
+    lifetimeValue: number;
   } | null> {
     const row = await prisma.contact.findUnique({ where: { id } });
     if (!row) return null;
@@ -187,10 +188,31 @@ export class ContactService {
     const total = (items: { quantity: number; unitPrice: number }[], discount: number, tax: number) =>
       Math.max(0, items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0) - discount + tax);
 
+    // Repair jobs bill through an Invoice generated from their items
+    // (RepairController.generateInvoice) -- join back by
+    // repairAppointmentId to show what was actually charged/paid per
+    // job, not just its status.
+    const invoiceByRepairId = new Map(
+      invoiceRows
+        .filter((inv) => inv.repairAppointmentId)
+        .map((inv) => [inv.repairAppointmentId as string, { total: total(inv.items, inv.discount, inv.tax), amountPaid: inv.amountPaid }])
+    );
+
+    // Customer lifetime value -- real money actually collected (not
+    // invoice face value) across every invoice tied to this contact,
+    // whether generated from a Quote or a repair order.
+    const lifetimeValue = invoiceRows.reduce((sum, inv) => sum + inv.amountPaid, 0);
+
     return {
       contact,
       orders: orders.map((o) => ({ ...o, createdAt: o.createdAt.toISOString() })),
-      repairs: repairs.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
+      repairs: repairs.map((r) => ({
+        ...r,
+        createdAt: r.createdAt.toISOString(),
+        total: invoiceByRepairId.get(r.id)?.total ?? 0,
+        amountPaid: invoiceByRepairId.get(r.id)?.amountPaid ?? 0,
+      })),
+      lifetimeValue,
       deals,
       quotes: quoteRows.map((q) => ({
         id: q.id,

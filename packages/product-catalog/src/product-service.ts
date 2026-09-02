@@ -4,6 +4,8 @@ export interface ProductRecord {
   id: string;
   name: string;
   price: string | null;
+  costPrice: string | null;
+  tier: string;
   description: string | null;
   stock: string | null;
   imageUrl: string | null;
@@ -21,6 +23,8 @@ export interface CreateProductInput {
   businessId: string;
   name: string;
   price?: string | null;
+  costPrice?: string | null;
+  tier?: string;
   stock?: string | null;
   sku?: string | null;
   description?: string | null;
@@ -30,6 +34,8 @@ export interface CreateProductInput {
 export interface UpdateProductInput {
   name?: string;
   price?: string | null;
+  costPrice?: string | null;
+  tier?: string;
   stock?: string | null;
   sku?: string | null;
   description?: string | null;
@@ -55,6 +61,8 @@ export class ProductService {
         businessId: input.businessId,
         name: input.name,
         price: input.price ?? null,
+        costPrice: input.costPrice ?? null,
+        tier: input.tier ?? "regular",
         stock: input.stock ?? null,
         sku: input.sku ?? null,
         description: input.description ?? null,
@@ -77,6 +85,8 @@ export class ProductService {
     id: string;
     name: string;
     price: string | null;
+    costPrice: string | null;
+    tier: string;
     description: string | null;
     stock: string | null;
     imageUrl: string | null;
@@ -88,6 +98,8 @@ export class ProductService {
       id: r.id,
       name: r.name,
       price: r.price,
+      costPrice: r.costPrice,
+      tier: r.tier,
       description: r.description,
       stock: r.stock,
       imageUrl: r.imageUrl,
@@ -124,17 +136,7 @@ export class ProductService {
     ]);
 
     return {
-      products: rows.map((r) => ({
-        id: r.id,
-        name: r.name,
-        price: r.price,
-        description: r.description,
-        stock: r.stock,
-        imageUrl: r.imageUrl,
-        sourceUrl: r.sourceUrl,
-        sku: r.sku,
-        updatedAt: r.updatedAt.toISOString(),
-      })),
+      products: rows.map((r) => this.toRecord(r)),
       total,
     };
   }

@@ -30,6 +30,8 @@ export async function POST(req: NextRequest) {
       businessId: body.businessId,
       name: body.name,
       price: body.price ?? null,
+      costPrice: body.costPrice ?? null,
+      tier: body.tier ?? undefined,
       stock: body.stock ?? null,
       sku: body.sku ?? null,
       description: body.description ?? null,
