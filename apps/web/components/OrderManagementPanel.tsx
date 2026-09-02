@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { cardStyle, subtleTextStyle, primaryButtonStyle, badgeStyle } from "./dashboard-styles";
+import { useState } from "react";
+import { subtleTextStyle, primaryButtonStyle, badgeStyle } from "./dashboard-styles";
 
 interface OrderItem {
   id: string;
@@ -25,28 +25,29 @@ export interface RepairOrder {
   deviceType: string;
   deviceModel?: string;
   issueDescription: string;
+  appointmentDate: string;
   status: string;
   serialNumber?: string;
   contactId?: string;
   items: OrderItem[];
 }
 
-interface Product {
+export interface Product {
   id: string;
   name: string;
   price: string | null;
   stock: string | null;
 }
 
-function orderTotal(order: RepairOrder): number {
+export function orderTotal(order: RepairOrder): number {
   return order.items.reduce((sum, item) => sum + item.finalPrice, 0);
 }
 
-/** Shared parts/services billing sub-panel for one repair order --
- * rendered both by this page (Order Management) and inline by
- * RepairsPanel's "Manage Order" button, so it isn't built twice. Every
- * write here goes through /api/admin/repairs/order-items, which also
- * adjusts real Inventory stock for part line-items (see
+/** Shared parts/services billing sub-panel for one service/repair order --
+ * rendered inline by the unified Orders panel (both for its own expanded
+ * rows and for the Repairs panel's "Manage Order" button), so it isn't
+ * built twice. Every write here goes through /api/admin/repairs/order-items,
+ * which also adjusts real Inventory stock for part line-items (see
  * RepairAppointmentService.addItem/removeItem). */
 export function OrderItemsEditor({ order, products, onChanged }: { order: RepairOrder; products: Product[]; onChanged: () => void }) {
   const [kind, setKind] = useState<"part" | "service">("part");
@@ -166,112 +167,6 @@ export function OrderItemsEditor({ order, products, onChanged }: { order: Repair
         <button onClick={generateInvoice} disabled={order.items.length === 0} style={primaryButtonStyle}>
           Generate Invoice
         </button>
-      </div>
-    </div>
-  );
-}
-
-/** Repair-type-clients-only dashboard tab. One row per RepairAppointment
- * ("order") -- serial number, customer, device, status, running total --
- * expandable to the shared OrderItemsEditor above. New entries can also
- * come from a chat (AllChatsPanel) or from the Repairs panel's own
- * "Manage Order" button on an existing appointment; this page's own
- * "+ New" is the third entry point. */
-export function OrderManagementPanel({ businessId }: { businessId: string }) {
-  const [orders, setOrders] = useState<RepairOrder[] | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [showNew, setShowNew] = useState(false);
-  const [form, setForm] = useState({ customerName: "", phone: "", email: "", deviceType: "", deviceModel: "", issueDescription: "" });
-  const [saving, setSaving] = useState(false);
-  const [deviceModelOptions, setDeviceModelOptions] = useState<string[]>([]);
-
-  function refresh() {
-    fetch(`/api/admin/repairs?businessId=${encodeURIComponent(businessId)}`)
-      .then((r) => r.json())
-      .then((d: { appointments: RepairOrder[] }) => {
-        setOrders(d.appointments);
-        // Device-model dropdown auto-grows from real history -- no
-        // separate managed catalog (see this feature's design notes).
-        setDeviceModelOptions([...new Set(d.appointments.map((a) => a.deviceModel).filter((x): x is string => !!x))]);
-      });
-    fetch(`/api/admin/products?businessId=${encodeURIComponent(businessId)}&limit=200`)
-      .then((r) => r.json())
-      .then((d: { products: Product[] }) => setProducts(d.products));
-  }
-
-  useEffect(refresh, [businessId]);
-
-  async function createOrder() {
-    if (!form.customerName.trim() || !form.phone.trim() || !form.deviceType.trim() || !form.issueDescription.trim()) return;
-    setSaving(true);
-    try {
-      const res = await fetch("/api/admin/repairs/order-entry", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, ...form }),
-      });
-      if (res.ok) {
-        setForm({ customerName: "", phone: "", email: "", deviceType: "", deviceModel: "", issueDescription: "" });
-        setShowNew(false);
-        refresh();
-      }
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (!orders) return <div style={{ padding: 24 }}>Loading…</div>;
-
-  return (
-    <div>
-      <p style={subtleTextStyle}>
-        Parts and services billing for repair/service jobs — wired to Inventory (stock decrements as parts are
-        used) and generates real Invoices.
-      </p>
-
-      <button onClick={() => setShowNew((s) => !s)} style={primaryButtonStyle}>
-        {showNew ? "Cancel" : "+ New order"}
-      </button>
-
-      {showNew && (
-        <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 14, marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input placeholder="Customer name *" value={form.customerName} onChange={(e) => setForm({ ...form, customerName: e.target.value })} style={{ padding: 8 }} />
-          <input placeholder="Phone *" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} style={{ padding: 8 }} />
-          <input placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} style={{ padding: 8 }} />
-          <input placeholder="Device type *" value={form.deviceType} onChange={(e) => setForm({ ...form, deviceType: e.target.value })} style={{ padding: 8 }} />
-          <input list="device-models" placeholder="Device model" value={form.deviceModel} onChange={(e) => setForm({ ...form, deviceModel: e.target.value })} style={{ padding: 8 }} />
-          <datalist id="device-models">
-            {deviceModelOptions.map((m) => <option key={m} value={m} />)}
-          </datalist>
-          <input placeholder="Issue *" value={form.issueDescription} onChange={(e) => setForm({ ...form, issueDescription: e.target.value })} style={{ padding: 8, flex: 1, minWidth: 180 }} />
-          <button onClick={createOrder} disabled={saving} style={primaryButtonStyle}>
-            {saving ? "Creating…" : "Create"}
-          </button>
-        </div>
-      )}
-
-      <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-        {orders.length === 0 && <p style={subtleTextStyle}>No orders yet.</p>}
-        {orders.map((order) => (
-          <div key={order.id} style={{ ...cardStyle, padding: 14 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <strong>{order.serialNumber ?? "—"}</strong>{" "}
-                <span style={{ marginLeft: 8 }}>{order.customerName}</span>{" "}
-                <span style={{ ...subtleTextStyle, marginLeft: 8 }}>{order.deviceType}{order.deviceModel ? ` (${order.deviceModel})` : ""}</span>
-                <span style={{ marginLeft: 8 }}><span style={badgeStyle("neutral")}>{order.status}</span></span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <strong>৳{orderTotal(order)}</strong>
-                <button onClick={() => setOpenId(openId === order.id ? null : order.id)} style={{ fontSize: 12, padding: "4px 10px" }}>
-                  {openId === order.id ? "Close" : "Open"}
-                </button>
-              </div>
-            </div>
-            {openId === order.id && <OrderItemsEditor order={order} products={products} onChanged={refresh} />}
-          </div>
-        ))}
       </div>
     </div>
   );
