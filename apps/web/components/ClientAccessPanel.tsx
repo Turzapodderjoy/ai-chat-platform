@@ -21,6 +21,7 @@ interface ClientAccount {
   allowedPanels: string[] | null;
   isAdmin: boolean;
   teamId: string | null;
+  role: string | null;
 }
 
 interface Team {
@@ -113,7 +114,8 @@ export function ClientAccessPanel() {
   const [businessId, setBusinessId] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [newRole, setNewRole] = useState<"admin" | "owner" | "staff">("owner");
+  const isAdmin = newRole === "admin";
   const [showPassword, setShowPassword] = useState(false);
   const [creating, setCreating] = useState(false);
   const [message, setMessage] = useState("");
@@ -227,6 +229,52 @@ export function ClientAccessPanel() {
     }
   }
 
+  // Role defaults ("owner"/"staff") -- per-business, one-time copied
+  // into a new login's own allowedPanels when that role is picked in
+  // the create-login dropdown above. See RolePreset's own schema
+  // comment for why this is a snapshot, not a live link like Teams.
+  const [rolePresets, setRolePresets] = useState<{ owner: string[] | null; staff: string[] | null }>({ owner: null, staff: null });
+  const [presetEditingRole, setPresetEditingRole] = useState<"owner" | "staff" | null>(null);
+  const [pendingPresetPanels, setPendingPresetPanels] = useState<string[]>([]);
+  const [savingPreset, setSavingPreset] = useState(false);
+
+  function refreshRolePresets(forBusinessId: string) {
+    if (!forBusinessId) return;
+    fetch(`/api/admin/role-presets?businessId=${encodeURIComponent(forBusinessId)}`)
+      .then((r) => r.json())
+      .then((d: { owner: string[] | null; staff: string[] | null }) => setRolePresets(d));
+  }
+
+  useEffect(() => {
+    if (businessId) refreshRolePresets(businessId);
+  }, [businessId]);
+
+  function togglePresetEditor(role: "owner" | "staff") {
+    if (presetEditingRole === role) {
+      setPresetEditingRole(null);
+      return;
+    }
+    setPresetEditingRole(role);
+    setPendingPresetPanels(rolePresets[role] ?? ALL_PANELS.map((p) => p.id));
+  }
+
+  async function saveRolePreset() {
+    if (!presetEditingRole || !businessId) return;
+    setSavingPreset(true);
+    try {
+      const allowedPanels = pendingPresetPanels.length === ALL_PANELS.length ? null : pendingPresetPanels;
+      await fetch("/api/admin/role-presets", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, role: presetEditingRole, allowedPanels }),
+      });
+      setPresetEditingRole(null);
+      refreshRolePresets(businessId);
+    } finally {
+      setSavingPreset(false);
+    }
+  }
+
   function refresh() {
     fetch("/api/admin/clients")
       .then((r) => r.json())
@@ -246,7 +294,7 @@ export function ClientAccessPanel() {
   }, [clients, businessId]);
 
   function quickCreateFor(id: string) {
-    setIsAdmin(false);
+    setNewRole("owner");
     setBusinessId(id);
     setMessage("");
     document.getElementById("client-access-username")?.focus();
@@ -261,7 +309,13 @@ export function ClientAccessPanel() {
       const res = await fetch("/api/admin/client-accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId: isAdmin ? undefined : businessId, username, password, isAdmin }),
+        body: JSON.stringify({
+          businessId: isAdmin ? undefined : businessId,
+          username,
+          password,
+          isAdmin,
+          role: isAdmin ? undefined : newRole,
+        }),
       });
       const result = await res.json();
 
@@ -270,11 +324,11 @@ export function ClientAccessPanel() {
         return;
       }
 
-      setMessage(`Login created for "${username}". Share these credentials with the ${isAdmin ? "new admin" : "client"} now — the password won't be shown again.`);
+      setMessage(`Login created for "${username}" (${newRole}). Share these credentials with the ${isAdmin ? "new admin" : "client"} now — the password won't be shown again.`);
       setUsername("");
       setPassword("");
       setShowPassword(false);
-      setIsAdmin(false);
+      setNewRole("owner");
       refresh();
     } finally {
       setCreating(false);
@@ -455,9 +509,22 @@ export function ClientAccessPanel() {
           <input type="checkbox" checked={showPassword} onChange={(e) => setShowPassword(e.target.checked)} />
           Show
         </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }} title="Full platform access, same as the admin/admin login — not scoped to one client.">
-          <input type="checkbox" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} />
-          Admin (full access)
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+          Role
+          <select
+            value={newRole}
+            onChange={(e) => setNewRole(e.target.value as "admin" | "owner" | "staff")}
+            style={{ padding: 6 }}
+            title={
+              newRole === "admin"
+                ? "Full platform access, same as the admin/admin login — not scoped to one client."
+                : "Sets this business's current Owner/Staff panel preset as this login's starting access (see Role Defaults below) — a one-time copy, editable per-account afterward."
+            }
+          >
+            <option value="admin">Admin (platform)</option>
+            <option value="owner">Owner (client)</option>
+            <option value="staff">Staff (client)</option>
+          </select>
         </label>
         <button onClick={createAccount} disabled={creating || (!isAdmin && !clients?.length)} style={primaryButtonStyle}>
           {creating ? "Creating…" : "+ Create login"}
@@ -538,6 +605,55 @@ export function ClientAccessPanel() {
         </div>
       )}
 
+      {!isAdmin && businessId && (
+        <div style={{ marginTop: 20, border: "1px solid var(--border)", borderRadius: 8, padding: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 8 }}>
+            Role Defaults — {clients?.find((c) => c.id === businessId)?.name ?? "this client"}
+          </div>
+          <p style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 0 }}>
+            Panels a new login starts with when created as Owner or Staff above — a one-time copy at creation,
+            not a live link, so changing this never affects a login already created.
+          </p>
+          <div style={{ display: "flex", gap: 8 }}>
+            {(["owner", "staff"] as const).map((role) => (
+              <button key={role} onClick={() => togglePresetEditor(role)} style={{ fontSize: 12, padding: "6px 12px" }}>
+                Edit {role === "owner" ? "Owner" : "Staff"} defaults
+                {rolePresets[role] && ` (${rolePresets[role]!.length}/${ALL_PANELS.length})`}
+              </button>
+            ))}
+          </div>
+
+          {presetEditingRole && (
+            <div style={{ marginTop: 14 }}>
+              <Collapsible title={`Default panels for ${presetEditingRole === "owner" ? "Owner" : "Staff"} logins`} defaultOpen>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
+                  {ALL_PANELS.map((p) => (
+                    <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                      <input
+                        type="checkbox"
+                        checked={pendingPresetPanels.includes(p.id)}
+                        onChange={() =>
+                          setPendingPresetPanels((prev) =>
+                            prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id]
+                          )
+                        }
+                      />
+                      {p.label}
+                    </label>
+                  ))}
+                </div>
+                <div style={{ marginTop: 14, display: "flex", gap: 8 }}>
+                  <button onClick={saveRolePreset} disabled={savingPreset} style={primaryButtonStyle}>
+                    {savingPreset ? "Saving…" : "Save"}
+                  </button>
+                  <button onClick={() => setPresetEditingRole(null)}>Cancel</button>
+                </div>
+              </Collapsible>
+            </div>
+          )}
+        </div>
+      )}
+
       <div style={{ marginTop: 24, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h3 style={{ margin: 0 }}>Every client</h3>
         <input
@@ -556,6 +672,7 @@ export function ClientAccessPanel() {
           <thead>
             <tr>
               <th style={cellStyle}>Username</th>
+              <th style={cellStyle}>Role</th>
               <th style={cellStyle}>Client</th>
               <th style={cellStyle}>Status</th>
               <th style={cellStyle}>Panels</th>
@@ -576,7 +693,7 @@ export function ClientAccessPanel() {
                     <span style={badgeStyle("warn")}>No login set</span>
                   </td>
                   <td style={cellStyle}>{client.name}</td>
-                  <td style={cellStyle} colSpan={6}>
+                  <td style={cellStyle} colSpan={7}>
                     <span style={{ fontSize: 12, color: "var(--text-faint)" }}>This client can&apos;t log in yet.</span>
                   </td>
                   <td style={cellStyle}>
@@ -588,7 +705,7 @@ export function ClientAccessPanel() {
             {adminAccounts.map((a) => renderAccountRow(a))}
             {clientRows.length === 0 && (
               <tr>
-                <td style={cellStyle} colSpan={9}>
+                <td style={cellStyle} colSpan={10}>
                   {clients?.length === 0 ? "No clients yet — add one in the Clients tab." : "No clients match that filter."}
                 </td>
               </tr>
@@ -609,6 +726,15 @@ export function ClientAccessPanel() {
       <Fragment key={a.id}>
         <tr>
           <td style={cellStyle}>{a.username}</td>
+          <td style={cellStyle}>
+            {a.isAdmin ? (
+              <span style={badgeStyle("info")}>Admin</span>
+            ) : a.role ? (
+              <span style={badgeStyle(a.role === "owner" ? "ok" : "neutral")}>{a.role === "owner" ? "Owner" : "Staff"}</span>
+            ) : (
+              <span style={{ color: "var(--text-faint)" }}>—</span>
+            )}
+          </td>
           <td style={cellStyle}>
             {a.isAdmin ? <span style={badgeStyle("info")}>Admin — all clients</span> : a.businessName}
           </td>
@@ -663,7 +789,7 @@ export function ClientAccessPanel() {
         </tr>
         {expandedId === a.id && (
           <tr>
-            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={8}>
+            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={9}>
               <Collapsible title={`Which panels can "${a.username}" see?`} defaultOpen>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
                   {ALL_PANELS.map((p) => (
@@ -689,7 +815,7 @@ export function ClientAccessPanel() {
         )}
         {pwExpandedId === a.id && (
           <tr>
-            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={8}>
+            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={9}>
               <Collapsible title={`Password & activity for "${a.username}"`} defaultOpen>
                 <p style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 0 }}>
                   Existing passwords can&apos;t be viewed (stored hashed, never in plain text) — set a new one

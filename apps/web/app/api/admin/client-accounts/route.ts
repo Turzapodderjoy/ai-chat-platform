@@ -20,12 +20,14 @@ export async function POST(req: NextRequest) {
 
   try {
     const app = await getApp();
+    const role = body.role === "owner" || body.role === "staff" ? body.role : null;
     const account = await app.container.router.clientAuth.createAccount(
       isAdmin ? null : body.businessId,
       body.username,
       body.password,
       isAdmin,
-      Boolean(body.isAgent)
+      Boolean(body.isAgent),
+      role
     );
     // Never echo passwordHash back to the client, even hashed — the
     // caller already has the plaintext password it just submitted.

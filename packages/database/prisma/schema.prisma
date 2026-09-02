@@ -741,6 +741,11 @@ model ClientAccount {
   // this flag set is allowed onto "/dashboard" (mother) and any
   // "/dashboard/{businessId}", exactly like the fixed admin identity.
   isAdmin      Boolean   @default(false)
+  // "owner" | "staff" | null -- which role preset (see RolePreset) this
+  // login was created from, chosen once in the create-login dropdown.
+  // Purely a label for display/audit; allowedPanels is a one-time copy
+  // of that preset at creation time, not a live link back to it.
+  role         String?
 
   // A business-scoped handoff-team member, created by the business
   // OWNER (not admin) via their own Agents panel -- distinct from a
@@ -789,6 +794,25 @@ model Team {
 
   @@index([businessId])
   @@index([parentTeamId])
+}
+
+// Per-business, per-role default panel list ("owner" | "staff") -- shown
+// as the two editable presets in Client Access. Copied into a new
+// account's own allowedPanels ONCE at creation time (picking a role in
+// the create-login dropdown), never live-linked -- editing a preset
+// later doesn't retroactively change any account already created from
+// it, only new ones going forward. Deliberately separate from Team
+// (which IS live-linked via account.teamId) since that's a different,
+// already-explicit choice for this feature.
+model RolePreset {
+  id            String   @id @default(cuid())
+  businessId    String
+  role          String
+  allowedPanels Json?
+
+  updatedAt     DateTime @updatedAt
+
+  @@unique([businessId, role])
 }
 
 // Audit trail for a client login's account settings -- who did what

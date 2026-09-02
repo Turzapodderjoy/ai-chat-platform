@@ -33,6 +33,7 @@ export interface ClientAccountSummary {
   isAgent: boolean;
   online: boolean;
   teamId: string | null;
+  role: string | null;
 }
 
 export interface TeamSummary {
@@ -86,6 +87,7 @@ export class ClientAuthService {
       isAgent: a.isAgent,
       online: a.online,
       teamId: a.teamId,
+      role: a.role,
     }));
   }
 
@@ -112,6 +114,7 @@ export class ClientAuthService {
       isAgent: true,
       online: a.online,
       teamId: a.teamId,
+      role: a.role,
     }));
   }
 
@@ -185,6 +188,32 @@ export class ClientAuthService {
     await prisma.clientAccount.update({ where: { id: accountId }, data: { teamId } });
   }
 
+  // --- Role presets ("owner" | "staff") ---
+  // Per-business default panel lists, editable any time in Client
+  // Access. Deliberately a ONE-TIME copy into a new account's own
+  // allowedPanels at creation (see create()'s role param below), not a
+  // live link -- editing a preset later never changes an existing
+  // account, only what a NEW login created with that role starts with.
+
+  async getRolePreset(businessId: string, role: "owner" | "staff"): Promise<string[] | null> {
+    const row = await prisma.rolePreset.findUnique({ where: { businessId_role: { businessId, role } } });
+    return (row?.allowedPanels as string[] | null) ?? null;
+  }
+
+  async listRolePresets(businessId: string): Promise<{ owner: string[] | null; staff: string[] | null }> {
+    const rows = await prisma.rolePreset.findMany({ where: { businessId } });
+    const byRole = new Map(rows.map((r) => [r.role, (r.allowedPanels as string[] | null) ?? null]));
+    return { owner: byRole.get("owner") ?? null, staff: byRole.get("staff") ?? null };
+  }
+
+  async setRolePreset(businessId: string, role: "owner" | "staff", panels: string[] | null): Promise<void> {
+    await prisma.rolePreset.upsert({
+      where: { businessId_role: { businessId, role } },
+      create: { businessId, role, allowedPanels: panels ?? Prisma.JsonNull },
+      update: { allowedPanels: panels ?? Prisma.JsonNull },
+    });
+  }
+
   /** null clears the restriction (account can see every tab again) --
    * an empty array is a real, deliberate "show nothing" state, kept
    * distinct from null rather than treated the same. Meaningless for an
@@ -206,7 +235,7 @@ export class ClientAuthService {
     await this.logActivity(id, "panels", JSON.stringify({ added, removed }), changedBy);
   }
 
-  async create(businessId: string | null, username: string, password: string, isAdmin = false, isAgent = false) {
+  async create(businessId: string | null, username: string, password: string, isAdmin = false, isAgent = false, role: "owner" | "staff" | null = null) {
     const cleanUsername = username.trim();
 
     if (!isAdmin && !businessId) {
@@ -241,12 +270,18 @@ export class ClientAuthService {
 
     // A second login for a client that already has one shouldn't start
     // wide open (allowedPanels null = every panel) while their first
-    // login is deliberately restricted -- copy whatever the most
-    // recently created existing login for this business has, restricted
-    // or not, so a new staff account matches what's already in place
-    // until the admin changes it by hand.
+    // login is deliberately restricted. A role (owner/staff) picked in
+    // the create-login dropdown takes priority -- one-time copy of that
+    // business's current preset for the role (see RolePreset's own
+    // comment for why this isn't a live link). Falls back to copying
+    // the most recently created existing login only when no preset has
+    // been set for that role yet, so a business that hasn't touched
+    // presets at all keeps the original behavior.
     let allowedPanels: string[] | null = null;
-    if (!isAdmin && businessId) {
+    if (!isAdmin && businessId && role) {
+      allowedPanels = await this.getRolePreset(businessId, role);
+    }
+    if (!isAdmin && businessId && allowedPanels === null) {
       const template = await prisma.clientAccount.findFirst({
         where: { businessId, isAdmin: false },
         orderBy: { createdAt: "desc" },
@@ -262,6 +297,7 @@ export class ClientAuthService {
         passwordHash: hashPassword(password),
         isAdmin,
         isAgent,
+        role: isAdmin ? null : role,
         allowedPanels: allowedPanels ?? undefined,
       },
     });

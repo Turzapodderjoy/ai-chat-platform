@@ -7,8 +7,8 @@ export class ClientAuthController {
     return this.clientAuth.list();
   }
 
-  createAccount(businessId: string | null, username: string, password: string, isAdmin = false, isAgent = false) {
-    return this.clientAuth.create(businessId, username, password, isAdmin, isAgent);
+  createAccount(businessId: string | null, username: string, password: string, isAdmin = false, isAgent = false, role: "owner" | "staff" | null = null) {
+    return this.clientAuth.create(businessId, username, password, isAdmin, isAgent, role);
   }
 
   listAgents(businessId: string) {
@@ -81,5 +81,13 @@ export class ClientAuthController {
 
   assignAccountToTeam(accountId: string, teamId: string | null) {
     return this.clientAuth.assignAccountToTeam(accountId, teamId);
+  }
+
+  listRolePresets(businessId: string) {
+    return this.clientAuth.listRolePresets(businessId);
+  }
+
+  setRolePreset(businessId: string, role: "owner" | "staff", panels: string[] | null) {
+    return this.clientAuth.setRolePreset(businessId, role, panels);
   }
 }
