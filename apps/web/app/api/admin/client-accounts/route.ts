@@ -3,8 +3,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApp } from "../../../../lib/app";
 import { resolveAdminActor } from "../../../../lib/admin-actor";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const app = await getApp();
+
+  const revealId = req.nextUrl.searchParams.get("revealId");
+  if (revealId) {
+    const changedBy = await resolveAdminActor(req);
+    const password = await app.container.router.clientAuth.revealPassword(revealId, changedBy);
+    return NextResponse.json({ password });
+  }
+
   const accounts = await app.container.router.clientAuth.listAccounts();
   return NextResponse.json({ accounts });
 }
@@ -72,6 +80,11 @@ export async function PATCH(req: NextRequest) {
     if (typeof body.password === "string") {
       const changedBy = await resolveAdminActor(req);
       await app.container.router.clientAuth.changePassword(body.id, body.password, changedBy);
+    }
+
+    if (typeof body.username === "string") {
+      const changedBy = await resolveAdminActor(req);
+      await app.container.router.clientAuth.changeUsername(body.id, body.username, changedBy);
     }
 
     if (body.teamId !== undefined) {

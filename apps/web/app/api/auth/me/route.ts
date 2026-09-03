@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
       }
       return json({
         role: session.isAgent ? "agent" : "client",
+        accountRole: session.role,
         businessId: session.businessId,
         allowedPanels: session.allowedPanels,
         username: session.username,

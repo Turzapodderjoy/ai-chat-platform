@@ -39,6 +39,14 @@ export class ClientAuthController {
     return this.clientAuth.changePassword(id, newPassword, changedBy);
   }
 
+  changeUsername(id: string, newUsername: string, changedBy: string) {
+    return this.clientAuth.changeUsername(id, newUsername, changedBy);
+  }
+
+  revealPassword(id: string, revealedBy: string) {
+    return this.clientAuth.revealPassword(id, revealedBy);
+  }
+
   activityHistory(id: string) {
     return this.clientAuth.activityHistory(id);
   }

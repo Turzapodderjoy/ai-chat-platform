@@ -723,6 +723,13 @@ model ClientAccount {
   businessId   String?
   username     String    @unique
   passwordHash String
+  // Reversibly encrypted (AES-256-GCM, server-side key) copy of the
+  // current password -- kept alongside the one-way passwordHash used
+  // for actual login verification, purely so the platform admin and a
+  // business owner can reveal a login's current password in their own
+  // "show password" UI. Null for a login whose password was set before
+  // this field existed; it backfills the next time the password changes.
+  passwordEncrypted String?
   disabled     Boolean   @default(false)
   lastLoginAt  DateTime?
   createdAt    DateTime  @default(now())

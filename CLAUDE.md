@@ -5,7 +5,7 @@ Multi-tenant AI customer-support chatbot SaaS. A "mother" dashboard for the plat
 ## Stack
 
 - Turborepo + pnpm monorepo. `apps/web` is the only app — Next.js 16 (App Router), Node ≥18.
-- Postgres via Prisma (`packages/database/prisma/schema.prisma`), hosted on Neon in production.
+- Postgres via Prisma (`packages/database/prisma/schema.prisma`) — a local Postgres instance on this machine (`DATABASE_URL`/`DIRECT_URL` in `.env` and `apps/web/.env.local`), which is also what production runs against. There is no separate hosted/cloud database.
 - ~35 single-purpose packages under `packages/`, wired together through one composition root.
 
 Root commands: `pnpm dev` / `pnpm build` / `pnpm lint` / `pnpm check-types` (all `turbo run ...` across the workspace). `apps/web` also has its own `next dev`/`next build`/`eslint --max-warnings 0`.
@@ -30,7 +30,7 @@ Root commands: `pnpm dev` / `pnpm build` / `pnpm lint` / `pnpm check-types` (all
 ## Working conventions
 
 - **Reuse before building.** Check `packages/` and `apps/web/components/` for an existing service/panel/pattern before writing a new one — this codebase has been through several audit-and-delete passes to remove dead/duplicate code; don't reintroduce it.
-- **Schema changes go to both databases.** After editing `schema.prisma`: `prisma generate`, then `prisma db push` against local Postgres (`.env`'s `DATABASE_URL`/`DIRECT_URL`) **and** against Neon (override both env vars on the command line with Neon's pooled + direct connection strings). Both must stay in sync.
+- **Single database.** After editing `schema.prisma`: `prisma generate`, then `prisma db push` — it picks up the local Postgres `DATABASE_URL`/`DIRECT_URL` from `.env`. No second environment to keep in sync.
 - **Verify before calling it done.** `pnpm --filter web run build` must be clean. For anything UI-visible, use the browser preview tools and actually click through the feature — a clean build proves types, not behavior.
 - **Commit and push after every completed change**, without waiting to be asked — this is a standing preference from the project owner, not a one-off approval. Use descriptive commit messages explaining *why*, not a changelog of file names.
 - **No unrequested abstractions.** Don't add interfaces with one implementation, config for values that never change, or speculative extensibility. Match the size of the change to what was actually asked.

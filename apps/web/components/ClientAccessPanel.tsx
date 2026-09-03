@@ -132,6 +132,8 @@ export function ClientAccessPanel() {
   const [pwExpandedId, setPwExpandedId] = useState<string | null>(null);
   const [pwDraft, setPwDraft] = useState<Record<string, string>>({});
   const [pwShow, setPwShow] = useState<Record<string, boolean>>({});
+  const [revealed, setRevealed] = useState<Record<string, string | null>>({});
+  const [revealing, setRevealing] = useState<string | null>(null);
   const [activity, setActivity] = useState<Record<string, ActivityEntry[]>>({});
   const [pwMessage, setPwMessage] = useState("");
 
@@ -387,6 +389,25 @@ export function ClientAccessPanel() {
       if (account.id in activity) refreshActivity(account.id);
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function revealPassword(account: ClientAccount) {
+    if (account.id in revealed) {
+      setRevealed((prev) => {
+        const next = { ...prev };
+        delete next[account.id];
+        return next;
+      });
+      return;
+    }
+    setRevealing(account.id);
+    try {
+      const res = await fetch(`/api/admin/client-accounts?revealId=${encodeURIComponent(account.id)}`);
+      const data = await res.json();
+      setRevealed((prev) => ({ ...prev, [account.id]: data.password ?? null }));
+    } finally {
+      setRevealing(null);
     }
   }
 
@@ -817,9 +838,19 @@ export function ClientAccessPanel() {
             <td style={{ ...cellStyle, borderTop: "none" }} colSpan={9}>
               <Collapsible title={`Password & activity for "${a.username}"`} defaultOpen>
                 <p style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 0 }}>
-                  Existing passwords can&apos;t be viewed (stored hashed, never in plain text) — set a new one
-                  below. This immediately signs out any of their active sessions.
+                  Reveal the current password below, or set a new one — that immediately signs out any of
+                  their active sessions.
                 </p>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
+                  <button type="button" onClick={() => revealPassword(a)} disabled={revealing === a.id}>
+                    {revealing === a.id ? "Revealing…" : a.id in revealed ? "Hide password" : "Show current password"}
+                  </button>
+                  {a.id in revealed && (
+                    <code style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: 6, fontSize: 13 }}>
+                      {revealed[a.id] ?? "(unavailable — set a new one below)"}
+                    </code>
+                  )}
+                </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
                   <input
                     style={{ padding: 8, minWidth: 180 }}

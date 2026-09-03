@@ -1,4 +1,4 @@
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { randomBytes, scryptSync, timingSafeEqual, createCipheriv, createDecipheriv } from "node:crypto";
 import { prisma } from "@ai-chat-platform/database";
 import { Prisma } from "@prisma/client";
 
@@ -18,6 +18,32 @@ function verifyPassword(password: string, stored: string): boolean {
   const candidate = scryptSync(password, salt, 64);
   const expected = Buffer.from(hash, "hex");
   return candidate.length === expected.length && timingSafeEqual(candidate, expected);
+}
+
+// Reversible encryption for the "show password" feature (admin/owner
+// only) -- separate from the one-way passwordHash actually used to
+// verify logins, which never changes. Key is derived from the same
+// secret admin-session.ts already uses for session signing, so this
+// needs no new env var.
+const ENC_KEY = scryptSync(process.env.ADMIN_SESSION_SECRET ?? "dev-only-admin-secret-change-me", "client-auth-password-reveal", 32);
+
+function encryptPassword(password: string): string {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", ENC_KEY, iv);
+  const ciphertext = Buffer.concat([cipher.update(password, "utf8"), cipher.final()]);
+  return `${iv.toString("hex")}:${cipher.getAuthTag().toString("hex")}:${ciphertext.toString("hex")}`;
+}
+
+function decryptPassword(encrypted: string): string | null {
+  const [ivHex, tagHex, dataHex] = encrypted.split(":");
+  if (!ivHex || !tagHex || !dataHex) return null;
+  try {
+    const decipher = createDecipheriv("aes-256-gcm", ENC_KEY, Buffer.from(ivHex, "hex"));
+    decipher.setAuthTag(Buffer.from(tagHex, "hex"));
+    return Buffer.concat([decipher.update(Buffer.from(dataHex, "hex")), decipher.final()]).toString("utf8");
+  } catch {
+    return null;
+  }
 }
 
 export interface ClientAccountSummary {
@@ -295,6 +321,7 @@ export class ClientAuthService {
         businessId: isAdmin ? null : businessId,
         username: cleanUsername,
         passwordHash: hashPassword(password),
+        passwordEncrypted: encryptPassword(password),
         isAdmin,
         isAgent,
         role: isAdmin ? null : role,
@@ -320,10 +347,40 @@ export class ClientAuthService {
       throw new Error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
     }
     await prisma.$transaction([
-      prisma.clientAccount.update({ where: { id }, data: { passwordHash: hashPassword(newPassword) } }),
+      prisma.clientAccount.update({
+        where: { id },
+        data: { passwordHash: hashPassword(newPassword), passwordEncrypted: encryptPassword(newPassword) },
+      }),
       prisma.clientSession.deleteMany({ where: { clientAccountId: id } }),
     ]);
     await this.logActivity(id, "password", null, changedBy);
+  }
+
+  /** Change a login's username -- same uniqueness rule as create(). */
+  async changeUsername(id: string, newUsername: string, changedBy: string): Promise<void> {
+    const cleanUsername = newUsername.trim();
+    if (!cleanUsername) {
+      throw new Error("A username is required.");
+    }
+    const existing = await prisma.clientAccount.findUnique({ where: { username: cleanUsername } });
+    if (existing && existing.id !== id) {
+      throw new Error(`Username "${cleanUsername}" is already taken.`);
+    }
+    const before = await prisma.clientAccount.findUnique({ where: { id }, select: { username: true } });
+    await prisma.clientAccount.update({ where: { id }, data: { username: cleanUsername } });
+    await this.logActivity(id, "username", `${before?.username ?? "?"} -> ${cleanUsername}`, changedBy);
+  }
+
+  /** Decrypts and returns the login's current password for a "show
+   * password" UI -- null for a login created before passwordEncrypted
+   * existed (it backfills the next time its password is changed).
+   * Logged so a reveal is auditable the same way a reset is. */
+  async revealPassword(id: string, revealedBy: string): Promise<string | null> {
+    const account = await prisma.clientAccount.findUnique({ where: { id }, select: { passwordEncrypted: true } });
+    if (!account?.passwordEncrypted) return null;
+    const plain = decryptPassword(account.passwordEncrypted);
+    await this.logActivity(id, "password_revealed", null, revealedBy);
+    return plain;
   }
 
   /** Every logged action on this account -- password resets, panel
@@ -406,6 +463,7 @@ export class ClientAuthService {
     isAdmin: boolean;
     isAgent: boolean;
     username: string;
+    role: string | null;
   } | null> {
     const session = await prisma.clientSession.findUnique({
       where: { token },
@@ -429,6 +487,7 @@ export class ClientAuthService {
       isAdmin: session.account.isAdmin,
       isAgent: session.account.isAgent,
       username: session.account.username,
+      role: session.account.role,
     };
   }
 }

@@ -29,8 +29,9 @@ import { SubscriptionNotification } from "../../../components/SubscriptionNotifi
 import { DashboardShell, type NavGroup } from "../../../components/DashboardShell";
 import { RemovableSection } from "../../../components/RemovableSection";
 import { AgentConsole } from "../../../components/AgentConsole";
+import { UserSettingsPanel } from "../../../components/UserSettingsPanel";
 
-type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "inventory" | "orders" | "delivery" | "repairs" | "staff" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "quotes" | "invoices" | "reports" | "notifications";
+type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "inventory" | "orders" | "delivery" | "repairs" | "staff" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "quotes" | "invoices" | "reports" | "notifications" | "settings";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }, { id: "reports", label: "Reports" }] },
@@ -82,6 +83,7 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
     ],
   },
   { items: [{ id: "channels", label: "Integrations" }] },
+  { items: [{ id: "settings", label: "User Settings" }] },
 ];
 
 const TAB_IDS = NAV_GROUPS.flatMap((g) => g.items.map((i) => i.id));
@@ -129,6 +131,10 @@ export default function ClientDashboardClient() {
   // (AgentConsole), not just fewer nav tabs on the normal one.
   const [isAgent, setIsAgent] = useState(false);
   const [accountId, setAccountId] = useState<string | null>(null);
+  // "owner" | "staff" | null -- which role preset this login was
+  // created under (see ClientAccount.role). Only an owner gets the
+  // User Settings tab (self + staff username/password management).
+  const [accountRole, setAccountRole] = useState<string | null>(null);
 
   function logout() {
     fetch("/api/auth/logout", { method: "POST" }).finally(() => router.push("/"));
@@ -175,6 +181,9 @@ export default function ClientDashboardClient() {
         if ((data.role === "client" || data.role === "agent") && Array.isArray(data.allowedPanels)) {
           setAllowedPanels(data.allowedPanels);
         }
+        if (typeof data.accountRole === "string") {
+          setAccountRole(data.accountRole);
+        }
       });
   }, []);
 
@@ -192,9 +201,10 @@ export default function ClientDashboardClient() {
     if (!previewAsClient || !isAdmin) return;
     fetch("/api/admin/client-accounts")
       .then((r) => r.json())
-      .then((d: { accounts: { businessId: string | null; isAdmin: boolean; allowedPanels: string[] | null }[] }) => {
+      .then((d: { accounts: { businessId: string | null; isAdmin: boolean; allowedPanels: string[] | null; role: string | null }[] }) => {
         const account = d.accounts?.find((a) => a.businessId === businessId && !a.isAdmin);
         setAllowedPanels(account?.allowedPanels ?? null);
+        setAccountRole(account?.role ?? null);
       });
   }, [previewAsClient, isAdmin, businessId]);
 
@@ -207,10 +217,17 @@ export default function ClientDashboardClient() {
   // directly, never a Quote — dropped from the nav entirely (for admin
   // too, not just client sessions) rather than just left reachable via
   // allowedPanels for a business type it doesn't apply to.
-  const baseGroups: NavGroup<Tab>[] =
-    client?.type === "repair"
-      ? NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => i.id !== "quotes") })).filter((g) => g.items.length > 0)
-      : NAV_GROUPS;
+  const baseGroups: NavGroup<Tab>[] = NAV_GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter((i) => {
+      if (i.id === "quotes" && client?.type === "repair") return false;
+      // User Settings only makes sense for a real owner login (or an
+      // admin previewing one) -- an admin just browsing in, or a staff
+      // login, has no self-service reason to see it.
+      if (i.id === "settings") return accountRole === "owner";
+      return true;
+    }),
+  })).filter((g) => g.items.length > 0);
 
   // Admin always sees the full nav (even a hidden-for-clients panel
   // stays reachable so it can be un-hidden) — only a real client
@@ -221,7 +238,12 @@ export default function ClientDashboardClient() {
     ? baseGroups.map((g) => ({
         ...g,
         items: g.items.filter(
-          (i) => (allowedPanels === null || allowedPanels.includes(i.id)) && !hiddenWidgets.includes(`panel.${i.id}`)
+          (i) =>
+            // User Settings is an inherent owner capability, not a
+            // toggleable panel -- exempt from allowedPanels so an owner
+            // whose restriction list predates this feature still gets it.
+            (i.id === "settings" || allowedPanels === null || allowedPanels.includes(i.id)) &&
+            !hiddenWidgets.includes(`panel.${i.id}`)
         ),
       })).filter((g) => g.items.length > 0)
     : baseGroups;
@@ -356,8 +378,10 @@ export default function ClientDashboardClient() {
         ["arena", <TrainingArenaPanel key="arena" businessId={businessId} />],
         ["review", <ChatLearningPanel key="review" businessId={businessId} />],
         ["channels", <ChannelsPanel key="channels" businessId={businessId} />],
+        ["settings", <UserSettingsPanel key="settings" active={tab === "settings"} />],
       ] as [Tab, ReactNode][])
         .filter(([id]) => id !== "quotes" || client?.type !== "repair")
+        .filter(([id]) => id !== "settings" || accountRole === "owner")
         .map(([id, panel]) => (
         <div key={id} style={{ display: tab === id ? "block" : "none" }}>
           <RemovableSection
