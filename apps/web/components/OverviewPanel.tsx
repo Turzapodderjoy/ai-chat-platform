@@ -27,7 +27,6 @@ interface Counts {
   clients: number | null;
   openHandoffs: number | null;
   totalHandoffs: number | null;
-  pendingSuggestions: number | null;
   qaUnprocessed: number | null;
   qaTotal: number | null;
   aiHealthy: number | null;
@@ -85,7 +84,6 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
     clients: null,
     openHandoffs: null,
     totalHandoffs: null,
-    pendingSuggestions: null,
     qaUnprocessed: null,
     qaTotal: null,
     aiHealthy: null,
@@ -139,10 +137,6 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
           openHandoffs: d.handoffs.filter((h) => h.status === "pending").length,
         }))
       );
-
-    fetch("/api/admin/training/suggestions")
-      .then((r) => r.json())
-      .then((d) => setCounts((c) => ({ ...c, pendingSuggestions: d.pending.length })));
 
     fetch("/api/admin/qa-feedback")
       .then((r) => r.json())
@@ -202,7 +196,6 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
       <StatCardRow>
         <StatCard label="Total Clients" value={val(counts.clients)} tone="accent" icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /></svg>} />
         <StatCard label="Open Handoffs" value={val(counts.openHandoffs)} hint={counts.totalHandoffs !== null ? `${counts.totalHandoffs} total` : undefined} tone={counts.openHandoffs !== null && counts.openHandoffs > 0 ? "warning" : "success"} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /></svg>} />
-        <StatCard label="AI Suggestions" value={val(counts.pendingSuggestions)} tone={counts.pendingSuggestions !== null && counts.pendingSuggestions > 0 ? "warning" : "success"} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" /></svg>} />
         <StatCard label="QA Pending" value={val(counts.qaUnprocessed)} hint={counts.qaTotal !== null ? `${counts.qaTotal} total` : undefined} tone={counts.qaUnprocessed !== null && counts.qaUnprocessed > 0 ? "warning" : "success"} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" /></svg>} />
       </StatCardRow>
 
