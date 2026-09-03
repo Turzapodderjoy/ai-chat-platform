@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { cardStyle, subtleTextStyle, badgeStyle, primaryButtonStyle } from "./dashboard-styles";
+import { cardStyle, cellStyle, subtleTextStyle, badgeStyle, primaryButtonStyle } from "./dashboard-styles";
 
 interface Product {
   id: string;
@@ -215,99 +215,94 @@ export function InventoryPanel({ businessId }: { businessId: string }) {
       )}
 
       {products && products.length > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 }}>
-          {products.map((p) =>
-            editId === p.id ? (
-              <div
-                key={p.id}
-                style={{ border: "1px solid var(--accent)", borderRadius: 8, padding: 12, display: "flex", flexDirection: "column", gap: 6 }}
-              >
-                <input placeholder="Name" value={editDraft.name} onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })} style={{ padding: 6 }} />
-                <input placeholder="Price" value={editDraft.price} onChange={(e) => setEditDraft({ ...editDraft, price: e.target.value })} style={{ padding: 6 }} />
-                <input placeholder="Unit cost price" value={editDraft.costPrice} onChange={(e) => setEditDraft({ ...editDraft, costPrice: e.target.value })} style={{ padding: 6 }} />
-                <select value={editDraft.tier} onChange={(e) => setEditDraft({ ...editDraft, tier: e.target.value })} style={{ padding: 6 }}>
-                  <option value="regular">Regular</option>
-                  <option value="premium">Premium</option>
-                </select>
-                <input placeholder="Stock qty" value={editDraft.stock} onChange={(e) => setEditDraft({ ...editDraft, stock: e.target.value })} style={{ padding: 6 }} />
-                <input placeholder="Min stock" value={editDraft.minStock} onChange={(e) => setEditDraft({ ...editDraft, minStock: e.target.value })} style={{ padding: 6 }} />
-                <input placeholder="Category" value={editDraft.category} onChange={(e) => setEditDraft({ ...editDraft, category: e.target.value })} style={{ padding: 6 }} />
-                <input placeholder="SKU" value={editDraft.sku} onChange={(e) => setEditDraft({ ...editDraft, sku: e.target.value })} style={{ padding: 6 }} />
-                <textarea placeholder="Description" value={editDraft.description} onChange={(e) => setEditDraft({ ...editDraft, description: e.target.value })} style={{ padding: 6, minHeight: 50, resize: "vertical" }} />
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button onClick={() => saveEdit(p.id)} disabled={busyId === p.id} style={{ ...primaryButtonStyle, flex: 1, fontSize: 12 }}>
-                    {busyId === p.id ? "Saving…" : "Save"}
-                  </button>
-                  <button onClick={() => setEditId(null)} style={{ fontSize: 12 }}>Cancel</button>
-                </div>
-              </div>
-            ) : (
-              <div
-                key={p.id}
-                style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 12, display: "flex", flexDirection: "column", gap: 6 }}
-              >
-                {p.imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={p.imageUrl}
-                    alt={p.name}
-                    style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 6, background: "var(--surface)" }}
-                  />
+        <div className="table-scroll">
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={cellStyle}></th>
+                <th style={cellStyle}>Name</th>
+                <th style={cellStyle}>SKU</th>
+                <th style={cellStyle}>Category</th>
+                <th style={cellStyle}>Tier</th>
+                <th style={cellStyle}>Price</th>
+                <th style={cellStyle}>Cost</th>
+                <th style={cellStyle}>Stock</th>
+                <th style={cellStyle}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((p) =>
+                editId === p.id ? (
+                  <tr key={p.id} style={{ background: "var(--surface)" }}>
+                    <td style={cellStyle} colSpan={9}>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                        <input placeholder="Name" value={editDraft.name} onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })} style={{ padding: 6, minWidth: 140 }} />
+                        <input placeholder="Price" value={editDraft.price} onChange={(e) => setEditDraft({ ...editDraft, price: e.target.value })} style={{ padding: 6, width: 90 }} />
+                        <input placeholder="Unit cost price" value={editDraft.costPrice} onChange={(e) => setEditDraft({ ...editDraft, costPrice: e.target.value })} style={{ padding: 6, width: 100 }} />
+                        <select value={editDraft.tier} onChange={(e) => setEditDraft({ ...editDraft, tier: e.target.value })} style={{ padding: 6 }}>
+                          <option value="regular">Regular</option>
+                          <option value="premium">Premium</option>
+                        </select>
+                        <input placeholder="Stock qty" value={editDraft.stock} onChange={(e) => setEditDraft({ ...editDraft, stock: e.target.value })} style={{ padding: 6, width: 90 }} />
+                        <input placeholder="Min stock" value={editDraft.minStock} onChange={(e) => setEditDraft({ ...editDraft, minStock: e.target.value })} style={{ padding: 6, width: 80 }} />
+                        <input placeholder="Category" value={editDraft.category} onChange={(e) => setEditDraft({ ...editDraft, category: e.target.value })} style={{ padding: 6, width: 110 }} />
+                        <input placeholder="SKU" value={editDraft.sku} onChange={(e) => setEditDraft({ ...editDraft, sku: e.target.value })} style={{ padding: 6, width: 110 }} />
+                        <input placeholder="Description" value={editDraft.description} onChange={(e) => setEditDraft({ ...editDraft, description: e.target.value })} style={{ padding: 6, flex: 1, minWidth: 160 }} />
+                        <button onClick={() => saveEdit(p.id)} disabled={busyId === p.id} style={{ ...primaryButtonStyle, fontSize: 12 }}>
+                          {busyId === p.id ? "Saving…" : "Save"}
+                        </button>
+                        <button onClick={() => setEditId(null)} style={{ fontSize: 12 }}>Cancel</button>
+                      </div>
+                    </td>
+                  </tr>
                 ) : (
-                  <div
-                    style={{
-                      width: "100%",
-                      height: 120,
-                      borderRadius: 6,
-                      background: "var(--surface)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 12,
-                      color: "var(--text-faint)",
-                    }}
-                  >
-                    No image
-                  </div>
-                )}
-
-                <strong style={{ fontSize: 13, lineHeight: 1.3 }}>{p.name}</strong>
-
-                {p.price && <div style={{ fontSize: 14, fontWeight: 600 }}>৳ {p.price}</div>}
-                {p.costPrice && <div style={{ fontSize: 11, color: "var(--text-faint)" }}>Cost: ৳ {p.costPrice}</div>}
-
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {p.tier === "premium" && <span style={badgeStyle("info")}>Premium</span>}
-                  {p.category && <span style={badgeStyle("info")}>{p.category}</span>}
-                  {p.stock && <span style={badgeStyle(/out/i.test(p.stock) ? "error" : "ok")}>{p.stock}</span>}
-                  {p.sku && <span style={{ fontSize: 11, color: "var(--text-faint)" }}>SKU: {p.sku}</span>}
-                </div>
-
-                {p.stock && p.minStock > 0 && !/out/i.test(p.stock) && (() => {
-                  const qty = parseInt(p.stock, 10);
-                  if (!isNaN(qty) && qty <= p.minStock) {
-                    return <div style={{ fontSize: 11, color: "var(--warning)", fontWeight: 500 }}>Low stock ({qty} / {p.minStock} min)</div>;
-                  }
-                  return null;
-                })()}
-
-                {p.description && (
-                  <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
-                    {p.description}
-                  </p>
-                )}
-
-                <div style={{ display: "flex", gap: 6, marginTop: "auto", paddingTop: 4 }}>
-                  <button onClick={() => startEdit(p)} disabled={busyId === p.id} style={{ fontSize: 11, padding: "4px 8px", flex: 1 }}>
-                    Edit
-                  </button>
-                  <button onClick={() => deleteProduct(p)} disabled={busyId === p.id} style={{ fontSize: 11, padding: "4px 8px" }}>
-                    {busyId === p.id ? "…" : "Delete"}
-                  </button>
-                </div>
-              </div>
-            )
-          )}
+                  <tr key={p.id}>
+                    <td style={cellStyle}>
+                      {p.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.imageUrl} alt={p.name} style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, background: "var(--surface)" }} />
+                      ) : (
+                        <div style={{ width: 40, height: 40, borderRadius: 6, background: "var(--surface)" }} />
+                      )}
+                    </td>
+                    <td style={cellStyle}>
+                      <strong>{p.name}</strong>
+                      {p.description && (
+                        <div style={{ fontSize: 11, color: "var(--text-faint)", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {p.description}
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ ...cellStyle, fontSize: 11, color: "var(--text-faint)" }}>{p.sku ?? "—"}</td>
+                    <td style={cellStyle}>{p.category ?? "—"}</td>
+                    <td style={cellStyle}>{p.tier === "premium" && <span style={badgeStyle("info")}>Premium</span>}</td>
+                    <td style={cellStyle}>{p.price ? `৳ ${p.price}` : "—"}</td>
+                    <td style={{ ...cellStyle, color: "var(--text-faint)" }}>{p.costPrice ? `৳ ${p.costPrice}` : "—"}</td>
+                    <td style={cellStyle}>
+                      {p.stock ? <span style={badgeStyle(/out/i.test(p.stock) ? "error" : "ok")}>{p.stock}</span> : "—"}
+                      {p.stock && p.minStock > 0 && !/out/i.test(p.stock) && (() => {
+                        const qty = parseInt(p.stock, 10);
+                        if (!isNaN(qty) && qty <= p.minStock) {
+                          return <div style={{ fontSize: 11, color: "var(--warning)", fontWeight: 500 }}>Low ({qty}/{p.minStock})</div>;
+                        }
+                        return null;
+                      })()}
+                    </td>
+                    <td style={cellStyle}>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button onClick={() => startEdit(p)} disabled={busyId === p.id} style={{ fontSize: 11, padding: "4px 8px" }}>
+                          Edit
+                        </button>
+                        <button onClick={() => deleteProduct(p)} disabled={busyId === p.id} style={{ fontSize: 11, padding: "4px 8px" }}>
+                          {busyId === p.id ? "…" : "Delete"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              )}
+            </tbody>
+          </table>
         </div>
       )}
 

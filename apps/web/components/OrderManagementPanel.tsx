@@ -127,7 +127,9 @@ export function OrderItemsEditor({ order, products, onChanged }: { order: Repair
         <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontSize: 13 }}>
           <span style={badgeStyle(item.kind === "part" ? "info" : "neutral")}>{item.kind}</span>
           <span style={{ flex: 1 }}>{item.name} × {item.quantity}</span>
-          <span>৳{item.defaultPrice * item.quantity}</span>
+          <span style={{ color: "var(--text-faint)", textDecoration: item.overridePrice != null ? "line-through" : "none" }}>
+            Initial: ৳{item.defaultPrice * item.quantity}
+          </span>
           <input
             placeholder="Override total"
             defaultValue={item.overridePrice ?? ""}
@@ -135,6 +137,7 @@ export function OrderItemsEditor({ order, products, onChanged }: { order: Repair
             onBlur={() => saveOverride(item.id)}
             style={{ width: 100, padding: 4, fontSize: 12 }}
           />
+          {item.overridePrice != null && <span style={badgeStyle("warn")}>Overridden</span>}
           <strong style={{ width: 70, textAlign: "right" }}>৳{item.finalPrice}</strong>
           <button onClick={() => removeItem(item.id)} style={{ fontSize: 11, padding: "3px 6px" }}>✕</button>
         </div>
