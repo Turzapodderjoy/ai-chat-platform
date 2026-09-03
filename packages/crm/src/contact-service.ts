@@ -143,10 +143,8 @@ export class ContactService {
    * schema migration just to link up. */
   async getRecord(id: string): Promise<{
     contact: Contact;
-    orders: Array<{ id: string; products: string; paymentMethod: string; total: number; currency: string; createdAt: string }>;
-    repairs: Array<{ id: string; trackingToken: string; deviceType: string; deviceModel: string | null; issueDescription: string; status: string; priority: string; appointmentDate: string; createdAt: string }>;
-    deals: Array<{ id: string; title: string; amount: number | null; stage: string; status: string }>;
-    quotes: Array<{ id: string; title: string; status: string; total: number; currency: string }>;
+    orders: Array<{ id: string; products: string; paymentMethod: string; createdAt: string }>;
+    repairs: Array<{ id: string; trackingToken: string; deviceType: string; deviceModel: string | null; issueDescription: string; status: string; priority: string; appointmentDate: string; createdAt: string; total: number; amountPaid: number }>;
     invoices: Array<{ id: string; invoiceNumber: string; status: string; total: number; balanceDue: number; currency: string }>;
     lifetimeValue: number;
   } | null> {
@@ -161,7 +159,7 @@ export class ContactService {
         ? prisma.order.findMany({
             where: { businessId: contact.businessId, phone: { endsWith: phoneSuffix } },
             orderBy: { createdAt: "desc" },
-            select: { id: true, products: true, paymentMethod: true, total: true, currency: true, createdAt: true },
+            select: { id: true, products: true, paymentMethod: true, createdAt: true },
           })
         : Promise.resolve([]),
       phoneSuffix
@@ -205,6 +203,7 @@ export class ContactService {
       repairs: repairs.map((r) => ({
         ...r,
         createdAt: r.createdAt.toISOString(),
+        appointmentDate: r.appointmentDate.toISOString(),
         total: invoiceByRepairId.get(r.id)?.total ?? 0,
         amountPaid: invoiceByRepairId.get(r.id)?.amountPaid ?? 0,
       })),

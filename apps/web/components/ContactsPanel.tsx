@@ -19,10 +19,8 @@ interface Contact {
 
 interface ContactRecord {
   contact: Contact;
-  orders: { id: string; products: string; paymentMethod: string; total: number; currency: string; createdAt: string }[];
+  orders: { id: string; products: string; paymentMethod: string; createdAt: string }[];
   repairs: { id: string; trackingToken: string; deviceType: string; deviceModel: string | null; issueDescription: string; status: string; priority: string; appointmentDate: string; createdAt: string }[];
-  deals: { id: string; title: string; amount: number | null; stage: string; status: string }[];
-  quotes: { id: string; title: string; status: string; total: number; currency: string }[];
   invoices: { id: string; invoiceNumber: string; status: string; total: number; balanceDue: number; currency: string }[];
   lifetimeValue: number;
 }
@@ -115,9 +113,10 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
   }
 
   function computeCLV(record: ContactRecord): number {
-    const orderTotal = record.orders.reduce((sum, o) => sum + (o.total ?? 0), 0);
-    const invoicePaid = record.invoices.reduce((sum, inv) => sum + (inv.total - inv.balanceDue), 0);
-    return orderTotal + invoicePaid;
+    // Order has no price field (it's a flat human-readable slip, not a
+    // priced line-item record -- see the Order model's own comment), so
+    // CLV is real money actually collected, i.e. paid invoices only.
+    return record.invoices.reduce((sum, inv) => sum + (inv.total - inv.balanceDue), 0);
   }
 
   async function deleteContact(contact: Contact) {
@@ -257,10 +256,6 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                                   <div style={{ fontSize: 18, fontWeight: 700 }}>{record.repairs.length}</div>
                                 </div>
                                 <div>
-                                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Active Deals</span>
-                                  <div style={{ fontSize: 18, fontWeight: 700 }}>{record.deals.filter((d) => d.status === "open").length}</div>
-                                </div>
-                                <div>
                                   <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Outstanding</span>
                                   <div style={{ fontSize: 18, fontWeight: 700, color: record.invoices.reduce((s, i) => s + i.balanceDue, 0) > 0 ? "var(--danger)" : "var(--text)" }}>
                                     ৳{record.invoices.reduce((s, i) => s + i.balanceDue, 0).toLocaleString()}
@@ -303,16 +298,6 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                                   <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 2 }}>
                                     {new Date(r.appointmentDate).toLocaleDateString()} • {r.trackingToken}
                                   </div>
-                                </div>
-                              ))}
-                            </div>
-                            <div>
-                              <div style={{ fontWeight: 650, marginBottom: 6 }}>Deals ({record.deals.length})</div>
-                              {record.deals.length === 0 && <span style={{ color: "var(--text-faint)" }}>None</span>}
-                              {record.deals.map((d) => (
-                                <div key={d.id} style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
-                                  <span style={badgeStyle(DEAL_TONE[d.status] ?? "neutral")}>{d.stage}</span>
-                                  {d.title}{d.amount != null ? ` — ৳${d.amount.toLocaleString()}` : ""}
                                 </div>
                               ))}
                             </div>

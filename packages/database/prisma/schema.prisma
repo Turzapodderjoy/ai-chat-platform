@@ -60,11 +60,6 @@ model Business {
   subscriptionEndDate   DateTime?
   subscriptionActive    Boolean   @default(true)
 
-  // "regular" | "repair" -- gates repair-only features (Order Management)
-  // in the client dashboard nav. Set by platform admin in the mother
-  // dashboard's Clients panel.
-  type          String   @default("regular")
-
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }

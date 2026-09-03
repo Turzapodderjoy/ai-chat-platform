@@ -87,6 +87,8 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
 ];
 
 // Repair shop layout: Repairs at top, Orders→Appointments, no Delivery
+// ("Deals" removed here -- that feature was deleted platform-wide, this
+// entry referenced a nonexistent panel and wasn't even a valid Tab id).
 const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }, { id: "repairs", label: "Repairs" }] },
   {
@@ -99,7 +101,6 @@ const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
     label: "CRM",
     items: [
       { id: "contacts", label: "Contacts" },
-      { id: "deals", label: "Deals" },
     ],
   },
   {
@@ -136,6 +137,7 @@ const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
     ],
   },
   { items: [{ id: "channels", label: "Integrations" }] },
+  { items: [{ id: "settings", label: "User Settings" }] },
 ];
 
 const TAB_IDS = NAV_GROUPS.flatMap((g) => g.items.map((i) => i.id));
@@ -266,28 +268,23 @@ export default function ClientDashboardClient() {
   // it's standing in for.
   const actsAsClient = !isAdmin || previewAsClient;
 
-  // A repair-shop client bills through Order Management -> Invoice
-  // directly, never a Quote — dropped from the nav entirely (for admin
-  // too, not just client sessions) rather than just left reachable via
-  // allowedPanels for a business type it doesn't apply to.
-  const baseGroups: NavGroup<Tab>[] = NAV_GROUPS.map((g) => ({
-    ...g,
-    items: g.items.filter((i) => {
-      if (i.id === "quotes" && client?.type === "repair") return false;
-      // User Settings only makes sense for a real owner login (or an
-      // admin previewing one) -- an admin just browsing in, or a staff
-      // login, has no self-service reason to see it.
-      if (i.id === "settings") return accountRole === "owner";
-      return true;
-    }),
-  })).filter((g) => g.items.length > 0);
+  // Repair-shop clients get REPAIR_NAV_GROUPS's own layout (Repairs
+  // first, Orders relabeled Appointments, no Delivery); everyone else
+  // gets NAV_GROUPS. User Settings only makes sense for a real owner
+  // login (or an admin previewing one) -- an admin just browsing in, or
+  // a staff login, has no self-service reason to see it.
+  const baseGroups: NavGroup<Tab>[] = (clientType === "repair" ? REPAIR_NAV_GROUPS : NAV_GROUPS)
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((i) => i.id !== "settings" || accountRole === "owner"),
+    }))
+    .filter((g) => g.items.length > 0);
 
   // Admin always sees the full nav (even a hidden-for-clients panel
   // stays reachable so it can be un-hidden) — only a real client
   // session's nav is filtered, by allowedPanels AND by any panel the
   // admin removed inline via RemovableSection. Same filter applies
   // when previewing as the client.
-  const baseGroups = clientType === "repair" ? REPAIR_NAV_GROUPS : NAV_GROUPS;
   const visibleGroups: NavGroup<Tab>[] = actsAsClient
     ? baseGroups.map((g) => ({
         ...g,
@@ -440,7 +437,6 @@ export default function ClientDashboardClient() {
         ["channels", <ChannelsPanel key="channels" businessId={businessId} />],
         ["settings", <UserSettingsPanel key="settings" active={tab === "settings"} />],
       ] as [Tab, ReactNode][])
-        .filter(([id]) => id !== "quotes" || client?.type !== "repair")
         .filter(([id]) => id !== "settings" || accountRole === "owner")
         .map(([id, panel]) => (
         <div key={id} style={{ display: tab === id ? "block" : "none" }}>
