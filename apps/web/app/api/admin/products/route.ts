@@ -33,6 +33,8 @@ export async function POST(req: NextRequest) {
       costPrice: body.costPrice ?? null,
       tier: body.tier ?? undefined,
       stock: body.stock ?? null,
+      category: body.category ?? null,
+      minStock: body.minStock ?? undefined,
       sku: body.sku ?? null,
       description: body.description ?? null,
     });

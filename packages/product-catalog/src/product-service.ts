@@ -8,6 +8,8 @@ export interface ProductRecord {
   tier: string;
   description: string | null;
   stock: string | null;
+  category: string | null;
+  minStock: number;
   imageUrl: string | null;
   sourceUrl: string | null;
   sku: string | null;
@@ -26,6 +28,8 @@ export interface CreateProductInput {
   costPrice?: string | null;
   tier?: string;
   stock?: string | null;
+  category?: string | null;
+  minStock?: string | number | null;
   sku?: string | null;
   description?: string | null;
   imageUrl?: string | null;
@@ -37,9 +41,21 @@ export interface UpdateProductInput {
   costPrice?: string | null;
   tier?: string;
   stock?: string | null;
+  category?: string | null;
+  minStock?: string | number | null;
   sku?: string | null;
   description?: string | null;
   imageUrl?: string | null;
+}
+
+// minStock arrives from the UI as a string (every form input is a
+// string) but the column is a real Int -- Prisma rejects a string value
+// outright, which used to fail the whole update silently (the request
+// errored, the UI just left the edit row open with no explanation).
+function toMinStock(v: string | number | null | undefined): number | undefined {
+  if (v === undefined) return undefined;
+  const n = typeof v === "number" ? v : parseInt(v ?? "", 10);
+  return isNaN(n) ? undefined : n;
 }
 
 /** Read side of the Product table — the browsable catalog UI's data
@@ -64,6 +80,8 @@ export class ProductService {
         costPrice: input.costPrice ?? null,
         tier: input.tier ?? "regular",
         stock: input.stock ?? null,
+        category: input.category ?? null,
+        minStock: toMinStock(input.minStock) ?? 0,
         sku: input.sku ?? null,
         description: input.description ?? null,
         imageUrl: input.imageUrl ?? null,
@@ -73,7 +91,10 @@ export class ProductService {
   }
 
   async update(id: string, input: UpdateProductInput): Promise<ProductRecord> {
-    const row = await prisma.product.update({ where: { id }, data: input });
+    const row = await prisma.product.update({
+      where: { id },
+      data: { ...input, minStock: toMinStock(input.minStock) },
+    });
     return this.toRecord(row);
   }
 
@@ -89,6 +110,8 @@ export class ProductService {
     tier: string;
     description: string | null;
     stock: string | null;
+    category: string | null;
+    minStock: number;
     imageUrl: string | null;
     sourceUrl: string | null;
     sku: string | null;
@@ -102,6 +125,8 @@ export class ProductService {
       tier: r.tier,
       description: r.description,
       stock: r.stock,
+      category: r.category,
+      minStock: r.minStock,
       imageUrl: r.imageUrl,
       sourceUrl: r.sourceUrl,
       sku: r.sku,

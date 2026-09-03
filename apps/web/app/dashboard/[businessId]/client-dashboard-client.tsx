@@ -89,6 +89,7 @@ const TAB_IDS = NAV_GROUPS.flatMap((g) => g.items.map((i) => i.id));
 interface Client {
   id: string;
   name: string;
+  type: string;
 }
 
 /**
@@ -202,19 +203,28 @@ export default function ClientDashboardClient() {
   // it's standing in for.
   const actsAsClient = !isAdmin || previewAsClient;
 
+  // A repair-shop client bills through Order Management -> Invoice
+  // directly, never a Quote — dropped from the nav entirely (for admin
+  // too, not just client sessions) rather than just left reachable via
+  // allowedPanels for a business type it doesn't apply to.
+  const baseGroups: NavGroup<Tab>[] =
+    client?.type === "repair"
+      ? NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => i.id !== "quotes") })).filter((g) => g.items.length > 0)
+      : NAV_GROUPS;
+
   // Admin always sees the full nav (even a hidden-for-clients panel
   // stays reachable so it can be un-hidden) — only a real client
   // session's nav is filtered, by allowedPanels AND by any panel the
   // admin removed inline via RemovableSection. Same filter applies
   // when previewing as the client.
   const visibleGroups: NavGroup<Tab>[] = actsAsClient
-    ? NAV_GROUPS.map((g) => ({
+    ? baseGroups.map((g) => ({
         ...g,
         items: g.items.filter(
           (i) => (allowedPanels === null || allowedPanels.includes(i.id)) && !hiddenWidgets.includes(`panel.${i.id}`)
         ),
       })).filter((g) => g.items.length > 0)
-    : NAV_GROUPS;
+    : baseGroups;
 
   // If a restriction kicks in after first paint and the currently-open
   // tab isn't in the allow-list, jump to the first tab that is —
@@ -346,7 +356,9 @@ export default function ClientDashboardClient() {
         ["arena", <TrainingArenaPanel key="arena" businessId={businessId} />],
         ["review", <ChatLearningPanel key="review" businessId={businessId} />],
         ["channels", <ChannelsPanel key="channels" businessId={businessId} />],
-      ] as [Tab, ReactNode][]).map(([id, panel]) => (
+      ] as [Tab, ReactNode][])
+        .filter(([id]) => id !== "quotes" || client?.type !== "repair")
+        .map(([id, panel]) => (
         <div key={id} style={{ display: tab === id ? "block" : "none" }}>
           <RemovableSection
             id={`panel.${id}`}
