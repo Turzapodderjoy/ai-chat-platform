@@ -87,6 +87,12 @@ export async function PATCH(req: NextRequest) {
       await app.container.router.clientAuth.changeUsername(body.id, body.username, changedBy);
     }
 
+    if (body.maxDevices !== undefined) {
+      const changedBy = await resolveAdminActor(req);
+      const max = body.maxDevices === null ? null : Number(body.maxDevices);
+      await app.container.router.clientAuth.setMaxDevices(body.id, max === null || isNaN(max) ? null : max, changedBy);
+    }
+
     if (body.teamId !== undefined) {
       await app.container.router.clientAuth.assignAccountToTeam(body.id, typeof body.teamId === "string" ? body.teamId : null);
     }

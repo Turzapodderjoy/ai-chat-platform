@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkAdminCredentials, createAdminToken } from "@ai-chat-platform/client-auth";
+import { checkAdminCredentials, createAdminToken, DeviceLimitError } from "@ai-chat-platform/client-auth";
 
 import { getApp } from "../../../../lib/app";
 
 const CLIENT_COOKIE = "client_session";
 const ADMIN_COOKIE = "admin_session";
+
+// Behind the cloudflared tunnel there's no raw socket to read from --
+// the real client IP only ever arrives as a forwarded header.
+function clientIp(req: NextRequest): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0]!.trim();
+  return req.headers.get("x-real-ip") ?? "unknown";
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -33,7 +41,16 @@ export async function POST(req: NextRequest) {
   }
 
   const app = await getApp();
-  const result = await app.container.router.clientAuth.login(body.username, body.password, remember);
+
+  let result;
+  try {
+    result = await app.container.router.clientAuth.login(body.username, body.password, remember, clientIp(req));
+  } catch (err) {
+    if (err instanceof DeviceLimitError) {
+      return NextResponse.json({ error: err.message }, { status: 403 });
+    }
+    throw err;
+  }
 
   if (!result) {
     return NextResponse.json({ error: "Incorrect username or password, or this account has been disabled." }, { status: 401 });

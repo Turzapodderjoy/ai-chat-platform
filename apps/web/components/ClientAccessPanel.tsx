@@ -20,8 +20,20 @@ interface ClientAccount {
   createdAt: string;
   allowedPanels: string[] | null;
   isAdmin: boolean;
+  isAgent: boolean;
   teamId: string | null;
   role: string | null;
+  maxDevices: number | null;
+  deviceCount: number;
+}
+
+interface DeviceIp {
+  id: string;
+  ip: string;
+  fixed: boolean;
+  blocked: boolean;
+  firstSeenAt: string;
+  lastSeenAt: string;
 }
 
 interface Team {
@@ -75,8 +87,14 @@ const panelLabels = (ids: string[]) => ids.map((id) => PANEL_LABEL.get(id) ?? id
 
 function describeActivity(entry: ActivityEntry): string {
   if (entry.action === "password") return "Password reset";
+  if (entry.action === "password_revealed") return "Password revealed";
+  if (entry.action === "username") return `Username changed (${entry.detail})`;
   if (entry.action === "disabled") return "Login restricted";
   if (entry.action === "enabled") return "Login re-enabled";
+  if (entry.action === "device_fixed") return "Device locked to a single IP";
+  if (entry.action === "device_blocked") return "Device IP blocked";
+  if (entry.action === "device_reset") return "Device/IP limits reset";
+  if (entry.action === "max_devices") return `Max devices set to ${entry.detail}`;
 
   if (entry.action === "panels") {
     try {
@@ -141,6 +159,73 @@ export function ClientAccessPanel() {
     fetch(`/api/admin/client-accounts/activity?id=${encodeURIComponent(accountId)}`)
       .then((r) => r.json())
       .then((d: { history: ActivityEntry[] }) => setActivity((prev) => ({ ...prev, [accountId]: d.history ?? [] })));
+  }
+
+  // Device/IP limiting -- one IP row per device a login has ever
+  // signed in from. devExpandedId mirrors pwExpandedId's own pattern.
+  const [devExpandedId, setDevExpandedId] = useState<string | null>(null);
+  const [devices, setDevices] = useState<Record<string, DeviceIp[]>>({});
+  const [devBusy, setDevBusy] = useState<string | null>(null);
+  const [maxDevicesDraft, setMaxDevicesDraft] = useState<Record<string, string>>({});
+  const [devMessage, setDevMessage] = useState("");
+
+  function refreshDevices(accountId: string) {
+    fetch(`/api/admin/client-accounts/devices?accountId=${encodeURIComponent(accountId)}`)
+      .then((r) => r.json())
+      .then((d: { devices: DeviceIp[] }) => setDevices((prev) => ({ ...prev, [accountId]: d.devices ?? [] })));
+  }
+
+  function toggleDeviceBox(account: ClientAccount) {
+    if (devExpandedId === account.id) {
+      setDevExpandedId(null);
+      return;
+    }
+    setDevExpandedId(account.id);
+    setDevMessage("");
+    setMaxDevicesDraft((prev) => ({ ...prev, [account.id]: prev[account.id] ?? String(account.maxDevices ?? "") }));
+    refreshDevices(account.id);
+  }
+
+  async function saveMaxDevices(account: ClientAccount) {
+    const raw = maxDevicesDraft[account.id] ?? "";
+    const max = raw.trim() === "" ? null : Number(raw);
+    if (max !== null && (isNaN(max) || max < 1)) {
+      setDevMessage("Max devices must be a positive number, or blank for the role default.");
+      return;
+    }
+    setDevBusy(account.id);
+    try {
+      await fetch("/api/admin/client-accounts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: account.id, maxDevices: max }),
+      });
+      setDevMessage("Saved.");
+      refresh();
+    } finally {
+      setDevBusy(null);
+    }
+  }
+
+  async function deviceAction(account: ClientAccount, action: "fix" | "block" | "reset", deviceId?: string) {
+    setDevBusy(account.id);
+    setDevMessage("");
+    try {
+      const res = await fetch("/api/admin/client-accounts/devices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId: account.id, action, deviceId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setDevMessage(`Error: ${data.error ?? "failed"}`);
+        return;
+      }
+      refreshDevices(account.id);
+      refresh();
+    } finally {
+      setDevBusy(null);
+    }
   }
 
   // Teams -- RBAC hierarchy layer (Day 1 AM). Scoped to whichever
@@ -698,6 +783,7 @@ export function ClientAccessPanel() {
               <th style={cellStyle}>Panels</th>
               <th style={cellStyle}>Team</th>
               <th style={cellStyle}>Password</th>
+              <th style={cellStyle}>Devices</th>
               <th style={cellStyle}>Last login</th>
               <th style={cellStyle}>Created</th>
               <th style={cellStyle}></th>
@@ -713,7 +799,7 @@ export function ClientAccessPanel() {
                     <span style={badgeStyle("warn")}>No login set</span>
                   </td>
                   <td style={cellStyle}>{client.name}</td>
-                  <td style={cellStyle} colSpan={7}>
+                  <td style={cellStyle} colSpan={8}>
                     <span style={{ fontSize: 12, color: "var(--text-faint)" }}>This client can&apos;t log in yet.</span>
                   </td>
                   <td style={cellStyle}>
@@ -725,7 +811,7 @@ export function ClientAccessPanel() {
             {adminAccounts.map((a) => renderAccountRow(a))}
             {clientRows.length === 0 && (
               <tr>
-                <td style={cellStyle} colSpan={10}>
+                <td style={cellStyle} colSpan={11}>
                   {clients?.length === 0 ? "No clients yet — add one in the Clients tab." : "No clients match that filter."}
                 </td>
               </tr>
@@ -796,6 +882,15 @@ export function ClientAccessPanel() {
               Change / history
             </button>
           </td>
+          <td style={cellStyle}>
+            {a.isAdmin || a.isAgent ? (
+              <span style={{ fontSize: 12, color: "var(--text-faint)" }}>—</span>
+            ) : (
+              <button onClick={() => toggleDeviceBox(a)} className="plain" style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                {a.deviceCount}/{a.maxDevices ?? (a.role === "owner" ? 2 : 1)} devices
+              </button>
+            )}
+          </td>
           <td style={cellStyle}>{a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString() : "Never"}</td>
           <td style={cellStyle}>{new Date(a.createdAt).toLocaleDateString()}</td>
           <td style={cellStyle}>
@@ -809,7 +904,7 @@ export function ClientAccessPanel() {
         </tr>
         {expandedId === a.id && (
           <tr>
-            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={9}>
+            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={10}>
               <Collapsible title={`Which panels can "${a.username}" see?`} defaultOpen>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
                   {ALL_PANELS.map((p) => (
@@ -835,7 +930,7 @@ export function ClientAccessPanel() {
         )}
         {pwExpandedId === a.id && (
           <tr>
-            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={9}>
+            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={10}>
               <Collapsible title={`Password & activity for "${a.username}"`} defaultOpen>
                 <p style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 0 }}>
                   Reveal the current password below, or set a new one — that immediately signs out any of
@@ -890,6 +985,88 @@ export function ClientAccessPanel() {
                         <span style={{ color: "var(--text-faint)", flexShrink: 0 }}>{new Date(h.changedAt).toLocaleString()}</span>
                       </div>
                     ))}
+                  </div>
+                )}
+              </Collapsible>
+            </td>
+          </tr>
+        )}
+        {devExpandedId === a.id && (
+          <tr>
+            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={11}>
+              <Collapsible title={`Devices for "${a.username}"`} defaultOpen>
+                <p style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 0 }}>
+                  Every IP this login has signed in from. Fixing one locks the login to exactly that
+                  device — every other IP is refused, regardless of the limit below. Blocking one refuses
+                  just that IP and frees its slot. Reset clears everything back to a clean slate.
+                </p>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 14 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                    Max devices
+                    <input
+                      type="number"
+                      min={1}
+                      placeholder={a.role === "owner" ? "2 (default)" : "1 (default)"}
+                      value={maxDevicesDraft[a.id] ?? ""}
+                      onChange={(e) => setMaxDevicesDraft((prev) => ({ ...prev, [a.id]: e.target.value }))}
+                      style={{ padding: 6, width: 110 }}
+                    />
+                  </label>
+                  <button onClick={() => saveMaxDevices(a)} disabled={devBusy === a.id} style={primaryButtonStyle}>
+                    {devBusy === a.id ? "Saving…" : "Save"}
+                  </button>
+                  <button onClick={() => deviceAction(a, "reset")} disabled={devBusy === a.id}>
+                    Reset limits
+                  </button>
+                  <button onClick={() => setDevExpandedId(null)}>Close</button>
+                </div>
+                {devMessage && <p style={{ fontSize: 12.5, marginTop: 0, marginBottom: 10 }}>{devMessage}</p>}
+
+                {!devices[a.id] && <p style={{ fontSize: 12, color: "var(--text-faint)" }}>Loading…</p>}
+                {devices[a.id]?.length === 0 && (
+                  <p style={{ fontSize: 12, color: "var(--text-faint)" }}>No devices have signed in yet.</p>
+                )}
+                {devices[a.id] && devices[a.id]!.length > 0 && (
+                  <div className="table-scroll">
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <thead>
+                        <tr>
+                          <th style={cellStyle}>IP</th>
+                          <th style={cellStyle}>First seen</th>
+                          <th style={cellStyle}>Last seen</th>
+                          <th style={cellStyle}>Status</th>
+                          <th style={cellStyle}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {devices[a.id]!.map((d) => (
+                          <tr key={d.id}>
+                            <td style={cellStyle}><code>{d.ip}</code></td>
+                            <td style={cellStyle}>{new Date(d.firstSeenAt).toLocaleString()}</td>
+                            <td style={cellStyle}>{new Date(d.lastSeenAt).toLocaleString()}</td>
+                            <td style={cellStyle}>
+                              {d.blocked ? (
+                                <span style={badgeStyle("error")}>Blocked</span>
+                              ) : d.fixed ? (
+                                <span style={badgeStyle("ok")}>Fixed</span>
+                              ) : (
+                                <span style={badgeStyle("info")}>Active</span>
+                              )}
+                            </td>
+                            <td style={cellStyle}>
+                              <div style={{ display: "flex", gap: 6 }}>
+                                <button onClick={() => deviceAction(a, "fix", d.id)} disabled={devBusy === a.id || d.fixed} style={{ fontSize: 11, padding: "4px 8px" }}>
+                                  Fix
+                                </button>
+                                <button onClick={() => deviceAction(a, "block", d.id)} disabled={devBusy === a.id || d.blocked} style={{ fontSize: 11, padding: "4px 8px" }}>
+                                  Block
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </Collapsible>

@@ -46,6 +46,21 @@ function decryptPassword(encrypted: string): string | null {
   }
 }
 
+// Thrown by login() when a device/IP check fails -- the route layer
+// catches this specifically so the client sees the real reason
+// ("locked to another device", "limit reached") instead of the generic
+// wrong-username-or-password message.
+export class DeviceLimitError extends Error {}
+
+export interface DeviceIpSummary {
+  id: string;
+  ip: string;
+  fixed: boolean;
+  blocked: boolean;
+  firstSeenAt: string;
+  lastSeenAt: string;
+}
+
 export interface ClientAccountSummary {
   id: string;
   businessId: string | null;
@@ -60,6 +75,8 @@ export interface ClientAccountSummary {
   online: boolean;
   teamId: string | null;
   role: string | null;
+  maxDevices: number | null;
+  deviceCount: number;
 }
 
 export interface TeamSummary {
@@ -100,6 +117,12 @@ export class ClientAuthService {
     });
     const nameById = new Map(businesses.map((b) => [b.id, b.name]));
 
+    const deviceCounts = await prisma.accountDeviceIp.groupBy({
+      by: ["clientAccountId"],
+      _count: true,
+    });
+    const deviceCountById = new Map(deviceCounts.map((d) => [d.clientAccountId, d._count]));
+
     return accounts.map((a) => ({
       id: a.id,
       businessId: a.businessId,
@@ -114,6 +137,8 @@ export class ClientAuthService {
       online: a.online,
       teamId: a.teamId,
       role: a.role,
+      maxDevices: a.maxDevices,
+      deviceCount: deviceCountById.get(a.id) ?? 0,
     }));
   }
 
@@ -141,6 +166,8 @@ export class ClientAuthService {
       online: a.online,
       teamId: a.teamId,
       role: a.role,
+      maxDevices: a.maxDevices,
+      deviceCount: 0,
     }));
   }
 
@@ -418,10 +445,89 @@ export class ClientAuthService {
     return account;
   }
 
-  async login(username: string, password: string, remember: boolean): Promise<LoginResult | null> {
+  /** Enforces per-account device/IP limits for owner and staff logins
+   * only (never isAdmin/isAgent) -- called from login() before a
+   * session is issued. A "fixed" device overrides the count entirely:
+   * once set, that's the ONLY ip allowed in, regardless of maxDevices.
+   * Otherwise a known, unblocked ip always gets back in; a brand-new ip
+   * is admitted only while under the limit (default 2 for "owner", 1
+   * for "staff", overridable per-account via maxDevices). Blocked
+   * devices don't count against the limit -- blocking one frees a slot. */
+  private async checkDevice(accountId: string, ip: string, role: string, maxDevicesOverride: number | null): Promise<void> {
+    const rows = await prisma.accountDeviceIp.findMany({ where: { clientAccountId: accountId } });
+    const existing = rows.find((r) => r.ip === ip);
+
+    if (existing?.blocked) {
+      throw new DeviceLimitError("This device has been blocked from signing in. Ask the platform to unblock it.");
+    }
+
+    const fixedRow = rows.find((r) => r.fixed);
+    if (fixedRow && fixedRow.ip !== ip) {
+      throw new DeviceLimitError("This login is locked to a specific device and can't sign in from anywhere else.");
+    }
+
+    if (existing) {
+      await prisma.accountDeviceIp.update({ where: { id: existing.id }, data: { lastSeenAt: new Date() } });
+      return;
+    }
+
+    const activeCount = rows.filter((r) => !r.blocked).length;
+    const limit = maxDevicesOverride ?? (role === "owner" ? 2 : 1);
+    if (activeCount >= limit) {
+      throw new DeviceLimitError(`Device limit reached (${limit} allowed). Ask the platform to reset or raise it.`);
+    }
+
+    await prisma.accountDeviceIp.create({ data: { clientAccountId: accountId, ip } });
+  }
+
+  async listDevices(accountId: string): Promise<DeviceIpSummary[]> {
+    const rows = await prisma.accountDeviceIp.findMany({ where: { clientAccountId: accountId }, orderBy: { lastSeenAt: "desc" } });
+    return rows.map((r) => ({
+      id: r.id,
+      ip: r.ip,
+      fixed: r.fixed,
+      blocked: r.blocked,
+      firstSeenAt: r.firstSeenAt.toISOString(),
+      lastSeenAt: r.lastSeenAt.toISOString(),
+    }));
+  }
+
+  /** Locks the account to exactly this device -- unsets fixed on every
+   * other row for the account first, so at most one is ever fixed. */
+  async fixDevice(accountId: string, deviceId: string, changedBy: string): Promise<void> {
+    await prisma.$transaction([
+      prisma.accountDeviceIp.updateMany({ where: { clientAccountId: accountId }, data: { fixed: false } }),
+      prisma.accountDeviceIp.update({ where: { id: deviceId }, data: { fixed: true, blocked: false } }),
+    ]);
+    await this.logActivity(accountId, "device_fixed", deviceId, changedBy);
+  }
+
+  async blockDevice(accountId: string, deviceId: string, changedBy: string): Promise<void> {
+    await prisma.accountDeviceIp.update({ where: { id: deviceId }, data: { blocked: true, fixed: false } });
+    await this.logActivity(accountId, "device_blocked", deviceId, changedBy);
+  }
+
+  /** Wipes every known device/IP for the account -- clears any fix and
+   * any block, back to a clean slate that re-admits fresh IPs up to
+   * the limit again. */
+  async resetDeviceLimits(accountId: string, changedBy: string): Promise<void> {
+    await prisma.accountDeviceIp.deleteMany({ where: { clientAccountId: accountId } });
+    await this.logActivity(accountId, "device_reset", null, changedBy);
+  }
+
+  async setMaxDevices(accountId: string, max: number | null, changedBy: string): Promise<void> {
+    await prisma.clientAccount.update({ where: { id: accountId }, data: { maxDevices: max } });
+    await this.logActivity(accountId, "max_devices", max === null ? "default" : String(max), changedBy);
+  }
+
+  async login(username: string, password: string, remember: boolean, ip?: string): Promise<LoginResult | null> {
     const account = await prisma.clientAccount.findUnique({ where: { username: username.trim() } });
     if (!account || account.disabled) return null;
     if (!verifyPassword(password, account.passwordHash)) return null;
+
+    if (ip && !account.isAdmin && !account.isAgent && (account.role === "owner" || account.role === "staff")) {
+      await this.checkDevice(account.id, ip, account.role, account.maxDevices);
+    }
 
     const token = randomBytes(32).toString("hex");
     const days = remember ? SESSION_DAYS_REMEMBER : SESSION_DAYS_DEFAULT;

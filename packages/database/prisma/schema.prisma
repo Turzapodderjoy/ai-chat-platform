@@ -774,10 +774,42 @@ model ClientAccount {
   // allowedPanels is null).
   teamId       String?
 
+  // Device/IP limiting for owner and staff logins -- null means the
+  // role default (2 for "owner", 1 for "staff"), an explicit number
+  // overrides it per-account. Never enforced for isAdmin/isAgent
+  // accounts. See AccountDeviceIp for the actual seen-IP rows.
+  maxDevices   Int?
+
   sessions     ClientSession[]
+  deviceIps    AccountDeviceIp[]
 
   @@index([businessId])
   @@index([teamId])
+}
+
+// One row per distinct IP a login has ever signed in from -- lets the
+// platform admin see exactly which devices/IPs are using a login,
+// "fix" it to exactly one (blocking every other IP outright,
+// regardless of maxDevices), "block" one specific IP without touching
+// the others, or wipe the whole list back to a clean slate. Enforced
+// in ClientAuthService.login -- see its own comment for the actual
+// allow/deny logic.
+model AccountDeviceIp {
+  id              String   @id @default(cuid())
+  clientAccountId String
+  ip              String
+  // At most one row per account should ever have fixed=true --
+  // enforced in code (fixDevice unsets it on every other row for the
+  // account first), not by the schema.
+  fixed           Boolean  @default(false)
+  blocked         Boolean  @default(false)
+  firstSeenAt     DateTime @default(now())
+  lastSeenAt      DateTime @default(now())
+
+  clientAccount ClientAccount @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([clientAccountId, ip])
+  @@index([clientAccountId])
 }
 
 // One hierarchy primitive for "org / department / team" rather than

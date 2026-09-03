@@ -47,6 +47,26 @@ export class ClientAuthController {
     return this.clientAuth.revealPassword(id, revealedBy);
   }
 
+  listDevices(accountId: string) {
+    return this.clientAuth.listDevices(accountId);
+  }
+
+  fixDevice(accountId: string, deviceId: string, changedBy: string) {
+    return this.clientAuth.fixDevice(accountId, deviceId, changedBy);
+  }
+
+  blockDevice(accountId: string, deviceId: string, changedBy: string) {
+    return this.clientAuth.blockDevice(accountId, deviceId, changedBy);
+  }
+
+  resetDeviceLimits(accountId: string, changedBy: string) {
+    return this.clientAuth.resetDeviceLimits(accountId, changedBy);
+  }
+
+  setMaxDevices(accountId: string, max: number | null, changedBy: string) {
+    return this.clientAuth.setMaxDevices(accountId, max, changedBy);
+  }
+
   activityHistory(id: string) {
     return this.clientAuth.activityHistory(id);
   }
@@ -59,8 +79,8 @@ export class ClientAuthController {
     return this.clientAuth.remove(id);
   }
 
-  login(username: string, password: string, remember: boolean) {
-    return this.clientAuth.login(username, password, remember);
+  login(username: string, password: string, remember: boolean, ip?: string) {
+    return this.clientAuth.login(username, password, remember, ip);
   }
 
   getSession(token: string) {
