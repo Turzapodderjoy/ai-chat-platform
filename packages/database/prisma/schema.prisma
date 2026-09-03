@@ -60,6 +60,11 @@ model Business {
   subscriptionEndDate   DateTime?
   subscriptionActive    Boolean   @default(true)
 
+  // "regular" | "repair" -- gates repair-only features (Order Management)
+  // in the client dashboard nav. Set by platform admin in the mother
+  // dashboard's Clients panel.
+  type          String   @default("regular")
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
@@ -1257,6 +1262,11 @@ model Contact {
   // itself.
   companyName   String?
   companyDomain String?
+  // Client type: "regular" (standard business) or "repair" (phone/device
+  // repair shop like PhoneRepairAZ). Repair-type clients get the full
+  // repair feature set (repairs, staff, inventory, tracking page, etc.).
+  // Regular clients see the standard CRM + orders feature set.
+  clientType    String   @default("regular")
 
   quotes     Quote[]
   invoices   Invoice[]

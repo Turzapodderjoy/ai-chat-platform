@@ -11,6 +11,10 @@ export class CrmController {
     return this.contacts.setCompany(id, companyName, companyDomain);
   }
 
+  setContactClientType(id: string, clientType: string) {
+    return this.contacts.setClientType(id, clientType);
+  }
+
   deleteContact(id: string) {
     return this.contacts.delete(id);
   }

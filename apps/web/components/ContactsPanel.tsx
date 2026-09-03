@@ -12,14 +12,17 @@ interface Contact {
   email: string | null;
   companyName: string | null;
   companyDomain: string | null;
+  clientType: string;
   createdAt: string;
   updatedAt: string;
 }
 
 interface ContactRecord {
   contact: Contact;
-  orders: { id: string; products: string; paymentMethod: string; createdAt: string }[];
-  repairs: { id: string; trackingToken: string; deviceType: string; issueDescription: string; status: string; createdAt: string; amountPaid: number; total: number }[];
+  orders: { id: string; products: string; paymentMethod: string; total: number; currency: string; createdAt: string }[];
+  repairs: { id: string; trackingToken: string; deviceType: string; deviceModel: string | null; issueDescription: string; status: string; priority: string; appointmentDate: string; createdAt: string }[];
+  deals: { id: string; title: string; amount: number | null; stage: string; status: string }[];
+  quotes: { id: string; title: string; status: string; total: number; currency: string }[];
   invoices: { id: string; invoiceNumber: string; status: string; total: number; balanceDue: number; currency: string }[];
   lifetimeValue: number;
 }
@@ -97,6 +100,26 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
     }
   }
 
+  async function saveClientType(contact: Contact, clientType: string) {
+    setBusyId(contact.id);
+    try {
+      await fetch("/api/admin/crm/contacts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: contact.id, clientType }),
+      });
+      refresh();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function computeCLV(record: ContactRecord): number {
+    const orderTotal = record.orders.reduce((sum, o) => sum + (o.total ?? 0), 0);
+    const invoicePaid = record.invoices.reduce((sum, inv) => sum + (inv.total - inv.balanceDue), 0);
+    return orderTotal + invoicePaid;
+  }
+
   async function deleteContact(contact: Contact) {
     const confirmed = window.confirm(`Delete the contact "${contact.name}"? This cannot be undone.`);
     if (!confirmed) return;
@@ -136,9 +159,11 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
               <tr>
                 <th style={cellStyle}>ID</th>
                 <th style={cellStyle}>Name</th>
+                <th style={cellStyle}>Type</th>
                 <th style={cellStyle}>Phone</th>
                 <th style={cellStyle}>Email</th>
                 <th style={cellStyle}>Company</th>
+                <th style={cellStyle}>CLV</th>
                 <th style={cellStyle}>Updated</th>
                 <th style={cellStyle}></th>
               </tr>
@@ -149,6 +174,17 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                   <tr onClick={() => toggleRecord(c)} style={{ cursor: "pointer" }}>
                     <td style={{ ...cellStyle, fontSize: 11, color: "var(--text-faint)" }}>{shortId(c.id)}</td>
                     <td style={cellStyle}>{c.name}</td>
+                    <td style={cellStyle} onClick={(e) => e.stopPropagation()}>
+                      <select
+                        value={c.clientType}
+                        onChange={(e) => saveClientType(c, e.target.value)}
+                        disabled={busyId === c.id}
+                        style={{ padding: 4, fontSize: 12, background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)", borderRadius: "var(--radius-xs)" }}
+                      >
+                        <option value="regular">Regular</option>
+                        <option value="repair">Repair</option>
+                      </select>
+                    </td>
                     <td style={cellStyle}>{c.phone ?? "—"}</td>
                     <td style={cellStyle}>{c.email ?? "—"}</td>
                     <td style={cellStyle} onClick={(e) => e.stopPropagation()}>
@@ -178,6 +214,15 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                         );
                       })()}
                     </td>
+                    <td style={{ ...cellStyle, fontFamily: "monospace", fontSize: 12 }}>
+                      {expandedId === c.id && record ? (
+                        <span style={{ color: computeCLV(record) > 0 ? "var(--success)" : "var(--text-faint)" }}>
+                          ৳{computeCLV(record).toLocaleString()}
+                        </span>
+                      ) : (
+                        <span style={{ color: "var(--text-faint)" }}>—</span>
+                      )}
+                    </td>
                     <td style={cellStyle}>{new Date(c.updatedAt).toLocaleDateString()}</td>
                     <td style={cellStyle} onClick={(e) => e.stopPropagation()}>
                       <button onClick={() => deleteContact(c)} disabled={busyId === c.id}>Delete</button>
@@ -185,7 +230,7 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                   </tr>
                   {expandedId === c.id && (
                     <tr>
-                      <td colSpan={7} style={{ ...cellStyle, background: "var(--surface)", padding: 14 }}>
+                      <td colSpan={9} style={{ ...cellStyle, background: "var(--surface)", padding: 14 }}>
                         {loadingRecord && <p style={subtleTextStyle}>Loading history…</p>}
                         {record && (
                           <div style={{ marginBottom: 14, fontSize: 13 }}>
@@ -196,6 +241,33 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                         )}
                         {record && (
                           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, fontSize: 12.5 }}>
+                            {/* CLV Summary */}
+                            <div style={{ gridColumn: "1 / -1", padding: "8px 12px", background: "var(--bg)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                <div>
+                                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Customer Lifetime Value</span>
+                                  <div style={{ fontSize: 18, fontWeight: 700, color: "var(--success)" }}>৳{computeCLV(record).toLocaleString()}</div>
+                                </div>
+                                <div>
+                                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Total Orders</span>
+                                  <div style={{ fontSize: 18, fontWeight: 700 }}>{record.orders.length}</div>
+                                </div>
+                                <div>
+                                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Total Repairs</span>
+                                  <div style={{ fontSize: 18, fontWeight: 700 }}>{record.repairs.length}</div>
+                                </div>
+                                <div>
+                                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Active Deals</span>
+                                  <div style={{ fontSize: 18, fontWeight: 700 }}>{record.deals.filter((d) => d.status === "open").length}</div>
+                                </div>
+                                <div>
+                                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Outstanding</span>
+                                  <div style={{ fontSize: 18, fontWeight: 700, color: record.invoices.reduce((s, i) => s + i.balanceDue, 0) > 0 ? "var(--danger)" : "var(--text)" }}>
+                                    ৳{record.invoices.reduce((s, i) => s + i.balanceDue, 0).toLocaleString()}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                             <div>
                               <div style={{ fontWeight: 650, marginBottom: 6 }}>Invoices ({record.invoices.length})</div>
                               {record.invoices.length === 0 && <span style={{ color: "var(--text-faint)" }}>None</span>}
@@ -220,10 +292,27 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                               <div style={{ fontWeight: 650, marginBottom: 6 }}>Issue history ({record.repairs.length})</div>
                               {record.repairs.length === 0 && <span style={{ color: "var(--text-faint)" }}>None</span>}
                               {record.repairs.map((r) => (
-                                <div key={r.id} style={{ marginBottom: 4 }}>
-                                  {r.deviceType} — {r.status} <span style={{ color: "var(--text-faint)" }}>({r.trackingToken})</span>
-                                  {r.issueDescription && <div style={{ color: "var(--text-muted)" }}>{r.issueDescription}</div>}
-                                  {r.total > 0 && <span>৳{r.amountPaid.toLocaleString()} paid of ৳{r.total.toLocaleString()}</span>}
+                                <div key={r.id} style={{ marginBottom: 6, padding: "6px 8px", background: "var(--bg)", borderRadius: "var(--radius-xs)", border: "1px solid var(--border)" }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                                    <span style={{ fontWeight: 600 }}>{r.deviceType}</span>
+                                    {r.deviceModel && <span style={{ color: "var(--text-muted)" }}>{r.deviceModel}</span>}
+                                    <span style={badgeStyle(r.status === "completed" ? "ok" : r.status === "cancelled" ? "error" : "info")}>{r.status}</span>
+                                    {r.priority !== "normal" && <span style={badgeStyle(r.priority === "urgent" ? "error" : "warn")}>{r.priority}</span>}
+                                  </div>
+                                  <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{r.issueDescription}</div>
+                                  <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 2 }}>
+                                    {new Date(r.appointmentDate).toLocaleDateString()} • {r.trackingToken}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 650, marginBottom: 6 }}>Deals ({record.deals.length})</div>
+                              {record.deals.length === 0 && <span style={{ color: "var(--text-faint)" }}>None</span>}
+                              {record.deals.map((d) => (
+                                <div key={d.id} style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                                  <span style={badgeStyle(DEAL_TONE[d.status] ?? "neutral")}>{d.stage}</span>
+                                  {d.title}{d.amount != null ? ` — ৳${d.amount.toLocaleString()}` : ""}
                                 </div>
                               ))}
                             </div>

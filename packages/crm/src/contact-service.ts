@@ -8,6 +8,7 @@ export interface Contact {
   email: string | null;
   companyName: string | null;
   companyDomain: string | null;
+  clientType: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,6 +32,7 @@ function toContact(row: {
   email: string | null;
   companyName: string | null;
   companyDomain: string | null;
+  clientType: string;
   createdAt: Date;
   updatedAt: Date;
 }): Contact {
@@ -42,6 +44,7 @@ function toContact(row: {
     email: row.email,
     companyName: row.companyName,
     companyDomain: row.companyDomain,
+    clientType: row.clientType,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -123,6 +126,11 @@ export class ContactService {
     return toContact(row);
   }
 
+  async setClientType(id: string, clientType: string): Promise<Contact> {
+    const row = await prisma.contact.update({ where: { id }, data: { clientType } });
+    return toContact(row);
+  }
+
   async delete(id: string): Promise<void> {
     await prisma.contact.delete({ where: { id } });
   }
@@ -135,8 +143,10 @@ export class ContactService {
    * schema migration just to link up. */
   async getRecord(id: string): Promise<{
     contact: Contact;
-    orders: Array<{ id: string; products: string; paymentMethod: string; createdAt: string }>;
-    repairs: Array<{ id: string; trackingToken: string; deviceType: string; issueDescription: string; status: string; createdAt: string; amountPaid: number; total: number }>;
+    orders: Array<{ id: string; products: string; paymentMethod: string; total: number; currency: string; createdAt: string }>;
+    repairs: Array<{ id: string; trackingToken: string; deviceType: string; deviceModel: string | null; issueDescription: string; status: string; priority: string; appointmentDate: string; createdAt: string }>;
+    deals: Array<{ id: string; title: string; amount: number | null; stage: string; status: string }>;
+    quotes: Array<{ id: string; title: string; status: string; total: number; currency: string }>;
     invoices: Array<{ id: string; invoiceNumber: string; status: string; total: number; balanceDue: number; currency: string }>;
     lifetimeValue: number;
   } | null> {
@@ -151,14 +161,14 @@ export class ContactService {
         ? prisma.order.findMany({
             where: { businessId: contact.businessId, phone: { endsWith: phoneSuffix } },
             orderBy: { createdAt: "desc" },
-            select: { id: true, products: true, paymentMethod: true, createdAt: true },
+            select: { id: true, products: true, paymentMethod: true, total: true, currency: true, createdAt: true },
           })
         : Promise.resolve([]),
       phoneSuffix
         ? prisma.repairAppointment.findMany({
             where: { businessId: contact.businessId, phone: { endsWith: phoneSuffix } },
             orderBy: { createdAt: "desc" },
-            select: { id: true, trackingToken: true, deviceType: true, issueDescription: true, status: true, createdAt: true },
+            select: { id: true, trackingToken: true, deviceType: true, deviceModel: true, issueDescription: true, status: true, priority: true, appointmentDate: true, createdAt: true },
           })
         : Promise.resolve([]),
       prisma.invoice.findMany({

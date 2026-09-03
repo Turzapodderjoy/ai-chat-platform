@@ -86,6 +86,58 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "settings", label: "User Settings" }] },
 ];
 
+// Repair shop layout: Repairs at top, Orders→Appointments, no Delivery
+const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
+  { items: [{ id: "overview", label: "Overview" }, { id: "repairs", label: "Repairs" }] },
+  {
+    label: "Conversations",
+    items: [
+      { id: "allchats", label: "Inbox" },
+    ],
+  },
+  {
+    label: "CRM",
+    items: [
+      { id: "contacts", label: "Contacts" },
+      { id: "deals", label: "Deals" },
+    ],
+  },
+  {
+    label: "Operations",
+    items: [
+      { id: "orders", label: "Appointments" },
+      { id: "staff", label: "Staff" },
+      { id: "products", label: "Product Catalog" },
+      { id: "inventory", label: "Inventory" },
+      { id: "notifications", label: "Notifications" },
+    ],
+  },
+  {
+    label: "Revenue",
+    items: [
+      { id: "quotes", label: "Quotes" },
+      { id: "invoices", label: "Invoices" },
+    ],
+  },
+  {
+    label: "AI Brain",
+    items: [
+      { id: "brain", label: "AI Brain" },
+      { id: "parameters", label: "Parameters" },
+      { id: "arena", label: "Training Arena" },
+      { id: "review", label: "Chat Learning" },
+    ],
+  },
+  {
+    label: "Content",
+    items: [
+      { id: "knowledge", label: "Knowledge Hub" },
+      { id: "storage", label: "Storage" },
+    ],
+  },
+  { items: [{ id: "channels", label: "Integrations" }] },
+];
+
 const TAB_IDS = NAV_GROUPS.flatMap((g) => g.items.map((i) => i.id));
 
 interface Client {
@@ -108,6 +160,7 @@ export default function ClientDashboardClient() {
 
   const [tab, setTab] = useState<Tab>("overview");
   const [client, setClient] = useState<Client | null>(null);
+  const [clientType, setClientType] = useState<string>("regular");
   const [isAdmin, setIsAdmin] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
   // null = unrestricted (admin, or a client account with no restriction
@@ -234,6 +287,7 @@ export default function ClientDashboardClient() {
   // session's nav is filtered, by allowedPanels AND by any panel the
   // admin removed inline via RemovableSection. Same filter applies
   // when previewing as the client.
+  const baseGroups = clientType === "repair" ? REPAIR_NAV_GROUPS : NAV_GROUPS;
   const visibleGroups: NavGroup<Tab>[] = actsAsClient
     ? baseGroups.map((g) => ({
         ...g,
@@ -294,6 +348,7 @@ export default function ClientDashboardClient() {
       .then((data) => {
         const match = (data.clients as Client[]).find((c) => c.id === businessId);
         setClient(match ?? null);
+        setClientType(match?.type ?? "regular");
       });
   }, [businessId]);
 
@@ -309,6 +364,11 @@ export default function ClientDashboardClient() {
           <div style={{ fontSize: 14, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {client?.name ?? businessId}
           </div>
+          {clientType === "repair" && (
+            <div style={{ fontSize: 10, fontWeight: 600, color: "var(--success)", marginTop: 2 }}>
+              Repair Mode
+            </div>
+          )}
         </div>
       }
       groups={visibleGroups}
