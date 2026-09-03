@@ -136,8 +136,7 @@ export class ContactService {
   async getRecord(id: string): Promise<{
     contact: Contact;
     orders: Array<{ id: string; products: string; paymentMethod: string; createdAt: string }>;
-    repairs: Array<{ id: string; trackingToken: string; deviceType: string; status: string; createdAt: string; amountPaid: number; total: number }>;
-    quotes: Array<{ id: string; title: string; status: string; total: number; currency: string }>;
+    repairs: Array<{ id: string; trackingToken: string; deviceType: string; issueDescription: string; status: string; createdAt: string; amountPaid: number; total: number }>;
     invoices: Array<{ id: string; invoiceNumber: string; status: string; total: number; balanceDue: number; currency: string }>;
     lifetimeValue: number;
   } | null> {
@@ -147,7 +146,7 @@ export class ContactService {
 
     const phoneSuffix = contact.phone ? contact.phone.slice(-10) : null;
 
-    const [orders, repairs, quoteRows, invoiceRows] = await Promise.all([
+    const [orders, repairs, invoiceRows] = await Promise.all([
       phoneSuffix
         ? prisma.order.findMany({
             where: { businessId: contact.businessId, phone: { endsWith: phoneSuffix } },
@@ -159,14 +158,9 @@ export class ContactService {
         ? prisma.repairAppointment.findMany({
             where: { businessId: contact.businessId, phone: { endsWith: phoneSuffix } },
             orderBy: { createdAt: "desc" },
-            select: { id: true, trackingToken: true, deviceType: true, status: true, createdAt: true },
+            select: { id: true, trackingToken: true, deviceType: true, issueDescription: true, status: true, createdAt: true },
           })
         : Promise.resolve([]),
-      prisma.quote.findMany({
-        where: { contactId: id },
-        orderBy: { updatedAt: "desc" },
-        include: { items: true },
-      }),
       prisma.invoice.findMany({
         where: { contactId: id },
         orderBy: { updatedAt: "desc" },
@@ -205,13 +199,6 @@ export class ContactService {
         amountPaid: invoiceByRepairId.get(r.id)?.amountPaid ?? 0,
       })),
       lifetimeValue,
-      quotes: quoteRows.map((q) => ({
-        id: q.id,
-        title: q.title,
-        status: q.status,
-        total: total(q.items, q.discount, q.tax),
-        currency: q.currency,
-      })),
       invoices: invoiceRows.map((inv) => {
         const invTotal = total(inv.items, inv.discount, inv.tax);
         return {

@@ -19,13 +19,11 @@ interface Contact {
 interface ContactRecord {
   contact: Contact;
   orders: { id: string; products: string; paymentMethod: string; createdAt: string }[];
-  repairs: { id: string; trackingToken: string; deviceType: string; status: string; createdAt: string; amountPaid: number; total: number }[];
-  quotes: { id: string; title: string; status: string; total: number; currency: string }[];
+  repairs: { id: string; trackingToken: string; deviceType: string; issueDescription: string; status: string; createdAt: string; amountPaid: number; total: number }[];
   invoices: { id: string; invoiceNumber: string; status: string; total: number; balanceDue: number; currency: string }[];
   lifetimeValue: number;
 }
 
-const QUOTE_TONE: Record<string, BadgeTone> = { draft: "neutral", sent: "info", accepted: "ok", rejected: "error", expired: "warn" };
 const INVOICE_TONE: Record<string, BadgeTone> = { draft: "neutral", issued: "info", partially_paid: "warn", paid: "ok", overdue: "error", void: "neutral" };
 
 /** A real customer record, unifying what used to be resolved fresh per
@@ -199,16 +197,6 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                         {record && (
                           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, fontSize: 12.5 }}>
                             <div>
-                              <div style={{ fontWeight: 650, marginBottom: 6 }}>Quotes ({record.quotes.length})</div>
-                              {record.quotes.length === 0 && <span style={{ color: "var(--text-faint)" }}>None</span>}
-                              {record.quotes.map((q) => (
-                                <div key={q.id} style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
-                                  <span style={badgeStyle(QUOTE_TONE[q.status] ?? "neutral")}>{q.status}</span>
-                                  {q.title} — {q.currency}{q.total.toLocaleString()}
-                                </div>
-                              ))}
-                            </div>
-                            <div>
                               <div style={{ fontWeight: 650, marginBottom: 6 }}>Invoices ({record.invoices.length})</div>
                               {record.invoices.length === 0 && <span style={{ color: "var(--text-faint)" }}>None</span>}
                               {record.invoices.map((inv) => (
@@ -234,7 +222,8 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                               {record.repairs.map((r) => (
                                 <div key={r.id} style={{ marginBottom: 4 }}>
                                   {r.deviceType} — {r.status} <span style={{ color: "var(--text-faint)" }}>({r.trackingToken})</span>
-                                  {r.total > 0 && <span style={{ marginLeft: 6 }}>৳{r.amountPaid.toLocaleString()} paid of ৳{r.total.toLocaleString()}</span>}
+                                  {r.issueDescription && <div style={{ color: "var(--text-muted)" }}>{r.issueDescription}</div>}
+                                  {r.total > 0 && <span>৳{r.amountPaid.toLocaleString()} paid of ৳{r.total.toLocaleString()}</span>}
                                 </div>
                               ))}
                             </div>
