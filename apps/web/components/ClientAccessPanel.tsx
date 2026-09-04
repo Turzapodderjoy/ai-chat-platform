@@ -503,6 +503,7 @@ export function ClientAccessPanel() {
     setPwExpandedId(account.id);
     setPwMessage("");
     if (!(account.id in activity)) refreshActivity(account.id);
+    if (!(account.id in devices)) refreshDevices(account.id);
   }
 
   async function savePassword(account: ClientAccount) {
@@ -970,6 +971,30 @@ export function ClientAccessPanel() {
                   <button onClick={() => setPwExpandedId(null)}>Close</button>
                 </div>
                 {pwMessage && <p style={{ fontSize: 12.5, marginTop: 0, marginBottom: 10 }}>{pwMessage}</p>}
+
+                <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 6 }}>
+                  Login history (device IP)
+                </div>
+                {!devices[a.id] && <p style={{ fontSize: 12, color: "var(--text-faint)" }}>Loading…</p>}
+                {devices[a.id]?.length === 0 && (
+                  <p style={{ fontSize: 12, color: "var(--text-faint)" }}>No devices have signed in yet.</p>
+                )}
+                {devices[a.id] && devices[a.id]!.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 14 }}>
+                    {devices[a.id]!.map((d) => (
+                      <div key={d.id} style={{ fontSize: 12.5, display: "flex", justifyContent: "space-between", gap: 12, maxWidth: 480 }}>
+                        <span>
+                          <strong>{d.ip}</strong>
+                          {d.fixed && " — fixed"}
+                          {d.blocked && " — blocked"}
+                        </span>
+                        <span style={{ color: "var(--text-faint)", flexShrink: 0 }}>
+                          last seen {new Date(d.lastSeenAt).toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 6 }}>
                   Activity history

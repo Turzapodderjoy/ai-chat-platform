@@ -10,5 +10,5 @@ jobs:
     steps:
       - name: Trigger deploy webhook
         run: |
-          curl -sf -X POST https://app.ieltsclarification.com/api/webhooks/deploy \
+          curl -sf -X POST https://app.aiva-ai.net/api/webhooks/deploy \
             -H "Authorization: Bearer ${{ secrets.DEPLOY_SECRET }}"

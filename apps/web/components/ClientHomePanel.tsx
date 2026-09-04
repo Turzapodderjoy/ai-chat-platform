@@ -43,7 +43,6 @@ function quickLinks(isRepairType: boolean): QuickLink[] {
   }
   return [
     { tab: "orders", label: "Orders", hint: "Every order taken by the AI or by hand" },
-    { tab: "repairs", label: "Repairs", hint: "Device intake and status" },
     { tab: "inventory", label: "Inventory", hint: "Parts, stock, and pricing" },
     { tab: "invoices", label: "Invoices", hint: "Bill customers, record payments" },
     { tab: "contacts", label: "Customer Database", hint: "Every customer, one record" },
