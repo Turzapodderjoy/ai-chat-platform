@@ -178,6 +178,9 @@ importers:
       '@ai-chat-platform/knowledge-refresh':
         specifier: workspace:*
         version: link:../knowledge-refresh
+      '@ai-chat-platform/notifications':
+        specifier: workspace:*
+        version: link:../notifications
       '@ai-chat-platform/product-catalog':
         specifier: workspace:*
         version: link:../product-catalog
@@ -322,6 +325,9 @@ importers:
       '@ai-chat-platform/knowledge-refresh':
         specifier: workspace:*
         version: link:../knowledge-refresh
+      '@ai-chat-platform/notifications':
+        specifier: workspace:*
+        version: link:../notifications
       '@ai-chat-platform/product-catalog':
         specifier: workspace:*
         version: link:../product-catalog
@@ -641,6 +647,12 @@ importers:
       '@ai-chat-platform/types':
         specifier: workspace:^
         version: link:../types
+
+  packages/notifications:
+    dependencies:
+      '@ai-chat-platform/database':
+        specifier: workspace:*
+        version: link:../database
 
   packages/openrouter:
     dependencies:

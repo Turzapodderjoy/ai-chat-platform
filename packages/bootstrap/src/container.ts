@@ -45,13 +45,14 @@ import { ClientAuthController } from "@ai-chat-platform/api";
 import { WidgetConfigController, DashboardThemeController, ApprovalController, StatusEmailTemplateController, GmailSenderConfigController } from "@ai-chat-platform/api";
 import { ApprovalService } from "@ai-chat-platform/approvals";
 import { KnowledgeRefreshController } from "@ai-chat-platform/api";
-import { ClientHealthController, ProductController, OrderController, RepairController, EmailController, CrmController, RevenueController, ReportingController, WidgetVisibilityController } from "@ai-chat-platform/api";
+import { ClientHealthController, ProductController, OrderController, RepairController, EmailController, CrmController, RevenueController, ReportingController, WidgetVisibilityController, AdminNotificationController } from "@ai-chat-platform/api";
 import { RepairAppointmentService, StaffService } from "@ai-chat-platform/repairs";
 import { EmailSenderConfigService, ResendEmailClient, GmailSenderConfigService, GmailEmailClient, StatusEmailTemplateService, StatusEmailService } from "@ai-chat-platform/email";
 import { ContactService } from "@ai-chat-platform/crm";
 import { InvoiceService, PaymentService } from "@ai-chat-platform/revenue";
 import { ReportingService } from "@ai-chat-platform/reporting";
 import { WidgetVisibilityService } from "@ai-chat-platform/widget-visibility";
+import { AdminNotificationService } from "@ai-chat-platform/notifications";
 import { RefreshScheduleService, MasterCsvService } from "@ai-chat-platform/knowledge-refresh";
 import { ApiRouter } from "@ai-chat-platform/api";
 import { ClientAuthService } from "@ai-chat-platform/client-auth";
@@ -190,6 +191,9 @@ export class Container {
     const widgetVisibility =
       new WidgetVisibilityService();
 
+    const adminNotifications =
+      new AdminNotificationService();
+
     const chat =
       new ChatService(
         conversations,
@@ -325,6 +329,7 @@ export class Container {
         new RevenueController(invoices, payments),
         new ReportingController(reporting),
         new WidgetVisibilityController(widgetVisibility),
+        new AdminNotificationController(adminNotifications),
         new DashboardThemeController(dashboardTheme),
         new ApprovalController(approvals),
         statusEmailTemplateController,

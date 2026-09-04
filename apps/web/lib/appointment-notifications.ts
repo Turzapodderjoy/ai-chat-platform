@@ -102,6 +102,35 @@ export function checkForNewAppointments(
   return notifications;
 }
 
+// Generic per-business "dismissed ids" set, shared by admin-sent and
+// subscription-warning notifications in the bell (they have no
+// appointment-diffing logic of their own -- just show/hide by id).
+function dismissedKey(businessId: string, kind: string) {
+  return `aiva-dismissed-${kind}-${businessId}`;
+}
+
+export function isDismissedId(businessId: string, kind: string, id: string): boolean {
+  try {
+    const raw = localStorage.getItem(dismissedKey(businessId, kind));
+    const ids: string[] = raw ? JSON.parse(raw) : [];
+    return ids.includes(id);
+  } catch {
+    return false;
+  }
+}
+
+export function dismissId(businessId: string, kind: string, id: string): void {
+  try {
+    const raw = localStorage.getItem(dismissedKey(businessId, kind));
+    const ids: string[] = raw ? JSON.parse(raw) : [];
+    if (!ids.includes(id)) ids.push(id);
+    localStorage.setItem(dismissedKey(businessId, kind), JSON.stringify(ids.slice(-50)));
+  } catch {
+    // see saveNotifications
+  }
+  window.dispatchEvent(new Event(EVENT));
+}
+
 // Two-note chime via Web Audio -- no bundled asset, works everywhere.
 // ponytail: only fires while a tab with the dashboard open is active;
 // real background delivery needs a service worker + Web Push

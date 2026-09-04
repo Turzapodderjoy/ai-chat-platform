@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 
 import { KnowledgeHubPanel } from "../../components/KnowledgeHubPanel";
 import { AllChatsPanel } from "../../components/AllChatsPanel";
@@ -363,6 +363,29 @@ function ClientsPanel() {
   const [type, setType] = useState("regular");
   const [creating, setCreating] = useState(false);
 
+  const [notifyOpenId, setNotifyOpenId] = useState<string | null>(null);
+  const [notifyTitle, setNotifyTitle] = useState("");
+  const [notifyBody, setNotifyBody] = useState("");
+  const [sendingNotify, setSendingNotify] = useState(false);
+  const [notifyMessage, setNotifyMessage] = useState("");
+
+  async function sendNotification(client: Client) {
+    if (!notifyTitle.trim()) return;
+    setSendingNotify(true);
+    try {
+      await fetch("/api/admin/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId: client.id, title: notifyTitle.trim(), body: notifyBody.trim() }),
+      });
+      setNotifyMessage(`Sent to ${client.name} — shows in their notification bell now.`);
+      setNotifyTitle("");
+      setNotifyBody("");
+    } finally {
+      setSendingNotify(false);
+    }
+  }
+
   function refresh() {
     fetch("/api/admin/clients")
       .then((r) => r.json())
@@ -469,12 +492,14 @@ function ClientsPanel() {
               <th style={cellStyle}>Storage used</th>
               <th style={cellStyle}>Max agents</th>
               <th style={cellStyle}>Dashboard</th>
+              <th style={cellStyle}>Notify</th>
               <th style={cellStyle}></th>
             </tr>
           </thead>
           <tbody>
             {clients.map((c) => (
-              <tr key={c.id}>
+              <Fragment key={c.id}>
+              <tr>
                 <td style={cellStyle}>{c.name}</td>
                 <td style={cellStyle}>
                   <span style={{ textTransform: "capitalize" }}>{c.type}</span>
@@ -502,13 +527,49 @@ function ClientsPanel() {
                   <a href={`/dashboard/${c.id}?view=client`}>Client view</a>
                 </td>
                 <td style={cellStyle}>
+                  <button
+                    onClick={() => {
+                      setNotifyOpenId(notifyOpenId === c.id ? null : c.id);
+                      setNotifyMessage("");
+                    }}
+                    style={{ fontSize: 12 }}
+                  >
+                    {notifyOpenId === c.id ? "Close" : "Notify"}
+                  </button>
+                </td>
+                <td style={cellStyle}>
                   <button onClick={() => deleteClient(c)}>Delete</button>
                 </td>
               </tr>
+              {notifyOpenId === c.id && (
+                <tr>
+                  <td style={{ ...cellStyle, background: "var(--surface)" }} colSpan={8}>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      <input
+                        placeholder="Title"
+                        value={notifyTitle}
+                        onChange={(e) => setNotifyTitle(e.target.value)}
+                        style={{ padding: 8, minWidth: 200 }}
+                      />
+                      <input
+                        placeholder="Message (optional)"
+                        value={notifyBody}
+                        onChange={(e) => setNotifyBody(e.target.value)}
+                        style={{ padding: 8, flex: 1, minWidth: 240 }}
+                      />
+                      <button onClick={() => sendNotification(c)} disabled={sendingNotify || !notifyTitle.trim()} style={primaryButtonStyle}>
+                        {sendingNotify ? "Sending…" : `Send to ${c.name}`}
+                      </button>
+                    </div>
+                    {notifyMessage && <p style={{ ...subtleTextStyle, marginBottom: 0 }}>{notifyMessage}</p>}
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             ))}
             {clients.length === 0 && (
               <tr>
-                <td style={cellStyle} colSpan={7}>
+                <td style={cellStyle} colSpan={8}>
                   No clients yet — add one above.
                 </td>
               </tr>

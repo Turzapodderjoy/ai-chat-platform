@@ -1289,6 +1289,23 @@ model HiddenWidget {
   @@index([businessId])
 }
 
+// An admin-authored message pushed to one business's dashboard --
+// shows up in that client's topbar notification bell alongside
+// auto-generated ones (new appointments, subscription warnings). Read/
+// dismissed state is tracked client-side per browser (localStorage,
+// same as the appointment ones) rather than a read-receipts table --
+// this is advisory, not an audit trail.
+model AdminNotification {
+  id         String   @id @default(cuid())
+  businessId String
+  title      String
+  body       String
+
+  createdAt  DateTime @default(now())
+
+  @@index([businessId])
+}
+
 // Revenue layer (Invoice -> Payment), built on the same Contact records
 // as the rest of the CRM instead of a separate billing database. Money
 // fields are Float.

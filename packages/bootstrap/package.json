@@ -45,6 +45,7 @@
     "@ai-chat-platform/crm": "workspace:*",
     "@ai-chat-platform/revenue": "workspace:*",
     "@ai-chat-platform/reporting": "workspace:*",
-    "@ai-chat-platform/widget-visibility": "workspace:*"
+    "@ai-chat-platform/widget-visibility": "workspace:*",
+    "@ai-chat-platform/notifications": "workspace:*"
   }
 }

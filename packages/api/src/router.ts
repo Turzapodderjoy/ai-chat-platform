@@ -23,6 +23,7 @@ import { CrmController } from "./crm-controller";
 import { RevenueController } from "./revenue-controller";
 import { ReportingController } from "./reporting-controller";
 import { WidgetVisibilityController } from "./widget-visibility-controller";
+import { AdminNotificationController } from "./admin-notification-controller";
 import { DashboardThemeController } from "./dashboard-theme-controller";
 import { ApprovalController } from "./approval-controller";
 import { StatusEmailTemplateController } from "./status-email-template-controller";
@@ -55,6 +56,7 @@ export class ApiRouter {
     readonly revenue: RevenueController,
     readonly reporting: ReportingController,
     readonly widgetVisibility: WidgetVisibilityController,
+    readonly adminNotifications: AdminNotificationController,
     readonly dashboardTheme: DashboardThemeController,
     readonly approvals: ApprovalController,
     readonly statusEmailTemplates: StatusEmailTemplateController,

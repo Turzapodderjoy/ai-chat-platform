@@ -24,7 +24,6 @@ import { ClientOverviewPanel } from "../../../components/ClientOverviewPanel";
 import { ClientTagDashboardPanel } from "../../../components/ClientTagDashboardPanel";
 import { TrainingArenaPanel } from "../../../components/TrainingArenaPanel";
 import { SubscriptionStatus } from "../../../components/SubscriptionStatus";
-import { SubscriptionNotification } from "../../../components/SubscriptionNotification";
 import { DashboardShell, type NavGroup } from "../../../components/DashboardShell";
 import { RemovableSection } from "../../../components/RemovableSection";
 import { AgentConsole } from "../../../components/AgentConsole";
@@ -117,7 +116,7 @@ const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
   {
     label: "Revenue",
     items: [
-      { id: "invoices", label: "Revenue" },
+      { id: "invoices", label: "Invoices" },
     ],
   },
   {
@@ -376,7 +375,6 @@ export default function ClientDashboardClient() {
       backHref={isAdmin ? "/dashboard" : undefined}
       topbarExtra={<AppointmentNotificationBell businessId={businessId} />}
     >
-      <SubscriptionNotification />
       {previewAsClient && isAdmin && (
         <div
           style={{

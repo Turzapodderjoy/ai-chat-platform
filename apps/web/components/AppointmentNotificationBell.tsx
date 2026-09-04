@@ -9,6 +9,8 @@ import {
   checkForNewAppointments,
   onNotificationsChanged,
   playPingSound,
+  isDismissedId,
+  dismissId,
 } from "../lib/appointment-notifications";
 
 interface AppointmentSummary {
@@ -18,24 +20,43 @@ interface AppointmentSummary {
   issueDescription: string;
 }
 
-/** Topbar bell -- polls this business's repair appointments on its own
- * (independent of whichever tab is actually open, unlike the Repairs
- * panel's own refresh loop) so a new booking surfaces even while the
- * owner is looking at Inventory. See lib/appointment-notifications.ts
- * for the shared localStorage store the Repairs panel's row-highlight
- * also reads from. */
+interface AdminNotification {
+  id: string;
+  title: string;
+  body: string;
+  createdAt: string;
+}
+
+type BellItem =
+  | { kind: "appointment"; id: string; title: string; subtitle: string; detail: string }
+  | { kind: "admin"; id: string; title: string; subtitle: string; detail: string }
+  | { kind: "subscription"; id: string; title: string; subtitle: string; detail: string };
+
+/** Topbar bell -- merges three notification sources into one dropdown:
+ * new appointments (own localStorage diffing, see
+ * lib/appointment-notifications.ts), admin-sent messages
+ * (AdminNotification rows, dismiss tracked by id), and the subscription
+ * expiry warning (dismiss keyed by id so it reappears if renewed).
+ * Polls independently of whichever tab is open, same reasoning as
+ * before -- a topbar element is always mounted. */
 export function AppointmentNotificationBell({ businessId }: { businessId: string }) {
-  const [notifications, setNotifications] = useState<AppointmentNotification[]>([]);
+  const [appointmentNotifs, setAppointmentNotifs] = useState<AppointmentNotification[]>([]);
+  const [adminNotifs, setAdminNotifs] = useState<AdminNotification[]>([]);
+  const [subWarning, setSubWarning] = useState<{ id: string; daysLeft: number } | null>(null);
+  const [, forceRerender] = useState(0);
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setNotifications(loadNotifications(businessId));
-    return onNotificationsChanged(() => setNotifications(loadNotifications(businessId)));
+    setAppointmentNotifs(loadNotifications(businessId));
+    return onNotificationsChanged(() => {
+      setAppointmentNotifs(loadNotifications(businessId));
+      forceRerender((n) => n + 1);
+    });
   }, [businessId]);
 
   useEffect(() => {
-    function poll() {
+    function pollAppointments() {
       fetch(`/api/admin/repairs?businessId=${encodeURIComponent(businessId)}`)
         .then((r) => r.json())
         .then((d: { appointments: AppointmentSummary[] }) => {
@@ -44,8 +65,39 @@ export function AppointmentNotificationBell({ businessId }: { businessId: string
         })
         .catch(() => {});
     }
-    poll();
-    const interval = setInterval(poll, 15000);
+    function pollAdmin() {
+      fetch(`/api/admin/notifications?businessId=${encodeURIComponent(businessId)}`)
+        .then((r) => r.json())
+        .then((d: { notifications: AdminNotification[] }) => setAdminNotifs(d.notifications ?? []))
+        .catch(() => {});
+    }
+    function pollSubscription() {
+      fetch("/api/billing/subscription")
+        .then((r) => r.json())
+        .then((d) => {
+          const sub = d.subscription;
+          if (!sub || !sub.subscriptionActive || !sub.subscriptionEndDate) {
+            setSubWarning(null);
+            return;
+          }
+          const end = new Date(sub.subscriptionEndDate);
+          const daysLeft = Math.ceil((end.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+          if (daysLeft <= 7 && daysLeft > 0) {
+            setSubWarning({ id: sub.subscriptionEndDate, daysLeft });
+          } else {
+            setSubWarning(null);
+          }
+        })
+        .catch(() => {});
+    }
+    pollAppointments();
+    pollAdmin();
+    pollSubscription();
+    const interval = setInterval(() => {
+      pollAppointments();
+      pollAdmin();
+      pollSubscription();
+    }, 15000);
     return () => clearInterval(interval);
   }, [businessId]);
 
@@ -56,6 +108,47 @@ export function AppointmentNotificationBell({ businessId }: { businessId: string
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const items: BellItem[] = [
+    ...appointmentNotifs.map((n): BellItem => ({
+      kind: "appointment",
+      id: n.id,
+      title: `New appointment — ${n.customerName}`,
+      subtitle: new Date(n.appointmentDate).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+      detail: n.issueDescription,
+    })),
+    ...adminNotifs
+      .filter((n) => !isDismissedId(businessId, "admin", n.id))
+      .map((n): BellItem => ({
+        kind: "admin",
+        id: n.id,
+        title: n.title,
+        subtitle: new Date(n.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+        detail: n.body,
+      })),
+    ...(subWarning && !isDismissedId(businessId, "subscription", subWarning.id)
+      ? [{
+          kind: "subscription" as const,
+          id: subWarning.id,
+          title: "Subscription expiring",
+          subtitle: `${subWarning.daysLeft} day${subWarning.daysLeft > 1 ? "s" : ""} left`,
+          detail: "Please contact support to renew.",
+        }]
+      : []),
+  ];
+
+  function dismiss(item: BellItem) {
+    if (item.kind === "appointment") dismissNotification(businessId, item.id);
+    else dismissId(businessId, item.kind, item.id);
+    forceRerender((n) => n + 1);
+  }
+
+  function clearAll() {
+    clearAllNotifications(businessId);
+    adminNotifs.forEach((n) => dismissId(businessId, "admin", n.id));
+    if (subWarning) dismissId(businessId, "subscription", subWarning.id);
+    forceRerender((n) => n + 1);
+  }
 
   return (
     <div ref={boxRef} style={{ position: "relative" }}>
@@ -81,7 +174,7 @@ export function AppointmentNotificationBell({ businessId }: { businessId: string
           <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
           <path d="M13.73 21a2 2 0 0 1-3.46 0" />
         </svg>
-        {notifications.length > 0 && (
+        {items.length > 0 && (
           <span
             style={{
               position: "absolute",
@@ -100,7 +193,7 @@ export function AppointmentNotificationBell({ businessId }: { businessId: string
               justifyContent: "center",
             }}
           >
-            {notifications.length}
+            {items.length}
           </span>
         )}
       </button>
@@ -124,9 +217,9 @@ export function AppointmentNotificationBell({ businessId }: { businessId: string
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, padding: "0 4px" }}>
             <strong style={{ fontSize: 13 }}>Notifications</strong>
-            {notifications.length > 0 && (
+            {items.length > 0 && (
               <button
-                onClick={() => clearAllNotifications(businessId)}
+                onClick={clearAll}
                 className="plain"
                 style={{ fontSize: 11.5, color: "var(--text-faint)", cursor: "pointer" }}
               >
@@ -135,24 +228,24 @@ export function AppointmentNotificationBell({ businessId }: { businessId: string
             )}
           </div>
 
-          {notifications.length === 0 && (
-            <p style={{ fontSize: 12.5, color: "var(--text-faint)", padding: "8px 4px" }}>No new appointments.</p>
+          {items.length === 0 && (
+            <p style={{ fontSize: 12.5, color: "var(--text-faint)", padding: "8px 4px" }}>No notifications.</p>
           )}
 
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {notifications.map((n) => (
+            {items.map((item) => (
               <div
-                key={n.id}
+                key={`${item.kind}-${item.id}`}
                 style={{
                   position: "relative",
                   padding: "8px 28px 8px 10px",
                   background: "var(--bg)",
-                  border: "1px solid var(--border)",
+                  border: item.kind === "subscription" ? "1px solid var(--warning)" : "1px solid var(--border)",
                   borderRadius: "var(--radius-sm, 8px)",
                 }}
               >
                 <button
-                  onClick={() => dismissNotification(businessId, n.id)}
+                  onClick={() => dismiss(item)}
                   className="plain"
                   aria-label="Dismiss"
                   style={{
@@ -171,12 +264,10 @@ export function AppointmentNotificationBell({ businessId }: { businessId: string
                 >
                   ✕
                 </button>
-                <div style={{ fontSize: 12.5, fontWeight: 650 }}>New appointment — {n.customerName}</div>
-                <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>
-                  {new Date(n.appointmentDate).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                </div>
-                {n.issueDescription && (
-                  <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginTop: 2 }}>{n.issueDescription}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 650 }}>{item.title}</div>
+                <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>{item.subtitle}</div>
+                {item.detail && (
+                  <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginTop: 2 }}>{item.detail}</div>
                 )}
               </div>
             ))}
