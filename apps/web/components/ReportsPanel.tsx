@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { cardStyle, subtleTextStyle, badgeStyle, type BadgeTone } from "./dashboard-styles";
 import { StatCard, StatCardRow } from "./StatCard";
 import { RemovableSection } from "./RemovableSection";
+import { useCurrencySymbol } from "../lib/currency";
 
 interface OverviewReport {
   summary: {
@@ -82,8 +83,8 @@ function pct(n: number | null): string {
   return n == null ? "—" : `${Math.round(n * 100)}%`;
 }
 
-function money(n: number): string {
-  return `$${Math.round(n).toLocaleString()}`;
+function moneyWith(currency: string) {
+  return (n: number): string => `${currency}${Math.round(n).toLocaleString()}`;
 }
 
 function BreakdownBar({ label, count, total, tone }: { label: string; count: number; total: number; tone: BadgeTone }) {
@@ -132,6 +133,7 @@ export function ReportsPanel({
   const [range, setRange] = useState<RangeId>("today");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
+  const money = moneyWith(useCurrencySymbol(businessId ?? ""));
   const isHidden = (id: string) => hiddenWidgets.includes(id);
   const toggle = (id: string, hide: boolean) => onToggleWidget?.(id, hide);
 

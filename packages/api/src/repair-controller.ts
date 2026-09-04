@@ -276,6 +276,10 @@ export class RepairController {
     return this.repairs.removeItem(itemId);
   }
 
+  setOrderTotalOverride(repairAppointmentId: string, totalOverride: number) {
+    return this.repairs.setTotalOverride(repairAppointmentId, totalOverride);
+  }
+
   async generateInvoice(repairAppointmentId: string) {
     const appointment = await this.repairs.findById(repairAppointmentId);
     if (!appointment) {

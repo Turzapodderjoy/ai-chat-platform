@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { cardStyle, subtleTextStyle, shortId, badgeStyle, primaryButtonStyle, type BadgeTone } from "./dashboard-styles";
 import { StatCard, StatCardRow } from "./StatCard";
+import { currencySymbol, useCurrencySymbol } from "../lib/currency";
 
 interface Invoice {
   id: string;
@@ -41,7 +42,6 @@ interface DraftItem {
   unitPrice: string;
 }
 
-const STATUSES = ["draft", "issued", "partially_paid", "paid", "overdue", "void"] as const;
 const STATUS_TONE: Record<string, BadgeTone> = { draft: "neutral", issued: "info", partially_paid: "warn", paid: "ok", overdue: "error", void: "neutral" };
 const EMPTY_ITEM: DraftItem = { name: "", quantity: "1", unitPrice: "" };
 
@@ -53,6 +53,7 @@ const EMPTY_ITEM: DraftItem = { name: "", quantity: "1", unitPrice: "" };
  * status server-side in PaymentService.reconcileInvoice, so this list
  * is always the source of truth for what's actually still owed. */
 export function InvoicesPanel({ businessId, active = true }: { businessId?: string; active?: boolean }) {
+  const currency = useCurrencySymbol(businessId ?? "");
   const [invoices, setInvoices] = useState<Invoice[] | null>(null);
   const [contacts, setContacts] = useState<Contact[] | null>(null);
   const [repairs, setRepairs] = useState<RepairSummary[]>([]);
@@ -155,33 +156,17 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
     }
   }
 
-  async function setStatus(inv: Invoice, status: string) {
-    setBusyId(inv.id);
-    try {
-      await fetch("/api/admin/revenue/invoices", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: inv.id, status }),
-      });
-      refresh();
-    } finally {
-      setBusyId(null);
-    }
-  }
-
   async function recordPayment(inv: Invoice) {
-    const amountStr = window.prompt(`Amount received for ${inv.invoiceNumber} (balance due: ${inv.currency}${inv.balanceDue.toLocaleString()})`, String(inv.balanceDue));
+    const amountStr = window.prompt(`Amount collected for ${inv.invoiceNumber} — this becomes the invoice's total and marks it fully paid`, String(inv.total));
     if (!amountStr) return;
     const amount = Number(amountStr);
     if (!amount || amount <= 0) return;
-    const method = window.prompt("Payment method (e.g. bKash, Nagad, bank transfer, cash)", "bank transfer");
-    if (!method || !method.trim()) return;
     setBusyId(inv.id);
     try {
       await fetch("/api/admin/revenue/payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId: inv.businessId, invoiceId: inv.id, amount, method: method.trim() }),
+        body: JSON.stringify({ businessId: inv.businessId, invoiceId: inv.id, amount }),
       });
       refresh();
     } finally {
@@ -256,8 +241,8 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
       {stats && (
         <StatCardRow>
           <StatCard label="Invoices" value={String(stats.count)} tone="info" />
-          <StatCard label="Collected" value={`$${stats.collected.toLocaleString()}`} tone="success" />
-          <StatCard label="Outstanding" value={`$${stats.outstanding.toLocaleString()}`} tone={stats.outstanding > 0 ? "warning" : "success"} />
+          <StatCard label="Collected" value={`${currency}${stats.collected.toLocaleString()}`} tone="success" />
+          <StatCard label="Outstanding" value={`${currency}${stats.outstanding.toLocaleString()}`} tone={stats.outstanding > 0 ? "warning" : "success"} />
         </StatCardRow>
       )}
 
@@ -302,17 +287,14 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
                       </>
                     ) : "—"}
                   </td>
-                  <td style={{ padding: "6px 8px" }}>{inv.currency}{inv.total.toLocaleString()}</td>
-                  <td style={{ padding: "6px 8px" }}>{inv.currency}{inv.amountPaid.toLocaleString()}</td>
-                  <td style={{ padding: "6px 8px", color: inv.balanceDue > 0 ? "var(--danger)" : "var(--success)" }}>{inv.currency}{inv.balanceDue.toLocaleString()}</td>
+                  <td style={{ padding: "6px 8px" }}>{currencySymbol(inv.currency)}{inv.total.toLocaleString()}</td>
+                  <td style={{ padding: "6px 8px" }}>{currencySymbol(inv.currency)}{inv.amountPaid.toLocaleString()}</td>
+                  <td style={{ padding: "6px 8px", color: inv.balanceDue > 0 ? "var(--danger)" : "var(--success)" }}>{currencySymbol(inv.currency)}{inv.balanceDue.toLocaleString()}</td>
                   <td style={{ padding: "6px 8px" }}>
-                    <select value={inv.status} onChange={(e) => setStatus(inv, e.target.value)} disabled={busyId === inv.id} style={{ padding: 4, fontSize: 11 }}>
-                      {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                    <span style={{ marginLeft: 6, ...badgeStyle(STATUS_TONE[inv.status] ?? "neutral") }}>{inv.status}</span>
+                    <span style={badgeStyle(STATUS_TONE[inv.status] ?? "neutral")}>{inv.status}</span>
                   </td>
                   <td style={{ padding: "6px 8px", display: "flex", gap: 6 }}>
-                    <button onClick={() => recordPayment(inv)} disabled={busyId === inv.id || inv.balanceDue <= 0} style={{ fontSize: 11, padding: "4px 8px" }}>Record Payment</button>
+                    <button onClick={() => recordPayment(inv)} disabled={busyId === inv.id} style={{ fontSize: 11, padding: "4px 8px" }}>Paid</button>
                     <button onClick={() => deleteInvoice(inv)} style={{ fontSize: 11, padding: "4px 6px" }}>✕</button>
                   </td>
                 </tr>

@@ -30,6 +30,7 @@ export interface Invoice {
   discount: number;
   tax: number;
   amountPaid: number;
+  totalOverride: number | null;
   issueDate: string;
   dueDate: string | null;
   items: InvoiceItem[];
@@ -62,6 +63,7 @@ type InvoiceRow = {
   discount: number;
   tax: number;
   amountPaid: number;
+  totalOverride: number | null;
   issueDate: Date;
   dueDate: Date | null;
   items: { id: string; name: string; quantity: number; unitPrice: number }[];
@@ -71,7 +73,8 @@ type InvoiceRow = {
 };
 
 function toInvoice(row: InvoiceRow): Invoice {
-  const { subtotal, total } = calcTotals(row.items, row.discount, row.tax);
+  const { subtotal, total: computedTotal } = calcTotals(row.items, row.discount, row.tax);
+  const total = row.totalOverride ?? computedTotal;
   return {
     id: row.id,
     businessId: row.businessId,
@@ -83,6 +86,7 @@ function toInvoice(row: InvoiceRow): Invoice {
     discount: row.discount,
     tax: row.tax,
     amountPaid: row.amountPaid,
+    totalOverride: row.totalOverride,
     issueDate: row.issueDate.toISOString(),
     dueDate: row.dueDate?.toISOString() ?? null,
     items: row.items,
@@ -105,6 +109,7 @@ export class InvoiceService {
 
   async create(input: CreateInvoiceInput): Promise<Invoice> {
     const invoiceNumber = await this.nextInvoiceNumber(input.businessId);
+    const business = await prisma.business.findUnique({ where: { id: input.businessId }, select: { subscriptionCurrency: true } });
     const row = await prisma.invoice.create({
       data: {
         businessId: input.businessId,
@@ -112,6 +117,7 @@ export class InvoiceService {
         repairAppointmentId: input.repairAppointmentId,
         invoiceNumber,
         status: "issued",
+        currency: business?.subscriptionCurrency ?? "BDT",
         discount: input.discount ?? 0,
         tax: input.tax ?? 0,
         dueDate: input.dueDate ? new Date(input.dueDate) : undefined,

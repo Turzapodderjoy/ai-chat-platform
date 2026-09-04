@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 
 import { cardStyle, cellStyle, subtleTextStyle, shortId, primaryButtonStyle, badgeStyle } from "./dashboard-styles";
+import { useCurrencySymbol } from "../lib/currency";
 import { MessageTagControl } from "./MessageTagControl";
 import { OrderItemsEditor, orderTotal, type RepairOrder, type Product } from "./OrderManagementPanel";
 
@@ -43,6 +44,7 @@ type Row =
  * RepairAppointment) under the hood, but they belong in one place from
  * a staff member's point of view — "all our orders". */
 export function OrdersPanel({ businessId, businessType }: { businessId: string; businessType?: string }) {
+  const currency = useCurrencySymbol(businessId);
   const [aiOrders, setAiOrders] = useState<AiOrder[] | null>(null);
   const [serviceOrders, setServiceOrders] = useState<RepairOrder[] | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -265,7 +267,7 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
                     <td style={cellStyle}>{r.phone}</td>
                     <td style={cellStyle}>{r.detail}</td>
                     <td style={cellStyle}>{r.status}</td>
-                    <td style={cellStyle}>{r.total !== null ? `$${r.total}` : "—"}</td>
+                    <td style={cellStyle}>{r.total !== null ? `${currency}${r.total}` : "—"}</td>
                     <td style={cellStyle}>
                       {r.kind === "ai" ? (
                         <MessageTagControl

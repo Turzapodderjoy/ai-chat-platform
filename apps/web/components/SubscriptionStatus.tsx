@@ -59,7 +59,7 @@ export function SubscriptionStatus({ businessId }: { businessId: string }) {
   const feeText = hasFee
     ? subscription.subscriptionFee === 0
       ? "Free"
-      : `${currencySymbol(subscription.subscriptionCurrency)}${subscription.subscriptionFee!.toLocaleString()}/mo`
+      : `${currencySymbol(subscription.subscriptionCurrency)}${subscription.subscriptionFee!.toLocaleString()}/30 days`
     : null;
 
   const hasAnyDetail = subscription.subscriptionPlanName || hasFee || subscription.subscriptionStartDate || subscription.subscriptionEndDate;

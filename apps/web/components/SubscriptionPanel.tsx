@@ -228,7 +228,7 @@ export function SubscriptionPanel() {
               ) : (
                 <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>
                   {client.subscriptionPlanName && <span>Plan: <strong>{client.subscriptionPlanName}</strong></span>}
-                  {client.subscriptionFee && <span style={{ marginLeft: 12 }}>Fee: {currencySymbol(client.subscriptionCurrency)}{client.subscriptionFee.toLocaleString()}/mo</span>}
+                  {client.subscriptionFee && <span style={{ marginLeft: 12 }}>Fee: {currencySymbol(client.subscriptionCurrency)}{client.subscriptionFee.toLocaleString()}/30 days</span>}
                   {client.subscriptionStartDate && client.subscriptionEndDate && (
                     <span style={{ marginLeft: 12 }}>
                       {new Date(client.subscriptionStartDate).toLocaleDateString()} — {new Date(client.subscriptionEndDate).toLocaleDateString()}

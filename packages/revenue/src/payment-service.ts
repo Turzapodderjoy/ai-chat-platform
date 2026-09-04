@@ -66,10 +66,29 @@ export class PaymentService {
     return toPayment(row);
   }
 
+  /** The Invoices panel's single "Paid" action -- the amount typed
+   * becomes the invoice's real total (same override-wins rule as
+   * RepairOrderItem.overridePrice), replaces any prior payment rows
+   * instead of adding another on top of them (that additive behavior
+   * was the actual bug: a second payment on an already-partially-paid
+   * invoice summed with the first, overshooting the total), and marks
+   * it fully collected -- no separate payment-method prompt, this is a
+   * simple "mark as paid at this amount" action, not itemized payment
+   * history. */
+  async setFinalAmount(invoiceId: string, businessId: string, amount: number): Promise<{ repairAppointmentId: string | null }> {
+    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { repairAppointmentId: true } });
+    await prisma.payment.deleteMany({ where: { invoiceId } });
+    await prisma.invoice.update({ where: { id: invoiceId }, data: { totalOverride: amount } });
+    await prisma.payment.create({ data: { businessId, invoiceId, amount, method: "manual" } });
+    await this.reconcileInvoice(invoiceId);
+    return { repairAppointmentId: invoice?.repairAppointmentId ?? null };
+  }
+
   private async reconcileInvoice(invoiceId: string): Promise<void> {
     const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId }, include: { items: true, payments: true } });
     if (!invoice) return;
-    const { total } = calcTotals(invoice.items, invoice.discount, invoice.tax);
+    const { total: computedTotal } = calcTotals(invoice.items, invoice.discount, invoice.tax);
+    const total = invoice.totalOverride ?? computedTotal;
     const amountPaid = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
     const status = amountPaid >= total && total > 0 ? "paid" : amountPaid > 0 ? "partially_paid" : invoice.status === "paid" || invoice.status === "partially_paid" ? "issued" : invoice.status;
     await prisma.invoice.update({ where: { id: invoiceId }, data: { amountPaid, status } });

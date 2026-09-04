@@ -112,7 +112,7 @@ const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
   {
     label: "Operations",
     items: [
-      { id: "orders", label: "Appointments" },
+      { id: "orders", label: "Orders" },
       { id: "offers", label: "Offers" },
       { id: "staff", label: "Staff" },
       { id: "inventory", label: "Inventory" },
