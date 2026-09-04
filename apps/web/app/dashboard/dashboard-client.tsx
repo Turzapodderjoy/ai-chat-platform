@@ -19,13 +19,14 @@ import { SubscriptionPanel } from "../../components/SubscriptionPanel";
 import { StatusBadge } from "../../components/StatusBadge";
 import { DashboardShell, type NavGroup } from "../../components/DashboardShell";
 import { cardStyle, cellStyle, formatBytes, subtleTextStyle, primaryButtonStyle, inputStyle } from "../../components/dashboard-styles";
+import { StatCard, StatCardRow } from "../../components/StatCard";
 
 // PLATFORM_CONFIG_ID as used by @ai-chat-platform/ai-config — kept as a
 // plain literal here rather than importing a backend package into this
 // client component just for one string constant.
 const PLATFORM_CONFIG_ID = "__platform__";
 
-type Tab = "overview" | "health" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "access" | "knowledge" | "allchats" | "database" | "tags" | "contacts" | "invoices" | "subscription";
+type Tab = "overview" | "health" | "vpsHealth" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "access" | "knowledge" | "allchats" | "database" | "tags" | "contacts" | "invoices" | "subscription";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }, { id: "health", label: "Client Health" }] },
@@ -75,6 +76,7 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
       { id: "channels", label: "Integrations" },
       { id: "usage", label: "Usage" },
       { id: "database", label: "Database" },
+      { id: "vpsHealth", label: "VPS Health" },
     ],
   },
 ];
@@ -352,6 +354,9 @@ export default function DashboardClient() {
       </div>
       <div style={{ display: tab === "database" ? "block" : "none" }}>
         <DatabasePanel />
+      </div>
+      <div style={{ display: tab === "vpsHealth" ? "block" : "none" }}>
+        <VpsHealthPanel active={tab === "vpsHealth"} />
       </div>
     </DashboardShell>
   );
@@ -1459,6 +1464,90 @@ function DatabasePanel() {
           <li>Host: {status.host ?? "not set"}</li>
           {status.error && <li>Error: {status.error}</li>}
         </ul>
+      )}
+    </section>
+  );
+}
+
+interface SystemStats {
+  cpuCount: number;
+  loadAvg1: number;
+  loadAvg5: number;
+  loadAvg15: number;
+  totalMem: number;
+  freeMem: number;
+  usedMem: number;
+  disk: { total: number; free: number; used: number } | null;
+  uptimeSeconds: number;
+}
+
+function formatBytesGb(n: number): string {
+  return `${(n / 1024 ** 3).toFixed(1)} GB`;
+}
+
+function formatUptime(seconds: number): string {
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  return days > 0 ? `${days}d ${hours}h` : `${hours}h`;
+}
+
+/** Raw OS stats for whichever machine this Next.js process runs on --
+ * meaningless when viewed from a local dev server, only useful against
+ * the real VPS. Polls every 60s per the "live, updates every minute"
+ * ask -- these numbers don't need to be any fresher than that. */
+function VpsHealthPanel({ active }: { active: boolean }) {
+  const [stats, setStats] = useState<SystemStats | null>(null);
+
+  useEffect(() => {
+    if (!active) return;
+    function poll() {
+      fetch("/api/admin/system-health")
+        .then((r) => r.json())
+        .then(setStats)
+        .catch(() => {});
+    }
+    poll();
+    const interval = setInterval(poll, 60000);
+    return () => clearInterval(interval);
+  }, [active]);
+
+  const memPct = stats ? Math.round((stats.usedMem / stats.totalMem) * 100) : null;
+  const diskPct = stats?.disk ? Math.round((stats.disk.used / stats.disk.total) * 100) : null;
+  const loadPct = stats ? Math.round((stats.loadAvg1 / stats.cpuCount) * 100) : null;
+
+  return (
+    <section style={cardStyle}>
+      <h2 style={{ marginTop: 0 }}>VPS Health</h2>
+      <p style={subtleTextStyle}>
+        Live CPU, memory, and storage for the production server, refreshed every minute.
+      </p>
+
+      {!stats && <p>Loading…</p>}
+
+      {stats && (
+        <>
+          <StatCardRow>
+            <StatCard
+              label={`CPU load (${stats.cpuCount} cores)`}
+              value={`${loadPct}%`}
+              tone={loadPct! > 85 ? "warning" : "info"}
+            />
+            <StatCard
+              label="Memory used"
+              value={`${formatBytesGb(stats.usedMem)} / ${formatBytesGb(stats.totalMem)}`}
+              tone={memPct! > 85 ? "warning" : "success"}
+            />
+            <StatCard
+              label="Disk used"
+              value={stats.disk ? `${formatBytesGb(stats.disk.used)} / ${formatBytesGb(stats.disk.total)}` : "—"}
+              tone={diskPct != null && diskPct > 85 ? "warning" : "success"}
+            />
+          </StatCardRow>
+          <p style={{ ...subtleTextStyle, marginTop: 14 }}>
+            Load average (1/5/15 min): {stats.loadAvg1.toFixed(2)} / {stats.loadAvg5.toFixed(2)} / {stats.loadAvg15.toFixed(2)}
+            {" · "}Uptime: {formatUptime(stats.uptimeSeconds)}
+          </p>
+        </>
       )}
     </section>
   );
