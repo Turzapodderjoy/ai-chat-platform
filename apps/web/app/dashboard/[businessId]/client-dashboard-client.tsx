@@ -44,7 +44,7 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
   {
     label: "CRM",
     items: [
-      { id: "contacts", label: "Contacts" },
+      { id: "contacts", label: "Customer Database" },
     ],
   },
   {
@@ -101,7 +101,7 @@ const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
   {
     label: "CRM",
     items: [
-      { id: "contacts", label: "Contacts" },
+      { id: "contacts", label: "Customer Database" },
     ],
   },
   {
@@ -397,7 +397,7 @@ export default function ClientDashboardClient() {
         </div>
       )}
       {([
-        ["home", <ClientHomePanel key="home" clientName={client?.name ?? businessId} username={username} onNavigate={(t) => selectTab(t as Tab)} />],
+        ["home", <ClientHomePanel key="home" businessId={businessId} clientName={client?.name ?? businessId} username={username} onNavigate={(t) => selectTab(t as Tab)} />],
         ["overview", (
           <div key="overview">
             <SubscriptionStatus />

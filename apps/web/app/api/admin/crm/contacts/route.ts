@@ -23,6 +23,21 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ contacts });
 }
 
+export async function POST(req: NextRequest) {
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body.businessId !== "string" || typeof body.name !== "string" || !body.name.trim()) {
+    return NextResponse.json({ error: "businessId and name are required" }, { status: 400 });
+  }
+  const app = await getApp();
+  const contact = await app.container.router.crm.upsertContact({
+    businessId: body.businessId,
+    name: body.name.trim(),
+    phone: body.phone || undefined,
+    email: body.email || undefined,
+  });
+  return NextResponse.json(contact);
+}
+
 export async function PATCH(req: NextRequest) {
   const body = await req.json().catch(() => null);
   if (!body || typeof body.id !== "string") {

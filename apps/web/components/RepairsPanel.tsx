@@ -122,6 +122,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
   const [calendarDay, setCalendarDay] = useState<string | null>(null);
   const [monthOffset, setMonthOffset] = useState(0);
   const [search, setSearch] = useState("");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [orderOpen, setOrderOpen] = useState(false);
   const [products, setProducts] = useState<{ id: string; name: string; price: string | null; stock: string | null }[]>([]);
 
@@ -341,9 +342,13 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
       cells.push({ day: d, key, count: counts.get(key) ?? 0 });
     }
 
+    const today = new Date();
+    const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
     return {
       label: base.toLocaleDateString(undefined, { month: "long", year: "numeric" }),
       cells,
+      todayKey,
     };
   }, [appointments, monthOffset]);
 
@@ -359,8 +364,12 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
         )
       );
     }
+    list = [...list].sort((a, b) => {
+      const diff = new Date(a.appointmentDate).getTime() - new Date(b.appointmentDate).getTime();
+      return sortOrder === "newest" ? -diff : diff;
+    });
     return list;
-  }, [appointments, calendarDay, search]);
+  }, [appointments, calendarDay, search, sortOrder]);
 
   return (
     <section style={{ ...cardStyle, position: "relative" }}>
@@ -450,8 +459,9 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
                   borderRadius: 6,
                   cursor: c.day ? "pointer" : "default",
                   background: c.key === calendarDay ? "var(--accent-soft)" : "transparent",
-                  border: c.count > 0 ? "1px solid var(--border)" : "1px solid transparent",
+                  border: c.key === calendarMonth.todayKey ? "1px solid var(--accent)" : c.count > 0 ? "1px solid var(--border)" : "1px solid transparent",
                   color: c.day ? "var(--text)" : "transparent",
+                  fontWeight: c.key === calendarMonth.todayKey ? 700 : 400,
                 }}
               >
                 <span>{c.day ?? ""}</span>
@@ -467,12 +477,18 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
         </div>
 
         <div style={{ flex: 1, minWidth: 280 }}>
-          <input
-            style={{ padding: 8, width: "100%", marginBottom: 8 }}
-            placeholder="Search by name, phone, device, order ID…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+            <input
+              style={{ padding: 8, flex: 1 }}
+              placeholder="Search by name, phone, device, order ID…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")} style={{ padding: 8 }}>
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+          </div>
           <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", maxHeight: 300, overflowY: "auto" }}>
           {!appointments && <p style={{ padding: 10, ...subtleTextStyle }}>Loading…</p>}
           {appointments && visibleAppointments.length === 0 && <p style={{ padding: 10, ...subtleTextStyle }}>No appointments match.</p>}

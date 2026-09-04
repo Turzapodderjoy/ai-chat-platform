@@ -60,6 +60,9 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
 
   const [showAdd, setShowAdd] = useState(false);
   const [draftContactId, setDraftContactId] = useState("");
+  const [draftNewName, setDraftNewName] = useState("");
+  const [draftNewPhone, setDraftNewPhone] = useState("");
+  const [draftNewEmail, setDraftNewEmail] = useState("");
   const [draftItems, setDraftItems] = useState<DraftItem[]>([{ ...EMPTY_ITEM }]);
   const [draftDiscount, setDraftDiscount] = useState("");
   const [draftTax, setDraftTax] = useState("");
@@ -102,6 +105,9 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
 
   function resetDraft() {
     setDraftContactId("");
+    setDraftNewName("");
+    setDraftNewPhone("");
+    setDraftNewEmail("");
     setDraftItems([{ ...EMPTY_ITEM }]);
     setDraftDiscount("");
     setDraftTax("");
@@ -114,12 +120,27 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
     if (!businessId || validDraftItems.length === 0) return;
     setSaving(true);
     try {
+      // Typing a new customer's name always wins over the existing-
+      // customer dropdown -- billing here was never meant to be limited
+      // to people already in the Customer Database, so this creates
+      // (or matches, by phone/email) a real Contact on the fly.
+      let contactId = draftContactId || undefined;
+      if (draftNewName.trim()) {
+        const res = await fetch("/api/admin/crm/contacts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ businessId, name: draftNewName.trim(), phone: draftNewPhone || undefined, email: draftNewEmail || undefined }),
+        });
+        const contact = await res.json();
+        contactId = contact.id;
+      }
+
       await fetch("/api/admin/revenue/invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           businessId,
-          contactId: draftContactId || undefined,
+          contactId,
           items: validDraftItems.map((i) => ({ name: i.name.trim(), quantity: Number(i.quantity) || 1, unitPrice: Number(i.unitPrice) || 0 })),
           discount: draftDiscount ? Number(draftDiscount) : undefined,
           tax: draftTax ? Number(draftTax) : undefined,
@@ -190,13 +211,19 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
 
       {showAdd && (
         <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 14, marginBottom: 16 }}>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-            <select value={draftContactId} onChange={(e) => setDraftContactId(e.target.value)} style={{ padding: 8, minWidth: 200 }}>
-              <option value="">No contact</option>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+            <select value={draftContactId} onChange={(e) => setDraftContactId(e.target.value)} disabled={!!draftNewName.trim()} style={{ padding: 8, minWidth: 200 }}>
+              <option value="">Existing customer…</option>
               {(contacts ?? []).map((c) => (
                 <option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ""}</option>
               ))}
             </select>
+            <span style={{ color: "var(--text-faint)", fontSize: 12 }}>or</span>
+            <input placeholder="New customer name" value={draftNewName} onChange={(e) => setDraftNewName(e.target.value)} style={{ padding: 8, minWidth: 150 }} />
+            <input placeholder="Phone (optional)" value={draftNewPhone} onChange={(e) => setDraftNewPhone(e.target.value)} style={{ padding: 8, width: 130 }} />
+            <input placeholder="Email (optional)" value={draftNewEmail} onChange={(e) => setDraftNewEmail(e.target.value)} style={{ padding: 8, width: 150 }} />
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
             <input placeholder="Discount" type="number" value={draftDiscount} onChange={(e) => setDraftDiscount(e.target.value)} style={{ padding: 8, width: 100 }} />
             <input placeholder="Tax" type="number" value={draftTax} onChange={(e) => setDraftTax(e.target.value)} style={{ padding: 8, width: 100 }} />
             <input placeholder="Due date" type="date" value={draftDueDate} onChange={(e) => setDraftDueDate(e.target.value)} style={{ padding: 8 }} />

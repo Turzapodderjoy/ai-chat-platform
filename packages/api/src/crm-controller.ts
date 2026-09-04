@@ -1,10 +1,14 @@
-import { ContactService } from "@ai-chat-platform/crm";
+import { ContactService, type UpsertContactInput } from "@ai-chat-platform/crm";
 
 export class CrmController {
   constructor(private readonly contacts: ContactService) {}
 
   listContacts(businessId?: string) {
     return this.contacts.listForBusiness(businessId);
+  }
+
+  upsertContact(input: UpsertContactInput) {
+    return this.contacts.upsert(input);
   }
 
   setContactCompany(id: string, companyName: string | null, companyDomain: string | null) {

@@ -14,7 +14,6 @@ import { OverviewPanel } from "../../components/OverviewPanel";
 import { ClientHealthPanel } from "../../components/ClientHealthPanel";
 import { ContactsPanel } from "../../components/ContactsPanel";
 import { InvoicesPanel } from "../../components/InvoicesPanel";
-import { ReportsPanel } from "../../components/ReportsPanel";
 import { TrainingArenaPanel } from "../../components/TrainingArenaPanel";
 import { SubscriptionPanel } from "../../components/SubscriptionPanel";
 import { StatusBadge } from "../../components/StatusBadge";
@@ -26,14 +25,14 @@ import { cardStyle, cellStyle, formatBytes, subtleTextStyle, primaryButtonStyle,
 // client component just for one string constant.
 const PLATFORM_CONFIG_ID = "__platform__";
 
-type Tab = "overview" | "health" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "access" | "knowledge" | "allchats" | "database" | "tags" | "contacts" | "invoices" | "reports" | "subscription";
+type Tab = "overview" | "health" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "access" | "knowledge" | "allchats" | "database" | "tags" | "contacts" | "invoices" | "subscription";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
-  { items: [{ id: "overview", label: "Overview" }, { id: "health", label: "Client Health" }, { id: "reports", label: "Reports" }] },
+  { items: [{ id: "overview", label: "Overview" }, { id: "health", label: "Client Health" }] },
   {
     label: "CRM",
     items: [
-      { id: "contacts", label: "Contacts" },
+      { id: "contacts", label: "Customer Database" },
     ],
   },
   {
@@ -346,9 +345,6 @@ export default function DashboardClient() {
       </div>
       <div style={{ display: tab === "invoices" ? "block" : "none" }}>
         <InvoicesPanel active={tab === "invoices"} />
-      </div>
-      <div style={{ display: tab === "reports" ? "block" : "none" }}>
-        <ReportsPanel active={tab === "reports"} />
       </div>
       <div style={{ display: tab === "tags" ? "block" : "none" }}>
         <TagsPanel />

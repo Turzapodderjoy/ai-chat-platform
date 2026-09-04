@@ -118,7 +118,7 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
 
   return (
     <section style={cardStyle}>
-      <h2 style={{ marginTop: 0 }}>Contacts</h2>
+      <h2 style={{ marginTop: 0 }}>Customer Database</h2>
       <p style={subtleTextStyle}>
         Every customer who has ordered, booked a repair, or messaged in — merged into one record per
         person (matched by phone or email) instead of scattered across separate chats. Click a row to

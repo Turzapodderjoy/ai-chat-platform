@@ -69,7 +69,7 @@ const ALL_PANELS: { id: string; label: string }[] = [
   { id: "arena", label: "Training Arena" },
   { id: "review", label: "Chat Learning" },
   { id: "channels", label: "Integrations" },
-  { id: "contacts", label: "Contacts" },
+  { id: "contacts", label: "Customer Database" },
   { id: "invoices", label: "Invoices" },
   { id: "reports", label: "Reports" },
 ];
