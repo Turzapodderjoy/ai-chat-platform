@@ -1493,8 +1493,8 @@ function formatUptime(seconds: number): string {
 
 /** Raw OS stats for whichever machine this Next.js process runs on --
  * meaningless when viewed from a local dev server, only useful against
- * the real VPS. Polls every 60s per the "live, updates every minute"
- * ask -- these numbers don't need to be any fresher than that. */
+ * the real VPS. Polls every 2 minutes -- these numbers don't need to
+ * be any fresher than that. */
 function VpsHealthPanel({ active }: { active: boolean }) {
   const [stats, setStats] = useState<SystemStats | null>(null);
 
@@ -1507,7 +1507,7 @@ function VpsHealthPanel({ active }: { active: boolean }) {
         .catch(() => {});
     }
     poll();
-    const interval = setInterval(poll, 60000);
+    const interval = setInterval(poll, 120000);
     return () => clearInterval(interval);
   }, [active]);
 
@@ -1519,7 +1519,7 @@ function VpsHealthPanel({ active }: { active: boolean }) {
     <section style={cardStyle}>
       <h2 style={{ marginTop: 0 }}>VPS Health</h2>
       <p style={subtleTextStyle}>
-        Live CPU, memory, and storage for the production server, refreshed every minute.
+        Live CPU, memory, and storage for the production server, refreshed every 2 minutes.
       </p>
 
       {!stats && <p>Loading…</p>}
