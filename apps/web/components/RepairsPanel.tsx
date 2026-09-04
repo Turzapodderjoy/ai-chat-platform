@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 
-import { StatCard, StatCardRow } from "./StatCard";
 import { cardStyle, subtleTextStyle, primaryButtonStyle, badgeStyle, shortId, type BadgeTone } from "./dashboard-styles";
 import { MarkdownMessage } from "./MarkdownMessage";
 import { OrderItemsEditor } from "./OrderManagementPanel";
@@ -112,8 +110,8 @@ function playPingSound() {
 }
 
 /** Appointment booking + device-repair tracking for a client with no AI
- * bot (see RepairController) — stats, a status chart, a hand-rolled
- * month calendar (no calendar library in this repo), the appointment
+ * bot (see RepairController) — a hand-rolled month calendar (no
+ * calendar library in this repo), the appointment
  * list with a status control, and a compact reply thread with the
  * appointment's own details shown above it. Same optional-businessId
  * convention as AllChatsPanel/ClientOverviewPanel — works unscoped on
@@ -318,25 +316,6 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
     }
   }
 
-  const stats = useMemo(() => {
-    if (!appointments) return null;
-    const now = Date.now();
-    const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
-    const active = appointments.filter((a) => a.status !== "completed" && a.status !== "cancelled").length;
-    const completedThisWeek = appointments.filter(
-      (a) => a.status === "completed" && new Date(a.updatedAt).getTime() >= weekAgo
-    ).length;
-    return { total: appointments.length, active, completedThisWeek };
-  }, [appointments]);
-
-  const statusChartData = useMemo(() => {
-    if (!appointments) return [];
-    return STATUS_OPTIONS.map((s) => ({
-      status: STATUS_LABEL[s],
-      count: appointments.filter((a) => a.status === s).length,
-    })).filter((d) => d.count > 0);
-  }, [appointments]);
-
   // Hand-rolled month grid — no calendar library in this repo, and a
   // single month of dots-per-day is simple enough not to need one.
   const calendarMonth = useMemo(() => {
@@ -444,28 +423,6 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
               </button>
             </div>
           )}
-        </div>
-      )}
-
-      {stats && (
-        <StatCardRow>
-          <StatCard label="Total Appointments" value={String(stats.total)} tone="info" />
-          <StatCard label="Active" value={String(stats.active)} tone="warning" />
-          <StatCard label="Completed (7d)" value={String(stats.completedThisWeek)} tone="success" />
-        </StatCardRow>
-      )}
-
-      {statusChartData.length > 0 && (
-        <div style={{ height: 180, marginBottom: 24 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={statusChartData}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-              <XAxis dataKey="status" fontSize={11} />
-              <YAxis allowDecimals={false} fontSize={11} />
-              <Tooltip />
-              <Bar dataKey="count" fill="var(--accent)" />
-            </BarChart>
-          </ResponsiveContainer>
         </div>
       )}
 

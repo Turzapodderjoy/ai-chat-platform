@@ -159,13 +159,6 @@ const ICONS: Record<string, (p: SVGProps<SVGSVGElement>) => ReactElement> = {
       <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
     </Svg>
   ),
-  quotes: (p) => (
-    <Svg {...p}>
-      <path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4" />
-      <polyline points="14,2 14,8 20,8" />
-      <path d="M3 15h6M3 11h6" />
-    </Svg>
-  ),
   invoices: (p) => (
     <Svg {...p}>
       <path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 3 2V2l-3 2-3-2-3 2-3-2-3 2Z" />

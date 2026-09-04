@@ -249,62 +249,21 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
 
   // The handoff team -- who's handling what. Fetched unfiltered (every
   // isAgent account across every business) so a row's "assigned to"
-  // badge resolves even in the mother dashboard's cross-client Inbox;
-  // the create/remove management UI below only renders when businessId
-  // is set (a single client's own Inbox), filtered down to theirs.
+  // badge resolves even in the mother dashboard's cross-client Inbox.
+  // Agent logins themselves are created/removed elsewhere (Client
+  // Access) -- this panel only reads the roster to populate the
+  // per-conversation assignment dropdown.
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [newAgentUsername, setNewAgentUsername] = useState("");
-  const [newAgentPassword, setNewAgentPassword] = useState("");
-  const [creatingAgent, setCreatingAgent] = useState(false);
-  const [agentMessage, setAgentMessage] = useState("");
-  const [busyAgentId, setBusyAgentId] = useState<string | null>(null);
   const [reassigning, setReassigning] = useState(false);
 
-  function refreshAgents() {
+  useEffect(() => {
     fetch("/api/admin/client-accounts")
       .then((r) => r.json())
       .then((d: { accounts: (Agent & { isAgent: boolean })[] }) => setAgents((d.accounts ?? []).filter((a) => a.isAgent)));
-  }
-
-  useEffect(refreshAgents, []);
+  }, []);
 
   const agentsForBusiness = agents.filter((a) => a.businessId === businessId);
   const agentName = (id: string | null) => (id ? agents.find((a) => a.id === id)?.username ?? "agent" : null);
-
-  async function createAgent() {
-    if (!businessId || !newAgentUsername.trim() || !newAgentPassword) return;
-    setCreatingAgent(true);
-    setAgentMessage("");
-    try {
-      const res = await fetch("/api/admin/client-accounts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, username: newAgentUsername, password: newAgentPassword, isAgent: true }),
-      });
-      const result = await res.json();
-      if (!res.ok) {
-        setAgentMessage(`Error: ${result.error}`);
-        return;
-      }
-      setAgentMessage(`Login created for "${newAgentUsername}" — share these credentials now, the password won't be shown again.`);
-      setNewAgentUsername("");
-      setNewAgentPassword("");
-      refreshAgents();
-    } finally {
-      setCreatingAgent(false);
-    }
-  }
-
-  async function removeAgent(agent: Agent) {
-    if (!window.confirm(`Remove "${agent.username}"? They'll lose access immediately.`)) return;
-    setBusyAgentId(agent.id);
-    try {
-      await fetch(`/api/admin/client-accounts?id=${encodeURIComponent(agent.id)}`, { method: "DELETE" });
-      setAgents((prev) => prev.filter((a) => a.id !== agent.id));
-    } finally {
-      setBusyAgentId(null);
-    }
-  }
 
   async function reassignSelected(agentId: string | null) {
     if (!selectedId) return;
@@ -647,61 +606,6 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
           Every conversation across all channels — manage replies, assign agents, and track status.
         </p>
       </div>
-
-      {businessId && (
-        <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 16, marginBottom: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", marginBottom: 10 }}>
-            Handoff Team
-          </div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: agentsForBusiness.length > 0 ? 12 : 0 }}>
-            {agentsForBusiness.map((a) => (
-              <span
-                key={a.id}
-                style={{ 
-                  display: "inline-flex", 
-                  alignItems: "center", 
-                  gap: 6, 
-                  fontSize: 12, 
-                  padding: "6px 12px", 
-                  borderRadius: "var(--radius-full)", 
-                  background: "var(--surface)", 
-                  border: "1px solid var(--border)" 
-                }}
-              >
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: a.online ? "var(--success)" : "var(--text-faint)" }} />
-                {a.username}
-                <button
-                  onClick={() => removeAgent(a)}
-                  disabled={busyAgentId === a.id}
-                  className="ghost"
-                  style={{ color: "var(--danger)", fontSize: 11, padding: 0, marginLeft: 4 }}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <input
-              style={{ padding: "8px 12px", fontSize: 12, width: 140, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)" }}
-              placeholder="Agent username"
-              value={newAgentUsername}
-              onChange={(e) => setNewAgentUsername(e.target.value)}
-            />
-            <input
-              style={{ padding: "8px 12px", fontSize: 12, width: 150, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)" }}
-              placeholder="Password (min 8)"
-              type="text"
-              value={newAgentPassword}
-              onChange={(e) => setNewAgentPassword(e.target.value)}
-            />
-            <button onClick={createAgent} disabled={creatingAgent || !newAgentUsername.trim() || !newAgentPassword} className="primary" style={{ fontSize: 12, padding: "8px 14px" }}>
-              {creatingAgent ? "Adding..." : "+ Add agent"}
-            </button>
-          </div>
-          {agentMessage && <p style={{ fontSize: 12, color: "var(--accent)", marginTop: 8, marginBottom: 0 }}>{agentMessage}</p>}
-        </div>
-      )}
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         {STATUS_TABS.map((tab) => (

@@ -18,7 +18,6 @@ import { DeliveryPanel } from "../../../components/DeliveryPanel";
 import { RepairsPanel } from "../../../components/RepairsPanel";
 import { StaffPanel } from "../../../components/StaffPanel";
 import { ContactsPanel } from "../../../components/ContactsPanel";
-import { QuotesPanel } from "../../../components/QuotesPanel";
 import { InvoicesPanel } from "../../../components/InvoicesPanel";
 import { ReportsPanel } from "../../../components/ReportsPanel";
 import { ClientOverviewPanel } from "../../../components/ClientOverviewPanel";
@@ -30,11 +29,12 @@ import { DashboardShell, type NavGroup } from "../../../components/DashboardShel
 import { RemovableSection } from "../../../components/RemovableSection";
 import { AgentConsole } from "../../../components/AgentConsole";
 import { UserSettingsPanel } from "../../../components/UserSettingsPanel";
+import { ClientHomePanel } from "../../../components/ClientHomePanel";
 
-type Tab = "overview" | "tagdashboard" | "knowledge" | "products" | "inventory" | "orders" | "delivery" | "repairs" | "staff" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "quotes" | "invoices" | "reports" | "notifications" | "settings";
+type Tab = "home" | "overview" | "tagdashboard" | "knowledge" | "products" | "inventory" | "orders" | "delivery" | "repairs" | "staff" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "invoices" | "reports" | "notifications" | "settings";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
-  { items: [{ id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }, { id: "reports", label: "Reports" }] },
+  { items: [{ id: "home", label: "Home" }, { id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }, { id: "reports", label: "Reports" }] },
   {
     label: "Conversations",
     items: [
@@ -62,7 +62,6 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
   {
     label: "Revenue",
     items: [
-      { id: "quotes", label: "Quotes" },
       { id: "invoices", label: "Invoices" },
     ],
   },
@@ -86,11 +85,13 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "settings", label: "User Settings" }] },
 ];
 
-// Repair shop layout: Repairs at top, Orders→Appointments, no Delivery
-// ("Deals" removed here -- that feature was deleted platform-wide, this
-// entry referenced a nonexistent panel and wasn't even a valid Tab id).
+// Repair shop layout: Repairs at top, Orders→Appointments, no Delivery,
+// no Product Catalog (repair shops don't sell a browsable catalog --
+// see Inventory for their actual parts/services stock). ("Deals"
+// removed here -- that feature was deleted platform-wide, this entry
+// referenced a nonexistent panel and wasn't even a valid Tab id).
 const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
-  { items: [{ id: "overview", label: "Overview" }, { id: "repairs", label: "Repairs" }] },
+  { items: [{ id: "home", label: "Home" }, { id: "overview", label: "Overview" }, { id: "repairs", label: "Repairs" }] },
   {
     label: "Conversations",
     items: [
@@ -108,7 +109,6 @@ const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
     items: [
       { id: "orders", label: "Appointments" },
       { id: "staff", label: "Staff" },
-      { id: "products", label: "Product Catalog" },
       { id: "inventory", label: "Inventory" },
       { id: "notifications", label: "Notifications" },
     ],
@@ -116,7 +116,6 @@ const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
   {
     label: "Revenue",
     items: [
-      { id: "quotes", label: "Quotes" },
       { id: "invoices", label: "Invoices" },
     ],
   },
@@ -160,7 +159,7 @@ export default function ClientDashboardClient() {
   const businessId = params.businessId;
   const router = useRouter();
 
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>("home");
   const [client, setClient] = useState<Client | null>(null);
   const [clientType, setClientType] = useState<string>("regular");
   const [isAdmin, setIsAdmin] = useState(false);
@@ -293,7 +292,7 @@ export default function ClientDashboardClient() {
             // User Settings is an inherent owner capability, not a
             // toggleable panel -- exempt from allowedPanels so an owner
             // whose restriction list predates this feature still gets it.
-            (i.id === "settings" || allowedPanels === null || allowedPanels.includes(i.id)) &&
+            (i.id === "settings" || i.id === "home" || allowedPanels === null || allowedPanels.includes(i.id)) &&
             !hiddenWidgets.includes(`panel.${i.id}`)
         ),
       })).filter((g) => g.items.length > 0)
@@ -312,7 +311,7 @@ export default function ClientDashboardClient() {
     }
   }, [allowedPanels, hiddenWidgets, actsAsClient]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Always renders "overview" on the server/first paint to avoid a
+  // Always renders "home" on the server/first paint to avoid a
   // hydration mismatch, then jumps to the OAuth callback's ?tab= param
   // (see api/oauth/[channel]/callback) -- or whatever tab a refresh's
   // own URL still carries -- once mounted.
@@ -398,6 +397,7 @@ export default function ClientDashboardClient() {
         </div>
       )}
       {([
+        ["home", <ClientHomePanel key="home" clientName={client?.name ?? businessId} username={username} onNavigate={(t) => selectTab(t as Tab)} />],
         ["overview", (
           <div key="overview">
             <SubscriptionStatus />
@@ -414,7 +414,6 @@ export default function ClientDashboardClient() {
         ["repairs", <RepairsPanel key="repairs" businessId={businessId} active={tab === "repairs"} />],
         ["staff", <StaffPanel key="staff" businessId={businessId} />],
         ["contacts", <ContactsPanel key="contacts" businessId={businessId} active={tab === "contacts"} />],
-        ["quotes", <QuotesPanel key="quotes" businessId={businessId} active={tab === "quotes"} />],
         ["invoices", <InvoicesPanel key="invoices" businessId={businessId} active={tab === "invoices"} />],
         [
           "reports",

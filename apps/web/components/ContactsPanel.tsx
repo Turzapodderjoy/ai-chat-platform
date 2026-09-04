@@ -12,7 +12,6 @@ interface Contact {
   email: string | null;
   companyName: string | null;
   companyDomain: string | null;
-  clientType: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -98,20 +97,6 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
     }
   }
 
-  async function saveClientType(contact: Contact, clientType: string) {
-    setBusyId(contact.id);
-    try {
-      await fetch("/api/admin/crm/contacts", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: contact.id, clientType }),
-      });
-      refresh();
-    } finally {
-      setBusyId(null);
-    }
-  }
-
   function computeCLV(record: ContactRecord): number {
     // Order has no price field (it's a flat human-readable slip, not a
     // priced line-item record -- see the Order model's own comment), so
@@ -158,7 +143,6 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
               <tr>
                 <th style={cellStyle}>ID</th>
                 <th style={cellStyle}>Name</th>
-                <th style={cellStyle}>Type</th>
                 <th style={cellStyle}>Phone</th>
                 <th style={cellStyle}>Email</th>
                 <th style={cellStyle}>Company</th>
@@ -173,17 +157,6 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                   <tr onClick={() => toggleRecord(c)} style={{ cursor: "pointer" }}>
                     <td style={{ ...cellStyle, fontSize: 11, color: "var(--text-faint)" }}>{shortId(c.id)}</td>
                     <td style={cellStyle}>{c.name}</td>
-                    <td style={cellStyle} onClick={(e) => e.stopPropagation()}>
-                      <select
-                        value={c.clientType}
-                        onChange={(e) => saveClientType(c, e.target.value)}
-                        disabled={busyId === c.id}
-                        style={{ padding: 4, fontSize: 12, background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)", borderRadius: "var(--radius-xs)" }}
-                      >
-                        <option value="regular">Regular</option>
-                        <option value="repair">Repair</option>
-                      </select>
-                    </td>
                     <td style={cellStyle}>{c.phone ?? "—"}</td>
                     <td style={cellStyle}>{c.email ?? "—"}</td>
                     <td style={cellStyle} onClick={(e) => e.stopPropagation()}>

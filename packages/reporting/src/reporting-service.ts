@@ -7,8 +7,6 @@ export interface RevenueReport {
   collectedThisMonth: number;
   collectedLastMonth: number;
   invoicesByStatus: Record<string, number>;
-  quotesByStatus: Record<string, number>;
-  quoteAcceptanceRate: number | null;
 }
 
 export interface DeliveryReport {
@@ -28,7 +26,19 @@ export interface CrmReport {
   newContactsThisMonth: number;
 }
 
+// The date-ranged summary row -- separate from the sections below (which
+// stay all-time/this-month) since this is specifically what the date
+// filter dropdown on the Reports page controls.
+export interface SummaryReport {
+  totalRevenue: number;
+  appointmentsBooked: number;
+  appointmentsSuccess: number;
+  totalCost: number;
+  totalProfit: number;
+}
+
 export interface OverviewReport {
+  summary: SummaryReport;
   revenue: RevenueReport;
   delivery: DeliveryReport;
   repairs: RepairsReport;
@@ -63,20 +73,63 @@ function bucketCount<T extends string>(rows: { field: T }[], keys: readonly stri
  * against a few thousand rows at most for this platform's real scale —
  * a materialized-view/caching layer is real scope creep until that
  * stops being true). Queries prisma directly rather than importing
- * QuoteService/InvoiceService, the same reasoning
- * ContactService.getRecord already used: this cuts across
- * revenue/crm/conversation without introducing circular workspace
- * dependencies between those packages. */
+ * InvoiceService, the same reasoning ContactService.getRecord already
+ * used: this cuts across revenue/crm/conversation without introducing
+ * circular workspace dependencies between those packages. */
 export class ReportingService {
-  async getOverview(businessId?: string): Promise<OverviewReport> {
+  /** The date-ranged summary row (Total Revenue / Appointments Booked /
+   * Appointments Success / Total Cost / Total Profit) — scoped to
+   * `from`..`to` by when the appointment was booked (createdAt).
+   * Revenue/cost/profit are computed off each appointment's own
+   * RepairOrderItem lines (the actual priced billing layer), not
+   * generic Invoices, since only order items carry a cost basis
+   * (Product.costPrice) to compute profit against. */
+  async getSummary(businessId: string | undefined, from: Date, to: Date): Promise<SummaryReport> {
+    const where = { ...(businessId ? { businessId } : {}), createdAt: { gte: from, lte: to } };
+
+    const appointments = await prisma.repairAppointment.findMany({
+      where,
+      select: {
+        status: true,
+        items: { select: { productId: true, quantity: true, defaultPrice: true, overridePrice: true } },
+      },
+    });
+
+    const productIds = [...new Set(appointments.flatMap((a) => a.items.map((i) => i.productId).filter((id): id is string => !!id)))];
+    const products = productIds.length
+      ? await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, costPrice: true } })
+      : [];
+    const costById = new Map(products.map((p) => [p.id, parseFloat(p.costPrice ?? "") || 0]));
+
+    let totalRevenue = 0;
+    let totalCost = 0;
+    for (const appt of appointments) {
+      for (const item of appt.items) {
+        const finalPrice = item.overridePrice ?? item.defaultPrice * item.quantity;
+        totalRevenue += finalPrice;
+        if (item.productId) totalCost += (costById.get(item.productId) ?? 0) * item.quantity;
+      }
+    }
+
+    return {
+      totalRevenue,
+      appointmentsBooked: appointments.length,
+      appointmentsSuccess: appointments.filter((a) => a.status === "completed").length,
+      totalCost,
+      totalProfit: totalRevenue - totalCost,
+    };
+  }
+
+  async getOverview(businessId?: string, from?: Date, to?: Date): Promise<OverviewReport> {
     const where = businessId ? { businessId } : {};
     const thisMonth = startOfMonth(0);
     const lastMonth = startOfMonth(-1);
     const week = startOfWeek();
+    const summaryRange = from && to ? [from, to] : [startOfMonth(0), new Date()];
 
     const [
+      summary,
       invoices,
-      quotes,
       payments,
       orders,
       appointments,
@@ -84,8 +137,8 @@ export class ReportingService {
       newContactsThisWeek,
       newContactsThisMonth,
     ] = await Promise.all([
+      this.getSummary(businessId, summaryRange[0]!, summaryRange[1]!),
       prisma.invoice.findMany({ where, select: { status: true, discount: true, tax: true, amountPaid: true, items: { select: { quantity: true, unitPrice: true } } } }),
-      prisma.quote.findMany({ where, select: { status: true } }),
       prisma.payment.findMany({ where, select: { amount: true, paidAt: true } }),
       prisma.order.findMany({ where, select: { deliveryStatus: true } }),
       prisma.repairAppointment.findMany({ where, select: { status: true } }),
@@ -111,11 +164,6 @@ export class ReportingService {
       .filter((p) => p.paidAt >= lastMonth && p.paidAt < thisMonth)
       .reduce((sum, p) => sum + p.amount, 0);
 
-    const quotesByStatus: Record<string, number> = {};
-    for (const q of quotes) quotesByStatus[q.status] = (quotesByStatus[q.status] ?? 0) + 1;
-    const decidedQuotes = (quotesByStatus.accepted ?? 0) + (quotesByStatus.rejected ?? 0) + (quotesByStatus.expired ?? 0);
-    const quoteAcceptanceRate = decidedQuotes > 0 ? (quotesByStatus.accepted ?? 0) / decidedQuotes : null;
-
     // --- Delivery (Orders) ---
     const ordersByDeliveryStatus = bucketCount(
       orders.map((o) => ({ field: o.deliveryStatus })),
@@ -130,6 +178,7 @@ export class ReportingService {
     );
 
     return {
+      summary,
       revenue: {
         totalInvoiced,
         totalCollected,
@@ -137,8 +186,6 @@ export class ReportingService {
         collectedThisMonth,
         collectedLastMonth,
         invoicesByStatus,
-        quotesByStatus,
-        quoteAcceptanceRate,
       },
       delivery: {
         totalOrders: orders.length,

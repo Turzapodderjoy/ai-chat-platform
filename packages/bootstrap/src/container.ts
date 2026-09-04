@@ -49,7 +49,7 @@ import { ClientHealthController, ProductController, OrderController, RepairContr
 import { RepairAppointmentService, StaffService } from "@ai-chat-platform/repairs";
 import { EmailSenderConfigService, ResendEmailClient, GmailSenderConfigService, GmailEmailClient, StatusEmailTemplateService, StatusEmailService } from "@ai-chat-platform/email";
 import { ContactService } from "@ai-chat-platform/crm";
-import { QuoteService, InvoiceService, PaymentService } from "@ai-chat-platform/revenue";
+import { InvoiceService, PaymentService } from "@ai-chat-platform/revenue";
 import { ReportingService } from "@ai-chat-platform/reporting";
 import { WidgetVisibilityService } from "@ai-chat-platform/widget-visibility";
 import { RefreshScheduleService, MasterCsvService } from "@ai-chat-platform/knowledge-refresh";
@@ -177,9 +177,6 @@ export class Container {
 
     const contacts =
       new ContactService();
-
-    const quotes =
-      new QuoteService();
 
     const invoices =
       new InvoiceService();
@@ -325,7 +322,7 @@ export class Container {
         new RepairController(repairs, staff, conversations, emailSenderConfig, emailClient, tenants, contacts, statusEmails, invoices),
         new EmailController(emailSenderConfig),
         new CrmController(contacts),
-        new RevenueController(quotes, invoices, payments),
+        new RevenueController(invoices, payments),
         new ReportingController(reporting),
         new WidgetVisibilityController(widgetVisibility),
         new DashboardThemeController(dashboardTheme),

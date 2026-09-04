@@ -8,7 +8,6 @@ export interface Contact {
   email: string | null;
   companyName: string | null;
   companyDomain: string | null;
-  clientType: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -32,7 +31,6 @@ function toContact(row: {
   email: string | null;
   companyName: string | null;
   companyDomain: string | null;
-  clientType: string;
   createdAt: Date;
   updatedAt: Date;
 }): Contact {
@@ -44,7 +42,6 @@ function toContact(row: {
     email: row.email,
     companyName: row.companyName,
     companyDomain: row.companyDomain,
-    clientType: row.clientType,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -126,11 +123,6 @@ export class ContactService {
     return toContact(row);
   }
 
-  async setClientType(id: string, clientType: string): Promise<Contact> {
-    const row = await prisma.contact.update({ where: { id }, data: { clientType } });
-    return toContact(row);
-  }
-
   async delete(id: string): Promise<void> {
     await prisma.contact.delete({ where: { id } });
   }
@@ -176,9 +168,9 @@ export class ContactService {
       }),
     ]);
 
-    // Same subtotal/discount/tax math QuoteService/InvoiceService use —
-    // duplicated here (not imported from @ai-chat-platform/revenue) to
-    // avoid a circular workspace dependency between crm and revenue.
+    // Same subtotal/discount/tax math InvoiceService uses — duplicated
+    // here (not imported from @ai-chat-platform/revenue) to avoid a
+    // circular workspace dependency between crm and revenue.
     const total = (items: { quantity: number; unitPrice: number }[], discount: number, tax: number) =>
       Math.max(0, items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0) - discount + tax);
 
@@ -193,8 +185,7 @@ export class ContactService {
     );
 
     // Customer lifetime value -- real money actually collected (not
-    // invoice face value) across every invoice tied to this contact,
-    // whether generated from a Quote or a repair order.
+    // invoice face value) across every invoice tied to this contact.
     const lifetimeValue = invoiceRows.reduce((sum, inv) => sum + inv.amountPaid, 0);
 
     return {

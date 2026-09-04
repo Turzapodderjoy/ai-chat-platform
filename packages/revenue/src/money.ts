@@ -4,9 +4,9 @@ export interface LineItemInput {
   unitPrice: number;
 }
 
-/** Shared subtotal/total math for Quote and Invoice — computed here, not
+/** Shared subtotal/total math for Invoice line items — computed here, not
  * trusted from the client, so a tampered request body can't misreport
- * what a quote/invoice is actually worth. */
+ * what an invoice is actually worth. */
 export function calcTotals(items: LineItemInput[], discount: number, tax: number) {
   const subtotal = items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
   const total = Math.max(0, subtotal - discount + tax);

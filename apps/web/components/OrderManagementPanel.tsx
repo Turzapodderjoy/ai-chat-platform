@@ -64,6 +64,12 @@ export function OrderItemsEditor({ order, products, onChanged }: { order: Repair
     if (p) {
       setName(p.name);
       setPrice(p.price ?? "0");
+    } else {
+      // Blank = a one-off part not tracked in Inventory -- typed by hand
+      // below, same as a Service already is. No productId means no
+      // stock adjustment on add/remove.
+      setName("");
+      setPrice("");
     }
   }
 
@@ -149,12 +155,15 @@ export function OrderItemsEditor({ order, products, onChanged }: { order: Repair
           <option value="service">Service</option>
         </select>
         {kind === "part" ? (
-          <select value={productId} onChange={(e) => pickProduct(e.target.value)} style={{ padding: 6, minWidth: 160 }}>
-            <option value="">Pick inventory item…</option>
-            {products.map((p) => (
-              <option key={p.id} value={p.id}>{p.name} {p.price ? `(৳${p.price})` : ""}</option>
-            ))}
-          </select>
+          <>
+            <select value={productId} onChange={(e) => pickProduct(e.target.value)} style={{ padding: 6, minWidth: 160 }}>
+              <option value="">Custom part (not in Inventory)</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>{p.name} {p.price ? `(৳${p.price})` : ""}</option>
+              ))}
+            </select>
+            <input placeholder="Part name" value={name} onChange={(e) => setName(e.target.value)} style={{ padding: 6, minWidth: 140 }} />
+          </>
         ) : (
           <input placeholder="Service name" value={name} onChange={(e) => setName(e.target.value)} style={{ padding: 6, minWidth: 160 }} />
         )}

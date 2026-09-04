@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { cardStyle, subtleTextStyle, shortId, badgeStyle, type BadgeTone } from "./dashboard-styles";
+import { cardStyle, subtleTextStyle, shortId, badgeStyle, primaryButtonStyle, type BadgeTone } from "./dashboard-styles";
 import { StatCard, StatCardRow } from "./StatCard";
 
 interface Invoice {
@@ -28,13 +28,6 @@ interface Contact {
   email: string | null;
 }
 
-const STATUSES = ["draft", "issued", "partially_paid", "paid", "overdue", "void"] as const;
-const STATUS_TONE: Record<string, BadgeTone> = { draft: "neutral", issued: "info", partially_paid: "warn", paid: "ok", overdue: "error", void: "neutral" };
-
-/** Invoices generated off an accepted Quote (or created directly) —
- * recording a Payment here recomputes amountPaid/status server-side in
- * PaymentService.reconcileInvoice, so this list is always the source of
- * truth for what's actually still owed. */
 interface RepairSummary {
   id: string;
   deviceType: string;
@@ -42,11 +35,36 @@ interface RepairSummary {
   issueDescription: string;
 }
 
+interface DraftItem {
+  name: string;
+  quantity: string;
+  unitPrice: string;
+}
+
+const STATUSES = ["draft", "issued", "partially_paid", "paid", "overdue", "void"] as const;
+const STATUS_TONE: Record<string, BadgeTone> = { draft: "neutral", issued: "info", partially_paid: "warn", paid: "ok", overdue: "error", void: "neutral" };
+const EMPTY_ITEM: DraftItem = { name: "", quantity: "1", unitPrice: "" };
+
+/** Invoices — generated automatically from a repair order (Order
+ * Management's "Generate Invoice"), or added by hand here directly.
+ * Manual line items are always freeform (name + price typed in), never
+ * tied to an Inventory product — a business can bill for something
+ * that isn't in stock. Recording a Payment recomputes amountPaid/
+ * status server-side in PaymentService.reconcileInvoice, so this list
+ * is always the source of truth for what's actually still owed. */
 export function InvoicesPanel({ businessId, active = true }: { businessId?: string; active?: boolean }) {
   const [invoices, setInvoices] = useState<Invoice[] | null>(null);
   const [contacts, setContacts] = useState<Contact[] | null>(null);
   const [repairs, setRepairs] = useState<RepairSummary[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  const [showAdd, setShowAdd] = useState(false);
+  const [draftContactId, setDraftContactId] = useState("");
+  const [draftItems, setDraftItems] = useState<DraftItem[]>([{ ...EMPTY_ITEM }]);
+  const [draftDiscount, setDraftDiscount] = useState("");
+  const [draftTax, setDraftTax] = useState("");
+  const [draftDueDate, setDraftDueDate] = useState("");
+  const [saving, setSaving] = useState(false);
 
   function refresh() {
     const qs = businessId ? `?businessId=${encodeURIComponent(businessId)}` : "";
@@ -77,6 +95,44 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
     const collected = invoices.reduce((sum, i) => sum + i.amountPaid, 0);
     return { outstanding, collected, count: invoices.length };
   }, [invoices]);
+
+  function updateDraftItem(i: number, field: keyof DraftItem, value: string) {
+    setDraftItems((prev) => prev.map((item, idx) => (idx === i ? { ...item, [field]: value } : item)));
+  }
+
+  function resetDraft() {
+    setDraftContactId("");
+    setDraftItems([{ ...EMPTY_ITEM }]);
+    setDraftDiscount("");
+    setDraftTax("");
+    setDraftDueDate("");
+  }
+
+  const validDraftItems = draftItems.filter((i) => i.name.trim() && Number(i.unitPrice) > 0);
+
+  async function createInvoice() {
+    if (!businessId || validDraftItems.length === 0) return;
+    setSaving(true);
+    try {
+      await fetch("/api/admin/revenue/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessId,
+          contactId: draftContactId || undefined,
+          items: validDraftItems.map((i) => ({ name: i.name.trim(), quantity: Number(i.quantity) || 1, unitPrice: Number(i.unitPrice) || 0 })),
+          discount: draftDiscount ? Number(draftDiscount) : undefined,
+          tax: draftTax ? Number(draftTax) : undefined,
+          dueDate: draftDueDate || undefined,
+        }),
+      });
+      resetDraft();
+      setShowAdd(false);
+      refresh();
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function setStatus(inv: Invoice, status: string) {
     setBusyId(inv.id);
@@ -122,7 +178,53 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
   return (
     <section style={cardStyle}>
       <h2 style={{ marginTop: 0 }}>Invoices</h2>
-      <p style={subtleTextStyle}>Billed amounts owed by a customer — generated from an accepted Quote, or record payments directly against one.</p>
+      <p style={subtleTextStyle}>Billed amounts owed by a customer — generated automatically from a repair order, or added by hand below.</p>
+
+      {businessId && (
+        <div style={{ marginBottom: 12 }}>
+          <button onClick={() => setShowAdd((s) => !s)} style={primaryButtonStyle}>
+            {showAdd ? "Cancel" : "+ Add Invoice"}
+          </button>
+        </div>
+      )}
+
+      {showAdd && (
+        <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 14, marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+            <select value={draftContactId} onChange={(e) => setDraftContactId(e.target.value)} style={{ padding: 8, minWidth: 200 }}>
+              <option value="">No contact</option>
+              {(contacts ?? []).map((c) => (
+                <option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ""}</option>
+              ))}
+            </select>
+            <input placeholder="Discount" type="number" value={draftDiscount} onChange={(e) => setDraftDiscount(e.target.value)} style={{ padding: 8, width: 100 }} />
+            <input placeholder="Tax" type="number" value={draftTax} onChange={(e) => setDraftTax(e.target.value)} style={{ padding: 8, width: 100 }} />
+            <input placeholder="Due date" type="date" value={draftDueDate} onChange={(e) => setDraftDueDate(e.target.value)} style={{ padding: 8 }} />
+          </div>
+
+          <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 6 }}>
+            Line items — type any name and price, no Inventory link required
+          </div>
+          {draftItems.map((item, i) => (
+            <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+              <input placeholder="Item name" value={item.name} onChange={(e) => updateDraftItem(i, "name", e.target.value)} style={{ padding: 8, flex: 1, minWidth: 160 }} />
+              <input placeholder="Qty" type="number" min={1} value={item.quantity} onChange={(e) => updateDraftItem(i, "quantity", e.target.value)} style={{ padding: 8, width: 70 }} />
+              <input placeholder="Unit price" type="number" value={item.unitPrice} onChange={(e) => updateDraftItem(i, "unitPrice", e.target.value)} style={{ padding: 8, width: 100 }} />
+              {draftItems.length > 1 && (
+                <button onClick={() => setDraftItems((prev) => prev.filter((_, idx) => idx !== i))} style={{ fontSize: 11, padding: "4px 8px" }}>✕</button>
+              )}
+            </div>
+          ))}
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+            <button onClick={() => setDraftItems((prev) => [...prev, { ...EMPTY_ITEM }])} style={{ fontSize: 12, padding: "6px 10px" }}>
+              + Add item
+            </button>
+            <button onClick={createInvoice} disabled={saving || validDraftItems.length === 0} style={primaryButtonStyle}>
+              {saving ? "Creating…" : "Create Invoice"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {stats && (
         <StatCardRow>
@@ -133,7 +235,7 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
       )}
 
       {!invoices && <p style={subtleTextStyle}>Loading…</p>}
-      {invoices && invoices.length === 0 && <p style={subtleTextStyle}>No invoices yet — generate one from an accepted Quote.</p>}
+      {invoices && invoices.length === 0 && <p style={subtleTextStyle}>No invoices yet — generate one from a repair order, or add one by hand above.</p>}
 
       {invoices && invoices.length > 0 && (
         <div className="table-scroll">

@@ -30,11 +30,6 @@ export async function PATCH(req: NextRequest) {
   }
   const app = await getApp();
 
-  if (typeof body.clientType === "string") {
-    const result = await app.container.router.crm.setContactClientType(body.id, body.clientType);
-    return NextResponse.json(result);
-  }
-
   const result = await app.container.router.crm.setContactCompany(
     body.id,
     body.companyName ?? null,

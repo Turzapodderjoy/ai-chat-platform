@@ -21,18 +21,6 @@ export async function POST(req: NextRequest) {
   }
   const app = await getApp();
 
-  // Generating an invoice from an accepted quote reuses the quote's own
-  // line items — the more common path since Quotes exist specifically to
-  // become Invoices once accepted.
-  if (typeof body.quoteId === "string") {
-    try {
-      const result = await app.container.router.revenue.generateInvoiceFromQuote(body.quoteId, body.dueDate || undefined);
-      return NextResponse.json(result);
-    } catch (err) {
-      return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to generate invoice" }, { status: 400 });
-    }
-  }
-
   if (typeof body.businessId !== "string" || !Array.isArray(body.items) || body.items.length === 0) {
     return NextResponse.json({ error: "businessId and at least one line item are required" }, { status: 400 });
   }

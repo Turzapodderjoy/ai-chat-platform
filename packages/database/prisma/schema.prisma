@@ -1148,7 +1148,7 @@ model RepairAppointment {
 }
 
 // A part or service line on a RepairAppointment's Order Management
-// billing layer -- same itemized shape as QuoteItem/InvoiceItem so
+// billing layer -- same itemized shape as InvoiceItem so
 // generating a real Invoice from these is a straight copy, not a new
 // pricing model. `productId` set (kind="part") means adding/removing
 // this item also adjusts that Product's live stock (see
@@ -1252,18 +1252,12 @@ model Contact {
   // instead of a separate Company entity/relation. Companies used to be
   // their own model+panel, but carried nothing beyond a name and a
   // domain and nothing else in the app ever referenced a companyId
-  // directly (not Quote, not Invoice -- all key off Contact),
+  // directly (not Invoice -- all key off Contact),
   // so the extra table/join bought nothing a Contact couldn't hold
   // itself.
   companyName   String?
   companyDomain String?
-  // Client type: "regular" (standard business) or "repair" (phone/device
-  // repair shop like PhoneRepairAZ). Repair-type clients get the full
-  // repair feature set (repairs, staff, inventory, tracking page, etc.).
-  // Regular clients see the standard CRM + orders feature set.
-  clientType    String   @default("regular")
 
-  quotes     Quote[]
   invoices   Invoice[]
   repairAppointments RepairAppointment[]
 
@@ -1295,56 +1289,16 @@ model HiddenWidget {
   @@index([businessId])
 }
 
-// Revenue layer (Quote -> Invoice -> Payment), built on the same
-// Contact records as the rest of the CRM instead of a separate billing
-// database. A Quote is a proposal; accepting it turns it into an
-// Invoice (InvoiceService.generateFromQuote copies the line items, not
-// a live reference — a quote can keep changing after an invoice already
-// exists off an earlier version). Money fields are Float.
-model Quote {
-  id         String   @id @default(cuid())
-  businessId String
-  contactId  String?
-  title      String
-  // draft | sent | accepted | rejected | expired
-  status     String   @default("draft")
-  currency   String   @default("BDT")
-  discount   Float    @default(0)
-  tax        Float    @default(0)
-  notes      String?
-  expiresAt  DateTime?
-
-  contact    Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  items      QuoteItem[]
-  invoices   Invoice[]
-
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@index([businessId])
-  @@index([businessId, status])
-}
-
-model QuoteItem {
-  id        String  @id @default(cuid())
-  quoteId   String
-  name      String
-  quantity  Float   @default(1)
-  unitPrice Float
-
-  quote     Quote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-
-  @@index([quoteId])
-}
-
+// Revenue layer (Invoice -> Payment), built on the same Contact records
+// as the rest of the CRM instead of a separate billing database. Money
+// fields are Float.
 model Invoice {
   id            String    @id @default(cuid())
   businessId    String
   contactId     String?
-  quoteId       String?
   // Set when this invoice was generated from a RepairAppointment's Order
   // Management items -- lets the Invoices panel join back for
-  // device/issue context, same pattern as quoteId.
+  // device/issue context.
   repairAppointmentId String?
   // Short, human-readable per-business sequence (e.g. "INV-0007"), not
   // the cuid id — same "simple worded short" convention the tracking
@@ -1360,7 +1314,6 @@ model Invoice {
   dueDate       DateTime?
 
   contact       Contact?      @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  quote         Quote?        @relation(fields: [quoteId], references: [id], onDelete: SetNull)
   repairAppointment RepairAppointment? @relation(fields: [repairAppointmentId], references: [id], onDelete: SetNull)
   items         InvoiceItem[]
   payments      Payment[]

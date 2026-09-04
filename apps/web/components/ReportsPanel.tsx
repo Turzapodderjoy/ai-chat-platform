@@ -1,12 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { cardStyle, subtleTextStyle, badgeStyle, type BadgeTone } from "./dashboard-styles";
 import { StatCard, StatCardRow } from "./StatCard";
 import { RemovableSection } from "./RemovableSection";
 
 interface OverviewReport {
+  summary: {
+    totalRevenue: number;
+    appointmentsBooked: number;
+    appointmentsSuccess: number;
+    totalCost: number;
+    totalProfit: number;
+  };
   revenue: {
     totalInvoiced: number;
     totalCollected: number;
@@ -14,8 +21,6 @@ interface OverviewReport {
     collectedThisMonth: number;
     collectedLastMonth: number;
     invoicesByStatus: Record<string, number>;
-    quotesByStatus: Record<string, number>;
-    quoteAcceptanceRate: number | null;
   };
   delivery: {
     totalOrders: number;
@@ -37,7 +42,41 @@ interface OverviewReport {
 const DELIVERY_LABEL: Record<string, string> = { pending: "Pending", picked_up: "Picked Up", in_transit: "In Transit", delivered: "Delivered", returned: "Returned" };
 const REPAIR_LABEL: Record<string, string> = { booked: "Booked", received: "Received", in_repair: "In Repair", ready: "Ready", completed: "Completed", cancelled: "Cancelled" };
 const INVOICE_TONE: Record<string, BadgeTone> = { draft: "neutral", issued: "info", partially_paid: "warn", paid: "ok", overdue: "error", void: "neutral" };
-const QUOTE_TONE: Record<string, BadgeTone> = { draft: "neutral", sent: "info", accepted: "ok", rejected: "error", expired: "warn" };
+
+const RANGE_OPTIONS = [
+  { id: "today", label: "Today" },
+  { id: "7d", label: "Last 7 days" },
+  { id: "1m", label: "Last month" },
+  { id: "6m", label: "Last 6 months" },
+  { id: "custom", label: "Custom" },
+] as const;
+type RangeId = (typeof RANGE_OPTIONS)[number]["id"];
+
+function isoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function rangeFor(id: RangeId, customFrom: string, customTo: string): { from: string; to: string } {
+  const now = new Date();
+  const to = isoDate(now);
+  if (id === "today") return { from: to, to };
+  if (id === "7d") {
+    const d = new Date(now);
+    d.setDate(d.getDate() - 6);
+    return { from: isoDate(d), to };
+  }
+  if (id === "1m") {
+    const d = new Date(now);
+    d.setMonth(d.getMonth() - 1);
+    return { from: isoDate(d), to };
+  }
+  if (id === "6m") {
+    const d = new Date(now);
+    d.setMonth(d.getMonth() - 6);
+    return { from: isoDate(d), to };
+  }
+  return { from: customFrom || to, to: customTo || to };
+}
 
 function pct(n: number | null): string {
   return n == null ? "—" : `${Math.round(n * 100)}%`;
@@ -61,9 +100,10 @@ function BreakdownBar({ label, count, total, tone }: { label: string; count: num
 }
 
 /** HubSpot-style cross-domain reporting — one read-only rollup over
- * Revenue (Quotes/Invoices/Payments), Delivery (Order tracking), Repairs,
- * and CRM growth, all pulled from the same
- * records every other panel already writes to. See
+ * Revenue, Delivery (Order tracking), Repairs, and CRM growth, all
+ * pulled from the same records every other panel already writes to.
+ * The top Summary row is the only date-ranged part (see the dropdown);
+ * everything below it stays all-time/this-month, same as before. See
  * ReportingService.getOverview for the actual aggregation. */
 export function ReportsPanel({
   businessId,
@@ -78,9 +118,9 @@ export function ReportsPanel({
   // null = unrestricted (admin/mother dashboard) — every section shows.
   // A real client session's own allowedPanels (see ClientAccessPanel) --
   // a section only renders if the feature it's built from is still
-  // ticked, so a client who's had e.g. Quotes/Invoices unchecked never
-  // sees Revenue numbers derived from a feature they can't otherwise
-  // open and verify.
+  // ticked, so a client who's had e.g. Invoices unchecked never sees
+  // Revenue numbers derived from a feature they can't otherwise open
+  // and verify.
   allowedPanels?: string[] | null;
   /** Per-business admin "remove this box" list (see RemovableSection) —
    * on top of the coarser allowedPanels gate above. */
@@ -89,16 +129,23 @@ export function ReportsPanel({
   onToggleWidget?: (widgetId: string, hide: boolean) => void;
 }) {
   const [report, setReport] = useState<OverviewReport | null>(null);
+  const [range, setRange] = useState<RangeId>("today");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const isHidden = (id: string) => hiddenWidgets.includes(id);
   const toggle = (id: string, hide: boolean) => onToggleWidget?.(id, hide);
 
+  const { from, to } = useMemo(() => rangeFor(range, customFrom, customTo), [range, customFrom, customTo]);
+
   useEffect(() => {
     if (!active) return;
-    const qs = businessId ? `?businessId=${encodeURIComponent(businessId)}` : "";
-    fetch(`/api/admin/reports/overview${qs}`)
+    if (range === "custom" && (!customFrom || !customTo)) return;
+    const params = new URLSearchParams({ from, to });
+    if (businessId) params.set("businessId", businessId);
+    fetch(`/api/admin/reports/overview?${params.toString()}`)
       .then((r) => r.json())
       .then(setReport);
-  }, [businessId, active]);
+  }, [businessId, active, from, to, range, customFrom, customTo]);
 
   if (!report) {
     return (
@@ -110,30 +157,49 @@ export function ReportsPanel({
   }
 
   const has = (id: string) => allowedPanels === null || allowedPanels.includes(id);
-  const showRevenue = has("quotes") || has("invoices");
+  const showRevenue = has("invoices");
   const showDelivery = has("delivery");
   const showRepairs = has("repairs");
   const showCrm = has("contacts");
 
-  const { revenue, delivery, repairs, crm } = report;
+  const { summary, revenue, delivery, repairs, crm } = report;
   const momDelta = revenue.collectedLastMonth > 0
     ? ((revenue.collectedThisMonth - revenue.collectedLastMonth) / revenue.collectedLastMonth) * 100
     : null;
 
-  if (!showRevenue && !showDelivery && !showRepairs && !showCrm) {
-    return (
-      <section style={cardStyle}>
-        <h2 style={{ marginTop: 0 }}>Reports</h2>
-        <p style={subtleTextStyle}>No report sections are enabled for this account.</p>
-      </section>
-    );
-  }
-
   return (
     <>
+      <RemovableSection id="reports.summary" hidden={isHidden("reports.summary")} editable={editable} onToggle={toggle}><section style={cardStyle}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 4 }}>
+          <h2 style={{ margin: 0 }}>Summary</h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <select value={range} onChange={(e) => setRange(e.target.value as RangeId)} style={{ padding: "6px 8px", fontSize: 12.5 }}>
+              {RANGE_OPTIONS.map((o) => (
+                <option key={o.id} value={o.id}>{o.label}</option>
+              ))}
+            </select>
+            {range === "custom" && (
+              <>
+                <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} style={{ padding: 6, fontSize: 12.5 }} />
+                <span style={{ color: "var(--text-faint)", fontSize: 12.5 }}>to</span>
+                <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} style={{ padding: 6, fontSize: 12.5 }} />
+              </>
+            )}
+          </div>
+        </div>
+        <p style={subtleTextStyle}>Revenue, appointments, and profit for the selected period — priced off each appointment's own parts/services.</p>
+        <StatCardRow>
+          <StatCard label="Total Revenue" value={money(summary.totalRevenue)} tone="info" />
+          <StatCard label="Appointments Booked" value={String(summary.appointmentsBooked)} tone="info" />
+          <StatCard label="Appointments Success" value={String(summary.appointmentsSuccess)} tone="success" />
+          <StatCard label="Total Cost" value={money(summary.totalCost)} tone="warning" />
+          <StatCard label="Total Profit" value={money(summary.totalProfit)} tone={summary.totalProfit >= 0 ? "success" : "warning"} />
+        </StatCardRow>
+      </section></RemovableSection>
+
       {showRevenue && <RemovableSection id="reports.revenue" hidden={isHidden("reports.revenue")} editable={editable} onToggle={toggle}><section style={cardStyle}>
         <h2 style={{ marginTop: 0 }}>Revenue</h2>
-        <p style={subtleTextStyle}>Rolled up from every Quote, Invoice, and Payment across this business.</p>
+        <p style={subtleTextStyle}>Rolled up from every Invoice and Payment across this business.</p>
         <StatCardRow>
           <StatCard label="Total Invoiced" value={money(revenue.totalInvoiced)} tone="info" />
           <StatCard label="Collected" value={money(revenue.totalCollected)} tone="success" />
@@ -144,7 +210,6 @@ export function ReportsPanel({
             hint={momDelta != null ? `${momDelta >= 0 ? "+" : ""}${Math.round(momDelta)}% vs last month` : "no data last month"}
             tone="info"
           />
-          <StatCard label="Quote Acceptance Rate" value={pct(revenue.quoteAcceptanceRate)} tone="info" />
         </StatCardRow>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 24 }}>
           <div>
@@ -153,16 +218,6 @@ export function ReportsPanel({
             {Object.entries(revenue.invoicesByStatus).map(([status, count]) => (
               <div key={status} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, marginBottom: 4 }}>
                 <span style={badgeStyle(INVOICE_TONE[status] ?? "neutral")}>{status}</span>
-                <span>{count}</span>
-              </div>
-            ))}
-          </div>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 8 }}>Quotes by status</div>
-            {Object.entries(revenue.quotesByStatus).length === 0 && <span style={{ fontSize: 12, color: "var(--text-faint)" }}>No quotes yet.</span>}
-            {Object.entries(revenue.quotesByStatus).map(([status, count]) => (
-              <div key={status} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, marginBottom: 4 }}>
-                <span style={badgeStyle(QUOTE_TONE[status] ?? "neutral")}>{status}</span>
                 <span>{count}</span>
               </div>
             ))}

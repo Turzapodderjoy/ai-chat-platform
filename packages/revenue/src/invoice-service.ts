@@ -23,7 +23,6 @@ export interface Invoice {
   id: string;
   businessId: string;
   contactId: string | null;
-  quoteId: string | null;
   repairAppointmentId: string | null;
   invoiceNumber: string;
   status: string;
@@ -45,7 +44,6 @@ export interface Invoice {
 export interface CreateInvoiceInput {
   businessId: string;
   contactId?: string;
-  quoteId?: string;
   repairAppointmentId?: string;
   items: LineItemInput[];
   discount?: number;
@@ -57,7 +55,6 @@ type InvoiceRow = {
   id: string;
   businessId: string;
   contactId: string | null;
-  quoteId: string | null;
   repairAppointmentId: string | null;
   invoiceNumber: string;
   status: string;
@@ -79,7 +76,6 @@ function toInvoice(row: InvoiceRow): Invoice {
     id: row.id,
     businessId: row.businessId,
     contactId: row.contactId,
-    quoteId: row.quoteId,
     repairAppointmentId: row.repairAppointmentId,
     invoiceNumber: row.invoiceNumber,
     status: row.status,
@@ -101,10 +97,6 @@ function toInvoice(row: InvoiceRow): Invoice {
 
 const INCLUDE = { items: true, payments: true } as const;
 
-/** Invoices are billed off a snapshot of line items — generateFromQuote
- * copies the quote's current items rather than referencing them live, so
- * an invoice already sent to a customer never silently changes if the
- * source quote is edited afterward. */
 export class InvoiceService {
   private async nextInvoiceNumber(businessId: string): Promise<string> {
     const count = await prisma.invoice.count({ where: { businessId } });
@@ -117,7 +109,6 @@ export class InvoiceService {
       data: {
         businessId: input.businessId,
         contactId: input.contactId,
-        quoteId: input.quoteId,
         repairAppointmentId: input.repairAppointmentId,
         invoiceNumber,
         status: "issued",
@@ -128,30 +119,6 @@ export class InvoiceService {
       },
       include: INCLUDE,
     });
-    return toInvoice(row);
-  }
-
-  async generateFromQuote(quoteId: string, dueDate?: string): Promise<Invoice> {
-    const quote = await prisma.quote.findUnique({ where: { id: quoteId }, include: { items: true } });
-    if (!quote) throw new Error(`Unknown quote: "${quoteId}"`);
-    const invoiceNumber = await this.nextInvoiceNumber(quote.businessId);
-    const row = await prisma.invoice.create({
-      data: {
-        businessId: quote.businessId,
-        contactId: quote.contactId,
-        quoteId: quote.id,
-        invoiceNumber,
-        status: "issued",
-        discount: quote.discount,
-        tax: quote.tax,
-        dueDate: dueDate ? new Date(dueDate) : undefined,
-        items: { create: quote.items.map((i) => ({ name: i.name, quantity: i.quantity, unitPrice: i.unitPrice })) },
-      },
-      include: INCLUDE,
-    });
-    if (quote.status !== "accepted") {
-      await prisma.quote.update({ where: { id: quote.id }, data: { status: "accepted" } });
-    }
     return toInvoice(row);
   }
 
