@@ -91,7 +91,7 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
 // removed here -- that feature was deleted platform-wide, this entry
 // referenced a nonexistent panel and wasn't even a valid Tab id).
 const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
-  { items: [{ id: "home", label: "Home" }, { id: "overview", label: "Overview" }, { id: "repairs", label: "Repairs" }] },
+  { items: [{ id: "home", label: "Home" }, { id: "overview", label: "Overview" }, { id: "repairs", label: "Repairs" }, { id: "reports", label: "Reports" }] },
   {
     label: "Conversations",
     items: [
@@ -397,7 +397,7 @@ export default function ClientDashboardClient() {
         </div>
       )}
       {([
-        ["home", <ClientHomePanel key="home" businessId={businessId} clientName={client?.name ?? businessId} username={username} onNavigate={(t) => selectTab(t as Tab)} />],
+        ["home", <ClientHomePanel key="home" businessId={businessId} businessType={clientType} clientName={client?.name ?? businessId} username={username} onNavigate={(t) => selectTab(t as Tab)} />],
         ["overview", (
           <div key="overview">
             <SubscriptionStatus />

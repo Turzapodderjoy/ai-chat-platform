@@ -13,27 +13,24 @@ interface Appointment {
   appointmentDate: string;
 }
 
-interface Invoice {
-  balanceDue: number;
-}
-
 interface QuickLink {
   tab: string;
   label: string;
   hint: string;
 }
 
-const QUICK_LINKS: QuickLink[] = [
-  { tab: "orders", label: "Appointments", hint: "Book, track, and manage orders" },
-  { tab: "repairs", label: "Repairs", hint: "Device intake and status" },
-  { tab: "inventory", label: "Inventory", hint: "Parts, stock, and pricing" },
-  { tab: "invoices", label: "Invoices", hint: "Bill customers, record payments" },
-  { tab: "contacts", label: "Customer Database", hint: "Every customer, one record" },
-  { tab: "reports", label: "Reports", hint: "Revenue, cost, and profit" },
-];
+function quickLinks(isRepairType: boolean): QuickLink[] {
+  return [
+    { tab: "orders", label: isRepairType ? "Appointments" : "Orders", hint: isRepairType ? "Book, track, and manage repairs" : "Every order taken by the AI or by hand" },
+    { tab: "repairs", label: "Repairs", hint: "Device intake and status" },
+    { tab: "inventory", label: "Inventory", hint: "Parts, stock, and pricing" },
+    { tab: "invoices", label: "Invoices", hint: "Bill customers, record payments" },
+    { tab: "contacts", label: "Customer Database", hint: "Every customer, one record" },
+    { tab: "reports", label: "Reports", hint: "Revenue, cost, and profit" },
+  ];
+}
 
-function greeting(): string {
-  const hour = new Date().getHours();
+function greetingFor(hour: number): string {
   if (hour < 12) return "Good morning";
   if (hour < 18) return "Good afternoon";
   return "Good evening";
@@ -43,34 +40,39 @@ function greeting(): string {
  * doing right now" snapshot, the same subscription info Overview used
  * to show (so Overview itself can be hidden per-account via the
  * existing Client Access allow-list, not a special case here), and
- * one-click links into every panel a client actually opens every day. */
+ * one-click links into every panel a client actually opens every day.
+ *
+ * The greeting/date is deliberately computed in an effect (not at
+ * render time) so it reflects the viewer's own browser clock and
+ * timezone rather than whatever the server happened to render first --
+ * matters for clients logging in from a different region than the
+ * server. */
 export function ClientHomePanel({
   businessId,
+  businessType,
   clientName,
   username,
   onNavigate,
 }: {
   businessId: string;
+  businessType: string;
   clientName: string;
   username: string | null;
   onNavigate: (tab: string) => void;
 }) {
   const [appointments, setAppointments] = useState<Appointment[] | null>(null);
-  const [invoices, setInvoices] = useState<Invoice[] | null>(null);
+  const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
+    setNow(new Date());
     fetch(`/api/admin/repairs?businessId=${encodeURIComponent(businessId)}`)
       .then((r) => r.json())
       .then((d: { appointments: Appointment[] }) => setAppointments(d.appointments ?? []));
-    fetch(`/api/admin/revenue/invoices?businessId=${encodeURIComponent(businessId)}`)
-      .then((r) => r.json())
-      .then((d: { invoices: Invoice[] }) => setInvoices(d.invoices ?? []));
   }, [businessId]);
 
-  const todayKey = new Date().toISOString().slice(0, 10);
-  const todaysAppointments = appointments?.filter((a) => a.appointmentDate.slice(0, 10) === todayKey).length ?? null;
+  const todayKey = now ? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}` : null;
+  const todaysAppointments = appointments && todayKey ? appointments.filter((a) => a.appointmentDate.slice(0, 10) === todayKey).length : null;
   const activeAppointments = appointments?.filter((a) => a.status !== "completed" && a.status !== "cancelled").length ?? null;
-  const outstanding = invoices?.reduce((sum, i) => sum + i.balanceDue, 0) ?? null;
 
   return (
     <section>
@@ -87,23 +89,20 @@ export function ClientHomePanel({
       >
         <div>
           <h2 style={{ margin: 0, marginBottom: 4, fontSize: 22 }}>
-            {greeting()}{username ? `, ${username}` : ""} 👋
+            {now ? greetingFor(now.getHours()) : "Welcome"}{username ? `, ${username}` : ""} 👋
           </h2>
           <p style={{ ...subtleTextStyle, margin: 0 }}>{clientName}</p>
         </div>
-        <div style={{ fontSize: 13, color: "var(--text-faint)" }}>
-          {new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
-        </div>
+        {now && (
+          <div style={{ fontSize: 13, color: "var(--text-faint)" }}>
+            {now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })} · {now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+          </div>
+        )}
       </div>
 
       <StatCardRow>
         <StatCard label="Today's Appointments" value={todaysAppointments ?? "…"} tone="info" />
         <StatCard label="Active Appointments" value={activeAppointments ?? "…"} tone="accent" />
-        <StatCard
-          label="Outstanding Balance"
-          value={outstanding != null ? `৳${outstanding.toLocaleString()}` : "…"}
-          tone={outstanding != null && outstanding > 0 ? "warning" : "success"}
-        />
       </StatCardRow>
 
       <SubscriptionStatus />
@@ -111,7 +110,7 @@ export function ClientHomePanel({
       <div style={cardStyle}>
         <h3 style={{ marginTop: 0, marginBottom: 14 }}>Quick links</h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
-          {QUICK_LINKS.map((link) => (
+          {quickLinks(businessType === "repair").map((link) => (
             <button
               key={link.tab}
               onClick={() => onNavigate(link.tab)}
