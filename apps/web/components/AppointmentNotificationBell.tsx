@@ -72,7 +72,7 @@ export function AppointmentNotificationBell({ businessId }: { businessId: string
         .catch(() => {});
     }
     function pollSubscription() {
-      fetch("/api/billing/subscription")
+      fetch(`/api/billing/subscription?businessId=${encodeURIComponent(businessId)}`)
         .then((r) => r.json())
         .then((d) => {
           const sub = d.subscription;

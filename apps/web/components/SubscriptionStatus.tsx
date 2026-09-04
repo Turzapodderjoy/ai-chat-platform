@@ -37,19 +37,19 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function SubscriptionStatus() {
+export function SubscriptionStatus({ businessId }: { businessId: string }) {
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/billing/subscription")
+    fetch(`/api/billing/subscription?businessId=${encodeURIComponent(businessId)}`)
       .then((r) => r.json())
       .then((data) => {
         setSubscription(data.subscription);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, []);
+  }, [businessId]);
 
   if (loading) return <div style={{ ...cardStyle, ...subtleTextStyle }}>Loading subscription…</div>;
   if (!subscription) return null;

@@ -105,7 +105,7 @@ export function ClientHomePanel({
         <StatCard label="Active Appointments" value={activeAppointments ?? "…"} tone="accent" />
       </StatCardRow>
 
-      <SubscriptionStatus />
+      <SubscriptionStatus businessId={businessId} />
 
       <div style={cardStyle}>
         <h3 style={{ marginTop: 0, marginBottom: 14 }}>Quick links</h3>

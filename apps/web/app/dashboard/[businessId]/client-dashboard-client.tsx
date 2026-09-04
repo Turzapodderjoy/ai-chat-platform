@@ -400,7 +400,7 @@ export default function ClientDashboardClient() {
         ["home", <ClientHomePanel key="home" businessId={businessId} businessType={clientType} clientName={client?.name ?? businessId} username={username} onNavigate={(t) => selectTab(t as Tab)} />],
         ["overview", (
           <div key="overview">
-            <SubscriptionStatus />
+            <SubscriptionStatus businessId={businessId} />
             <ClientOverviewPanel businessId={businessId} active={tab === "overview"} />
           </div>
         )],
