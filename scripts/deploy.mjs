@@ -21,12 +21,20 @@
 import { execFileSync, execSync } from "node:child_process";
 import { existsSync, mkdirSync, appendFileSync, writeFileSync, readFileSync, rmSync, symlinkSync, lstatSync, readdirSync, statSync, copyFileSync, openSync, closeSync } from "node:fs";
 import { join } from "node:path";
+import { platform } from "node:os";
 
-const REPO_SOURCE = "E:/Startup/ai-chat-platform";
-const RELEASES_DIR = "E:/Startup/ai-chat-platform-releases";
-const CURRENT_LINK = "E:/Startup/ai-chat-platform-current";
-const SECRETS_DIR = "E:/Startup/ai-chat-platform-secrets";
-const OPS_DIR = "E:/Startup/ai-chat-platform-ops";
+// This script runs on exactly two known hosts: the original Windows
+// laptop and the Linux VPS it was migrated to -- a junction (Windows'
+// own directory-symlink type) doesn't exist on Linux, and the two hosts
+// use different absolute layouts, so both are picked by OS rather than
+// adding a third environment's worth of config for values that never
+// change on either host.
+const IS_WINDOWS = platform() === "win32";
+const REPO_SOURCE = IS_WINDOWS ? "E:/Startup/ai-chat-platform" : "/opt/aiva/repo";
+const RELEASES_DIR = IS_WINDOWS ? "E:/Startup/ai-chat-platform-releases" : "/opt/aiva/releases";
+const CURRENT_LINK = IS_WINDOWS ? "E:/Startup/ai-chat-platform-current" : "/opt/aiva/current";
+const SECRETS_DIR = IS_WINDOWS ? "E:/Startup/ai-chat-platform-secrets" : "/opt/aiva/secrets";
+const OPS_DIR = IS_WINDOWS ? "E:/Startup/ai-chat-platform-ops" : "/opt/aiva/ops";
 const LOG_FILE = join(OPS_DIR, "deploy.log");
 const LOCK_FILE = join(OPS_DIR, "deploy.lock");
 const LOCK_STALE_MS = 15 * 60 * 1000;
@@ -149,7 +157,7 @@ function swapCurrent(releaseDir) {
     // point to is untouched (only unlinked from this path).
     rmSync(CURRENT_LINK, { recursive: false, force: true });
   }
-  symlinkSync(releaseDir, CURRENT_LINK, "junction");
+  symlinkSync(releaseDir, CURRENT_LINK, IS_WINDOWS ? "junction" : undefined);
   log(`ai-chat-platform-current now points at ${releaseDir}`);
 }
 
