@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { cardStyle, subtleTextStyle, primaryButtonStyle, badgeStyle, shortId, type BadgeTone } from "./dashboard-styles";
 import { MarkdownMessage } from "./MarkdownMessage";
 import { OrderItemsEditor } from "./OrderManagementPanel";
+import { isNewAppointment, dismissNotification, onNotificationsChanged } from "../lib/appointment-notifications";
 
 interface Appointment {
   id: string;
@@ -79,36 +80,6 @@ function dateKey(iso: string): string {
   return iso.slice(0, 10);
 }
 
-// Web Audio tone, not a bundled audio file — a two-note chime needs no
-// asset and works the same everywhere. ponytail: only fires while this
-// tab is open; a staff member with the dashboard fully closed gets
-// nothing. Real background delivery needs a service worker + Web Push
-// subscription (VAPID keys, a push endpoint per device) — a genuinely
-// bigger feature, not added here.
-function playPingSound() {
-  try {
-    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-    const now = ctx.currentTime;
-    [880, 1175].forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.frequency.value = freq;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      const start = now + i * 0.12;
-      gain.gain.setValueAtTime(0.001, start);
-      gain.gain.exponentialRampToValueAtTime(0.15, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.25);
-      osc.start(start);
-      osc.stop(start + 0.25);
-    });
-  } catch {
-    // Audio can fail (autoplay policy before any user interaction) —
-    // the visible toast still lands, sound is a bonus, never the only
-    // signal.
-  }
-}
-
 /** Appointment booking + device-repair tracking for a client with no AI
  * bot (see RepairController) — a hand-rolled month calendar (no
  * calendar library in this repo), the appointment
@@ -168,39 +139,18 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
     }
   }
 
-  const [toast, setToast] = useState<string | null>(null);
-  const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">(
-    typeof Notification !== "undefined" ? Notification.permission : "unsupported"
-  );
-  // null until the first fetch lands — guards against every existing
-  // appointment "pinging" as new the moment the panel mounts.
-  const knownIdsRef = useRef<Set<string> | null>(null);
-
-  function notifyNewAppointments(fresh: Appointment[]) {
-    playPingSound();
-    const label = fresh.length === 1
-      ? `New appointment: ${fresh[0]!.customerName}`
-      : `${fresh.length} new appointments`;
-    setToast(label);
-    setTimeout(() => setToast((t) => (t === label ? null : t)), 6000);
-
-    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-      new Notification("New repair appointment", { body: label });
-    }
-  }
+  // The topbar bell (AppointmentNotificationBell) owns detecting and
+  // announcing new appointments (polls independent of which tab is
+  // open); this panel just re-renders when that shared list changes so
+  // a matching row's highlight can appear/disappear live.
+  const [, forceNotifRerender] = useState(0);
+  useEffect(() => onNotificationsChanged(() => forceNotifRerender((n) => n + 1)), []);
 
   function refresh() {
     const qs = businessId ? `?businessId=${encodeURIComponent(businessId)}` : "";
     fetch(`/api/admin/repairs${qs}`)
       .then((r) => r.json())
-      .then((d: { appointments: Appointment[] }) => {
-        if (knownIdsRef.current) {
-          const fresh = d.appointments.filter((a) => !knownIdsRef.current!.has(a.id));
-          if (fresh.length > 0) notifyNewAppointments(fresh);
-        }
-        knownIdsRef.current = new Set(d.appointments.map((a) => a.id));
-        setAppointments(d.appointments);
-      });
+      .then((d: { appointments: Appointment[] }) => setAppointments(d.appointments));
   }
 
   useEffect(() => {
@@ -227,6 +177,8 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
     setSelectedId(a.id);
     setMessages(null);
     fetchMessages(a.trackingToken);
+    // Opening it is as good as having seen the notification for it.
+    if (businessId) dismissNotification(businessId, a.id);
   }
 
   useEffect(() => {
@@ -373,42 +325,9 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
 
   return (
     <section style={{ ...cardStyle, position: "relative" }}>
-      {toast && (
-        <div
-          style={{
-            position: "absolute",
-            top: 14,
-            right: 14,
-            zIndex: 5,
-            background: "var(--accent)",
-            color: "var(--bg)",
-            padding: "8px 14px",
-            borderRadius: 999,
-            fontSize: 12.5,
-            fontWeight: 600,
-            boxShadow: "var(--shadow)",
-          }}
-        >
-          {toast}
-        </div>
-      )}
-
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
-        <div>
-          <h2 style={{ marginTop: 0, marginBottom: 4 }}>Repairs</h2>
-          <p style={subtleTextStyle}>Appointment bookings and device-repair tracking — no AI involved, every conversation goes straight to a human.</p>
-        </div>
-        {notifPermission === "default" && (
-          <button
-            onClick={() => Notification.requestPermission().then(setNotifPermission)}
-            style={{ fontSize: 11.5, whiteSpace: "nowrap" }}
-          >
-            Enable notifications
-          </button>
-        )}
-        {notifPermission === "granted" && (
-          <span style={{ fontSize: 11, color: "var(--text-faint)" }}>Notifications on</span>
-        )}
+      <div>
+        <h2 style={{ marginTop: 0, marginBottom: 4 }}>Repairs</h2>
+        <p style={subtleTextStyle}>Appointment bookings and device-repair tracking — no AI involved, every conversation goes straight to a human. New bookings show up in the notification bell above.</p>
       </div>
 
       {businessId && (
@@ -492,20 +411,24 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
           <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", maxHeight: 300, overflowY: "auto" }}>
           {!appointments && <p style={{ padding: 10, ...subtleTextStyle }}>Loading…</p>}
           {appointments && visibleAppointments.length === 0 && <p style={{ padding: 10, ...subtleTextStyle }}>No appointments match.</p>}
-          {visibleAppointments.map((a) => (
+          {visibleAppointments.map((a) => {
+            const isNew = !!businessId && isNewAppointment(businessId, a.id);
+            return (
             <div
               key={a.id}
               onClick={() => openAppointment(a)}
               style={{
                 padding: 10,
                 borderBottom: "1px solid var(--border)",
+                borderLeft: isNew ? "3px solid var(--accent)" : "3px solid transparent",
                 cursor: "pointer",
-                background: selectedId === a.id ? "var(--surface-hover)" : "transparent",
+                background: selectedId === a.id ? "var(--surface-hover)" : isNew ? "var(--accent-subtle)" : "transparent",
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
                 <strong style={{ fontSize: 12.5 }}>{a.customerName}</strong>
                 <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
+                  {isNew && <span style={badgeStyle("info")}>New</span>}
                   {a.priority && a.priority !== "normal" && (
                     <span style={badgeStyle(PRIORITY_TONE[a.priority] ?? "neutral")}>{PRIORITY_LABEL[a.priority]}</span>
                   )}
@@ -519,7 +442,8 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
               </div>
               <div style={{ fontSize: 10.5, color: "var(--text-faint)", marginTop: 2 }}>Token: {a.trackingToken}</div>
             </div>
-          ))}
+            );
+          })}
           </div>
         </div>
       </div>

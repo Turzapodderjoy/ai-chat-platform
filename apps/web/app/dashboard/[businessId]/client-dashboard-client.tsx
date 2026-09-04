@@ -30,6 +30,7 @@ import { RemovableSection } from "../../../components/RemovableSection";
 import { AgentConsole } from "../../../components/AgentConsole";
 import { UserSettingsPanel } from "../../../components/UserSettingsPanel";
 import { ClientHomePanel } from "../../../components/ClientHomePanel";
+import { AppointmentNotificationBell } from "../../../components/AppointmentNotificationBell";
 
 type Tab = "home" | "overview" | "tagdashboard" | "knowledge" | "products" | "inventory" | "orders" | "delivery" | "repairs" | "staff" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "invoices" | "reports" | "notifications" | "settings";
 
@@ -116,7 +117,7 @@ const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
   {
     label: "Revenue",
     items: [
-      { id: "invoices", label: "Invoices" },
+      { id: "invoices", label: "Revenue" },
     ],
   },
   {
@@ -373,6 +374,7 @@ export default function ClientDashboardClient() {
       username={previewAsClient ? `${username} (previewing as client)` : username}
       onLogout={logout}
       backHref={isAdmin ? "/dashboard" : undefined}
+      topbarExtra={<AppointmentNotificationBell businessId={businessId} />}
     >
       <SubscriptionNotification />
       {previewAsClient && isAdmin && (

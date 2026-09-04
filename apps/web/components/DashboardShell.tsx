@@ -25,6 +25,7 @@ export function DashboardShell<T extends string>({
   username,
   onLogout,
   backHref,
+  topbarExtra,
   children,
 }: {
   sidebarLabel: ReactNode;
@@ -34,6 +35,10 @@ export function DashboardShell<T extends string>({
   username?: string | null;
   onLogout?: () => void;
   backHref?: string;
+  /** Rendered in the topbar, right before the theme toggle -- e.g. a
+   * business-scoped notification bell. Omit where there's no single
+   * business in scope (the mother dashboard). */
+  topbarExtra?: ReactNode;
   children: ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -442,6 +447,8 @@ export function DashboardShell<T extends string>({
                 )}
               </div>
             )}
+
+            {topbarExtra}
 
             {/* Theme toggle */}
             <button
