@@ -29,4 +29,5 @@ export interface ConversationRecord {
   assignedAgentId: string | null;
   isTraining: boolean;
   pendingOrder: Record<string, string> | null;
+  pendingRepair: Record<string, string> | null;
 }

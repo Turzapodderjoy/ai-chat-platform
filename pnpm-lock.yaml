@@ -426,6 +426,9 @@ importers:
       '@ai-chat-platform/prompt-engine':
         specifier: workspace:*
         version: link:../prompt-engine
+      '@ai-chat-platform/repairs':
+        specifier: workspace:*
+        version: link:../repairs
       '@ai-chat-platform/retriever':
         specifier: workspace:*
         version: link:../retriever

@@ -16,6 +16,7 @@
     "@ai-chat-platform/vector-store": "workspace:*",
     "@ai-chat-platform/knowledge-refresh": "workspace:*",
     "@ai-chat-platform/crm": "workspace:*",
-    "@ai-chat-platform/vision": "workspace:*"
+    "@ai-chat-platform/vision": "workspace:*",
+    "@ai-chat-platform/repairs": "workspace:*"
   }
 }

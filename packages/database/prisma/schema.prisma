@@ -153,6 +153,13 @@ model Conversation {
   // or once the customer says something that isn't a plain confirmation.
   pendingOrder       Json?
 
+  // Same pattern as pendingOrder but for repair appointment booking via
+  // the AI chat — collects deviceType, deviceModel, issueDescription,
+  // customerName, phone, email, appointmentDate across multiple turns.
+  // Cleared once the repair is booked or the customer says something
+  // that isn't a plain confirmation.
+  pendingRepair      Json?
+
   // Training Arena sessions (dashboard tab where an admin deliberately
   // provokes/corrects the AI, e.g. triggers a handoff then argues with
   // it) — set once at creation, never changes. Two effects: ChatService
@@ -1132,6 +1139,11 @@ model RepairAppointment {
   // management" entry once it has a serial number/items; not a separate
   // model (see RepairOrderItem's own comment for why).
   serialNumber     String?
+  // Set when the linked Invoice's "Paid" action records a final amount
+  // that overrides the itemized total -- same rule as
+  // Invoice.totalOverride and RepairOrderItem.overridePrice. Null means
+  // orderTotal() still sums the line items as usual.
+  totalOverride    Float?
   // Nullable FK to Contact so CLV/issue-history rolls up via a real
   // relation instead of the phone-matching ContactService.getRecord
   // otherwise falls back to.
@@ -1327,6 +1339,11 @@ model Invoice {
   discount      Float     @default(0)
   tax           Float     @default(0)
   amountPaid    Float     @default(0)
+  // Set when the "Paid" action records a final collected amount that
+  // differs from the itemized total -- same "override becomes the real
+  // charged price" rule as RepairOrderItem.overridePrice. Null means the
+  // total is still whatever discount/tax/items compute to.
+  totalOverride Float?
   issueDate     DateTime  @default(now())
   dueDate       DateTime?
 

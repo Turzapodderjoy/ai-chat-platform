@@ -1,6 +1,6 @@
 import { ConversationService } from "@ai-chat-platform/conversation";
 import { RepairAppointmentService, StaffService, type AddOrderItemInput } from "@ai-chat-platform/repairs";
-import { EmailSenderConfigService, ResendEmailClient, StatusEmailService } from "@ai-chat-platform/email";
+import { GmailEmailClient, StatusEmailService } from "@ai-chat-platform/email";
 import { TenantService } from "@ai-chat-platform/tenant";
 import { ContactService } from "@ai-chat-platform/crm";
 import { InvoiceService } from "@ai-chat-platform/revenue";
@@ -37,8 +37,7 @@ export class RepairController {
     private readonly repairs: RepairAppointmentService,
     private readonly staff: StaffService,
     private readonly conversations: ConversationService,
-    private readonly emailSenderConfig: EmailSenderConfigService,
-    private readonly emailClient: ResendEmailClient,
+    private readonly emailClient: GmailEmailClient,
     private readonly tenants: TenantService,
     private readonly contacts: ContactService,
     private readonly statusEmails: StatusEmailService,
@@ -94,16 +93,10 @@ export class RepairController {
   private async sendBookingEmail(input: BookRepairInput, trackingToken: string): Promise<void> {
     if (!input.email) return;
 
-    const sender = await this.emailSenderConfig.get(input.businessId);
-    if (!sender.fromEmail) return;
+    const trackingLine = `<p>Use the code below to track your repair.</p>`;
 
-    const trackingLine = sender.trackingPageUrl
-      ? `<p>Track your repair anytime at <a href="${sender.trackingPageUrl}">${sender.trackingPageUrl}</a> using the code below.</p>`
-      : `<p>Use the code below to track your repair.</p>`;
-
-    await this.emailClient.send({
+    await this.emailClient.send(input.businessId, {
       to: input.email,
-      from: sender.fromName ? `${sender.fromName} <${sender.fromEmail}>` : sender.fromEmail,
       subject: "Your repair appointment is booked",
       html: `
         <p>Hi ${input.customerName},</p>

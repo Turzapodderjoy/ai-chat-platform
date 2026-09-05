@@ -8,6 +8,7 @@ import type { VectorStoreManager } from "@ai-chat-platform/vector-store";
 import type { MasterCsvService } from "@ai-chat-platform/knowledge-refresh";
 import type { ContactService } from "@ai-chat-platform/crm";
 import type { VisionService } from "@ai-chat-platform/vision";
+import type { RepairAppointmentService } from "@ai-chat-platform/repairs";
 
 import { ChatUsageLog } from "./chat-usage-log";
 import { ResponseCache } from "./response-cache";
@@ -151,6 +152,77 @@ function mergeOrderFields(
 
 function isOrderComplete(fields: Record<string, string> | null): fields is OrderFields {
   return !!fields && ORDER_FIELD_KEYS.every((k) => !!fields[k]);
+}
+
+// ── Repair appointment booking markers ──────────────────────────────
+// Same dual-marker protocol as orders, but for collecting repair
+// appointment details via the AI chat.
+
+const REPAIR_MARKER_PATTERN = /\[\[REPAIR_BOOKED:([^\]]*)\]{1,2}/;
+const REPAIR_FIELDS_PATTERN = /\[\[REPAIR_FIELDS:([^\]]*)\]{1,2}/;
+
+const REPAIR_FIELD_KEYS = ["deviceType", "deviceModel", "issueDescription", "customerName", "phone", "email", "appointmentDate"] as const;
+type RepairFields = Record<(typeof REPAIR_FIELD_KEYS)[number], string>;
+
+function extractRepairFields(parsed: Record<string, unknown>): Partial<RepairFields> {
+  const field = (key: string) => (typeof parsed[key] === "string" ? (parsed[key] as string).trim() : "");
+  const out: Partial<RepairFields> = {};
+  if (field("deviceType")) out.deviceType = field("deviceType");
+  if (field("deviceModel")) out.deviceModel = field("deviceModel");
+  if (field("issueDescription") || field("issue")) out.issueDescription = field("issueDescription") || field("issue");
+  if (field("customerName") || field("name")) out.customerName = field("customerName") || field("name");
+  if (field("phone")) out.phone = field("phone");
+  if (field("email")) out.email = field("email");
+  if (field("appointmentDate") || field("date")) out.appointmentDate = field("appointmentDate") || field("date");
+  return out;
+}
+
+function mergeRepairFields(
+  existing: Record<string, string> | null,
+  incoming: Partial<RepairFields>
+): Record<string, string> {
+  const merged = { ...(existing ?? {}) };
+  for (const key of REPAIR_FIELD_KEYS) {
+    const value = incoming[key];
+    if (value) merged[key] = value;
+  }
+  return merged;
+}
+
+function isRepairComplete(fields: Record<string, string> | null): fields is RepairFields {
+  return !!fields && ["deviceType", "issueDescription", "customerName", "phone", "appointmentDate"].every((k) => !!fields[k]);
+}
+
+function repairSummaryMessage(fields: RepairFields): string {
+  const device = fields.deviceModel ? `${fields.deviceType} (${fields.deviceModel})` : fields.deviceType;
+  return [
+    "Please confirm your repair appointment:",
+    "",
+    `- Device: ${device}`,
+    `- Issue: ${fields.issueDescription}`,
+    `- Name: ${fields.customerName}`,
+    `- Phone: ${fields.phone}`,
+    fields.email ? `- Email: ${fields.email}` : null,
+    `- Date: ${fields.appointmentDate}`,
+    "",
+    'Reply "confirm" if everything is correct.',
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+const REPAIR_CONFIRMED_MESSAGE = "Your repair appointment is booked! A confirmation email has been sent. You can track your repair status anytime using your tracking code.";
+
+function repairConfirmedMessage(fields: RepairFields, trackingToken: string): string {
+  const device = fields.deviceModel ? `${fields.deviceType} (${fields.deviceModel})` : fields.deviceType;
+  return [
+    REPAIR_CONFIRMED_MESSAGE,
+    "",
+    `**Tracking Code: ${trackingToken}**`,
+    `- Device: ${device}`,
+    `- Issue: ${fields.issueDescription}`,
+    `- Appointment: ${fields.appointmentDate}`,
+  ].join("\n");
 }
 
 // Sums every ৳ amount found in the products text (code-computed, not
@@ -533,7 +605,8 @@ export class ChatService {
     private readonly masterCsv: MasterCsvService,
     private readonly orders: OrderService,
     private readonly contacts?: ContactService,
-    private readonly vision?: VisionService
+    private readonly vision?: VisionService,
+    private readonly repairs?: RepairAppointmentService
   ) {}
 
   // Two messages from the same customer arriving close together (a
@@ -727,6 +800,46 @@ export class ChatService {
       return {
         answer: orderMessage,
         provider: "order",
+        tokens: 0,
+        confidence: 1,
+        messageId: savedMessage.id,
+      };
+    }
+
+    // Same deterministic finalize pattern as orders — a pending repair
+    // (all required fields collected) finalizes the moment the customer
+    // sends a plain "yes"/"confirm", bypassing the AI entirely.
+    if (this.repairs && isRepairComplete(conversation.pendingRepair) && isAffirmative(request.message)) {
+      const pending = conversation.pendingRepair;
+      const trackingToken = await this.repairs.generateTrackingToken();
+      await this.repairs.book({
+        businessId,
+        trackingToken,
+        customerName: pending.customerName,
+        phone: pending.phone,
+        email: pending.email || undefined,
+        deviceType: pending.deviceType,
+        deviceModel: pending.deviceModel || undefined,
+        issueDescription: pending.issueDescription,
+        appointmentDate: new Date(pending.appointmentDate),
+      });
+      await this.conversations.setPendingRepair(request.sessionId, null);
+
+      // Create tracking conversation + handoff (same as RepairController.book)
+      await this.conversations.getOrCreate(trackingToken, businessId, "customer", false, "repair-tracking", null);
+      await this.conversations.requestHandoff(trackingToken, "repair appointment", "New repair appointment booked via chat");
+
+      // Non-blocking CRM upsert
+      this.contacts
+        ?.upsert({ businessId, name: pending.customerName, phone: pending.phone, email: pending.email || undefined })
+        .catch(() => {});
+
+      const reply = repairConfirmedMessage(pending, trackingToken);
+      const savedMessage = await this.conversations.addMessage(request.sessionId, "assistant", reply, "repair");
+
+      return {
+        answer: reply,
+        provider: "repair",
         tokens: 0,
         confidence: 1,
         messageId: savedMessage.id,
@@ -1108,6 +1221,25 @@ export class ChatService {
       console.log(`[perf] retry ai.chat done, provider=${aiResponse.provider}, marker present=${ORDER_FIELDS_PATTERN.test(aiResponse.response) || ORDER_MARKER_PATTERN.test(aiResponse.response)}`);
     }
 
+    // Same retry pattern for repair field collection — if a repair is
+    // in progress and the AI dropped the marker, retry once with a
+    // reminder.
+    if (
+      this.repairs &&
+      conversation.pendingRepair &&
+      !REPAIR_FIELDS_PATTERN.test(aiResponse.response) &&
+      !REPAIR_MARKER_PATTERN.test(aiResponse.response) &&
+      !ORDER_FIELDS_PATTERN.test(aiResponse.response) &&
+      !ORDER_MARKER_PATTERN.test(aiResponse.response)
+    ) {
+      console.log(`[perf] retrying: missing REPAIR_FIELDS marker mid-repair`);
+      const retrySystemPrompt =
+        prompt.systemPrompt +
+        `\n\nREMINDER: a repair appointment is already being collected in this conversation and your last reply forgot the required [[REPAIR_FIELDS:{...}]] marker. End THIS reply with that marker on its own line, using your current best understanding of all fields (deviceType, deviceModel, issueDescription, customerName, phone, email, appointmentDate — "" for any still unknown), as valid JSON in English, exactly as instructed under BOOKING A REPAIR.`;
+      aiResponse = await this.ai.chat(prompt.userPrompt, { ...aiCallOptions, systemPrompt: retrySystemPrompt });
+      console.log(`[perf] retry ai.chat done for repair, provider=${aiResponse.provider}, marker present=${REPAIR_FIELDS_PATTERN.test(aiResponse.response) || REPAIR_MARKER_PATTERN.test(aiResponse.response)}`);
+    }
+
     // Deterministic language enforcement, not just a prompt hint — the
     // system prompt's own "match the customer's language" wording has a
     // confirmed history of drifting (see AI Brain change log). Compute
@@ -1195,10 +1327,14 @@ export class ChatService {
     const hasOrderProgressThisTurn =
       ORDER_FIELDS_PATTERN.test(aiResponse.response) || ORDER_MARKER_PATTERN.test(aiResponse.response);
 
+    const hasRepairProgressThisTurn =
+      REPAIR_FIELDS_PATTERN.test(aiResponse.response) || REPAIR_MARKER_PATTERN.test(aiResponse.response);
+
     // The AI itself decided (see HANDOFF_MARKER's comment) — strip the
     // marker before the customer ever sees it either way.
     const wantsHandoff =
       !hasOrderProgressThisTurn &&
+      !hasRepairProgressThisTurn &&
       (aiResponse.response.includes(HANDOFF_MARKER) ||
         HANDOFF_INTENT_FALLBACK.test(aiResponse.response));
 
@@ -1255,10 +1391,27 @@ export class ChatService {
       }
     }
 
+    // Same pattern for repair fields — merge incoming non-empty fields
+    // into the running pendingRepair state.
+    const repairFieldsMatch = aiResponse.response.match(REPAIR_FIELDS_PATTERN);
+    const wasRepairCompleteBefore = isRepairComplete(conversation.pendingRepair);
+    let mergedRepairFields: Record<string, string> | null = conversation.pendingRepair;
+    if (repairFieldsMatch) {
+      try {
+        const parsed = JSON.parse(repairFieldsMatch[1]!) as Record<string, unknown>;
+        mergedRepairFields = mergeRepairFields(conversation.pendingRepair, extractRepairFields(parsed));
+        await this.conversations.setPendingRepair(request.sessionId, mergedRepairFields);
+      } catch (err) {
+        console.error("[ChatService] failed to parse REPAIR_FIELDS payload:", err);
+      }
+    }
+
     const strippedAnswer = aiResponse.response
       .replaceAll(HANDOFF_MARKER, "")
       .replace(ORDER_MARKER_PATTERN, "")
       .replace(ORDER_FIELDS_PATTERN, "")
+      .replace(REPAIR_MARKER_PATTERN, "")
+      .replace(REPAIR_FIELDS_PATTERN, "")
       .trim();
 
     const orderLang = cannedMessageLanguage(config.languageMode, request.message);
@@ -1274,6 +1427,8 @@ export class ChatService {
     let cleanedAnswer = strippedAnswer;
     if (isOrderComplete(mergedOrderFields) && !wasOrderCompleteBefore) {
       cleanedAnswer = orderSummaryMessage(mergedOrderFields, orderLang);
+    } else if (isRepairComplete(mergedRepairFields) && !wasRepairCompleteBefore) {
+      cleanedAnswer = repairSummaryMessage(mergedRepairFields as RepairFields);
     } else if (!cleanedAnswer && orderMatch) {
       // Confirmed live: when an order finalizes via the AI's own same-
       // message ORDER_TAKEN path, its whole reply can end up being JUST

@@ -47,7 +47,7 @@ import { ApprovalService } from "@ai-chat-platform/approvals";
 import { KnowledgeRefreshController } from "@ai-chat-platform/api";
 import { ClientHealthController, ProductController, OrderController, RepairController, EmailController, CrmController, RevenueController, ReportingController, WidgetVisibilityController, AdminNotificationController } from "@ai-chat-platform/api";
 import { RepairAppointmentService, StaffService } from "@ai-chat-platform/repairs";
-import { EmailSenderConfigService, ResendEmailClient, GmailSenderConfigService, GmailEmailClient, StatusEmailTemplateService, StatusEmailService } from "@ai-chat-platform/email";
+import { EmailSenderConfigService, GmailSenderConfigService, GmailEmailClient, StatusEmailTemplateService, StatusEmailService } from "@ai-chat-platform/email";
 import { ContactService } from "@ai-chat-platform/crm";
 import { InvoiceService, PaymentService } from "@ai-chat-platform/revenue";
 import { ReportingService } from "@ai-chat-platform/reporting";
@@ -173,9 +173,6 @@ export class Container {
     const emailSenderConfig =
       new EmailSenderConfigService();
 
-    const emailClient =
-      new ResendEmailClient();
-
     const contacts =
       new ContactService();
 
@@ -208,7 +205,8 @@ export class Container {
         masterCsv,
         orders,
         contacts,
-        vision
+        vision,
+        repairs
       );
 
     const rag =
@@ -323,7 +321,7 @@ export class Container {
         new ClientHealthController(tenants, crawlerService, masterCsv, refreshSchedule, vectorStore, embeddings, conversations),
         new ProductController(productService, productSync),
         new OrderController(orders, statusEmails),
-        new RepairController(repairs, staff, conversations, emailSenderConfig, emailClient, tenants, contacts, statusEmails, invoices),
+        new RepairController(repairs, staff, conversations, gmailEmailClient, tenants, contacts, statusEmails, invoices),
         new EmailController(emailSenderConfig),
         new CrmController(contacts),
         new RevenueController(invoices, payments),

@@ -20,6 +20,7 @@ type ConversationRow = {
   assignedAgentId: string | null;
   isTraining: boolean;
   pendingOrder: unknown;
+  pendingRepair: unknown;
 };
 
 function toRecord(row: ConversationRow): ConversationRecord {
@@ -36,6 +37,7 @@ function toRecord(row: ConversationRow): ConversationRecord {
     assignedAgentId: row.assignedAgentId,
     isTraining: row.isTraining,
     pendingOrder: (row.pendingOrder as Record<string, string> | null) ?? null,
+    pendingRepair: (row.pendingRepair as Record<string, string> | null) ?? null,
   };
 }
 
@@ -201,6 +203,15 @@ export class ConversationService {
     await prisma.conversation.update({
       where: { id: sessionId },
       data: { pendingOrder: order ?? Prisma.JsonNull },
+    });
+  }
+
+  /** Same pattern as pendingOrder — repair appointment fields collected
+   * via the AI chat, waiting on the customer's plain confirmation. */
+  async setPendingRepair(sessionId: string, repair: Record<string, string> | null): Promise<void> {
+    await prisma.conversation.update({
+      where: { id: sessionId },
+      data: { pendingRepair: repair ?? Prisma.JsonNull },
     });
   }
 
