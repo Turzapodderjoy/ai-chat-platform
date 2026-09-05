@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getApp } from "../../../../lib/app";
+import { getApp } from "../../../../../lib/app";
 
 const CLIENT_COOKIE = "client_session";
 

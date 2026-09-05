@@ -14,4 +14,12 @@ export class GoogleSignInController {
   async delete(businessId: string) {
     return this.googleSignIn.delete(businessId);
   }
+
+  async exchangeCode(code: string, clientId: string, clientSecret: string, redirectUri: string) {
+    return this.googleSignIn.exchangeCode(code, clientId, clientSecret, redirectUri);
+  }
+
+  async findOrCreateAccount(businessId: string, googleUser: { sub: string; email: string; name: string; picture: string }) {
+    return this.googleSignIn.findOrCreateAccount(businessId, googleUser);
+  }
 }
