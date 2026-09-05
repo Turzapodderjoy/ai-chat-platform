@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     client_id: config.clientId,
     redirect_uri: redirectUri,
     response_type: "code",
-    scope: "email openid",
+    scope: "email openid https://www.googleapis.com/auth/gmail.send",
     access_type: "offline",
     prompt: "consent",
     state: businessId,

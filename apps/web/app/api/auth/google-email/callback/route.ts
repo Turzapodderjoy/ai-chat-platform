@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const CLIENT_COOKIE = "client_session";
-
 /**
  * GET /api/auth/google-email/callback?code=xxx&state=businessId
  *
- * Google redirects here after consent. We exchange the code for tokens,
- * fetch the user's email, and return an HTML page that sends the email
- * back to the opener (parent dashboard) via postMessage, then closes
- * the popup.
+ * Google redirects here after consent. We exchange the code for tokens
+ * (including gmail.send scope), fetch the user's email, store the OAuth
+ * tokens in GmailSenderConfig, and return an HTML page that signals
+ * success back to the opener (parent dashboard) via postMessage, then
+ * closes the popup.
  */
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
@@ -73,6 +72,22 @@ export async function GET(req: NextRequest) {
     if (!email) {
       return htmlResponse(req, { success: false, error: "No email found in Google account." });
     }
+
+    // Store OAuth tokens in GmailSenderConfig
+    await prisma.gmailSenderConfig.upsert({
+      where: { businessId },
+      create: {
+        businessId,
+        gmailAddress: email,
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token ?? null,
+      },
+      update: {
+        gmailAddress: email,
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token ?? undefined,
+      },
+    });
 
     return htmlResponse(req, { success: true, email });
   } catch (err) {

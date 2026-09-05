@@ -13,20 +13,21 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     businessId: config.businessId,
     gmailAddress: config.gmailAddress,
-    connected: Boolean(config.gmailAddress && config.appPassword),
+    connected: Boolean(config.gmailAddress && (config.appPassword || config.accessToken)),
+    oauthConnected: Boolean(config.accessToken),
   });
 }
 
 export async function PUT(req: NextRequest) {
   const body = await req.json().catch(() => null);
-  if (!body || typeof body.businessId !== "string" || typeof body.gmailAddress !== "string" || typeof body.appPassword !== "string") {
-    return NextResponse.json({ error: "businessId, gmailAddress, and appPassword are required" }, { status: 400 });
+  if (!body || typeof body.businessId !== "string" || typeof body.gmailAddress !== "string") {
+    return NextResponse.json({ error: "businessId and gmailAddress are required" }, { status: 400 });
   }
 
   const app = await getApp();
   await app.container.router.gmailSenderConfig.save(body.businessId, {
     gmailAddress: body.gmailAddress,
-    appPassword: body.appPassword,
+    appPassword: typeof body.appPassword === "string" ? body.appPassword : undefined,
   });
   return NextResponse.json({ ok: true });
 }

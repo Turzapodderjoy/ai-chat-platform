@@ -589,134 +589,223 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
     return true;
   });
 
-  // Counts are over the currently-loaded page only, not every conversation
-  // this business has ever had — matches what "Load more" already implies
-  // (the list itself is paginated), just made visible on the tabs too.
   const tabCounts: Record<StatusTab, number> = {
     all: conversations?.length ?? 0,
     handoff: conversations?.filter((c) => c.handoffStatus === "pending").length ?? 0,
     human: conversations?.filter((c) => c.handoffStatus === "human").length ?? 0,
   };
 
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredConversations = visibleConversations.filter((c) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    const name = displayName(c).toLowerCase();
+    const msg = (c.lastMessage ?? "").toLowerCase();
+    return name.includes(q) || msg.includes(q);
+  });
+
   return (
-    <section>
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Inbox</h2>
-        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
-          Every conversation across all channels — manage replies, assign agents, and track status.
-        </p>
+    <div style={{ display: "flex", height: "calc(100vh - 120px)", minHeight: 500, background: "var(--bg)", borderRadius: "var(--radius-md)", overflow: "hidden", border: "1px solid var(--border)" }}>
+      {/* ─── Left Sidebar ─── */}
+      <div style={{ width: 220, flexShrink: 0, background: "var(--bg-elevated)", borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", padding: "20px 0" }}>
+        <div style={{ padding: "0 20px 20px", borderBottom: "1px solid var(--border-subtle)" }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            Inbox
+          </h2>
+        </div>
+
+        <nav style={{ padding: "12px 0", flex: 1, overflowY: "auto" }}>
+          {[
+            { id: "all" as StatusTab, label: "All Conversations", icon: "💬" },
+            { id: "handoff" as StatusTab, label: "Needs Attention", icon: "🔔" },
+            { id: "human" as StatusTab, label: "Human Handling", icon: "👤" },
+          ].map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setStatusTab(item.id)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                width: "100%",
+                padding: "10px 20px",
+                fontSize: 13,
+                fontWeight: statusTab === item.id ? 600 : 400,
+                color: statusTab === item.id ? "var(--accent)" : "var(--text-secondary)",
+                background: statusTab === item.id ? "var(--accent-subtle)" : "transparent",
+                border: "none",
+                cursor: "pointer",
+                textAlign: "left",
+                fontFamily: "inherit",
+                transition: "background 0.1s",
+              }}
+            >
+              <span style={{ fontSize: 15, width: 22, textAlign: "center" }}>{item.icon}</span>
+              {item.label}
+              <span style={{ marginLeft: "auto", fontSize: 11, opacity: 0.7, fontVariantNumeric: "tabular-nums" }}>
+                {tabCounts[item.id]}
+              </span>
+            </button>
+          ))}
+
+          <div style={{ height: 1, background: "var(--border-subtle)", margin: "12px 20px" }} />
+
+          <div style={{ padding: "0 20px", marginBottom: 8 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8 }}>
+              Channels
+            </div>
+            <select
+              value={channelFilter}
+              onChange={(e) => setChannelFilter(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "7px 10px",
+                fontSize: 12,
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-sm)",
+                color: "var(--text)",
+                fontFamily: "inherit",
+              }}
+            >
+              <option value="">All channels</option>
+              <option value="website">Website</option>
+              <option value="messenger">Messenger</option>
+              <option value="instagram">Instagram</option>
+              <option value="whatsapp">WhatsApp</option>
+            </select>
+          </div>
+
+          <div style={{ padding: "0 20px" }}>
+            <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8 }}>
+              Sort
+            </div>
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortOption)}
+              style={{
+                width: "100%",
+                padding: "7px 10px",
+                fontSize: 12,
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-sm)",
+                color: "var(--text)",
+                fontFamily: "inherit",
+              }}
+            >
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+          </div>
+        </nav>
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        {STATUS_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setStatusTab(tab.id)}
-            className="ghost"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "8px 14px",
-              borderRadius: "var(--radius-full)",
-              background: statusTab === tab.id ? "var(--accent-subtle)" : "transparent",
-              color: statusTab === tab.id ? "var(--accent)" : "var(--text-muted)",
-              fontSize: 12,
-              fontWeight: 500,
-            }}
-          >
-            {tab.label}
-            <span style={{ fontVariantNumeric: "tabular-nums", opacity: 0.8, fontSize: 11 }}>{tabCounts[tab.id]}</span>
-          </button>
-        ))}
-      </div>
+      {/* ─── Center: Conversation List ─── */}
+      <div style={{ width: 340, flexShrink: 0, borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
+        {/* Search bar */}
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "8px 12px" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search conversations..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ flex: 1, background: "none", border: "none", outline: "none", fontSize: 13, color: "var(--text)", fontFamily: "inherit" }}
+            />
+          </div>
+        </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        <select value={channelFilter} onChange={(e) => setChannelFilter(e.target.value)} style={{ padding: "8px 12px", fontSize: 12, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)" }}>
-          <option value="">All channels</option>
-          <option value="website">Website</option>
-          <option value="messenger">Messenger</option>
-          <option value="instagram">Instagram</option>
-          <option value="whatsapp">WhatsApp</option>
-        </select>
-        <select value={sort} onChange={(e) => setSort(e.target.value as SortOption)} style={{ padding: "8px 12px", fontSize: 12, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)" }}>
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
-        </select>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 16, alignItems: "flex-start" }}>
-        <div
-          style={{
-            display: isMobile && selected ? "none" : "block",
-            width: isMobile ? "100%" : 320,
-            flexShrink: 0,
-            background: "var(--bg-elevated)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-md)",
-            maxHeight: isMobile ? "none" : 640,
-            overflowY: "auto",
-          }}
-        >
-          {!conversations && <p style={{ padding: 16, fontSize: 13, color: "var(--text-muted)" }}>Loading...</p>}
-          {conversations && visibleConversations.length === 0 && <p style={{ padding: 16, fontSize: 13, color: "var(--text-muted)" }}>No conversations yet.</p>}
-          {visibleConversations.map((c) => {
+        {/* Conversation list */}
+        <div style={{ flex: 1, overflowY: "auto" }}>
+          {!conversations && (
+            <p style={{ padding: 20, fontSize: 13, color: "var(--text-muted)", textAlign: "center" }}>Loading...</p>
+          )}
+          {conversations && filteredConversations.length === 0 && (
+            <p style={{ padding: 20, fontSize: 13, color: "var(--text-muted)", textAlign: "center" }}>No conversations yet.</p>
+          )}
+          {filteredConversations.map((c) => {
             const ch = CHANNEL_LABEL[c.channel] ?? { color: "#8b96a8", label: c.channel };
             const unread = selectedId !== c.id && c.messageCount > (seenCounts[c.id] ?? 0);
             const name = displayName(c);
+            const isActive = selectedId === c.id;
             return (
               <div
                 key={c.id}
                 onClick={() => openConversation(c)}
                 style={{
-                  padding: "12px 16px",
+                  padding: "14px 16px",
                   borderBottom: "1px solid var(--border-subtle)",
                   cursor: "pointer",
                   display: "flex",
                   gap: 12,
-                  background: selectedId === c.id ? "var(--accent-subtle)" : "transparent",
-                  borderLeft: selectedId === c.id ? "3px solid var(--accent)" : "3px solid transparent",
+                  background: isActive ? "var(--accent-subtle)" : "transparent",
                   transition: "background 0.1s ease",
                 }}
               >
+                {/* Avatar */}
                 <div
                   style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: "var(--radius-md)",
-                    background: selectedId === c.id ? "var(--accent)" : "var(--surface)",
-                    color: selectedId === c.id ? "white" : "var(--text-muted)",
+                    width: 44,
+                    height: 44,
+                    borderRadius: "50%",
+                    background: isActive ? "var(--accent)" : "var(--surface)",
+                    color: isActive ? "white" : "var(--text-muted)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     fontWeight: 600,
-                    fontSize: 13,
+                    fontSize: 14,
                     flexShrink: 0,
+                    position: "relative",
                   }}
                 >
                   {initials(name)}
+                  {unread && (
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: -2,
+                        right: -2,
+                        width: 12,
+                        height: 12,
+                        borderRadius: "50%",
+                        background: "var(--accent)",
+                        border: "2px solid var(--bg)",
+                      }}
+                    />
+                  )}
                 </div>
+
+                {/* Content */}
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
-                      {unread && (
-                        <span title="Unread" style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent)", flexShrink: 0 }} />
-                      )}
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+                    <span style={{ fontSize: 13, fontWeight: unread ? 700 : 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text)" }}>
+                      {name}
                     </span>
-                    <span style={{ fontSize: 11, color: "var(--text-faint)", flexShrink: 0 }}>{new Date(c.updatedAt).toLocaleDateString()}</span>
+                    <span style={{ fontSize: 11, color: "var(--text-faint)", flexShrink: 0 }}>
+                      {new Date(c.updatedAt).toLocaleDateString()}
+                    </span>
                   </div>
                   {c.lastMessage && (
-                    <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div style={{ fontSize: 12, color: unread ? "var(--text-secondary)" : "var(--text-muted)", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: unread ? 500 : 400 }}>
                       {c.lastMessage}
                     </div>
                   )}
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6, alignItems: "center" }}>
-                    <span style={{ 
-                      fontSize: 10, 
-                      padding: "2px 8px", 
-                      borderRadius: "var(--radius-full)", 
-                      background: "var(--surface)", 
+                    <span style={{
+                      fontSize: 10,
+                      padding: "2px 8px",
+                      borderRadius: "var(--radius-full)",
+                      background: "var(--surface)",
                       border: "1px solid var(--border)",
                       color: "var(--text-muted)",
                       display: "inline-flex",
@@ -731,7 +820,7 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                         → {agentName(c.assignedAgentId)}
                       </span>
                     )}
-                    {(conversationTags[c.id] ?? []).map((t) => (
+                    {(conversationTags[c.id] ?? []).slice(0, 2).map((t) => (
                       <span
                         key={t.tagId}
                         style={{ fontSize: 10, padding: "2px 8px", borderRadius: "var(--radius-full)", background: "var(--surface)", border: "1px solid var(--border)" }}
@@ -752,506 +841,254 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
             </div>
           )}
         </div>
+      </div>
 
-        <div style={{ flex: 1, minWidth: 0, width: isMobile ? "100%" : undefined, display: isMobile && !selected ? "none" : "block" }}>
-          {!selected && (
-            <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 40, textAlign: "center" }}>
+      {/* ─── Right: Chat + Detail ─── */}
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "var(--bg)" }}>
+        {!selected ? (
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ textAlign: "center" }}>
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" strokeWidth="1.5" style={{ margin: "0 auto 16px" }}>
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
-              <p style={{ fontSize: 14, color: "var(--text-muted)", margin: 0 }}>Select a conversation to view</p>
-              <p style={{ fontSize: 12, color: "var(--text-faint)", margin: "8px 0 0" }}>Choose from the list on the left</p>
+              <p style={{ fontSize: 14, color: "var(--text-muted)", margin: 0 }}>Select a conversation</p>
+              <p style={{ fontSize: 12, color: "var(--text-faint)", margin: "6px 0 0" }}>Choose from the list on the left</p>
             </div>
-          )}
-          {selected && (
-            <>
-              {isMobile && (
-                <button
-                  onClick={() => setSelectedId(null)}
-                  className="ghost"
-                  style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="m15 6-6 6 6 6" />
-                  </svg>
-                  Back to Inbox
-                </button>
-              )}
-              
-              {/* Conversation Header */}
-              <div style={{ 
-                background: "var(--bg-elevated)", 
-                border: "1px solid var(--border)", 
-                borderRadius: "var(--radius-md)", 
-                padding: "16px 20px", 
-                marginBottom: 16,
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}>
-                <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: "var(--radius-md)",
-                      background: "var(--accent)",
-                      color: "white",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontWeight: 600,
-                      fontSize: 14,
-                    }}
-                  >
-                    {initials(displayName(selected))}
+          </div>
+        ) : (
+          <>
+            {/* Chat Header */}
+            <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-elevated)" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--accent)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 13 }}>
+                  {initials(displayName(selected))}
+                </div>
+                <div>
+                  <strong style={{ fontSize: 14 }}>{displayName(selected)}</strong>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                    <span style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: "var(--radius-full)", background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
+                      <ChannelDot channel={selected.channel} />
+                      {CHANNEL_LABEL[selected.channel]?.label ?? selected.channel}
+                    </span>
+                    <span style={{ fontSize: 11, color: "var(--text-faint)" }}>·</span>
+                    <span style={{ fontSize: 11, color: "var(--text-faint)" }}>{new Date(selected.updatedAt).toLocaleString()}</span>
                   </div>
-                  <div>
-                    <strong style={{ fontSize: 14 }}>{displayName(selected)}</strong>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
-                      <span style={{ 
-                        display: "inline-flex", 
-                        alignItems: "center", 
-                        gap: 4, 
-                        padding: "2px 8px", 
-                        borderRadius: "var(--radius-full)", 
-                        background: "var(--surface)", 
-                        border: "1px solid var(--border)", 
-                        fontSize: 11, 
-                        color: "var(--text-muted)" 
-                      }}>
-                        <ChannelDot channel={selected.channel} />
-                        {CHANNEL_LABEL[selected.channel]?.label ?? selected.channel}
-                      </span>
-                    </div>
-                  </div>
-                </span>
-                <span
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    padding: "4px 12px",
-                    borderRadius: "var(--radius-full)",
-                    background: selected.handoffStatus === "bot" ? "var(--success-subtle)" : selected.handoffStatus === "pending" ? "var(--warning-subtle)" : "var(--accent-subtle)",
-                    color: selected.handoffStatus === "bot" ? "var(--success)" : selected.handoffStatus === "pending" ? "var(--warning)" : "var(--accent)",
-                  }}
-                >
-                  {selected.handoffStatus === "bot" ? "AI Handling" : selected.handoffStatus === "pending" ? "Needs Handoff" : "Human Handling"}
-                </span>
-              </div>
+                </div>
+              </span>
+              <span style={{ fontSize: 11, fontWeight: 600, padding: "4px 12px", borderRadius: "var(--radius-full)", background: selected.handoffStatus === "bot" ? "var(--success-subtle)" : selected.handoffStatus === "pending" ? "var(--warning-subtle)" : "var(--accent-subtle)", color: selected.handoffStatus === "bot" ? "var(--success)" : selected.handoffStatus === "pending" ? "var(--warning)" : "var(--accent)" }}>
+                {selected.handoffStatus === "bot" ? "AI Handling" : selected.handoffStatus === "pending" ? "Needs Handoff" : "Human Handling"}
+              </span>
+            </div>
 
-              <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 16, alignItems: "flex-start" }}>
-                {/* Messages */}
-                <div style={{ flex: 1, minWidth: 0, width: isMobile ? "100%" : undefined }}>
-                  <div style={{ 
-                    background: "var(--bg-elevated)", 
-                    border: "1px solid var(--border)", 
-                    borderRadius: "var(--radius-md)", 
-                    minHeight: 300, 
-                    maxHeight: isMobile ? 340 : 440, 
-                    overflowY: "auto", 
-                    padding: 16, 
-                    display: "flex", 
-                    flexDirection: "column", 
-                    gap: 14 
-                  }}>
-                    {!messages && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Loading messages...</p>}
-                    {messages?.map((m) => {
-                      if (m.role === "system") {
-                        return (
-                          <div key={m.id} style={{ alignSelf: "center", fontSize: 11, color: "var(--text-faint)", textAlign: "center", padding: "4px 12px", background: "var(--surface)", borderRadius: "var(--radius-full)" }}>
-                            {m.content} · {new Date(m.createdAt).toLocaleString()}
-                          </div>
-                        );
-                      }
-                      const isCustomer = m.role === "user";
+            <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+              {/* Messages Column */}
+              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+                <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+                  {!messages && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Loading messages...</p>}
+                  {messages?.map((m) => {
+                    if (m.role === "system") {
                       return (
-                        <div key={m.id} style={{ display: "flex", gap: 8, flexDirection: isCustomer ? "row" : "row-reverse", maxWidth: "80%", alignSelf: isCustomer ? "flex-start" : "flex-end" }}>
-                          <div
-                            style={{
-                              width: 28,
-                              height: 28,
-                              borderRadius: "var(--radius-sm)",
-                              flexShrink: 0,
-                              background: isCustomer ? "var(--surface)" : "var(--accent)",
-                              color: isCustomer ? "var(--text-muted)" : "white",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontWeight: 600,
-                              fontSize: 10,
-                            }}
-                          >
-                            {isCustomer ? initials(displayName(selected)) : "AI"}
-                          </div>
-                          <div style={{ textAlign: isCustomer ? "left" : "right" }}>
-                            <div
-                              style={{
-                                background: isCustomer ? "var(--surface)" : "var(--accent)",
-                                color: isCustomer ? "var(--text)" : "white",
-                                border: isCustomer ? "1px solid var(--border)" : "none",
-                                borderRadius: isCustomer ? "12px 12px 12px 4px" : "12px 12px 4px 12px",
-                                padding: "10px 14px",
-                                fontSize: 13,
-                                textAlign: "left",
-                                display: "inline-block",
-                                lineHeight: 1.5,
-                              }}
-                            >
-                              {isCustomer ? m.content : <MarkdownMessage text={m.content} />}
-                            </div>
-                            {!isCustomer && m.provider && (
-                              <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 4, display: "flex", alignItems: "center", gap: 4, justifyContent: "flex-end" }}>
-                                via {m.provider}
-                                <ReasoningInfo provider={m.provider} confidence={m.confidence} sources={m.sources} />
-                              </div>
-                            )}
-                            <div style={{ marginTop: 4 }}>
-                              <MessageTagControl
-                                catalog={tagCatalog}
-                                applied={messageTags[m.id] ?? []}
-                                onAssign={(tagId) => assignMessageTag(m.id, tagId)}
-                                onRemove={(tagId) => removeMessageTag(m.id, tagId)}
-                              />
-                            </div>
-                          </div>
+                        <div key={m.id} style={{ alignSelf: "center", fontSize: 11, color: "var(--text-faint)", textAlign: "center", padding: "4px 12px", background: "var(--surface)", borderRadius: "var(--radius-full)" }}>
+                          {m.content} · {new Date(m.createdAt).toLocaleString()}
                         </div>
                       );
-                    })}
-                  </div>
-                  
-                  {/* Reply Input */}
-                  <div style={{ 
-                    display: "flex", 
-                    gap: 8, 
-                    marginTop: 12,
-                    background: "var(--bg-elevated)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "var(--radius-md)",
-                    padding: 12,
-                  }}>
-                    <input
-                      style={{ 
-                        flex: 1, 
-                        padding: "10px 14px", 
-                        fontSize: 13, 
-                        background: "var(--surface)", 
-                        border: "1px solid var(--border)", 
-                        borderRadius: "var(--radius-sm)", 
-                        color: "var(--text)" 
-                      }}
-                      value={reply}
-                      onChange={(e) => setReply(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") sendReply();
-                      }}
-                      placeholder="Type your reply..."
-                    />
-                    <button onClick={sendReply} disabled={sending} className="primary" style={{ padding: "10px 20px", fontSize: 13 }}>
-                      {sending ? "Sending..." : "Send"}
-                    </button>
-                  </div>
+                    }
+                    const isCustomer = m.role === "user";
+                    return (
+                      <div key={m.id} style={{ display: "flex", gap: 8, flexDirection: isCustomer ? "row" : "row-reverse", maxWidth: "80%", alignSelf: isCustomer ? "flex-start" : "flex-end" }}>
+                        <div style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0, background: isCustomer ? "var(--surface)" : "var(--accent)", color: isCustomer ? "var(--text-muted)" : "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 10 }}>
+                          {isCustomer ? initials(displayName(selected)) : "AI"}
+                        </div>
+                        <div style={{ textAlign: isCustomer ? "left" : "right" }}>
+                          <div style={{ background: isCustomer ? "var(--surface)" : "var(--accent)", color: isCustomer ? "var(--text)" : "white", border: isCustomer ? "1px solid var(--border)" : "none", borderRadius: isCustomer ? "12px 12px 12px 4px" : "12px 12px 4px 12px", padding: "10px 14px", fontSize: 13, textAlign: "left", display: "inline-block", lineHeight: 1.5 }}>
+                            {isCustomer ? m.content : <MarkdownMessage text={m.content} />}
+                          </div>
+                          {!isCustomer && m.provider && (
+                            <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 4, display: "flex", alignItems: "center", gap: 4, justifyContent: "flex-end" }}>
+                              via {m.provider}
+                              <ReasoningInfo provider={m.provider} confidence={m.confidence} sources={m.sources} />
+                            </div>
+                          )}
+                          <div style={{ marginTop: 4 }}>
+                            <MessageTagControl catalog={tagCatalog} applied={messageTags[m.id] ?? []} onAssign={(tagId) => assignMessageTag(m.id, tagId)} onRemove={(tagId) => removeMessageTag(m.id, tagId)} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
 
-                {/* Detail Panel */}
-                <div style={{ width: isMobile ? "100%" : 280, flexShrink: 0 }}>
-                  <div style={{ 
-                    background: "var(--bg-elevated)", 
-                    border: "1px solid var(--border)", 
-                    borderRadius: "var(--radius-md)", 
-                    padding: 16 
-                  }}>
-                    {/* AI Controls */}
-                    <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-                      <button
-                        onClick={() => setAiStatus("human")}
-                        disabled={settingStatus || selected.handoffStatus === "human"}
-                        style={{ 
-                          flex: 1, 
-                          fontSize: 12, 
-                          padding: "10px 12px",
-                          background: selected.handoffStatus === "human" ? "var(--danger-subtle)" : "var(--surface)",
-                          border: "1px solid var(--border)",
-                          borderRadius: "var(--radius-sm)",
-                          color: selected.handoffStatus === "human" ? "var(--danger)" : "var(--text-secondary)",
-                          fontWeight: 500,
-                        }}
-                      >
-                        Stop AI
-                      </button>
-                      <button
-                        onClick={() => setAiStatus("bot")}
-                        disabled={settingStatus || selected.handoffStatus === "bot"}
-                        style={{ 
-                          flex: 1, 
-                          fontSize: 12, 
-                          padding: "10px 12px",
-                          background: selected.handoffStatus === "bot" ? "var(--success-subtle)" : "var(--surface)",
-                          border: "1px solid var(--border)",
-                          borderRadius: "var(--radius-sm)",
-                          color: selected.handoffStatus === "bot" ? "var(--success)" : "var(--text-secondary)",
-                          fontWeight: 500,
-                        }}
-                      >
-                        Resume AI
-                      </button>
-                    </div>
-
-                    {/* Agent Assignment */}
-                    {businessId && (
-                      <div style={{ marginBottom: 20 }}>
-                        <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", marginBottom: 8 }}>
-                          Assigned Agent
-                        </div>
-                        <select
-                          value={selected.assignedAgentId ?? ""}
-                          onChange={(e) => reassignSelected(e.target.value || null)}
-                          disabled={reassigning}
-                          style={{ 
-                            width: "100%", 
-                            padding: "8px 12px", 
-                            fontSize: 12, 
-                            background: "var(--surface)", 
-                            border: "1px solid var(--border)", 
-                            borderRadius: "var(--radius-sm)", 
-                            color: "var(--text)" 
-                          }}
-                        >
-                          <option value="">Unassigned</option>
-                          {agentsForBusiness.map((a) => (
-                            <option key={a.id} value={a.id}>
-                              {a.username} {a.online ? "(online)" : "(offline)"}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
-                    {/* Contact Details */}
-                    <div style={{ marginBottom: 20 }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", marginBottom: 8 }}>
-                        Contact Details
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                          <span style={{ color: "var(--text-muted)" }}>Name</span>
-                          <span style={{ color: "var(--text)" }}>{displayName(selected)}</span>
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                          <span style={{ color: "var(--text-muted)" }}>Channel ID</span>
-                          <span style={{ maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text)" }}>{selected.externalUserId ?? "—"}</span>
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                          <span style={{ color: "var(--text-muted)" }}>Channel</span>
-                          <span style={{ color: "var(--text)" }}>{CHANNEL_LABEL[selected.channel]?.label ?? selected.channel}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {contactForSelected !== undefined && (
-                      <div style={{ marginBottom: 20 }}>
-                        <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", marginBottom: 8 }}>
-                          CRM Contact
-                        </div>
-                        {contactForSelected ? (
-                          <div style={{ fontSize: 12 }}>
-                            <div style={{ color: "var(--text)" }}>{contactForSelected.name}</div>
-                            {contactForSelected.email && <div style={{ color: "var(--text-muted)", marginTop: 2 }}>{contactForSelected.email}</div>}
-                            <div style={{ color: "var(--text-faint)", marginTop: 4, fontSize: 10 }}>{shortId(contactForSelected.id)}</div>
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: 12, color: "var(--text-faint)" }}>No linked contact record</span>
-                        )}
-                      </div>
-                    )}
-
-                    <div style={{ marginBottom: 20 }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", marginBottom: 8 }}>
-                        Notes
-                      </div>
-                    <p style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 0, marginBottom: 8 }}>
-                      Private to your team — never sent to the customer.
-                    </p>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
-                      {notes === null && <span style={{ fontSize: 12, color: "var(--text-faint)" }}>Loading...</span>}
-                      {notes !== null && notes.length === 0 && <span style={{ fontSize: 12, color: "var(--text-faint)" }}>No notes yet</span>}
-                      {notes?.map((n) => (
-                        <div key={n.id} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: 10, fontSize: 12 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                            <span style={{ fontWeight: 600, color: "var(--text)" }}>{n.author}</span>
-                            <button onClick={() => deleteNote(n.id)} className="ghost" style={{ color: "var(--text-faint)", fontSize: 10, padding: 0 }}>×</button>
-                          </div>
-                          <div style={{ whiteSpace: "pre-wrap", color: "var(--text-secondary)" }}>{n.body}</div>
-                          <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 4 }}>{new Date(n.createdAt).toLocaleString()}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <textarea
-                      value={newNote}
-                      onChange={(e) => setNewNote(e.target.value)}
-                      placeholder="Leave a note for your team..."
-                      style={{ 
-                        width: "100%", 
-                        padding: "8px 12px", 
-                        fontSize: 12, 
-                        boxSizing: "border-box", 
-                        minHeight: 60, 
-                        resize: "vertical",
-                        background: "var(--surface)",
-                        border: "1px solid var(--border)",
-                        borderRadius: "var(--radius-sm)",
-                        color: "var(--text)",
-                      }}
-                    />
-                    <button onClick={addNote} disabled={savingNote || !newNote.trim()} className="ghost" style={{ fontSize: 11, padding: "6px 10px", marginTop: 6 }}>
-                      {savingNote ? "Saving..." : "+ Add note"}
-                    </button>
-                  </div>
-
-                  <div style={{ marginBottom: 20 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", marginBottom: 8 }}>
-                      Tags
-                    </div>
-                    <MessageTagControl
-                      catalog={tagCatalog}
-                      applied={conversationTags[selected.id] ?? []}
-                      onAssign={(tagId) => assignConversationTag(selected.id, tagId)}
-                      onRemove={(tagId) => removeConversationTag(selected.id, tagId)}
-                    />
-                  </div>
-
-                  {selected.channel === "repair-tracking" && repairForSelected !== undefined && (
-                    <div style={{ marginBottom: 20 }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", marginBottom: 8 }}>
-                        Repair Details
-                      </div>
-                      {repairForSelected ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <span style={{ color: "var(--text-muted)" }}>Order ID</span>
-                            <span style={{ color: "var(--text)" }}>{shortId(repairForSelected.id)}</span>
-                          </div>
-                          <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <span style={{ color: "var(--text-muted)" }}>Customer</span>
-                            <span style={{ color: "var(--text)" }}>{repairForSelected.customerName}</span>
-                          </div>
-                          <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <span style={{ color: "var(--text-muted)" }}>Device</span>
-                            <span style={{ color: "var(--text)" }}>{repairForSelected.deviceType}{repairForSelected.deviceModel ? ` — ${repairForSelected.deviceModel}` : ""}</span>
-                          </div>
-                          <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <span style={{ color: "var(--text-muted)" }}>Appointment</span>
-                            <span style={{ color: "var(--text)" }}>{new Date(repairForSelected.appointmentDate).toLocaleString()}</span>
-                          </div>
-                          <div style={{ color: "var(--text-secondary)", marginTop: 4 }}>{repairForSelected.issueDescription}</div>
-                          <select
-                            value={repairForSelected.status}
-                            onChange={(e) => updateRepairStatus(e.target.value)}
-                            disabled={savingRepairStatus}
-                            style={{ 
-                              padding: "8px 12px", 
-                              fontSize: 12,
-                              background: "var(--surface)",
-                              border: "1px solid var(--border)",
-                              borderRadius: "var(--radius-sm)",
-                              color: "var(--text)",
-                            }}
-                          >
-                            {REPAIR_STATUS_OPTIONS.map((s) => (
-                              <option key={s} value={s}>{REPAIR_STATUS_LABEL[s]}</option>
-                            ))}
-                          </select>
-                        </div>
-                      ) : (
-                        <p style={{ fontSize: 12, color: "var(--text-faint)" }}>No appointment found for this conversation.</p>
-                      )}
-                    </div>
-                  )}
-
-                  {selected.channel !== "repair-tracking" && orderForSelected !== undefined && (
-                    <div style={{ marginBottom: 20 }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", marginBottom: 8 }}>
-                        Order
-                      </div>
-                      {orderForSelected ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <span style={{ color: "var(--text-muted)" }}>Order ID</span>
-                            <span style={{ color: "var(--text)" }}>{shortId(orderForSelected.id)}</span>
-                          </div>
-                          <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <span style={{ color: "var(--text-muted)" }}>Customer</span>
-                            <span style={{ color: "var(--text)" }}>{orderForSelected.customerName}</span>
-                          </div>
-                          <div style={{ color: "var(--text-secondary)" }}>{orderForSelected.products}</div>
-                          <div style={{ color: "var(--text-muted)" }}>{orderForSelected.deliveryAddress}</div>
-                          <div style={{ color: "var(--text-muted)" }}>{orderForSelected.paymentMethod} · {orderForSelected.phone}</div>
-                        </div>
-                      ) : (
-                        <p style={{ fontSize: 12, color: "var(--text-faint)" }}>No order for this conversation.</p>
-                      )}
-                    </div>
-                  )}
-
-                  {selected.channel !== "repair-tracking" && repairForSelected !== undefined && (
-                    <div style={{ marginBottom: 20 }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", marginBottom: 8 }}>
-                        Order Management
-                      </div>
-                      {repairForSelected ? (
-                        <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                          Order {repairForSelected.serialNumber ?? shortId(repairForSelected.id)} already created for this chat — manage it from the Order Management tab.
-                        </p>
-                      ) : creatingOrder ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                          <input
-                            placeholder="Phone *"
-                            value={newOrderForm.phone}
-                            onChange={(e) => setNewOrderForm({ ...newOrderForm, phone: e.target.value })}
-                            style={{ padding: 6, fontSize: 12 }}
-                          />
-                          <input
-                            placeholder="Device type *"
-                            value={newOrderForm.deviceType}
-                            onChange={(e) => setNewOrderForm({ ...newOrderForm, deviceType: e.target.value })}
-                            style={{ padding: 6, fontSize: 12 }}
-                          />
-                          <input
-                            placeholder="Issue *"
-                            value={newOrderForm.issueDescription}
-                            onChange={(e) => setNewOrderForm({ ...newOrderForm, issueDescription: e.target.value })}
-                            style={{ padding: 6, fontSize: 12 }}
-                          />
-                          <div style={{ display: "flex", gap: 6 }}>
-                            <button onClick={createOrderFromChat} disabled={savingNewOrder} className="primary" style={{ fontSize: 12, padding: "6px 10px" }}>
-                              {savingNewOrder ? "Creating…" : "Create"}
-                            </button>
-                            <button onClick={() => setCreatingOrder(false)} style={{ fontSize: 12, padding: "6px 10px" }}>Cancel</button>
-                          </div>
-                        </div>
-                      ) : (
-                        <button onClick={() => setCreatingOrder(true)} style={{ fontSize: 12, padding: "6px 10px" }}>
-                          + Create Order
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {summaryBySession[selected.id] && (
-                    <div>
-                      <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", marginBottom: 8 }}>
-                        Summary
-                      </div>
-                      <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, margin: 0 }}>{summaryBySession[selected.id]}</p>
-                    </div>
-                  )}
-                  </div>
+                {/* Reply Input */}
+                <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border)", display: "flex", gap: 8, background: "var(--bg-elevated)" }}>
+                  <input style={{ flex: 1, padding: "10px 14px", fontSize: 13, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)", fontFamily: "inherit" }} value={reply} onChange={(e) => setReply(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") sendReply(); }} placeholder="Type your reply..." />
+                  <button onClick={sendReply} disabled={sending} className="primary" style={{ padding: "10px 20px", fontSize: 13 }}>
+                    {sending ? "Sending..." : "Send"}
+                  </button>
                 </div>
               </div>
-            </>
-          )}
-        </div>
+
+              {/* Detail Panel (right side) */}
+              <div style={{ width: 280, flexShrink: 0, borderLeft: "1px solid var(--border)", overflowY: "auto", background: "var(--bg-elevated)", padding: 16 }}>
+                {/* AI Controls */}
+                <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+                  <button onClick={() => setAiStatus("human")} disabled={settingStatus || selected.handoffStatus === "human"} style={{ flex: 1, fontSize: 12, padding: "8px 10px", background: selected.handoffStatus === "human" ? "var(--danger-subtle)" : "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: selected.handoffStatus === "human" ? "var(--danger)" : "var(--text-secondary)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer" }}>
+                    Stop AI
+                  </button>
+                  <button onClick={() => setAiStatus("bot")} disabled={settingStatus || selected.handoffStatus === "bot"} style={{ flex: 1, fontSize: 12, padding: "8px 10px", background: selected.handoffStatus === "bot" ? "var(--success-subtle)" : "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: selected.handoffStatus === "bot" ? "var(--success)" : "var(--text-secondary)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer" }}>
+                    Resume AI
+                  </button>
+                </div>
+
+                {/* Agent Assignment */}
+                {businessId && (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8 }}>Assigned Agent</div>
+                    <select value={selected.assignedAgentId ?? ""} onChange={(e) => reassignSelected(e.target.value || null)} disabled={reassigning} style={{ width: "100%", padding: "7px 10px", fontSize: 12, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)", fontFamily: "inherit" }}>
+                      <option value="">Unassigned</option>
+                      {agentsForBusiness.map((a) => (
+                        <option key={a.id} value={a.id}>{a.username} {a.online ? "(online)" : "(offline)"}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Contact Details */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8 }}>Contact Details</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "var(--text-muted)" }}>Name</span>
+                      <span style={{ color: "var(--text)" }}>{displayName(selected)}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "var(--text-muted)" }}>Channel ID</span>
+                      <span style={{ maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text)" }}>{selected.externalUserId ?? "—"}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "var(--text-muted)" }}>Channel</span>
+                      <span style={{ color: "var(--text)" }}>{CHANNEL_LABEL[selected.channel]?.label ?? selected.channel}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {contactForSelected !== undefined && (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8 }}>CRM Contact</div>
+                    {contactForSelected ? (
+                      <div style={{ fontSize: 12 }}>
+                        <div style={{ color: "var(--text)" }}>{contactForSelected.name}</div>
+                        {contactForSelected.email && <div style={{ color: "var(--text-muted)", marginTop: 2 }}>{contactForSelected.email}</div>}
+                        <div style={{ color: "var(--text-faint)", marginTop: 4, fontSize: 10 }}>{shortId(contactForSelected.id)}</div>
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: 12, color: "var(--text-faint)" }}>No linked contact record</span>
+                    )}
+                  </div>
+                )}
+
+                {/* Notes */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8 }}>Notes</div>
+                  <p style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 0, marginBottom: 8 }}>Private to your team</p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
+                    {notes === null && <span style={{ fontSize: 12, color: "var(--text-faint)" }}>Loading...</span>}
+                    {notes !== null && notes.length === 0 && <span style={{ fontSize: 12, color: "var(--text-faint)" }}>No notes yet</span>}
+                    {notes?.map((n) => (
+                      <div key={n.id} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: 10, fontSize: 12 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                          <span style={{ fontWeight: 600, color: "var(--text)" }}>{n.author}</span>
+                          <button onClick={() => deleteNote(n.id)} className="ghost" style={{ color: "var(--text-faint)", fontSize: 10, padding: 0, background: "none", border: "none", cursor: "pointer" }}>×</button>
+                        </div>
+                        <div style={{ whiteSpace: "pre-wrap", color: "var(--text-secondary)" }}>{n.body}</div>
+                        <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 4 }}>{new Date(n.createdAt).toLocaleString()}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <textarea value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder="Leave a note..." style={{ width: "100%", padding: "8px 10px", fontSize: 12, boxSizing: "border-box", minHeight: 50, resize: "vertical", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)", fontFamily: "inherit" }} />
+                  <button onClick={addNote} disabled={savingNote || !newNote.trim()} className="ghost" style={{ fontSize: 11, padding: "6px 10px", marginTop: 6 }}>
+                    {savingNote ? "Saving..." : "+ Add note"}
+                  </button>
+                </div>
+
+                {/* Tags */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8 }}>Tags</div>
+                  <MessageTagControl catalog={tagCatalog} applied={conversationTags[selected.id] ?? []} onAssign={(tagId) => assignConversationTag(selected.id, tagId)} onRemove={(tagId) => removeConversationTag(selected.id, tagId)} />
+                </div>
+
+                {/* Repair Details */}
+                {selected.channel === "repair-tracking" && repairForSelected !== undefined && (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8 }}>Repair Details</div>
+                    {repairForSelected ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Order ID</span><span style={{ color: "var(--text)" }}>{shortId(repairForSelected.id)}</span></div>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Customer</span><span style={{ color: "var(--text)" }}>{repairForSelected.customerName}</span></div>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Device</span><span style={{ color: "var(--text)" }}>{repairForSelected.deviceType}{repairForSelected.deviceModel ? ` — ${repairForSelected.deviceModel}` : ""}</span></div>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Appointment</span><span style={{ color: "var(--text)" }}>{new Date(repairForSelected.appointmentDate).toLocaleString()}</span></div>
+                        <div style={{ color: "var(--text-secondary)", marginTop: 4 }}>{repairForSelected.issueDescription}</div>
+                        <select value={repairForSelected.status} onChange={(e) => updateRepairStatus(e.target.value)} disabled={savingRepairStatus} style={{ padding: "7px 10px", fontSize: 12, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)", fontFamily: "inherit" }}>
+                          {REPAIR_STATUS_OPTIONS.map((s) => (<option key={s} value={s}>{REPAIR_STATUS_LABEL[s]}</option>))}
+                        </select>
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: 12, color: "var(--text-faint)" }}>No appointment found.</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Order */}
+                {selected.channel !== "repair-tracking" && orderForSelected !== undefined && (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8 }}>Order</div>
+                    {orderForSelected ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Order ID</span><span style={{ color: "var(--text)" }}>{shortId(orderForSelected.id)}</span></div>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Customer</span><span style={{ color: "var(--text)" }}>{orderForSelected.customerName}</span></div>
+                        <div style={{ color: "var(--text-secondary)" }}>{orderForSelected.products}</div>
+                        <div style={{ color: "var(--text-muted)" }}>{orderForSelected.deliveryAddress}</div>
+                        <div style={{ color: "var(--text-muted)" }}>{orderForSelected.paymentMethod} · {orderForSelected.phone}</div>
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: 12, color: "var(--text-faint)" }}>No order for this conversation.</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Order Management */}
+                {selected.channel !== "repair-tracking" && repairForSelected !== undefined && (
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8 }}>Order Management</div>
+                    {repairForSelected ? (
+                      <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>Order {repairForSelected.serialNumber ?? shortId(repairForSelected.id)} already created.</p>
+                    ) : creatingOrder ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        <input placeholder="Phone *" value={newOrderForm.phone} onChange={(e) => setNewOrderForm({ ...newOrderForm, phone: e.target.value })} style={{ padding: 6, fontSize: 12, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)", fontFamily: "inherit" }} />
+                        <input placeholder="Device type *" value={newOrderForm.deviceType} onChange={(e) => setNewOrderForm({ ...newOrderForm, deviceType: e.target.value })} style={{ padding: 6, fontSize: 12, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)", fontFamily: "inherit" }} />
+                        <input placeholder="Issue *" value={newOrderForm.issueDescription} onChange={(e) => setNewOrderForm({ ...newOrderForm, issueDescription: e.target.value })} style={{ padding: 6, fontSize: 12, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)", fontFamily: "inherit" }} />
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button onClick={createOrderFromChat} disabled={savingNewOrder} className="primary" style={{ fontSize: 12, padding: "6px 10px" }}>{savingNewOrder ? "Creating..." : "Create"}</button>
+                          <button onClick={() => setCreatingOrder(false)} style={{ fontSize: 12, padding: "6px 10px" }}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={() => setCreatingOrder(true)} style={{ fontSize: 12, padding: "6px 10px" }}>+ Create Order</button>
+                    )}
+                  </div>
+                )}
+
+                {/* Summary */}
+                {summaryBySession[selected.id] && (
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8 }}>Summary</div>
+                    <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, margin: 0 }}>{summaryBySession[selected.id]}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
-    </section>
+    </div>
   );
 }

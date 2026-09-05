@@ -28,9 +28,10 @@ interface ChannelsResponse {
 interface GmailSender {
   gmailAddress: string | null;
   connected: boolean;
+  oauthConnected: boolean;
 }
 
-/** Gmail sender connect box — "Sign in with Google" popup + App Password. */
+/** Gmail sender connect box — "Sign in with Google" popup for OAuth, with App Password fallback. */
 function GmailSenderBox({ businessId, onMessage }: { businessId: string; onMessage: (msg: string) => void }) {
   const [sender, setSender] = useState<GmailSender | null>(null);
   const [editing, setEditing] = useState(false);
@@ -53,7 +54,7 @@ function GmailSenderBox({ businessId, onMessage }: { businessId: string; onMessa
       const res = await fetch("/api/admin/gmail-sender-config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, gmailAddress: emailDraft, appPassword: passwordDraft }),
+        body: JSON.stringify({ businessId, gmailAddress: emailDraft, appPassword: passwordDraft || undefined }),
       });
       if (res.ok) {
         setEditing(false);
@@ -93,8 +94,8 @@ function GmailSenderBox({ businessId, onMessage }: { businessId: string; onMessa
         window.removeEventListener("message", onGoogleMessage);
         setGoogleLoading(false);
         if (e.data.success && e.data.email) {
-          setEmailDraft(e.data.email);
-          onMessage("Email fetched from Google. Now enter your App Password below.");
+          onMessage(`Connected! Emails will be sent from ${e.data.email} via Google OAuth.`);
+          refresh();
         } else if (e.data.error) {
           onMessage(e.data.error);
         }
@@ -118,17 +119,20 @@ function GmailSenderBox({ businessId, onMessage }: { businessId: string; onMessa
     <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 16, marginTop: 16 }}>
       <h3 style={{ margin: "0 0 8px 0", fontSize: 16 }}>📧 Email (Gmail)</h3>
       <p style={{ opacity: 0.6, fontSize: 13, marginBottom: 12 }}>
-        Send automated status emails through your Gmail account. Uses an App Password (not OAuth) — 
-        enable 2-Step Verification, then generate one at{" "}
-        <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer">
-          myaccount.google.com/apppasswords
-        </a>
+        Send automated status emails through your Gmail account.{" "}
+        {sender.connected && !sender.oauthConnected
+          ? "Connected via App Password."
+          : "Sign in with Google to enable automatic email sending."}
       </p>
       
       {sender.connected && !editing ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 13 }}>🟢 Sending as <strong>{sender.gmailAddress}</strong></span>
-          <button onClick={() => setEditing(true)} style={{ fontSize: 12, padding: "4px 10px" }}>Change</button>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 13 }}>
+            🟢 Sending as <strong>{sender.gmailAddress}</strong>
+            {sender.oauthConnected && <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.6 }}>(Google OAuth)</span>}
+            {!sender.oauthConnected && <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.6 }}>(App Password)</span>}
+          </span>
+          {!sender.oauthConnected && <button onClick={() => setEditing(true)} style={{ fontSize: 12, padding: "4px 10px" }}>Change</button>}
           <button onClick={disconnect} style={{ fontSize: 12, padding: "4px 10px" }}>Disconnect</button>
         </div>
       ) : (
@@ -142,7 +146,7 @@ function GmailSenderBox({ businessId, onMessage }: { businessId: string; onMessa
               alignItems: "center",
               justifyContent: "center",
               gap: 10,
-              padding: "10px 16px",
+              padding: "12px 16px",
               background: "#fff",
               color: "#1f2937",
               border: "1px solid #d1d5db",
@@ -183,7 +187,7 @@ function GmailSenderBox({ businessId, onMessage }: { businessId: string; onMessa
               onChange={(e) => setPasswordDraft(e.target.value)}
               style={{ ...inputStyle, width: 200 }}
             />
-            <button onClick={save} disabled={saving || !emailDraft.trim() || !passwordDraft.trim()} className="primary" style={{ fontSize: 13, padding: "8px 16px" }}>
+            <button onClick={save} disabled={saving || !emailDraft.trim()} className="primary" style={{ fontSize: 13, padding: "8px 16px" }}>
               {saving ? "Saving…" : "Connect"}
             </button>
           </div>

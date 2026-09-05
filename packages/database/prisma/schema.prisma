@@ -1225,11 +1225,13 @@ model EmailSenderConfig {
 // platform-wide app credential, nothing shared across clients. Sent
 // over Gmail's own SMTP (smtp.gmail.com:465) by GmailEmailClient.
 model GmailSenderConfig {
-  id          String   @id @default(cuid())
-  businessId  String   @unique
+  id           String   @id @default(cuid())
+  businessId   String   @unique
   gmailAddress String
-  appPassword String
-  updatedAt   DateTime @updatedAt
+  appPassword  String?
+  accessToken  String?
+  refreshToken String?
+  updatedAt    DateTime @updatedAt
 }
 
 // Google OAuth configuration for client sign-in. Stores the OAuth 2.0
