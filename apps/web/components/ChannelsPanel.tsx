@@ -30,18 +30,14 @@ interface GmailSender {
   connected: boolean;
 }
 
-interface GoogleSignInConfig {
-  enabled: boolean;
-  clientId: string | null;
-}
-
-/** Gmail sender connect box — App Password, not OAuth. */
+/** Gmail sender connect box — "Sign in with Google" popup + App Password. */
 function GmailSenderBox({ businessId, onMessage }: { businessId: string; onMessage: (msg: string) => void }) {
   const [sender, setSender] = useState<GmailSender | null>(null);
   const [editing, setEditing] = useState(false);
   const [emailDraft, setEmailDraft] = useState("");
   const [passwordDraft, setPasswordDraft] = useState("");
   const [saving, setSaving] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   function refresh() {
     fetch(`/api/admin/gmail-sender-config?businessId=${encodeURIComponent(businessId)}`)
@@ -79,6 +75,43 @@ function GmailSenderBox({ businessId, onMessage }: { businessId: string; onMessa
     refresh();
   }
 
+  function openGooglePopup() {
+    setGoogleLoading(true);
+    const width = 500;
+    const height = 600;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+
+    const popup = window.open(
+      `/api/auth/google-email?businessId=${encodeURIComponent(businessId)}`,
+      "google-email",
+      `width=${width},height=${height},left=${left},top=${top}`
+    );
+
+    function onGoogleMessage(e: MessageEvent) {
+      if (e.data && typeof e.data === "object" && "success" in e.data) {
+        window.removeEventListener("message", onGoogleMessage);
+        setGoogleLoading(false);
+        if (e.data.success && e.data.email) {
+          setEmailDraft(e.data.email);
+          onMessage("Email fetched from Google. Now enter your App Password below.");
+        } else if (e.data.error) {
+          onMessage(e.data.error);
+        }
+      }
+    }
+
+    window.addEventListener("message", onGoogleMessage);
+
+    const checkPopup = setInterval(() => {
+      if (!popup || popup.closed) {
+        clearInterval(checkPopup);
+        window.removeEventListener("message", onGoogleMessage);
+        setGoogleLoading(false);
+      }
+    }, 500);
+  }
+
   if (!sender) return null;
 
   return (
@@ -99,125 +132,61 @@ function GmailSenderBox({ businessId, onMessage }: { businessId: string; onMessa
           <button onClick={disconnect} style={{ fontSize: 12, padding: "4px 10px" }}>Disconnect</button>
         </div>
       ) : (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
-          <input
-            type="email"
-            placeholder="Gmail address"
-            value={emailDraft}
-            onChange={(e) => setEmailDraft(e.target.value)}
-            style={{ ...inputStyle, width: 220 }}
-          />
-          <input
-            type="password"
-            placeholder="App password (16 characters)"
-            value={passwordDraft}
-            onChange={(e) => setPasswordDraft(e.target.value)}
-            style={{ ...inputStyle, width: 200 }}
-          />
-          <button onClick={save} disabled={saving || !emailDraft.trim() || !passwordDraft.trim()} className="primary" style={{ fontSize: 13, padding: "8px 16px" }}>
-            {saving ? "Saving…" : "Connect"}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <button
+            type="button"
+            onClick={openGooglePopup}
+            disabled={googleLoading}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 10,
+              padding: "10px 16px",
+              background: "#fff",
+              color: "#1f2937",
+              border: "1px solid #d1d5db",
+              borderRadius: 8,
+              cursor: "pointer",
+              fontSize: 14,
+              fontWeight: 500,
+              fontFamily: "inherit",
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+            {googleLoading ? "Signing in..." : "Sign in with Google"}
           </button>
-          {editing && (
-            <button onClick={() => setEditing(false)} className="ghost" style={{ fontSize: 12, padding: "6px 12px" }}>Cancel</button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
-/** Google Sign-In configuration for client logins. */
-function GoogleSignInBox({ businessId, onMessage }: { businessId: string; onMessage: (msg: string) => void }) {
-  const [config, setConfig] = useState<GoogleSignInConfig | null>(null);
-  const [clientIdDraft, setClientIdDraft] = useState("");
-  const [saving, setSaving] = useState(false);
+          <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "4px 0" }}>
+            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+            <span style={{ fontSize: 12, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.05em" }}>or enter manually</span>
+            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+          </div>
 
-  function refresh() {
-    fetch(`/api/admin/google-signin?businessId=${encodeURIComponent(businessId)}`)
-      .then((r) => r.json())
-      .then((data: GoogleSignInConfig) => setConfig(data));
-  }
-
-  useEffect(refresh, [businessId]);
-
-  async function save() {
-    if (!clientIdDraft.trim()) return;
-    setSaving(true);
-    try {
-      const res = await fetch("/api/admin/google-signin", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, clientId: clientIdDraft, enabled: true }),
-      });
-      if (res.ok) {
-        onMessage("Google Sign-In enabled.");
-        setClientIdDraft("");
-        refresh();
-      } else {
-        onMessage("Failed to save Google Sign-In config.");
-      }
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function toggleEnabled() {
-    if (!config) return;
-    setSaving(true);
-    try {
-      await fetch("/api/admin/google-signin", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, clientId: config.clientId, enabled: !config.enabled }),
-      });
-      refresh();
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function disconnect() {
-    await fetch(`/api/admin/google-signin?businessId=${encodeURIComponent(businessId)}`, { method: "DELETE" });
-    onMessage("Google Sign-In disabled.");
-    refresh();
-  }
-
-  if (!config) return null;
-
-  return (
-    <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 16, marginTop: 16 }}>
-      <h3 style={{ margin: "0 0 8px 0", fontSize: 16 }}>🔑 Google Sign-In</h3>
-      <p style={{ opacity: 0.6, fontSize: 13, marginBottom: 12 }}>
-        Let customers sign in with Google for seamless email integration and repair tracking.
-        Create a OAuth 2.0 Client ID at{" "}
-        <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">
-          Google Cloud Console
-        </a>
-        {" "}with authorized redirect URI: <code>https://app.aiva-ai.net/api/oauth/google/callback</code>
-      </p>
-      
-      {config.clientId ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 13 }}>
-            {config.enabled ? "🟢" : "⚪"} Client ID: <strong>{config.clientId}</strong>
-          </span>
-          <button onClick={toggleEnabled} disabled={saving} style={{ fontSize: 12, padding: "4px 10px" }}>
-            {config.enabled ? "Disable" : "Enable"}
-          </button>
-          <button onClick={disconnect} style={{ fontSize: 12, padding: "4px 10px" }}>Remove</button>
-        </div>
-      ) : (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
-          <input
-            type="text"
-            placeholder="Google OAuth Client ID"
-            value={clientIdDraft}
-            onChange={(e) => setClientIdDraft(e.target.value)}
-            style={{ ...inputStyle, width: 400 }}
-          />
-          <button onClick={save} disabled={saving || !clientIdDraft.trim()} className="primary" style={{ fontSize: 13, padding: "8px 16px" }}>
-            {saving ? "Saving…" : "Save"}
-          </button>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <input
+              type="email"
+              placeholder="Gmail address"
+              value={emailDraft}
+              onChange={(e) => setEmailDraft(e.target.value)}
+              style={{ ...inputStyle, width: 220 }}
+            />
+            <input
+              type="password"
+              placeholder="App password (16 characters)"
+              value={passwordDraft}
+              onChange={(e) => setPasswordDraft(e.target.value)}
+              style={{ ...inputStyle, width: 200 }}
+            />
+            <button onClick={save} disabled={saving || !emailDraft.trim() || !passwordDraft.trim()} className="primary" style={{ fontSize: 13, padding: "8px 16px" }}>
+              {saving ? "Saving…" : "Connect"}
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -359,9 +328,8 @@ export function ChannelsPanel({ businessId }: { businessId: string }) {
 
       {message && <p style={{ fontSize: 13, opacity: 0.8 }}>{message}</p>}
 
-      {/* Email & Google Sign-In */}
+      {/* Email */}
       <GmailSenderBox businessId={businessId} onMessage={setMessage} />
-      <GoogleSignInBox businessId={businessId} onMessage={setMessage} />
 
       {/* Channel catalog */}
       {data.catalog.map((entry) => {
