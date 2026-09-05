@@ -704,41 +704,45 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
       )}
 
       {selected && (
-        <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: 16, background: "var(--surface)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "var(--bg)", display: "flex", flexDirection: "column" }}>
+          {/* Header bar */}
+          <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, background: "var(--bg)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
               <button
                 onClick={() => setSelectedId(null)}
                 style={{
-                  width: 32,
-                  height: 32,
+                  width: 36,
+                  height: 36,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   borderRadius: "var(--radius-sm)",
                   border: "1px solid var(--border)",
-                  background: "var(--bg)",
+                  background: "var(--surface)",
                   cursor: "pointer",
-                  color: "var(--text-muted)",
-                  flexShrink: 0,
+                  color: "var(--text)",
+                  fontFamily: "inherit",
                 }}
-                title="Close"
+                title="Back to repairs"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="m15 18-6-6 6-6" />
                 </svg>
               </button>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>{selected.customerName}</div>
-                <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{selected.phone}</div>
-                {selected.email && <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{selected.email}</div>}
+                <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text)" }}>{selected.customerName}</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", display: "flex", gap: 12 }}>
+                  <span>{selected.phone}</span>
+                  {selected.email && <span>{selected.email}</span>}
+                  <span style={{ color: KANBAN_COLORS[selected.status] }}>{STATUS_LABEL[selected.status]}</span>
+                </div>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <select
                 value={selected.status}
                 onChange={(e) => updateStatus(selected.id, e.target.value)}
-                style={{ padding: 6, fontSize: 12 }}
+                style={{ padding: "6px 10px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontFamily: "inherit" }}
               >
                 {STATUS_OPTIONS.map((s) => (
                   <option key={s} value={s}>{STATUS_LABEL[s]}</option>
@@ -747,7 +751,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
               <select
                 value={selected.priority || "normal"}
                 onChange={(e) => updatePriority(selected.id, e.target.value)}
-                style={{ padding: 6, fontSize: 12 }}
+                style={{ padding: "6px 10px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontFamily: "inherit" }}
               >
                 {PRIORITY_OPTIONS.map((p) => (
                   <option key={p} value={p}>{PRIORITY_LABEL[p]}</option>
@@ -756,7 +760,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
               <select
                 value={selected.technicianId || ""}
                 onChange={(e) => assignTechnician(selected.id, e.target.value)}
-                style={{ padding: 6, fontSize: 12 }}
+                style={{ padding: "6px 10px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontFamily: "inherit" }}
               >
                 <option value="">Unassigned</option>
                 {staff.filter((s) => s.active).map((s) => (
@@ -771,7 +775,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
                     rescheduleRepair(selected.id, new Date(e.target.value).toISOString());
                   }
                 }}
-                style={{ padding: 5, fontSize: 12 }}
+                style={{ padding: "6px 10px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontFamily: "inherit" }}
                 title="Reschedule appointment"
               />
               {selected.status !== "cancelled" && selected.status !== "completed" && (
@@ -781,180 +785,204 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
                       updateStatus(selected.id, "cancelled");
                     }
                   }}
-                  style={{ padding: "6px 10px", fontSize: 12, color: "var(--danger)", border: "1px solid var(--danger)", borderRadius: "var(--radius-sm)", background: "transparent", cursor: "pointer" }}
+                  style={{ padding: "6px 12px", fontSize: 12, color: "var(--danger)", border: "1px solid var(--danger)", borderRadius: "var(--radius-sm)", background: "transparent", cursor: "pointer", fontFamily: "inherit" }}
                 >
                   Cancel
                 </button>
               )}
-              <button onClick={() => setOrderOpen((o) => !o)} style={{ padding: "6px 10px", fontSize: 12 }}>
+              <button onClick={() => setOrderOpen((o) => !o)} style={{ padding: "6px 12px", fontSize: 12, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: orderOpen ? "var(--accent-subtle)" : "var(--surface)", cursor: "pointer", color: "var(--text)", fontFamily: "inherit" }}>
                 {orderOpen ? "Close Order" : "Manage Order"}
               </button>
-              <button onClick={() => deleteAppointment(selected)} style={{ padding: "6px 10px", fontSize: 12 }}>
-                Delete
-              </button>
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, fontSize: 12.5, marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
-            <div><span style={{ color: "var(--text-faint)" }}>Order ID</span><br />{shortId(selected.id)}</div>
-            <div><span style={{ color: "var(--text-faint)" }}>Device</span><br />{selected.deviceType}{selected.deviceModel ? ` — ${selected.deviceModel}` : ""}</div>
-            <div><span style={{ color: "var(--text-faint)" }}>Appointment</span><br />{new Date(selected.appointmentDate).toLocaleString()}</div>
-            <div><span style={{ color: "var(--text-faint)" }}>Tracking Token</span><br />{selected.trackingToken}</div>
-            {selected.isWalkIn && (
-              <div><span style={{ color: "var(--text-faint)" }}>Source</span><br />
-                <span style={{ ...badgeStyle("warn"), background: "#f97316", color: "#fff", fontWeight: 600 }}>🚶 Walk-in</span>
+          {/* Content */}
+          <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
+            {/* Info cards */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 20 }}>
+              <div style={{ padding: 12, background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
+                <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Order ID</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{shortId(selected.id)}</div>
               </div>
-            )}
-            {selected.source && selected.source !== "walk-in" && (
-              <div><span style={{ color: "var(--text-faint)" }}>Source</span><br />
-                <span style={badgeStyle("neutral")}>{selected.source}</span>
+              <div style={{ padding: 12, background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
+                <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Device</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{selected.deviceType}{selected.deviceModel ? ` — ${selected.deviceModel}` : ""}</div>
               </div>
-            )}
-            <div><span style={{ color: "var(--text-faint)" }}>Priority</span><br />
-              <span style={badgeStyle(PRIORITY_TONE[selected.priority] ?? "neutral")}>{PRIORITY_LABEL[selected.priority] ?? selected.priority}</span>
+              <div style={{ padding: 12, background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
+                <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Appointment</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{new Date(selected.appointmentDate).toLocaleString()}</div>
+              </div>
+              <div style={{ padding: 12, background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
+                <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Source</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{selected.isWalkIn ? "🚶 Walk-in" : "📅 Scheduled"}</div>
+              </div>
+              {selected.serialNumber && (
+                <div style={{ padding: 12, background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
+                  <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Serial Number</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{selected.serialNumber}</div>
+                </div>
+              )}
+              <div style={{ padding: 12, background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
+                <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Technician</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{selected.technicianId ? (staffMap.get(selected.technicianId)?.name ?? "Unknown") : "Unassigned"}</div>
+              </div>
             </div>
-            <div><span style={{ color: "var(--text-faint)" }}>Technician</span><br />
-              {selected.technicianId ? (staffMap.get(selected.technicianId)?.name ?? "Unknown") : <span style={{ color: "var(--text-faint)", fontStyle: "italic" }}>Unassigned</span>}
-            </div>
-            {selected.email && <div><span style={{ color: "var(--text-faint)" }}>Email</span><br />{selected.email}</div>}
-            {selected.rescheduleRequested && (
-              <div style={{ gridColumn: "1 / -1", padding: "10px 12px", background: "var(--warning-subtle)", borderRadius: "var(--radius-sm)", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <div>
-                  <strong>Reschedule requested</strong> — New date: {selected.rescheduleNewDate ? new Date(selected.rescheduleNewDate).toLocaleString() : "Not specified"}
-                </div>
-                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                  <button onClick={() => handleRescheduleRequest(selected.id, "approve")} className="primary" style={{ fontSize: 11, padding: "4px 10px" }}>Approve</button>
-                  <button onClick={() => handleRescheduleRequest(selected.id, "reject")} style={{ fontSize: 11, padding: "4px 10px", color: "var(--danger)" }}>Reject</button>
-                </div>
-              </div>
-            )}
-            {selected.cancelRequested && (
-              <div style={{ gridColumn: "1 / -1", padding: "10px 12px", background: "var(--danger-subtle)", borderRadius: "var(--radius-sm)", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <div>
-                  <strong>Cancellation requested</strong>{selected.cancelReason ? ` — Reason: ${selected.cancelReason}` : ""}
-                </div>
-                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                  <button onClick={() => handleCancelRequest(selected.id, "approve")} className="primary" style={{ fontSize: 11, padding: "4px 10px", background: "var(--danger)" }}>Approve</button>
-                  <button onClick={() => handleCancelRequest(selected.id, "reject")} style={{ fontSize: 11, padding: "4px 10px" }}>Reject</button>
-                </div>
-              </div>
-            )}
-            <div style={{ gridColumn: "1 / -1" }}><span style={{ color: "var(--text-faint)" }}>Issue</span><br />{selected.issueDescription}</div>
-          </div>
 
-          {orderOpen && (
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4 }}>
-                Order Management {selected.serialNumber ? `— ${selected.serialNumber}` : "(no serial number yet — save at least one item to assign one)"}
+            {/* Issue */}
+            <div style={{ marginBottom: 20 }}>
+              <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", margin: "0 0 8px" }}>Issue Description</h3>
+              <div style={{ padding: 12, background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                {selected.issueDescription}
               </div>
-              <OrderItemsEditor order={selected} products={products} onChanged={refresh} />
             </div>
-          )}
 
-          {/* Device Photos */}
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)" }}>Device Photos</span>
-              <label style={{ fontSize: 11, padding: "4px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", cursor: "pointer", color: "var(--text-muted)" }}>
-                + Upload
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  style={{ display: "none" }}
-                  onChange={async (e) => {
-                    const files = e.target.files;
-                    if (!files || !selected) return;
-                    const urls: string[] = [...(selected.deviceImages || [])];
-                    for (const file of Array.from(files)) {
-                      const fd = new FormData();
-                      fd.append("file", file);
-                      const res = await fetch("/api/chat/upload-image", { method: "POST", body: fd });
-                      if (res.ok) {
-                        const data = await res.json();
-                        if (data.url) urls.push(data.url);
+            {/* Device Photos */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", margin: 0 }}>Device Photos</h3>
+                <label style={{ fontSize: 11, padding: "4px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", cursor: "pointer", color: "var(--text-muted)", background: "var(--surface)", fontFamily: "inherit" }}>
+                  + Upload
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    style={{ display: "none" }}
+                    onChange={async (e) => {
+                      const files = e.target.files;
+                      if (!files || !selected) return;
+                      const urls: string[] = [...(selected.deviceImages || [])];
+                      for (const file of Array.from(files)) {
+                        const fd = new FormData();
+                        fd.append("file", file);
+                        const res = await fetch("/api/chat/upload-image", { method: "POST", body: fd });
+                        if (res.ok) {
+                          const data = await res.json();
+                          if (data.url) urls.push(data.url);
+                        }
                       }
-                    }
-                    await fetch("/api/admin/repairs/photos", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ id: selected.id, images: urls }),
-                    });
-                    refresh();
-                  }}
-                />
-              </label>
-            </div>
-            {selected.deviceImages && selected.deviceImages.length > 0 ? (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {selected.deviceImages.map((url, i) => (
-                  <div key={i} style={{ position: "relative" }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt={`Device photo ${i + 1}`} style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)" }} />
-                    <button
-                      onClick={async () => {
-                        if (!selected) return;
-                        const newImages = selected.deviceImages.filter((_, idx) => idx !== i);
-                        await fetch("/api/admin/repairs/photos", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ id: selected.id, images: newImages }),
-                        });
-                        refresh();
-                      }}
-                      style={{ position: "absolute", top: -4, right: -4, width: 18, height: 18, borderRadius: "50%", background: "var(--danger)", color: "white", border: "none", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-                    >
-                      x
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ fontSize: 12, color: "var(--text-faint)", fontStyle: "italic" }}>No photos uploaded yet</div>
-            )}
-          </div>
-
-          <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", minHeight: 160, maxHeight: 300, overflowY: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 10, marginBottom: 10 }}>
-            {!messages && <p style={subtleTextStyle}>Loading…</p>}
-            {messages?.length === 0 && <p style={subtleTextStyle}>No messages yet from the customer.</p>}
-            {messages?.map((m) => {
-              if (m.role === "system") {
-                return (
-                  <div key={m.id} style={{ alignSelf: "center", fontSize: 11, color: "var(--text-faint)", textAlign: "center" }}>
-                    {m.content} · {new Date(m.createdAt).toLocaleString()}
-                  </div>
-                );
-              }
-              const isCustomer = m.role === "user";
-              return (
-                <div key={m.id} style={{ maxWidth: "80%", alignSelf: isCustomer ? "flex-start" : "flex-end" }}>
-                  <div
-                    style={{
-                      background: isCustomer ? "var(--surface)" : "var(--accent)",
-                      color: isCustomer ? "var(--text)" : "var(--bg)",
-                      border: isCustomer ? "1px solid var(--border)" : "none",
-                      borderRadius: isCustomer ? "12px 12px 12px 3px" : "12px 12px 3px 12px",
-                      padding: "8px 11px",
-                      fontSize: 13,
+                      await fetch("/api/admin/repairs/photos", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: selected.id, images: urls }),
+                      });
+                      refresh();
                     }}
-                  >
-                    {isCustomer ? m.content : <MarkdownMessage text={m.content} />}
-                  </div>
+                  />
+                </label>
+              </div>
+              {selected.deviceImages && selected.deviceImages.length > 0 ? (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {selected.deviceImages.map((url, i) => (
+                    <div key={i} style={{ position: "relative" }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt={`Device photo ${i + 1}`} style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)" }} />
+                      <button
+                        onClick={async () => {
+                          if (!selected) return;
+                          const newImages = selected.deviceImages.filter((_, idx) => idx !== i);
+                          await fetch("/api/admin/repairs/photos", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ id: selected.id, images: newImages }),
+                          });
+                          refresh();
+                        }}
+                        style={{ position: "absolute", top: -4, right: -4, width: 20, height: 20, borderRadius: "50%", background: "var(--danger)", color: "white", border: "none", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              );
-            })}
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input
-              style={{ flex: 1, padding: 8 }}
-              value={reply}
-              onChange={(e) => setReply(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") sendReply(); }}
-              placeholder="Reply to the customer…"
-            />
-            <button onClick={sendReply} disabled={sending} style={primaryButtonStyle}>
-              {sending ? "Sending…" : "Send"}
-            </button>
+              ) : (
+                <div style={{ fontSize: 12, color: "var(--text-faint)", fontStyle: "italic" }}>No photos uploaded yet</div>
+              )}
+            </div>
+
+            {/* Reschedule/Cancel requests */}
+            {(selected.rescheduleRequested || selected.cancelRequested) && (
+              <div style={{ marginBottom: 20, display: "flex", gap: 10 }}>
+                {selected.rescheduleRequested && (
+                  <div style={{ padding: 12, background: "rgba(245,158,11,0.1)", borderRadius: "var(--radius-sm)", border: "1px solid var(--warning)", flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--warning)", marginBottom: 6 }}>Reschedule Requested</div>
+                    {selected.rescheduleNewDate && <div style={{ fontSize: 12, color: "var(--text-muted)" }}>New date: {new Date(selected.rescheduleNewDate).toLocaleString()}</div>}
+                    <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                      <button onClick={() => handleRescheduleRequest(selected.id, "approve")} style={{ padding: "6px 12px", fontSize: 12, background: "var(--success)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontFamily: "inherit" }}>Approve</button>
+                      <button onClick={() => handleRescheduleRequest(selected.id, "reject")} style={{ padding: "6px 12px", fontSize: 12, background: "var(--danger)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontFamily: "inherit" }}>Reject</button>
+                    </div>
+                  </div>
+                )}
+                {selected.cancelRequested && (
+                  <div style={{ padding: 12, background: "rgba(239,68,68,0.1)", borderRadius: "var(--radius-sm)", border: "1px solid var(--danger)", flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--danger)", marginBottom: 6 }}>Cancel Requested</div>
+                    {selected.cancelReason && <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Reason: {selected.cancelReason}</div>}
+                    <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                      <button onClick={() => handleCancelRequest(selected.id, "approve")} style={{ padding: "6px 12px", fontSize: 12, background: "var(--success)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontFamily: "inherit" }}>Approve</button>
+                      <button onClick={() => handleCancelRequest(selected.id, "reject")} style={{ padding: "6px 12px", fontSize: 12, background: "var(--danger)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontFamily: "inherit" }}>Reject</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Order items */}
+            {orderOpen && (
+              <div style={{ marginBottom: 20 }}>
+                <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", margin: "0 0 8px" }}>Order Items</h3>
+                <div style={{ padding: 12, background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
+                  <OrderItemsEditor order={selected} products={products} onChanged={refresh} />
+                </div>
+              </div>
+            )}
+
+            {/* Conversation */}
+            <div>
+              <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", margin: "0 0 8px" }}>Conversation</h3>
+              <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
+                <div style={{ minHeight: 200, maxHeight: 400, overflowY: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 10, background: "var(--bg)" }}>
+                  {!messages && <p style={{ fontSize: 12, color: "var(--text-faint)" }}>Loading messages…</p>}
+                  {messages?.length === 0 && <p style={{ fontSize: 12, color: "var(--text-faint)" }}>No messages yet from the customer.</p>}
+                  {messages?.map((m) => {
+                    if (m.role === "system") {
+                      return (
+                        <div key={m.id} style={{ alignSelf: "center", fontSize: 11, color: "var(--text-faint)", textAlign: "center" }}>
+                          {m.content} · {new Date(m.createdAt).toLocaleString()}
+                        </div>
+                      );
+                    }
+                    const isCustomer = m.role === "user";
+                    return (
+                      <div key={m.id} style={{ maxWidth: "80%", alignSelf: isCustomer ? "flex-start" : "flex-end" }}>
+                        <div
+                          style={{
+                            background: isCustomer ? "var(--surface)" : "var(--accent)",
+                            color: isCustomer ? "var(--text)" : "var(--bg)",
+                            border: isCustomer ? "1px solid var(--border)" : "none",
+                            borderRadius: isCustomer ? "12px 12px 12px 3px" : "12px 12px 3px 12px",
+                            padding: "8px 11px",
+                            fontSize: 13,
+                          }}
+                        >
+                          {isCustomer ? m.content : <MarkdownMessage text={m.content} />}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ display: "flex", gap: 8, padding: 12, borderTop: "1px solid var(--border)", background: "var(--surface)" }}>
+                  <input
+                    style={{ flex: 1, padding: 8, fontSize: 12, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--bg)", color: "var(--text)", fontFamily: "inherit" }}
+                    placeholder="Reply to the customer…"
+                    value={reply}
+                    onChange={(e) => setReply(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") sendReply(); }}
+                  />
+                  <button onClick={sendReply} disabled={sending || !reply.trim()} style={{ padding: "8px 14px", fontSize: 12, background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: sending ? "default" : "pointer", opacity: sending || !reply.trim() ? 0.5 : 1, fontFamily: "inherit" }}>
+                    {sending ? "Sending…" : "Send"}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
