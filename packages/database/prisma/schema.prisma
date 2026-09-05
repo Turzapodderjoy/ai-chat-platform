@@ -46,6 +46,11 @@ model Business {
   // dashboard's Clients panel.
   type          String   @default("regular")
 
+  // Which integrations this business can access in their Integrations panel.
+  // JSON array of integration IDs (e.g. ["website","email","messenger"]).
+  // null or empty = all integrations enabled (backward compatible).
+  enabledIntegrations String?
+
   // How many agent (handoff-team) logins this business is allowed to
   // create for itself under Client Access -- 0 means the feature isn't
   // enabled for them yet. Set by platform admin only; the client's own
