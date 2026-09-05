@@ -276,8 +276,8 @@ export function InventoryPanel({ businessId }: { businessId: string }) {
                     <td style={{ ...cellStyle, fontSize: 11, color: "var(--text-faint)" }}>{p.sku ?? "—"}</td>
                     <td style={cellStyle}>{p.category ?? "—"}</td>
                     <td style={cellStyle}>{p.tier === "premium" && <span style={badgeStyle("info")}>Premium</span>}</td>
-                    <td style={cellStyle}>{p.price ? `৳ ${p.price}` : "—"}</td>
-                    <td style={{ ...cellStyle, color: "var(--text-faint)" }}>{p.costPrice ? `৳ ${p.costPrice}` : "—"}</td>
+                    <td style={cellStyle}>{p.price ? `$ ${p.price}` : "—"}</td>
+                    <td style={{ ...cellStyle, color: "var(--text-faint)" }}>{p.costPrice ? `$ ${p.costPrice}` : "—"}</td>
                     <td style={cellStyle}>
                       {p.stock ? <span style={badgeStyle(/out/i.test(p.stock) ? "error" : "ok")}>{p.stock}</span> : "—"}
                       {p.stock && p.minStock > 0 && !/out/i.test(p.stock) && (() => {

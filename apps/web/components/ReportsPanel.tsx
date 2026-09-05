@@ -83,7 +83,7 @@ function pct(n: number | null): string {
 }
 
 function money(n: number): string {
-  return `৳${Math.round(n).toLocaleString()}`;
+  return `$${Math.round(n).toLocaleString()}`;
 }
 
 function BreakdownBar({ label, count, total, tone }: { label: string; count: number; total: number; tone: BadgeTone }) {

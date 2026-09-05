@@ -134,7 +134,7 @@ export function OrderItemsEditor({ order, products, onChanged }: { order: Repair
           <span style={badgeStyle(item.kind === "part" ? "info" : "neutral")}>{item.kind}</span>
           <span style={{ flex: 1 }}>{item.name} × {item.quantity}</span>
           <span style={{ color: "var(--text-faint)", textDecoration: item.overridePrice != null ? "line-through" : "none" }}>
-            Initial: ৳{item.defaultPrice * item.quantity}
+            Initial: ${item.defaultPrice * item.quantity}
           </span>
           <input
             placeholder="Override total"
@@ -144,7 +144,7 @@ export function OrderItemsEditor({ order, products, onChanged }: { order: Repair
             style={{ width: 100, padding: 4, fontSize: 12 }}
           />
           {item.overridePrice != null && <span style={badgeStyle("warn")}>Overridden</span>}
-          <strong style={{ width: 70, textAlign: "right" }}>৳{item.finalPrice}</strong>
+          <strong style={{ width: 70, textAlign: "right" }}>${item.finalPrice}</strong>
           <button onClick={() => removeItem(item.id)} style={{ fontSize: 11, padding: "3px 6px" }}>✕</button>
         </div>
       ))}
@@ -159,7 +159,7 @@ export function OrderItemsEditor({ order, products, onChanged }: { order: Repair
             <select value={productId} onChange={(e) => pickProduct(e.target.value)} style={{ padding: 6, minWidth: 160 }}>
               <option value="">Custom part (not in Inventory)</option>
               {products.map((p) => (
-                <option key={p.id} value={p.id}>{p.name} {p.price ? `(৳${p.price})` : ""}</option>
+                <option key={p.id} value={p.id}>{p.name} {p.price ? `($${p.price})` : ""}</option>
               ))}
             </select>
             <input placeholder="Part name" value={name} onChange={(e) => setName(e.target.value)} style={{ padding: 6, minWidth: 140 }} />
@@ -175,7 +175,7 @@ export function OrderItemsEditor({ order, products, onChanged }: { order: Repair
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
-        <strong>Total: ৳{orderTotal(order)}</strong>
+        <strong>Total: ${orderTotal(order)}</strong>
         <button onClick={generateInvoice} disabled={order.items.length === 0} style={primaryButtonStyle}>
           Generate Invoice
         </button>

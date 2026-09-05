@@ -256,8 +256,8 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
       {stats && (
         <StatCardRow>
           <StatCard label="Invoices" value={String(stats.count)} tone="info" />
-          <StatCard label="Collected" value={`৳${stats.collected.toLocaleString()}`} tone="success" />
-          <StatCard label="Outstanding" value={`৳${stats.outstanding.toLocaleString()}`} tone={stats.outstanding > 0 ? "warning" : "success"} />
+          <StatCard label="Collected" value={`$${stats.collected.toLocaleString()}`} tone="success" />
+          <StatCard label="Outstanding" value={`$${stats.outstanding.toLocaleString()}`} tone={stats.outstanding > 0 ? "warning" : "success"} />
         </StatCardRow>
       )}
 

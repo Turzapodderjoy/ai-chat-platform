@@ -265,7 +265,7 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
                     <td style={cellStyle}>{r.phone}</td>
                     <td style={cellStyle}>{r.detail}</td>
                     <td style={cellStyle}>{r.status}</td>
-                    <td style={cellStyle}>{r.total !== null ? `৳${r.total}` : "—"}</td>
+                    <td style={cellStyle}>{r.total !== null ? `$${r.total}` : "—"}</td>
                     <td style={cellStyle}>
                       {r.kind === "ai" ? (
                         <MessageTagControl

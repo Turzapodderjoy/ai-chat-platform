@@ -22,7 +22,7 @@ export function SubscriptionPanel() {
   const [form, setForm] = useState({
     planName: "",
     fee: "",
-    currency: "BDT",
+    currency: "USD",
     startDate: "",
     endDate: "",
     active: true,

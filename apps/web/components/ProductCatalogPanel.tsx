@@ -146,7 +146,7 @@ export function ProductCatalogPanel({ businessId }: { businessId: string }) {
 
               <strong style={{ fontSize: 13, lineHeight: 1.3 }}>{p.name}</strong>
 
-              {p.price && <div style={{ fontSize: 14, fontWeight: 600 }}>৳ {p.price}</div>}
+              {p.price && <div style={{ fontSize: 14, fontWeight: 600 }}>${p.price}</div>}
 
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {p.stock && (
