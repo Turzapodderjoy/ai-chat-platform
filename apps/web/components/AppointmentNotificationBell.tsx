@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   type AppointmentNotification,
   loadNotifications,
@@ -32,6 +32,53 @@ type BellItem =
   | { kind: "admin"; id: string; title: string; subtitle: string; detail: string }
   | { kind: "subscription"; id: string; title: string; subtitle: string; detail: string };
 
+/** Toast notification for new bookings */
+function Toast({ notification, onClose }: { notification: AppointmentNotification; onClose: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 5000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 20,
+        right: 20,
+        width: 340,
+        padding: "14px 16px",
+        background: "var(--surface)",
+        border: "1px solid var(--accent)",
+        borderLeft: "4px solid var(--accent)",
+        borderRadius: "var(--radius-sm)",
+        boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
+        zIndex: 9999,
+        animation: "slideInRight 0.3s ease-out",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 16 }}>🔔</span>
+          <strong style={{ fontSize: 13, color: "var(--text)" }}>New Booking</strong>
+        </div>
+        <button
+          onClick={onClose}
+          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-faint)", fontSize: 16, padding: 0, lineHeight: 1 }}
+        >
+          ✕
+        </button>
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 2 }}>{notification.customerName}</div>
+      <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>
+        {new Date(notification.appointmentDate).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+      </div>
+      <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.4 }}>
+        {notification.issueDescription}
+      </div>
+    </div>
+  );
+}
+
 /** Topbar bell -- merges three notification sources into one dropdown:
  * new appointments (own localStorage diffing, see
  * lib/appointment-notifications.ts), admin-sent messages
@@ -46,6 +93,7 @@ export function AppointmentNotificationBell({ businessId }: { businessId: string
   const [, forceRerender] = useState(0);
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
+  const [toast, setToast] = useState<AppointmentNotification | null>(null);
 
   useEffect(() => {
     setAppointmentNotifs(loadNotifications(businessId));
@@ -55,13 +103,20 @@ export function AppointmentNotificationBell({ businessId }: { businessId: string
     });
   }, [businessId]);
 
+  const showToast = useCallback((n: AppointmentNotification) => {
+    setToast(n);
+    playPingSound();
+  }, []);
+
   useEffect(() => {
     function pollAppointments() {
       fetch(`/api/admin/repairs?businessId=${encodeURIComponent(businessId)}`)
         .then((r) => r.json())
         .then((d: { appointments: AppointmentSummary[] }) => {
           const fresh = checkForNewAppointments(businessId, d.appointments ?? []);
-          if (fresh.length > 0) playPingSound();
+          if (fresh.length > 0 && fresh[0]) {
+            showToast(fresh[0]);
+          }
         })
         .catch(() => {});
     }
@@ -99,7 +154,7 @@ export function AppointmentNotificationBell({ businessId }: { businessId: string
       pollSubscription();
     }, 15000);
     return () => clearInterval(interval);
-  }, [businessId]);
+  }, [businessId, showToast]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -274,6 +329,15 @@ export function AppointmentNotificationBell({ businessId }: { businessId: string
           </div>
         </div>
       )}
+
+      {toast && <Toast notification={toast} onClose={() => setToast(null)} />}
+
+      <style>{`
+        @keyframes slideInRight {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }

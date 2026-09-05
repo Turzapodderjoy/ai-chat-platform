@@ -605,105 +605,132 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
     return name.includes(q) || msg.includes(q);
   });
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   return (
-    <div style={{ display: "flex", height: "calc(100vh - 120px)", minHeight: 500, background: "var(--bg)", borderRadius: "var(--radius-md)", overflow: "hidden", border: "1px solid var(--border)" }}>
+    <div style={{ display: "flex", height: "calc(100vh - 60px)", background: "var(--bg)", overflow: "hidden" }}>
       {/* ─── Left Sidebar ─── */}
-      <div style={{ width: 220, flexShrink: 0, background: "var(--bg-elevated)", borderRight: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column" }}>
-        <div style={{ padding: "16px 16px 12px", borderBottom: "1px solid var(--border-subtle)" }}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8, color: "var(--text)" }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      <div style={{ width: sidebarCollapsed ? 56 : 220, flexShrink: 0, background: "var(--bg-elevated)", borderRight: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", transition: "width 0.2s ease" }}>
+        <div style={{ padding: sidebarCollapsed ? "12px 0" : "12px 16px", borderBottom: "1px solid var(--border-subtle)", display: "flex", alignItems: "center", justifyContent: sidebarCollapsed ? "center" : "space-between" }}>
+          {!sidebarCollapsed && (
+            <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8, color: "var(--text)" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              Inbox
+            </h2>
+          )}
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "var(--text-muted)", display: "flex", alignItems: "center", justifyContent: "center" }}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              {sidebarCollapsed ? <path d="m9 18 6-6-6-6" /> : <path d="m15 18-6-6 6-6" />}
             </svg>
-            Inbox
-          </h2>
+          </button>
         </div>
 
-        <nav style={{ padding: "8px 0", flex: 1, overflowY: "auto" }}>
+        <nav style={{ padding: sidebarCollapsed ? "8px 0" : "8px 0", flex: 1, overflowY: "auto" }}>
           {[
-            { id: "all" as StatusTab, label: "All Conversations", icon: "💬" },
-            { id: "handoff" as StatusTab, label: "Needs Attention", icon: "🔔" },
-            { id: "human" as StatusTab, label: "Human Handling", icon: "👤" },
+            { id: "all" as StatusTab, label: "All Conversations", icon: "💬", count: tabCounts.all },
+            { id: "handoff" as StatusTab, label: "Needs Attention", icon: "🔔", count: tabCounts.handoff },
+            { id: "human" as StatusTab, label: "Human Handling", icon: "👤", count: tabCounts.human },
           ].map((item) => (
             <button
               key={item.id}
               onClick={() => setStatusTab(item.id)}
+              title={sidebarCollapsed ? item.label : undefined}
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 10,
-                width: "calc(100% - 8px)",
-                margin: "0 4px",
-                padding: "8px 12px",
+                width: sidebarCollapsed ? "100%" : "calc(100% - 8px)",
+                margin: sidebarCollapsed ? 0 : "0 4px",
+                padding: sidebarCollapsed ? "10px 0" : "8px 12px",
+                justifyContent: sidebarCollapsed ? "center" : "flex-start",
                 fontSize: 13,
                 fontWeight: statusTab === item.id ? 600 : 400,
                 color: statusTab === item.id ? "var(--accent)" : "var(--text-secondary)",
                 background: statusTab === item.id ? "var(--accent-subtle)" : "transparent",
                 border: "none",
-                borderRadius: "var(--radius-sm)",
+                borderRadius: sidebarCollapsed ? 0 : "var(--radius-sm)",
                 cursor: "pointer",
                 textAlign: "left",
                 fontFamily: "inherit",
                 transition: "all 0.15s",
+                position: "relative",
               }}
             >
-              <span style={{ fontSize: 14, width: 20, textAlign: "center" }}>{item.icon}</span>
-              {item.label}
-              <span style={{ marginLeft: "auto", fontSize: 11, opacity: 0.6, fontVariantNumeric: "tabular-nums" }}>
-                {tabCounts[item.id]}
-              </span>
+              <span style={{ fontSize: 16, width: 20, textAlign: "center" }}>{item.icon}</span>
+              {!sidebarCollapsed && (
+                <>
+                  {item.label}
+                  <span style={{ marginLeft: "auto", fontSize: 11, opacity: 0.6, fontVariantNumeric: "tabular-nums" }}>
+                    {item.count}
+                  </span>
+                </>
+              )}
+              {sidebarCollapsed && item.count > 0 && (
+                <span style={{ position: "absolute", top: 6, right: "calc(50% - 16px)", width: 8, height: 8, borderRadius: "50%", background: "var(--accent)" }} />
+              )}
             </button>
           ))}
 
-          <div style={{ height: 1, background: "var(--border-subtle)", margin: "8px 12px" }} />
+          {!sidebarCollapsed && (
+            <>
+              <div style={{ height: 1, background: "var(--border-subtle)", margin: "8px 12px" }} />
 
-          <div style={{ padding: "0 12px", marginBottom: 8 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>
-              Channels
-            </div>
-            <select
-              value={channelFilter}
-              onChange={(e) => setChannelFilter(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "6px 8px",
-                fontSize: 12,
-                background: "var(--surface)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius-sm)",
-                color: "var(--text)",
-                fontFamily: "inherit",
-              }}
-            >
-              <option value="">All channels</option>
-              <option value="website">Website</option>
-              <option value="messenger">Messenger</option>
-              <option value="instagram">Instagram</option>
-              <option value="whatsapp">WhatsApp</option>
-            </select>
-          </div>
+              <div style={{ padding: "0 12px", marginBottom: 8 }}>
+                <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>
+                  Channels
+                </div>
+                <select
+                  value={channelFilter}
+                  onChange={(e) => setChannelFilter(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "6px 8px",
+                    fontSize: 12,
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-sm)",
+                    color: "var(--text)",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  <option value="">All channels</option>
+                  <option value="website">Website</option>
+                  <option value="messenger">Messenger</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="whatsapp">WhatsApp</option>
+                </select>
+              </div>
 
-          <div style={{ padding: "0 12px" }}>
-            <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>
-              Sort
-            </div>
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortOption)}
-              style={{
-                width: "100%",
-                padding: "6px 8px",
-                fontSize: 12,
-                background: "var(--surface)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius-sm)",
-                color: "var(--text)",
-                fontFamily: "inherit",
-              }}
-            >
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-            </select>
-          </div>
+              <div style={{ padding: "0 12px" }}>
+                <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>
+                  Sort
+                </div>
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as SortOption)}
+                  style={{
+                    width: "100%",
+                    padding: "6px 8px",
+                    fontSize: 12,
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-sm)",
+                    color: "var(--text)",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  <option value="newest">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                </select>
+              </div>
+            </>
+          )}
         </nav>
       </div>
 

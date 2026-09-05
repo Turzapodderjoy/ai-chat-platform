@@ -52,10 +52,10 @@ interface Message {
 const STATUS_OPTIONS = ["booked", "received", "in_repair", "ready", "completed", "cancelled"] as const;
 
 const STATUS_LABEL: Record<string, string> = {
-  booked: "Booked",
+  booked: "New",
   received: "Received",
   in_repair: "In Repair",
-  ready: "Ready for Pickup",
+  ready: "Ready",
   completed: "Completed",
   cancelled: "Cancelled",
 };
@@ -79,6 +79,14 @@ const KANBAN_COLORS: Record<string, string> = {
   completed: "#6b7280",
 };
 
+const KANBAN_ICONS: Record<string, string> = {
+  booked: "📥",
+  received: "📦",
+  in_repair: "🔧",
+  ready: "✅",
+  completed: "🏁",
+};
+
 const PRIORITY_OPTIONS = ["low", "normal", "high", "urgent"] as const;
 
 const PRIORITY_LABEL: Record<string, string> = {
@@ -96,6 +104,13 @@ const PRIORITY_TONE: Record<string, BadgeTone> = {
 };
 
 const PRIORITY_BORDER: Record<string, string> = {
+  low: "#6b7280",
+  normal: "#6366f1",
+  high: "#f59e0b",
+  urgent: "#ef4444",
+};
+
+const PRIORITY_DOT: Record<string, string> = {
   low: "#6b7280",
   normal: "#6366f1",
   high: "#f59e0b",
@@ -380,112 +395,178 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
         key={a.id}
         onClick={() => openAppointment(a)}
         style={{
-          padding: "10px 12px",
-          marginBottom: 6,
+          padding: "12px 14px",
+          marginBottom: 8,
           borderRadius: "var(--radius-sm)",
+          border: `1px solid ${selectedId === a.id ? "var(--accent)" : "var(--border)"}`,
           borderLeft: `3px solid ${PRIORITY_BORDER[a.priority] ?? "#6366f1"}`,
-          borderRight: "1px solid var(--border)",
-          borderTop: "1px solid var(--border)",
-          borderBottom: "1px solid var(--border)",
           cursor: "pointer",
-          background: selectedId === a.id ? "var(--surface-hover)" : isNew ? "var(--accent-subtle)" : "var(--surface)",
-          transition: "background 0.15s",
+          background: selectedId === a.id ? "var(--surface-hover)" : isNew ? "rgba(99,102,241,0.05)" : "var(--surface)",
+          transition: "all 0.15s",
+          boxShadow: selectedId === a.id ? "0 0 0 1px var(--accent)" : "none",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-          <strong style={{ fontSize: 12.5 }}>{a.customerName}</strong>
-          <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
-            {a.isWalkIn && <span style={{ ...badgeStyle("warn"), background: "#f97316", color: "#fff", fontWeight: 600 }}>🚶 Walk-in</span>}
-            {isNew && <span style={badgeStyle("info")}>New</span>}
+        {/* Top row: badges */}
+        <div style={{ display: "flex", gap: 4, alignItems: "center", marginBottom: 8 }}>
+          {a.isWalkIn && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "#f97316", color: "#fff", fontSize: 10, fontWeight: 600 }}>
+              🚶 Walk-in
+            </span>
+          )}
+          {!a.isWalkIn && a.source !== "walkin" && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "#6366f1", color: "#fff", fontSize: 10, fontWeight: 600 }}>
+              📅 Scheduled
+            </span>
+          )}
+          {isNew && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "var(--accent)", color: "#fff", fontSize: 10, fontWeight: 600 }}>New</span>}
+          {a.rescheduleRequested && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "var(--warning)", color: "#fff", fontSize: 10, fontWeight: 600 }}>Reschedule</span>}
+          {a.cancelRequested && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "var(--danger)", color: "#fff", fontSize: 10, fontWeight: 600 }}>Cancel</span>}
+        </div>
+
+        {/* Title */}
+        <div style={{ fontWeight: 600, fontSize: 13, color: "var(--text)", marginBottom: 4 }}>
+          {a.customerName}
+        </div>
+
+        {/* Device info */}
+        <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 6 }}>
+          {a.deviceType}{a.deviceModel ? ` — ${a.deviceModel}` : ""}
+        </div>
+
+        {/* Issue preview */}
+        <div style={{ fontSize: 11.5, color: "var(--text-secondary)", marginBottom: 8, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+          {a.issueDescription}
+        </div>
+
+        {/* Bottom row: meta */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--text-faint)" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              {KANBAN_ICONS[a.status] ?? "📋"}
+              {STATUS_LABEL[a.status]}
+            </span>
+            {tech && (
+              <span style={{ display: "flex", alignItems: "center", gap: 3, padding: "1px 6px", borderRadius: 4, background: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--accent)" }} />
+                {tech.name}
+              </span>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             {a.priority && a.priority !== "normal" && (
-              <span style={badgeStyle(PRIORITY_TONE[a.priority] ?? "neutral")}>{PRIORITY_LABEL[a.priority]}</span>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: PRIORITY_DOT[a.priority] }} title={PRIORITY_LABEL[a.priority]} />
             )}
-            {a.rescheduleRequested && <span style={badgeStyle("warn")}>Reschedule</span>}
-            {a.cancelRequested && <span style={badgeStyle("error")}>Cancel</span>}
+            <span style={{ fontSize: 10, color: "var(--text-faint)" }}>
+              {timeAgo(a.appointmentDate)}
+            </span>
           </div>
         </div>
-        <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 3 }}>
-          {a.deviceType}{a.deviceModel ? ` — ${a.deviceModel}` : ""} · {timeAgo(a.appointmentDate)}
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-          <div style={{ fontSize: 10.5, color: "var(--text-faint)" }}>
-            {tech ? `🔧 ${tech.name}` : a.trackingToken}
-          </div>
-          <div style={{ display: "flex", gap: 4 }}>
-            {a.status !== "completed" && a.status !== "cancelled" && (
-              <>
-                {a.status === "booked" && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); updateStatus(a.id, "received"); }}
-                    style={{ fontSize: 10, padding: "2px 6px", border: "1px solid var(--border)", borderRadius: 4, background: "var(--surface)", cursor: "pointer", color: "var(--text-muted)" }}
-                  >
-                    Receive
-                  </button>
-                )}
-                {a.status === "received" && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); updateStatus(a.id, "in_repair"); }}
-                    style={{ fontSize: 10, padding: "2px 6px", border: "1px solid var(--border)", borderRadius: 4, background: "var(--surface)", cursor: "pointer", color: "var(--text-muted)" }}
-                  >
-                    Start
-                  </button>
-                )}
-                {a.status === "in_repair" && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); updateStatus(a.id, "ready"); }}
-                    style={{ fontSize: 10, padding: "2px 6px", border: "1px solid var(--border)", borderRadius: 4, background: "var(--surface)", cursor: "pointer", color: "var(--text-muted)" }}
-                  >
-                    Ready
-                  </button>
-                )}
-                {a.status === "ready" && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); updateStatus(a.id, "completed"); }}
-                    style={{ fontSize: 10, padding: "2px 6px", border: "1px solid var(--border)", borderRadius: 4, background: "var(--surface)", cursor: "pointer", color: "var(--text-muted)" }}
-                  >
-                    Complete
-                  </button>
-                )}
-              </>
+
+        {/* Quick action buttons */}
+        {a.status !== "completed" && a.status !== "cancelled" && (
+          <div style={{ display: "flex", gap: 4, marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border-subtle)" }}>
+            {a.status === "booked" && (
+              <button
+                onClick={(e) => { e.stopPropagation(); updateStatus(a.id, "received"); }}
+                style={{ flex: 1, fontSize: 10, padding: "4px 8px", border: "1px solid var(--accent)", borderRadius: 4, background: "var(--accent-subtle)", cursor: "pointer", color: "var(--accent)", fontWeight: 600, fontFamily: "inherit" }}
+              >
+                Mark Received
+              </button>
+            )}
+            {a.status === "received" && (
+              <button
+                onClick={(e) => { e.stopPropagation(); updateStatus(a.id, "in_repair"); }}
+                style={{ flex: 1, fontSize: 10, padding: "4px 8px", border: "1px solid var(--accent)", borderRadius: 4, background: "var(--accent-subtle)", cursor: "pointer", color: "var(--accent)", fontWeight: 600, fontFamily: "inherit" }}
+              >
+                Start Repair
+              </button>
+            )}
+            {a.status === "in_repair" && (
+              <button
+                onClick={(e) => { e.stopPropagation(); updateStatus(a.id, "ready"); }}
+                style={{ flex: 1, fontSize: 10, padding: "4px 8px", border: "1px solid #10b981", borderRadius: 4, background: "rgba(16,185,129,0.1)", cursor: "pointer", color: "#10b981", fontWeight: 600, fontFamily: "inherit" }}
+              >
+                Mark Ready
+              </button>
+            )}
+            {a.status === "ready" && (
+              <button
+                onClick={(e) => { e.stopPropagation(); updateStatus(a.id, "completed"); }}
+                style={{ flex: 1, fontSize: 10, padding: "4px 8px", border: "1px solid #6b7280", borderRadius: 4, background: "rgba(107,114,128,0.1)", cursor: "pointer", color: "#6b7280", fontWeight: 600, fontFamily: "inherit" }}
+              >
+                Complete
+              </button>
             )}
           </div>
-        </div>
+        )}
       </div>
     );
   }
 
   return (
-    <section style={{ ...cardStyle, position: "relative" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
-        <div>
-          <h2 style={{ marginTop: 0, marginBottom: 4 }}>Repairs</h2>
-          <p style={subtleTextStyle}>Appointment bookings and device-repair tracking. New bookings show up in the notification bell above.</p>
-        </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <button
-            onClick={() => setViewMode("kanban")}
-            style={{ padding: "5px 10px", fontSize: 11, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: viewMode === "kanban" ? "var(--accent-soft)" : "var(--surface)", cursor: "pointer", color: "var(--text)" }}
-          >
-            Board
-          </button>
-          <button
-            onClick={() => setViewMode("list")}
-            style={{ padding: "5px 10px", fontSize: 11, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: viewMode === "list" ? "var(--accent-soft)" : "var(--surface)", cursor: "pointer", color: "var(--text)" }}
-          >
-            List
-          </button>
-          {businessId && (
+    <section style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 60px)", background: "var(--bg)", overflow: "hidden", position: "relative" }}>
+      {/* Header */}
+      <div style={{ padding: "16px 20px 0", flexShrink: 0 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--text)" }}>Repairs</h2>
+            <p style={{ margin: 0, fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Track repairs from intake to completion</p>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <button
-              onClick={() => setEmailSettingsOpen((o) => !o)}
-              style={{ padding: "5px 10px", fontSize: 11, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--surface)", cursor: "pointer", color: "var(--text-muted)" }}
-              title="Email Settings"
+              onClick={() => setViewMode("kanban")}
+              style={{
+                padding: "6px 12px",
+                fontSize: 12,
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-sm)",
+                background: viewMode === "kanban" ? "var(--accent-subtle)" : "var(--surface)",
+                cursor: "pointer",
+                color: viewMode === "kanban" ? "var(--accent)" : "var(--text-muted)",
+                fontWeight: viewMode === "kanban" ? 600 : 400,
+                fontFamily: "inherit",
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+              }}
             >
-              ⚙
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="6" height="10" x="3" y="2" rx="1"/><rect width="6" height="10" x="15" y="2" rx="1"/><rect width="6" height="10" x="9" y="8" rx="1"/></svg>
+              Board
             </button>
-          )}
+            <button
+              onClick={() => setViewMode("list")}
+              style={{
+                padding: "6px 12px",
+                fontSize: 12,
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-sm)",
+                background: viewMode === "list" ? "var(--accent-subtle)" : "var(--surface)",
+                cursor: "pointer",
+                color: viewMode === "list" ? "var(--accent)" : "var(--text-muted)",
+                fontWeight: viewMode === "list" ? 600 : 400,
+                fontFamily: "inherit",
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>
+              List
+            </button>
+            {businessId && (
+              <button
+                onClick={() => setEmailSettingsOpen((o) => !o)}
+                style={{ padding: "6px 8px", fontSize: 12, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--surface)", cursor: "pointer", color: "var(--text-muted)", fontFamily: "inherit" }}
+                title="Email Settings"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
+      {/* Email Settings */}
       {emailSettingsOpen && businessId && (
         <div style={{ marginBottom: 16, padding: 14, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--surface)" }}>
           <p style={{ ...subtleTextStyle, marginBottom: 8 }}>
@@ -568,21 +649,44 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
       )}
 
       {viewMode === "kanban" && (
-        <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, marginBottom: 20, flex: 1 }}>
           {KANBAN_STATUSES.map((s) => (
-            <div key={s} style={{ minWidth: 220, flex: 1 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, paddingBottom: 6, borderBottom: `2px solid ${KANBAN_COLORS[s]}` }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: KANBAN_COLORS[s] }} />
-                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{STATUS_LABEL[s]}</span>
-                <span style={{ fontSize: 11, color: "var(--text-faint)", marginLeft: "auto" }}>{kanbanColumns[s]?.length ?? 0}</span>
+            <div key={s} style={{ minWidth: 280, maxWidth: 320, flex: 1, display: "flex", flexDirection: "column" }}>
+              {/* Column header */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, paddingBottom: 8, borderBottom: `2px solid ${KANBAN_COLORS[s]}` }}>
+                <span style={{ fontSize: 14 }}>{KANBAN_ICONS[s]}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{STATUS_LABEL[s]}</span>
+                <span style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: KANBAN_COLORS[s],
+                  background: `${KANBAN_COLORS[s]}15`,
+                  padding: "2px 8px",
+                  borderRadius: 10,
+                  marginLeft: "auto",
+                }}>
+                  {kanbanColumns[s]?.length ?? 0}
+                </span>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 0, maxHeight: 500, overflowY: "auto" }}>
+              {/* Column body */}
+              <div style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 0,
+                flex: 1,
+                overflowY: "auto",
+                background: "var(--bg-elevated)",
+                borderRadius: "var(--radius-sm)",
+                padding: 6,
+                border: "1px solid var(--border-subtle)",
+                minHeight: 100,
+              }}>
+                {(kanbanColumns[s] ?? []).map((a) => renderAppointmentCard(a))}
                 {(kanbanColumns[s]?.length ?? 0) === 0 && (
-                  <div style={{ padding: 16, textAlign: "center", fontSize: 11, color: "var(--text-faint)", border: "1px dashed var(--border)", borderRadius: "var(--radius-sm)" }}>
-                    No appointments
+                  <div style={{ padding: 20, textAlign: "center", fontSize: 12, color: "var(--text-faint)", border: "1px dashed var(--border)", borderRadius: "var(--radius-sm)", background: "var(--surface)" }}>
+                    No items
                   </div>
                 )}
-                {(kanbanColumns[s] ?? []).map((a) => renderAppointmentCard(a))}
               </div>
             </div>
           ))}
