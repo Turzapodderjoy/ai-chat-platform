@@ -34,9 +34,12 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Build the callback URL — must match what's registered in Google Cloud Console
-  const origin = req.nextUrl.origin;
-  const redirectUri = `${origin}/api/auth/google/callback`;
+  // Build the callback URL — must match what's registered in Google Cloud Console.
+  // Use the Host header (real public hostname behind tunnel) rather than
+  // req.nextUrl.origin which resolves to localhost:3001 inside PM2.
+  const host = req.headers.get("host") ?? req.nextUrl.host;
+  const protocol = host?.includes("localhost") ? "http" : "https";
+  const redirectUri = `${protocol}://${host}/api/auth/google/callback`;
 
   const params = new URLSearchParams({
     client_id: config.clientId,

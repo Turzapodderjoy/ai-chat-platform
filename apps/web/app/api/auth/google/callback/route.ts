@@ -43,7 +43,9 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const origin = req.nextUrl.origin;
+    const host = req.headers.get("host") ?? req.nextUrl.host;
+    const protocol = host?.includes("localhost") ? "http" : "https";
+    const origin = `${protocol}://${host}`;
     const redirectUri = `${origin}/api/auth/google/callback`;
 
     // Exchange code for tokens + get user info
