@@ -28,6 +28,8 @@ interface Appointment {
   cancelReason?: string;
   serialNumber?: string;
   contactId?: string;
+  isWalkIn?: boolean;
+  source?: string;
   items: { id: string; repairAppointmentId: string; productId?: string; kind: "part" | "service"; name: string; quantity: number; defaultPrice: number; overridePrice?: number; finalPrice: number }[];
   createdAt: string;
   updatedAt: string;
@@ -393,6 +395,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
           <strong style={{ fontSize: 12.5 }}>{a.customerName}</strong>
           <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
+            {a.isWalkIn && <span style={{ ...badgeStyle("warn"), background: "#f97316", color: "#fff", fontWeight: 600 }}>🚶 Walk-in</span>}
             {isNew && <span style={badgeStyle("info")}>New</span>}
             {a.priority && a.priority !== "normal" && (
               <span style={badgeStyle(PRIORITY_TONE[a.priority] ?? "neutral")}>{PRIORITY_LABEL[a.priority]}</span>
@@ -659,6 +662,16 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
             <div><span style={{ color: "var(--text-faint)" }}>Device</span><br />{selected.deviceType}{selected.deviceModel ? ` — ${selected.deviceModel}` : ""}</div>
             <div><span style={{ color: "var(--text-faint)" }}>Appointment</span><br />{new Date(selected.appointmentDate).toLocaleString()}</div>
             <div><span style={{ color: "var(--text-faint)" }}>Tracking Token</span><br />{selected.trackingToken}</div>
+            {selected.isWalkIn && (
+              <div><span style={{ color: "var(--text-faint)" }}>Source</span><br />
+                <span style={{ ...badgeStyle("warn"), background: "#f97316", color: "#fff", fontWeight: 600 }}>🚶 Walk-in</span>
+              </div>
+            )}
+            {selected.source && selected.source !== "walk-in" && (
+              <div><span style={{ color: "var(--text-faint)" }}>Source</span><br />
+                <span style={badgeStyle("neutral")}>{selected.source}</span>
+              </div>
+            )}
             <div><span style={{ color: "var(--text-faint)" }}>Priority</span><br />
               <span style={badgeStyle(PRIORITY_TONE[selected.priority] ?? "neutral")}>{PRIORITY_LABEL[selected.priority] ?? selected.priority}</span>
             </div>

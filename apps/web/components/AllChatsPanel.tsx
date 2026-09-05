@@ -608,17 +608,17 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
   return (
     <div style={{ display: "flex", height: "calc(100vh - 120px)", minHeight: 500, background: "var(--bg)", borderRadius: "var(--radius-md)", overflow: "hidden", border: "1px solid var(--border)" }}>
       {/* ─── Left Sidebar ─── */}
-      <div style={{ width: 220, flexShrink: 0, background: "var(--bg-elevated)", borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", padding: "20px 0" }}>
-        <div style={{ padding: "0 20px 20px", borderBottom: "1px solid var(--border-subtle)" }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <div style={{ width: 220, flexShrink: 0, background: "var(--bg-elevated)", borderRight: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column" }}>
+        <div style={{ padding: "16px 16px 12px", borderBottom: "1px solid var(--border-subtle)" }}>
+          <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8, color: "var(--text)" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
             Inbox
           </h2>
         </div>
 
-        <nav style={{ padding: "12px 0", flex: 1, overflowY: "auto" }}>
+        <nav style={{ padding: "8px 0", flex: 1, overflowY: "auto" }}>
           {[
             { id: "all" as StatusTab, label: "All Conversations", icon: "💬" },
             { id: "handoff" as StatusTab, label: "Needs Attention", icon: "🔔" },
@@ -631,31 +631,33 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                 display: "flex",
                 alignItems: "center",
                 gap: 10,
-                width: "100%",
-                padding: "10px 20px",
+                width: "calc(100% - 8px)",
+                margin: "0 4px",
+                padding: "8px 12px",
                 fontSize: 13,
                 fontWeight: statusTab === item.id ? 600 : 400,
                 color: statusTab === item.id ? "var(--accent)" : "var(--text-secondary)",
                 background: statusTab === item.id ? "var(--accent-subtle)" : "transparent",
                 border: "none",
+                borderRadius: "var(--radius-sm)",
                 cursor: "pointer",
                 textAlign: "left",
                 fontFamily: "inherit",
-                transition: "background 0.1s",
+                transition: "all 0.15s",
               }}
             >
-              <span style={{ fontSize: 15, width: 22, textAlign: "center" }}>{item.icon}</span>
+              <span style={{ fontSize: 14, width: 20, textAlign: "center" }}>{item.icon}</span>
               {item.label}
-              <span style={{ marginLeft: "auto", fontSize: 11, opacity: 0.7, fontVariantNumeric: "tabular-nums" }}>
+              <span style={{ marginLeft: "auto", fontSize: 11, opacity: 0.6, fontVariantNumeric: "tabular-nums" }}>
                 {tabCounts[item.id]}
               </span>
             </button>
           ))}
 
-          <div style={{ height: 1, background: "var(--border-subtle)", margin: "12px 20px" }} />
+          <div style={{ height: 1, background: "var(--border-subtle)", margin: "8px 12px" }} />
 
-          <div style={{ padding: "0 20px", marginBottom: 8 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8 }}>
+          <div style={{ padding: "0 12px", marginBottom: 8 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>
               Channels
             </div>
             <select
@@ -663,7 +665,7 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
               onChange={(e) => setChannelFilter(e.target.value)}
               style={{
                 width: "100%",
-                padding: "7px 10px",
+                padding: "6px 8px",
                 fontSize: 12,
                 background: "var(--surface)",
                 border: "1px solid var(--border)",
@@ -680,8 +682,8 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
             </select>
           </div>
 
-          <div style={{ padding: "0 20px" }}>
-            <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8 }}>
+          <div style={{ padding: "0 12px" }}>
+            <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>
               Sort
             </div>
             <select
@@ -689,7 +691,7 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
               onChange={(e) => setSort(e.target.value as SortOption)}
               style={{
                 width: "100%",
-                padding: "7px 10px",
+                padding: "6px 8px",
                 fontSize: 12,
                 background: "var(--surface)",
                 border: "1px solid var(--border)",
@@ -706,10 +708,10 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
       </div>
 
       {/* ─── Center: Conversation List ─── */}
-      <div style={{ width: 340, flexShrink: 0, borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
+      <div style={{ width: 340, flexShrink: 0, borderRight: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
         {/* Search bar */}
-        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "8px 12px" }}>
+        <div style={{ padding: "12px 12px 8px", borderBottom: "1px solid var(--border-subtle)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "7px 10px" }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -742,28 +744,30 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                 key={c.id}
                 onClick={() => openConversation(c)}
                 style={{
-                  padding: "14px 16px",
-                  borderBottom: "1px solid var(--border-subtle)",
+                  padding: "12px 12px",
+                  margin: "0 4px 2px",
+                  borderRadius: "var(--radius-sm)",
                   cursor: "pointer",
                   display: "flex",
-                  gap: 12,
+                  gap: 10,
                   background: isActive ? "var(--accent-subtle)" : "transparent",
-                  transition: "background 0.1s ease",
+                  transition: "all 0.15s",
+                  borderLeft: isActive ? "3px solid var(--accent)" : "3px solid transparent",
                 }}
               >
                 {/* Avatar */}
                 <div
                   style={{
-                    width: 44,
-                    height: 44,
+                    width: 40,
+                    height: 40,
                     borderRadius: "50%",
-                    background: isActive ? "var(--accent)" : "var(--surface)",
-                    color: isActive ? "white" : "var(--text-muted)",
+                    background: isActive ? "var(--accent)" : unread ? "var(--accent-subtle)" : "var(--surface)",
+                    color: isActive ? "white" : unread ? "var(--accent)" : "var(--text-muted)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     fontWeight: 600,
-                    fontSize: 14,
+                    fontSize: 13,
                     flexShrink: 0,
                     position: "relative",
                   }}
@@ -773,10 +777,10 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                     <span
                       style={{
                         position: "absolute",
-                        top: -2,
-                        right: -2,
-                        width: 12,
-                        height: 12,
+                        top: -1,
+                        right: -1,
+                        width: 10,
+                        height: 10,
                         borderRadius: "50%",
                         background: "var(--accent)",
                         border: "2px solid var(--bg)",
@@ -786,26 +790,26 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                 </div>
 
                 {/* Content */}
-                <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                     <span style={{ fontSize: 13, fontWeight: unread ? 700 : 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text)" }}>
                       {name}
                     </span>
-                    <span style={{ fontSize: 11, color: "var(--text-faint)", flexShrink: 0 }}>
+                    <span style={{ fontSize: 10, color: "var(--text-faint)", flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
                       {new Date(c.updatedAt).toLocaleDateString()}
                     </span>
                   </div>
                   {c.lastMessage && (
-                    <div style={{ fontSize: 12, color: unread ? "var(--text-secondary)" : "var(--text-muted)", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: unread ? 500 : 400 }}>
+                    <div style={{ fontSize: 12, color: unread ? "var(--text-secondary)" : "var(--text-muted)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: unread ? 500 : 400, lineHeight: 1.4 }}>
                       {c.lastMessage}
                     </div>
                   )}
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6, alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 5, alignItems: "center" }}>
                     <span style={{
                       fontSize: 10,
-                      padding: "2px 8px",
+                      padding: "1px 6px",
                       borderRadius: "var(--radius-full)",
-                      background: "var(--surface)",
+                      background: isActive ? "rgba(255,255,255,0.1)" : "var(--surface)",
                       border: "1px solid var(--border)",
                       color: "var(--text-muted)",
                       display: "inline-flex",
@@ -816,14 +820,14 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                       {ch.label}
                     </span>
                     {agentName(c.assignedAgentId) && (
-                      <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "var(--radius-full)", background: "var(--accent-subtle)", color: "var(--accent)" }}>
+                      <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: "var(--radius-full)", background: "var(--accent-subtle)", color: "var(--accent)" }}>
                         → {agentName(c.assignedAgentId)}
                       </span>
                     )}
-                    {(conversationTags[c.id] ?? []).slice(0, 2).map((t) => (
+                    {(conversationTags[c.id] ?? []).slice(0, 1).map((t) => (
                       <span
                         key={t.tagId}
-                        style={{ fontSize: 10, padding: "2px 8px", borderRadius: "var(--radius-full)", background: "var(--surface)", border: "1px solid var(--border)" }}
+                        style={{ fontSize: 10, padding: "1px 6px", borderRadius: "var(--radius-full)", background: "var(--surface)", border: "1px solid var(--border)" }}
                       >
                         {t.label}
                       </span>
@@ -848,34 +852,34 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
         {!selected ? (
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ textAlign: "center" }}>
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" strokeWidth="1.5" style={{ margin: "0 auto 16px" }}>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" strokeWidth="1.5" style={{ margin: "0 auto 12px", opacity: 0.5 }}>
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
-              <p style={{ fontSize: 14, color: "var(--text-muted)", margin: 0 }}>Select a conversation</p>
-              <p style={{ fontSize: 12, color: "var(--text-faint)", margin: "6px 0 0" }}>Choose from the list on the left</p>
+              <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0 }}>Select a conversation</p>
+              <p style={{ fontSize: 11, color: "var(--text-faint)", margin: "4px 0 0" }}>Choose from the list on the left</p>
             </div>
           </div>
         ) : (
           <>
             {/* Chat Header */}
-            <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-elevated)" }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--accent)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 13 }}>
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-elevated)" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--accent)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 12 }}>
                   {initials(displayName(selected))}
                 </div>
                 <div>
-                  <strong style={{ fontSize: 14 }}>{displayName(selected)}</strong>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
-                    <span style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: "var(--radius-full)", background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
+                  <strong style={{ fontSize: 13 }}>{displayName(selected)}</strong>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 1 }}>
+                    <span style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 4, padding: "1px 6px", borderRadius: "var(--radius-full)", background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
                       <ChannelDot channel={selected.channel} />
                       {CHANNEL_LABEL[selected.channel]?.label ?? selected.channel}
                     </span>
-                    <span style={{ fontSize: 11, color: "var(--text-faint)" }}>·</span>
-                    <span style={{ fontSize: 11, color: "var(--text-faint)" }}>{new Date(selected.updatedAt).toLocaleString()}</span>
+                    <span style={{ fontSize: 10, color: "var(--text-faint)" }}>·</span>
+                    <span style={{ fontSize: 10, color: "var(--text-faint)" }}>{new Date(selected.updatedAt).toLocaleString()}</span>
                   </div>
                 </div>
               </span>
-              <span style={{ fontSize: 11, fontWeight: 600, padding: "4px 12px", borderRadius: "var(--radius-full)", background: selected.handoffStatus === "bot" ? "var(--success-subtle)" : selected.handoffStatus === "pending" ? "var(--warning-subtle)" : "var(--accent-subtle)", color: selected.handoffStatus === "bot" ? "var(--success)" : selected.handoffStatus === "pending" ? "var(--warning)" : "var(--accent)" }}>
+              <span style={{ fontSize: 10, fontWeight: 600, padding: "3px 10px", borderRadius: "var(--radius-full)", background: selected.handoffStatus === "bot" ? "var(--success-subtle)" : selected.handoffStatus === "pending" ? "var(--warning-subtle)" : "var(--accent-subtle)", color: selected.handoffStatus === "bot" ? "var(--success)" : selected.handoffStatus === "pending" ? "var(--warning)" : "var(--accent)" }}>
                 {selected.handoffStatus === "bot" ? "AI Handling" : selected.handoffStatus === "pending" ? "Needs Handoff" : "Human Handling"}
               </span>
             </div>
@@ -883,12 +887,12 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
             <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
               {/* Messages Column */}
               <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
                   {!messages && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Loading messages...</p>}
                   {messages?.map((m) => {
                     if (m.role === "system") {
                       return (
-                        <div key={m.id} style={{ alignSelf: "center", fontSize: 11, color: "var(--text-faint)", textAlign: "center", padding: "4px 12px", background: "var(--surface)", borderRadius: "var(--radius-full)" }}>
+                        <div key={m.id} style={{ alignSelf: "center", fontSize: 10, color: "var(--text-faint)", textAlign: "center", padding: "3px 10px", background: "var(--surface)", borderRadius: "var(--radius-full)" }}>
                           {m.content} · {new Date(m.createdAt).toLocaleString()}
                         </div>
                       );
@@ -896,15 +900,15 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                     const isCustomer = m.role === "user";
                     return (
                       <div key={m.id} style={{ display: "flex", gap: 8, flexDirection: isCustomer ? "row" : "row-reverse", maxWidth: "80%", alignSelf: isCustomer ? "flex-start" : "flex-end" }}>
-                        <div style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0, background: isCustomer ? "var(--surface)" : "var(--accent)", color: isCustomer ? "var(--text-muted)" : "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 10 }}>
+                        <div style={{ width: 26, height: 26, borderRadius: "50%", flexShrink: 0, background: isCustomer ? "var(--surface)" : "var(--accent)", color: isCustomer ? "var(--text-muted)" : "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 10, border: isCustomer ? "1px solid var(--border)" : "none" }}>
                           {isCustomer ? initials(displayName(selected)) : "AI"}
                         </div>
                         <div style={{ textAlign: isCustomer ? "left" : "right" }}>
-                          <div style={{ background: isCustomer ? "var(--surface)" : "var(--accent)", color: isCustomer ? "var(--text)" : "white", border: isCustomer ? "1px solid var(--border)" : "none", borderRadius: isCustomer ? "12px 12px 12px 4px" : "12px 12px 4px 12px", padding: "10px 14px", fontSize: 13, textAlign: "left", display: "inline-block", lineHeight: 1.5 }}>
+                          <div style={{ background: isCustomer ? "var(--surface)" : "var(--accent)", color: isCustomer ? "var(--text)" : "white", border: isCustomer ? "1px solid var(--border)" : "none", borderRadius: isCustomer ? "10px 10px 10px 4px" : "10px 10px 4px 10px", padding: "8px 12px", fontSize: 13, textAlign: "left", display: "inline-block", lineHeight: 1.5 }}>
                             {isCustomer ? m.content : <MarkdownMessage text={m.content} />}
                           </div>
                           {!isCustomer && m.provider && (
-                            <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 4, display: "flex", alignItems: "center", gap: 4, justifyContent: "flex-end" }}>
+                            <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 3, display: "flex", alignItems: "center", gap: 4, justifyContent: "flex-end" }}>
                               via {m.provider}
                               <ReasoningInfo provider={m.provider} confidence={m.confidence} sources={m.sources} />
                             </div>
@@ -919,31 +923,31 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                 </div>
 
                 {/* Reply Input */}
-                <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border)", display: "flex", gap: 8, background: "var(--bg-elevated)" }}>
-                  <input style={{ flex: 1, padding: "10px 14px", fontSize: 13, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)", fontFamily: "inherit" }} value={reply} onChange={(e) => setReply(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") sendReply(); }} placeholder="Type your reply..." />
-                  <button onClick={sendReply} disabled={sending} className="primary" style={{ padding: "10px 20px", fontSize: 13 }}>
+                <div style={{ padding: "10px 12px", borderTop: "1px solid var(--border-subtle)", display: "flex", gap: 8, background: "var(--bg-elevated)" }}>
+                  <input style={{ flex: 1, padding: "8px 12px", fontSize: 13, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)", fontFamily: "inherit" }} value={reply} onChange={(e) => setReply(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") sendReply(); }} placeholder="Type your reply..." />
+                  <button onClick={sendReply} disabled={sending} className="primary" style={{ padding: "8px 16px", fontSize: 13 }}>
                     {sending ? "Sending..." : "Send"}
                   </button>
                 </div>
               </div>
 
               {/* Detail Panel (right side) */}
-              <div style={{ width: 280, flexShrink: 0, borderLeft: "1px solid var(--border)", overflowY: "auto", background: "var(--bg-elevated)", padding: 16 }}>
+              <div style={{ width: 260, flexShrink: 0, borderLeft: "1px solid var(--border-subtle)", overflowY: "auto", background: "var(--bg-elevated)", padding: "12px" }}>
                 {/* AI Controls */}
-                <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-                  <button onClick={() => setAiStatus("human")} disabled={settingStatus || selected.handoffStatus === "human"} style={{ flex: 1, fontSize: 12, padding: "8px 10px", background: selected.handoffStatus === "human" ? "var(--danger-subtle)" : "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: selected.handoffStatus === "human" ? "var(--danger)" : "var(--text-secondary)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer" }}>
+                <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+                  <button onClick={() => setAiStatus("human")} disabled={settingStatus || selected.handoffStatus === "human"} style={{ flex: 1, fontSize: 11, padding: "6px 8px", background: selected.handoffStatus === "human" ? "var(--danger-subtle)" : "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: selected.handoffStatus === "human" ? "var(--danger)" : "var(--text-secondary)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer" }}>
                     Stop AI
                   </button>
-                  <button onClick={() => setAiStatus("bot")} disabled={settingStatus || selected.handoffStatus === "bot"} style={{ flex: 1, fontSize: 12, padding: "8px 10px", background: selected.handoffStatus === "bot" ? "var(--success-subtle)" : "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: selected.handoffStatus === "bot" ? "var(--success)" : "var(--text-secondary)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer" }}>
+                  <button onClick={() => setAiStatus("bot")} disabled={settingStatus || selected.handoffStatus === "bot"} style={{ flex: 1, fontSize: 11, padding: "6px 8px", background: selected.handoffStatus === "bot" ? "var(--success-subtle)" : "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: selected.handoffStatus === "bot" ? "var(--success)" : "var(--text-secondary)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer" }}>
                     Resume AI
                   </button>
                 </div>
 
                 {/* Agent Assignment */}
                 {businessId && (
-                  <div style={{ marginBottom: 20 }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8 }}>Assigned Agent</div>
-                    <select value={selected.assignedAgentId ?? ""} onChange={(e) => reassignSelected(e.target.value || null)} disabled={reassigning} style={{ width: "100%", padding: "7px 10px", fontSize: 12, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)", fontFamily: "inherit" }}>
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>Assigned Agent</div>
+                    <select value={selected.assignedAgentId ?? ""} onChange={(e) => reassignSelected(e.target.value || null)} disabled={reassigning} style={{ width: "100%", padding: "6px 8px", fontSize: 12, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)", fontFamily: "inherit" }}>
                       <option value="">Unassigned</option>
                       {agentsForBusiness.map((a) => (
                         <option key={a.id} value={a.id}>{a.username} {a.online ? "(online)" : "(offline)"}</option>
@@ -953,9 +957,9 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                 )}
 
                 {/* Contact Details */}
-                <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8 }}>Contact Details</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12 }}>
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>Contact Details</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12 }}>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <span style={{ color: "var(--text-muted)" }}>Name</span>
                       <span style={{ color: "var(--text)" }}>{displayName(selected)}</span>
@@ -972,8 +976,8 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                 </div>
 
                 {contactForSelected !== undefined && (
-                  <div style={{ marginBottom: 20 }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8 }}>CRM Contact</div>
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>CRM Contact</div>
                     {contactForSelected ? (
                       <div style={{ fontSize: 12 }}>
                         <div style={{ color: "var(--text)" }}>{contactForSelected.name}</div>
@@ -987,10 +991,10 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                 )}
 
                 {/* Notes */}
-                <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8 }}>Notes</div>
-                  <p style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 0, marginBottom: 8 }}>Private to your team</p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>Notes</div>
+                  <p style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 0, marginBottom: 6 }}>Private to your team</p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 6 }}>
                     {notes === null && <span style={{ fontSize: 12, color: "var(--text-faint)" }}>Loading...</span>}
                     {notes !== null && notes.length === 0 && <span style={{ fontSize: 12, color: "var(--text-faint)" }}>No notes yet</span>}
                     {notes?.map((n) => (
@@ -1011,15 +1015,15 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                 </div>
 
                 {/* Tags */}
-                <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8 }}>Tags</div>
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>Tags</div>
                   <MessageTagControl catalog={tagCatalog} applied={conversationTags[selected.id] ?? []} onAssign={(tagId) => assignConversationTag(selected.id, tagId)} onRemove={(tagId) => removeConversationTag(selected.id, tagId)} />
                 </div>
 
                 {/* Repair Details */}
                 {selected.channel === "repair-tracking" && repairForSelected !== undefined && (
-                  <div style={{ marginBottom: 20 }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8 }}>Repair Details</div>
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>Repair Details</div>
                     {repairForSelected ? (
                       <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12 }}>
                         <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Order ID</span><span style={{ color: "var(--text)" }}>{shortId(repairForSelected.id)}</span></div>
@@ -1039,8 +1043,8 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
 
                 {/* Order */}
                 {selected.channel !== "repair-tracking" && orderForSelected !== undefined && (
-                  <div style={{ marginBottom: 20 }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8 }}>Order</div>
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>Order</div>
                     {orderForSelected ? (
                       <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12 }}>
                         <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Order ID</span><span style={{ color: "var(--text)" }}>{shortId(orderForSelected.id)}</span></div>
@@ -1057,8 +1061,8 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
 
                 {/* Order Management */}
                 {selected.channel !== "repair-tracking" && repairForSelected !== undefined && (
-                  <div style={{ marginBottom: 20 }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8 }}>Order Management</div>
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>Order Management</div>
                     {repairForSelected ? (
                       <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>Order {repairForSelected.serialNumber ?? shortId(repairForSelected.id)} already created.</p>
                     ) : creatingOrder ? (
@@ -1080,7 +1084,7 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                 {/* Summary */}
                 {summaryBySession[selected.id] && (
                   <div>
-                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 8 }}>Summary</div>
+                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>Summary</div>
                     <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, margin: 0 }}>{summaryBySession[selected.id]}</p>
                   </div>
                 )}
