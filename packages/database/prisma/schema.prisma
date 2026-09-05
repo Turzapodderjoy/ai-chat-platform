@@ -781,12 +781,6 @@ model ClientAccount {
   // allowedPanels is null).
   teamId       String?
 
-  // Google OAuth ID — linked when a client signs in via Google. Null for
-  // password-only accounts. Unique because one Google account can only
-  // link to one ClientAccount per business.
-  googleId     String?
-  googleEmail  String?
-
   // Device/IP limiting for owner and staff logins -- null means the
   // role default (2 for "owner", 1 for "staff"), an explicit number
   // overrides it per-account. Never enforced for isAdmin/isAgent
