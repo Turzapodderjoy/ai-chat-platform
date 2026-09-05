@@ -197,12 +197,13 @@ function GmailSenderBox({ businessId, onMessage }: { businessId: string; onMessa
   );
 }
 
-/** Per-client "Integrations" tab — connect the business's own website,
- * Facebook Messenger, Instagram, WhatsApp, Email, and Google Sign-In
- * to their AI chatbot, entirely from here. */
+/** Per-client "Integrations" tab — connect your own website,
+ * Facebook Messenger, Instagram, WhatsApp, and Email
+ * to your AI chatbot, entirely from here. */
 export function ChannelsPanel({ businessId }: { businessId: string }) {
   const [data, setData] = useState<ChannelsResponse | null>(null);
   const [message, setMessage] = useState("");
+  const [enabledIntegrations, setEnabledIntegrations] = useState<string[] | null>(null);
 
   const [waPhoneId, setWaPhoneId] = useState("");
   const [waToken, setWaToken] = useState("");
@@ -220,6 +221,12 @@ export function ChannelsPanel({ businessId }: { businessId: string }) {
   }
 
   useEffect(refresh, [businessId]);
+
+  useEffect(() => {
+    fetch(`/api/admin/business-settings?businessId=${encodeURIComponent(businessId)}`)
+      .then((r) => r.json())
+      .then((d) => setEnabledIntegrations(d.enabledIntegrations));
+  }, [businessId]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -322,21 +329,27 @@ export function ChannelsPanel({ businessId }: { businessId: string }) {
     );
   }
 
+  // Filter integrations based on enabledIntegrations (null = all enabled)
+  function isIntegrationEnabled(id: string): boolean {
+    if (!enabledIntegrations) return true; // null = all enabled
+    return enabledIntegrations.includes(id);
+  }
+
   return (
     <section style={cardStyle}>
       <h2 style={{ marginTop: 0 }}>Integrations</h2>
       <p style={{ opacity: 0.6 }}>
-        Connect this client&apos;s own website, Facebook Messenger,
-        Instagram, WhatsApp, Email, and Google Sign-In to their AI chatbot.
+        Connect your website, Facebook Messenger,
+        Instagram, WhatsApp, and Email to your AI chatbot.
       </p>
 
       {message && <p style={{ fontSize: 13, opacity: 0.8 }}>{message}</p>}
 
       {/* Email */}
-      <GmailSenderBox businessId={businessId} onMessage={setMessage} />
+      {isIntegrationEnabled("email") && <GmailSenderBox businessId={businessId} onMessage={setMessage} />}
 
       {/* Channel catalog */}
-      {data.catalog.map((entry) => {
+      {data.catalog.filter((entry) => isIntegrationEnabled(entry.id)).map((entry) => {
         const connection = connectionFor(entry.id);
 
         return (
@@ -347,7 +360,7 @@ export function ChannelsPanel({ businessId }: { businessId: string }) {
               <>
                 <p style={{ opacity: 0.6, fontSize: 13 }}>
                   Paste this snippet just before the closing <code>&lt;/body&gt;</code>{" "}
-                  tag on the client&apos;s site — a chat button appears immediately,
+                  tag on your site — a chat button appears immediately,
                   no further setup needed.
                 </p>
                 <pre style={{ background: "var(--surface)", color: "#eee", padding: 12, borderRadius: 6, fontSize: 12, overflowX: "auto" }}>
@@ -357,7 +370,7 @@ export function ChannelsPanel({ businessId }: { businessId: string }) {
 
                 <h3 style={{ marginTop: 20 }}>Customize the widget</h3>
                 <p style={{ opacity: 0.6, fontSize: 13 }}>
-                  Everything below is plug-and-play — change it any time and it goes live on the client&apos;s
+                  Everything below is plug-and-play — change it any time and it goes live on your
                   site immediately. The embed snippet above never changes.
                 </p>
                 <WidgetCustomizerPanel businessId={businessId} />
@@ -379,8 +392,8 @@ export function ChannelsPanel({ businessId }: { businessId: string }) {
                   </a>
                 ) : (
                   <p style={{ opacity: 0.6, fontSize: 13 }}>
-                    Not configured on the platform yet — set up the {entry.label} app
-                    credentials in the mother dashboard&apos;s Integrations tab first.
+                    Not configured yet — ask your administrator to set up the {entry.label}
+                    integration first.
                   </p>
                 )}
               </>
@@ -399,7 +412,7 @@ export function ChannelsPanel({ businessId }: { businessId: string }) {
                   <>
                     <p style={{ opacity: 0.6, fontSize: 13 }}>
                       Paste the Phone Number ID and a permanent access token generated
-                      in Meta Business Suite for this client&apos;s WhatsApp Business number.
+                      in Meta Business Suite for your WhatsApp Business number.
                     </p>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <input
@@ -434,7 +447,7 @@ export function ChannelsPanel({ businessId }: { businessId: string }) {
                 <p style={{ opacity: 0.6, fontSize: 13 }}>
                   Unofficial, testing-only — links via an Evolution API gateway instead of the
                   Meta Business API. Real ban risk on the linked number; use a disposable/spare
-                  WhatsApp number, not the client&apos;s production one.
+                  WhatsApp number, not your production one.
                 </p>
                 {connection ? (
                   <>

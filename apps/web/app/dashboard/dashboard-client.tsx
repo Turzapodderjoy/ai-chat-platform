@@ -160,6 +160,7 @@ interface Client {
   createdAt: string;
   maxAgents: number;
   type: string;
+  enabledIntegrations: string[] | null;
 }
 
 /** One provider = one card, not a spreadsheet row — a raw <table> for a
@@ -369,6 +370,37 @@ function ClientsPanel() {
   const [sendingNotify, setSendingNotify] = useState(false);
   const [notifyMessage, setNotifyMessage] = useState("");
 
+  const [integrationsOpenId, setIntegrationsOpenId] = useState<string | null>(null);
+
+  const ALL_INTEGRATIONS = [
+    { id: "website", label: "Website" },
+    { id: "messenger", label: "Messenger" },
+    { id: "instagram", label: "Instagram" },
+    { id: "whatsapp", label: "WhatsApp" },
+    { id: "email", label: "Email (Gmail)" },
+  ];
+
+  async function toggleIntegration(client: Client, integrationId: string) {
+    const current = client.enabledIntegrations;
+    let next: string[];
+    if (!current) {
+      // null = all enabled; start by disabling the toggled one
+      next = ALL_INTEGRATIONS.map((i) => i.id).filter((id) => id !== integrationId);
+    } else if (current.includes(integrationId)) {
+      next = current.filter((id) => id !== integrationId);
+    } else {
+      next = [...current, integrationId];
+    }
+    // If all are selected, set to null (all enabled)
+    const allSelected = ALL_INTEGRATIONS.every((i) => next.includes(i.id));
+    await fetch(`/api/admin/clients/${client.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabledIntegrations: allSelected ? null : next }),
+    });
+    refresh();
+  }
+
   async function sendNotification(client: Client) {
     if (!notifyTitle.trim()) return;
     setSendingNotify(true);
@@ -491,6 +523,7 @@ function ClientsPanel() {
               <th style={cellStyle}>Created</th>
               <th style={cellStyle}>Storage used</th>
               <th style={cellStyle}>Max agents</th>
+              <th style={cellStyle}>Integrations</th>
               <th style={cellStyle}>Dashboard</th>
               <th style={cellStyle}>Notify</th>
               <th style={cellStyle}></th>
@@ -520,6 +553,14 @@ function ClientsPanel() {
                     }}
                     title="How many handoff-team agent logins this client can create for themselves"
                   />
+                </td>
+                <td style={cellStyle}>
+                  <button
+                    onClick={() => setIntegrationsOpenId(integrationsOpenId === c.id ? null : c.id)}
+                    style={{ fontSize: 12 }}
+                  >
+                    {integrationsOpenId === c.id ? "Close" : "Configure"}
+                  </button>
                 </td>
                 <td style={cellStyle}>
                   <a href={`/dashboard/${c.id}`}>Admin view</a>
@@ -562,6 +603,32 @@ function ClientsPanel() {
                       </button>
                     </div>
                     {notifyMessage && <p style={{ ...subtleTextStyle, marginBottom: 0 }}>{notifyMessage}</p>}
+                  </td>
+                </tr>
+              )}
+              {integrationsOpenId === c.id && (
+                <tr>
+                  <td style={{ ...cellStyle, background: "var(--surface)" }} colSpan={8}>
+                    <div style={{ fontSize: 12, marginBottom: 6, fontWeight: 600 }}>Enabled integrations for {c.name}:</div>
+                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                      {ALL_INTEGRATIONS.map((intg) => {
+                        const enabled = !c.enabledIntegrations || c.enabledIntegrations.includes(intg.id);
+                        return (
+                          <label key={intg.id} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12 }}>
+                            <input
+                              type="checkbox"
+                              checked={enabled}
+                              onChange={() => toggleIntegration(c, intg.id)}
+                              style={{ cursor: "pointer" }}
+                            />
+                            {intg.label}
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 6 }}>
+                      {c.enabledIntegrations ? `${c.enabledIntegrations.length} of ${ALL_INTEGRATIONS.length} enabled` : "All integrations enabled"}
+                    </div>
                   </td>
                 </tr>
               )}
