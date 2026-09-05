@@ -22,12 +22,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400, headers: CORS_HEADERS });
   }
 
-  const required = ["businessId", "customerName", "phone", "deviceType", "issueDescription", "appointmentDate"];
+  const required = ["businessId", "customerName", "phone", "deviceType", "issueDescription"];
   const missing = required.filter((k) => typeof body[k] !== "string" || body[k].trim() === "");
 
   if (missing.length > 0) {
     return NextResponse.json(
       { error: `Missing/invalid: ${missing.join(", ")}` },
+      { status: 400, headers: CORS_HEADERS }
+    );
+  }
+
+  // appointmentDate is required for scheduled bookings, optional for walk-ins
+  const isWalkIn = body.isWalkIn === true || body.isWalkIn === "true";
+  if (!isWalkIn && (!body.appointmentDate || typeof body.appointmentDate !== "string")) {
+    return NextResponse.json(
+      { error: "appointmentDate is required for scheduled bookings" },
       { status: 400, headers: CORS_HEADERS }
     );
   }
@@ -42,7 +51,10 @@ export async function POST(req: NextRequest) {
       deviceType: body.deviceType,
       deviceModel: typeof body.deviceModel === "string" ? body.deviceModel : undefined,
       issueDescription: body.issueDescription,
-      appointmentDate: body.appointmentDate,
+      appointmentDate: isWalkIn ? new Date().toISOString() : body.appointmentDate,
+      isWalkIn,
+      wantsFreeDiagnosis: body.wantsFreeDiagnosis === true || body.wantsFreeDiagnosis === "true",
+      source: typeof body.source === "string" ? body.source : isWalkIn ? "walk-in" : "website",
     });
     return NextResponse.json(result, { headers: CORS_HEADERS });
   } catch (err) {

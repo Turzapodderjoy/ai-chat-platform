@@ -16,6 +16,7 @@ import { StatusEmailTemplatesPanel } from "../../../components/StatusEmailTempla
 import { OrdersPanel } from "../../../components/OrdersPanel";
 import { DeliveryPanel } from "../../../components/DeliveryPanel";
 import { RepairsPanel } from "../../../components/RepairsPanel";
+import OffersPanel from "../../../components/OffersPanel";
 import { StaffPanel } from "../../../components/StaffPanel";
 import { ContactsPanel } from "../../../components/ContactsPanel";
 import { InvoicesPanel } from "../../../components/InvoicesPanel";
@@ -31,7 +32,7 @@ import { UserSettingsPanel } from "../../../components/UserSettingsPanel";
 import { ClientHomePanel } from "../../../components/ClientHomePanel";
 import { AppointmentNotificationBell } from "../../../components/AppointmentNotificationBell";
 
-type Tab = "home" | "overview" | "tagdashboard" | "knowledge" | "products" | "inventory" | "orders" | "delivery" | "repairs" | "staff" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "invoices" | "reports" | "notifications" | "settings";
+type Tab = "home" | "overview" | "tagdashboard" | "knowledge" | "products" | "inventory" | "orders" | "delivery" | "repairs" | "offers" | "staff" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "invoices" | "reports" | "notifications" | "settings";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "home", label: "Home" }, { id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }, { id: "reports", label: "Reports" }] },
@@ -53,6 +54,7 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
       { id: "orders", label: "Orders" },
       { id: "delivery", label: "Delivery" },
       { id: "repairs", label: "Repairs" },
+      { id: "offers", label: "Offers" },
       { id: "staff", label: "Staff" },
       { id: "products", label: "Product Catalog" },
       { id: "inventory", label: "Inventory" },
@@ -108,6 +110,7 @@ const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
     label: "Operations",
     items: [
       { id: "orders", label: "Appointments" },
+      { id: "offers", label: "Offers" },
       { id: "staff", label: "Staff" },
       { id: "inventory", label: "Inventory" },
       { id: "notifications", label: "Notifications" },
@@ -412,6 +415,7 @@ export default function ClientDashboardClient() {
         ["orders", <OrdersPanel key="orders" businessId={businessId} />],
         ["delivery", <DeliveryPanel key="delivery" businessId={businessId} />],
         ["repairs", <RepairsPanel key="repairs" businessId={businessId} active={tab === "repairs"} />],
+        ["offers", <OffersPanel key="offers" businessId={businessId} />],
         ["staff", <StaffPanel key="staff" businessId={businessId} />],
         ["contacts", <ContactsPanel key="contacts" businessId={businessId} active={tab === "contacts"} />],
         ["invoices", <InvoicesPanel key="invoices" businessId={businessId} active={tab === "invoices"} />],

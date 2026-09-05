@@ -52,6 +52,8 @@ import { ContactService } from "@ai-chat-platform/crm";
 import { InvoiceService, PaymentService } from "@ai-chat-platform/revenue";
 import { ReportingService } from "@ai-chat-platform/reporting";
 import { WidgetVisibilityService } from "@ai-chat-platform/widget-visibility";
+import { OfferService } from "@ai-chat-platform/offers";
+import { OfferController } from "@ai-chat-platform/api";
 import { AdminNotificationService } from "@ai-chat-platform/notifications";
 import { RefreshScheduleService, MasterCsvService } from "@ai-chat-platform/knowledge-refresh";
 import { ApiRouter } from "@ai-chat-platform/api";
@@ -281,6 +283,12 @@ export class Container {
     const gmailSenderConfigController =
       new GmailSenderConfigController(gmailSenderConfig);
 
+    const offers =
+      new OfferService();
+
+    const offerController =
+      new OfferController(offers);
+
     this.router =
       new ApiRouter(
         new ChatController(rag),
@@ -331,7 +339,8 @@ export class Container {
         new DashboardThemeController(dashboardTheme),
         new ApprovalController(approvals),
         statusEmailTemplateController,
-        gmailSenderConfigController
+        gmailSenderConfigController,
+        offerController
       );
   }
 

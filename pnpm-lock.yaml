@@ -181,6 +181,9 @@ importers:
       '@ai-chat-platform/notifications':
         specifier: workspace:*
         version: link:../notifications
+      '@ai-chat-platform/offers':
+        specifier: workspace:*
+        version: link:../offers
       '@ai-chat-platform/product-catalog':
         specifier: workspace:*
         version: link:../product-catalog
@@ -328,6 +331,9 @@ importers:
       '@ai-chat-platform/notifications':
         specifier: workspace:*
         version: link:../notifications
+      '@ai-chat-platform/offers':
+        specifier: workspace:*
+        version: link:../offers
       '@ai-chat-platform/product-catalog':
         specifier: workspace:*
         version: link:../product-catalog
@@ -652,6 +658,12 @@ importers:
         version: link:../types
 
   packages/notifications:
+    dependencies:
+      '@ai-chat-platform/database':
+        specifier: workspace:*
+        version: link:../database
+
+  packages/offers:
     dependencies:
       '@ai-chat-platform/database':
         specifier: workspace:*

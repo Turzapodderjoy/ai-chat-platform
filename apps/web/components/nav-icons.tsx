@@ -203,6 +203,12 @@ const ICONS: Record<string, (p: SVGProps<SVGSVGElement>) => ReactElement> = {
       <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4M4 7l8 4M4 7v10l8 4m0-10v10" />
     </Svg>
   ),
+  offers: (p) => (
+    <Svg {...p}>
+      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+      <circle cx="7" cy="7" r="1.5" fill="currentColor" />
+    </Svg>
+  ),
 };
 
 export function NavIcon({ id, ...rest }: { id: string } & SVGProps<SVGSVGElement>) {

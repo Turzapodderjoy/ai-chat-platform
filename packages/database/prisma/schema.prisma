@@ -1106,6 +1106,12 @@ model RepairAppointment {
   issueDescription String
   appointmentDate  DateTime
 
+  // Walk-in support: distinguishes walk-ins from scheduled appointments
+  // and tracks the booking source (website, chat, phone, walk-in)
+  isWalkIn         Boolean  @default(false)
+  wantsFreeDiagnosis Boolean @default(false)
+  source           String?  // "website" | "chat" | "phone" | "walk-in"
+
   // booked | received | in_repair | ready | completed | cancelled — a
   // plain string, not a Prisma enum, so the workflow can be tweaked
   // later without a migration (same convention as Conversation.channel).
@@ -1443,4 +1449,28 @@ model ApprovalStep {
   request           ApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@index([requestId])
+}
+
+// Promotional offers / promo codes — a business can create offers with
+// optional promo codes that customers apply during booking. The
+// /api/offers/validate endpoint checks validity (active, not expired,
+// usage limits) and returns the discount details.
+model Offer {
+  id            String   @id @default(cuid())
+  businessId    String
+  title         String
+  description   String?
+  discountType  String   // "percentage" | "fixed"
+  discountValue Float
+  promoCode     String?
+  validFrom     DateTime @default(now())
+  validUntil    DateTime?
+  isActive      Boolean  @default(true)
+  maxUses       Int?
+  currentUses   Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([businessId, promoCode])
+  @@index([businessId])
 }

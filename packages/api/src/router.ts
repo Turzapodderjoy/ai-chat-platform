@@ -28,6 +28,7 @@ import { DashboardThemeController } from "./dashboard-theme-controller";
 import { ApprovalController } from "./approval-controller";
 import { StatusEmailTemplateController } from "./status-email-template-controller";
 import { GmailSenderConfigController } from "./gmail-sender-config-controller";
+import { OfferController } from "./offer-controller";
 
 export class ApiRouter {
   constructor(
@@ -60,6 +61,7 @@ export class ApiRouter {
     readonly dashboardTheme: DashboardThemeController,
     readonly approvals: ApprovalController,
     readonly statusEmailTemplates: StatusEmailTemplateController,
-    readonly gmailSenderConfig: GmailSenderConfigController
+    readonly gmailSenderConfig: GmailSenderConfigController,
+    readonly offers: OfferController
   ) {}
 }

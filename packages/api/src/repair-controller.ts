@@ -25,6 +25,9 @@ export interface BookRepairInput {
   deviceModel?: string;
   issueDescription: string;
   appointmentDate: string;
+  isWalkIn?: boolean;
+  wantsFreeDiagnosis?: boolean;
+  source?: string;
 }
 
 /** Appointment booking + tracking for a client with no AI bot at all
@@ -67,6 +70,9 @@ export class RepairController {
       deviceModel: input.deviceModel,
       issueDescription: input.issueDescription,
       appointmentDate: new Date(input.appointmentDate),
+      isWalkIn: input.isWalkIn,
+      wantsFreeDiagnosis: input.wantsFreeDiagnosis,
+      source: input.source,
     });
 
     // Non-blocking — never delay the booking response on CRM bookkeeping.
