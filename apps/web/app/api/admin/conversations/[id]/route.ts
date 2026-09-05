@@ -14,13 +14,11 @@ export async function DELETE(
   const { id } = await params;
 
   try {
-    // Delete all messages in this conversation first
-    await prisma.chatMessage.deleteMany({
-      where: { sessionId: id },
+    await prisma.message.deleteMany({
+      where: { conversationId: id },
     });
 
-    // Delete the session/conversation
-    await prisma.chatSession.delete({
+    await prisma.conversation.delete({
       where: { id },
     });
 
