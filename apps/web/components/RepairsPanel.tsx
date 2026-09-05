@@ -246,6 +246,25 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedId]);
 
+  // Click outside to close
+  useEffect(() => {
+    if (!selectedId) return;
+    function handleClickOutside(e: MouseEvent) {
+      const panel = document.getElementById("repair-detail-panel");
+      if (panel && !panel.contains(e.target as Node)) {
+        setSelectedId(null);
+      }
+    }
+    // Delay adding listener to avoid immediate trigger
+    const timer = setTimeout(() => {
+      document.addEventListener("mousedown", handleClickOutside);
+    }, 100);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [selectedId]);
+
   async function updateStatus(id: string, status: string) {
     await fetch("/api/admin/repairs/status", {
       method: "POST",
@@ -704,127 +723,76 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
       )}
 
       {selected && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "var(--bg)", display: "flex", flexDirection: "column" }}>
+        <div id="repair-detail-panel" style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: "60%", minWidth: 500, maxWidth: 800, zIndex: 100, background: "var(--bg)", borderLeft: "1px solid var(--border)", display: "flex", flexDirection: "column", boxShadow: "-4px 0 20px rgba(0,0,0,0.15)" }}>
           {/* Header bar */}
-          <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, background: "var(--bg)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, background: "var(--surface)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <button
                 onClick={() => setSelectedId(null)}
                 style={{
-                  width: 36,
-                  height: 36,
+                  width: 32,
+                  height: 32,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   borderRadius: "var(--radius-sm)",
                   border: "1px solid var(--border)",
-                  background: "var(--surface)",
+                  background: "var(--bg)",
                   cursor: "pointer",
                   color: "var(--text)",
                   fontFamily: "inherit",
                 }}
-                title="Back to repairs"
+                title="Close"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m15 18-6-6 6-6" />
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" /><path d="m6 6 12 12" />
                 </svg>
               </button>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text)" }}>{selected.customerName}</div>
-                <div style={{ fontSize: 12, color: "var(--text-muted)", display: "flex", gap: 12 }}>
-                  <span>{selected.phone}</span>
-                  {selected.email && <span>{selected.email}</span>}
-                  <span style={{ color: KANBAN_COLORS[selected.status] }}>{STATUS_LABEL[selected.status]}</span>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>{selected.customerName}</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                  {selected.phone} · <span style={{ color: KANBAN_COLORS[selected.status] }}>{STATUS_LABEL[selected.status]}</span>
                 </div>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <select
                 value={selected.status}
                 onChange={(e) => updateStatus(selected.id, e.target.value)}
-                style={{ padding: "6px 10px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontFamily: "inherit" }}
+                style={{ padding: "5px 8px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontFamily: "inherit" }}
               >
                 {STATUS_OPTIONS.map((s) => (
                   <option key={s} value={s}>{STATUS_LABEL[s]}</option>
                 ))}
               </select>
               <select
-                value={selected.priority || "normal"}
-                onChange={(e) => updatePriority(selected.id, e.target.value)}
-                style={{ padding: "6px 10px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontFamily: "inherit" }}
-              >
-                {PRIORITY_OPTIONS.map((p) => (
-                  <option key={p} value={p}>{PRIORITY_LABEL[p]}</option>
-                ))}
-              </select>
-              <select
                 value={selected.technicianId || ""}
                 onChange={(e) => assignTechnician(selected.id, e.target.value)}
-                style={{ padding: "6px 10px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontFamily: "inherit" }}
+                style={{ padding: "5px 8px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontFamily: "inherit" }}
               >
                 <option value="">Unassigned</option>
                 {staff.filter((s) => s.active).map((s) => (
-                  <option key={s.id} value={s.id}>{s.name} ({s.role})</option>
+                  <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
-              <input
-                type="datetime-local"
-                value={selected.appointmentDate ? new Date(selected.appointmentDate).toISOString().slice(0, 16) : ""}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    rescheduleRepair(selected.id, new Date(e.target.value).toISOString());
-                  }
-                }}
-                style={{ padding: "6px 10px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontFamily: "inherit" }}
-                title="Reschedule appointment"
-              />
-              {selected.status !== "cancelled" && selected.status !== "completed" && (
-                <button
-                  onClick={() => {
-                    if (window.confirm(`Cancel repair for "${selected.customerName}"?`)) {
-                      updateStatus(selected.id, "cancelled");
-                    }
-                  }}
-                  style={{ padding: "6px 12px", fontSize: 12, color: "var(--danger)", border: "1px solid var(--danger)", borderRadius: "var(--radius-sm)", background: "transparent", cursor: "pointer", fontFamily: "inherit" }}
-                >
-                  Cancel
-                </button>
-              )}
-              <button onClick={() => setOrderOpen((o) => !o)} style={{ padding: "6px 12px", fontSize: 12, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: orderOpen ? "var(--accent-subtle)" : "var(--surface)", cursor: "pointer", color: "var(--text)", fontFamily: "inherit" }}>
-                {orderOpen ? "Close Order" : "Manage Order"}
+              <button onClick={() => setOrderOpen((o) => !o)} style={{ padding: "5px 10px", fontSize: 12, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: orderOpen ? "var(--accent-subtle)" : "var(--bg)", cursor: "pointer", color: "var(--text)", fontFamily: "inherit" }}>
+                {orderOpen ? "Close Order" : "Order"}
               </button>
             </div>
           </div>
 
           {/* Content */}
-          <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
-            {/* Info cards */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 20 }}>
-              <div style={{ padding: 12, background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
-                <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Order ID</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{shortId(selected.id)}</div>
+          <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
+            {/* Quick info row */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+              <div style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 12 }}>
+                <span style={{ color: "var(--text-faint)" }}>Device:</span> {selected.deviceType}{selected.deviceModel ? ` — ${selected.deviceModel}` : ""}
               </div>
-              <div style={{ padding: 12, background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
-                <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Device</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{selected.deviceType}{selected.deviceModel ? ` — ${selected.deviceModel}` : ""}</div>
+              <div style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 12 }}>
+                <span style={{ color: "var(--text-faint)" }}>Date:</span> {new Date(selected.appointmentDate).toLocaleString()}
               </div>
-              <div style={{ padding: 12, background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
-                <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Appointment</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{new Date(selected.appointmentDate).toLocaleString()}</div>
-              </div>
-              <div style={{ padding: 12, background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
-                <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Source</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{selected.isWalkIn ? "🚶 Walk-in" : "📅 Scheduled"}</div>
-              </div>
-              {selected.serialNumber && (
-                <div style={{ padding: 12, background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
-                  <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Serial Number</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{selected.serialNumber}</div>
-                </div>
-              )}
-              <div style={{ padding: 12, background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
-                <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Technician</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{selected.technicianId ? (staffMap.get(selected.technicianId)?.name ?? "Unknown") : "Unassigned"}</div>
+              <div style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 12 }}>
+                <span style={{ color: "var(--text-faint)" }}>Source:</span> {selected.isWalkIn ? "🚶 Walk-in" : "📅 Scheduled"}
               </div>
             </div>
 

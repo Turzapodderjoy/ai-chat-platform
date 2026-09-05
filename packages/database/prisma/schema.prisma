@@ -51,6 +51,10 @@ model Business {
   // null or empty = all integrations enabled (backward compatible).
   enabledIntegrations String?
 
+  // Per-client AI toggle. When false, AI features (chatbot, resume/pause AI)
+  // are disabled for this client's dashboard. Default true for backward compat.
+  aiEnabled           Boolean  @default(true)
+
   // How many agent (handoff-team) logins this business is allowed to
   // create for itself under Client Access -- 0 means the feature isn't
   // enabled for them yet. Set by platform admin only; the client's own
