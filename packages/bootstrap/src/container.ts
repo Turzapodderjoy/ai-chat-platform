@@ -60,6 +60,10 @@ import { ApiRouter } from "@ai-chat-platform/api";
 import { ClientAuthService } from "@ai-chat-platform/client-auth";
 import { WidgetConfigService } from "@ai-chat-platform/widget-config";
 import { DashboardThemeService } from "@ai-chat-platform/dashboard-theme";
+import { GoogleSignInController } from "@ai-chat-platform/api";
+
+// GoogleSignInService lives in client-auth package
+import { GoogleSignInService } from "@ai-chat-platform/client-auth";
 
 export class Container {
 
@@ -289,6 +293,12 @@ export class Container {
     const offerController =
       new OfferController(offers);
 
+    const googleSignIn =
+      new GoogleSignInService();
+
+    const googleSignInController =
+      new GoogleSignInController(googleSignIn);
+
     this.router =
       new ApiRouter(
         new ChatController(rag),
@@ -340,7 +350,8 @@ export class Container {
         new ApprovalController(approvals),
         statusEmailTemplateController,
         gmailSenderConfigController,
-        offerController
+        offerController,
+        googleSignInController
       );
   }
 

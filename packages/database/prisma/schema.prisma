@@ -1232,6 +1232,16 @@ model GmailSenderConfig {
   updatedAt   DateTime @updatedAt
 }
 
+// Google OAuth configuration for client sign-in. Stores the OAuth 2.0
+// Client ID for each business — the client secret lives in env vars.
+model GoogleSignInConfig {
+  id          String   @id @default(cuid())
+  businessId  String   @unique
+  clientId    String
+  enabled     Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+}
+
 // One editable email template per (business, kind, status) -- kind is
 // "order_status" or "repair_status", statusValue matches
 // DELIVERY_STATUSES / the repair status list. Rendered with {{placeholder}}

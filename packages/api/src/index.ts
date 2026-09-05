@@ -30,3 +30,4 @@ export * from "./approval-controller";
 export * from "./status-email-template-controller";
 export * from "./gmail-sender-config-controller";
 export * from "./offer-controller";
+export * from "./google-sign-in-controller";

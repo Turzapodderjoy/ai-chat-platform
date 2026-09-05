@@ -123,6 +123,7 @@ const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
       { id: "invoices", label: "Invoices" },
     ],
   },
+  { items: [{ id: "channels", label: "Integrations" }] },
   { items: [{ id: "notifications", label: "Notifications" }] },
   { items: [{ id: "settings", label: "Settings" }] },
 ];
