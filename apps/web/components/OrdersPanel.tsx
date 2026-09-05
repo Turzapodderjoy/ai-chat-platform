@@ -42,7 +42,7 @@ type Row =
  * them since the two are genuinely different records (Order vs
  * RepairAppointment) under the hood, but they belong in one place from
  * a staff member's point of view — "all our orders". */
-export function OrdersPanel({ businessId }: { businessId: string }) {
+export function OrdersPanel({ businessId, businessType }: { businessId: string; businessType?: string }) {
   const [aiOrders, setAiOrders] = useState<AiOrder[] | null>(null);
   const [serviceOrders, setServiceOrders] = useState<RepairOrder[] | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -178,12 +178,15 @@ export function OrdersPanel({ businessId }: { businessId: string }) {
 
   const loading = !aiOrders || !serviceOrders;
 
+  const isRepair = businessType === "repair";
+  
   return (
     <section style={cardStyle}>
-      <h2 style={{ marginTop: 0 }}>Order Management</h2>
+      <h2 style={{ marginTop: 0 }}>{isRepair ? "Appointments" : "Order Management"}</h2>
       <p style={subtleTextStyle}>
-        Every order — taken by the AI directly in a chat, or a staff-managed service/repair job with itemized
-        parts &amp; services billed against Inventory and Invoices — in one place.
+        {isRepair
+          ? "All repair appointments — booked through chat, by phone, or walk-in — in one place."
+          : "Every order — taken by the AI directly in a chat, or a staff-managed service/repair job with itemized parts & services billed against Inventory and Invoices — in one place."}
       </p>
 
       <button onClick={() => setShowNew((s) => !s)} style={primaryButtonStyle}>

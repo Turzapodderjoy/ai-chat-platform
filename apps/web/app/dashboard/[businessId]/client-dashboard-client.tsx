@@ -90,10 +90,12 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
 // Repair shop layout: Repairs at top, Orders→Appointments, no Delivery,
 // no Product Catalog (repair shops don't sell a browsable catalog --
 // see Inventory for their actual parts/services stock). ("Deals"
-// removed here -- that feature was deleted platform-wide, this entry
-// referenced a nonexistent panel and wasn't even a valid Tab id).
+// Repair shop layout: streamlined for daily use — Repairs at top,
+// essential operations only. AI Brain, Training Arena, Chat Learning,
+// Knowledge Hub, Storage, and Integrations are hidden (power-user
+// features that clutter a repair shop's daily workflow).
 const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
-  { items: [{ id: "home", label: "Home" }, { id: "overview", label: "Overview" }, { id: "repairs", label: "Repairs" }, { id: "reports", label: "Reports" }] },
+  { items: [{ id: "home", label: "Home" }, { id: "repairs", label: "Repairs" }, { id: "overview", label: "Overview" }, { id: "reports", label: "Reports" }] },
   {
     label: "Conversations",
     items: [
@@ -113,7 +115,6 @@ const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
       { id: "offers", label: "Offers" },
       { id: "staff", label: "Staff" },
       { id: "inventory", label: "Inventory" },
-      { id: "notifications", label: "Notifications" },
     ],
   },
   {
@@ -122,24 +123,8 @@ const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
       { id: "invoices", label: "Invoices" },
     ],
   },
-  {
-    label: "AI Brain",
-    items: [
-      { id: "brain", label: "AI Brain" },
-      { id: "parameters", label: "Parameters" },
-      { id: "arena", label: "Training Arena" },
-      { id: "review", label: "Chat Learning" },
-    ],
-  },
-  {
-    label: "Content",
-    items: [
-      { id: "knowledge", label: "Knowledge Hub" },
-      { id: "storage", label: "Storage" },
-    ],
-  },
-  { items: [{ id: "channels", label: "Integrations" }] },
-  { items: [{ id: "settings", label: "User Settings" }] },
+  { items: [{ id: "notifications", label: "Notifications" }] },
+  { items: [{ id: "settings", label: "Settings" }] },
 ];
 
 const TAB_IDS = NAV_GROUPS.flatMap((g) => g.items.map((i) => i.id));
@@ -412,7 +397,7 @@ export default function ClientDashboardClient() {
         ["products", <ProductCatalogPanel key="products" businessId={businessId} />],
         ["inventory", <InventoryPanel key="inventory" businessId={businessId} />],
         ["notifications", <StatusEmailTemplatesPanel key="notifications" businessId={businessId} />],
-        ["orders", <OrdersPanel key="orders" businessId={businessId} />],
+        ["orders", <OrdersPanel key="orders" businessId={businessId} businessType={clientType} />],
         ["delivery", <DeliveryPanel key="delivery" businessId={businessId} />],
         ["repairs", <RepairsPanel key="repairs" businessId={businessId} active={tab === "repairs"} />],
         ["offers", <OffersPanel key="offers" businessId={businessId} />],

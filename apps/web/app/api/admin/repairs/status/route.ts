@@ -27,5 +27,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result);
   }
 
+  // Handle technician assignment
+  if ("technicianId" in body) {
+    const tid = body.technicianId === "" || body.technicianId === null ? null : body.technicianId;
+    const result = await app.container.router.repairs.assignTechnician(body.id, tid);
+    return NextResponse.json(result);
+  }
+
   return NextResponse.json({ ok: true });
 }

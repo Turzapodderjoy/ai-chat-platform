@@ -164,6 +164,10 @@ export class RepairController {
     return this.repairs.updatePhotos(id, images);
   }
 
+  async assignTechnician(id: string, technicianId: string | null) {
+    return this.repairs.assignTechnician(id, technicianId);
+  }
+
   findByToken(trackingToken: string) {
     return this.repairs.findByToken(trackingToken);
   }

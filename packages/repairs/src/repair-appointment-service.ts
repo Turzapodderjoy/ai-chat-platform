@@ -229,6 +229,11 @@ export class RepairAppointmentService {
     return toAppointment(row);
   }
 
+  async assignTechnician(id: string, technicianId: string | null): Promise<RepairAppointment> {
+    const row = await prisma.repairAppointment.update({ where: { id }, data: { technicianId } });
+    return toAppointment(row);
+  }
+
   async requestReschedule(id: string, newDate: string): Promise<RepairAppointment> {
     const row = await prisma.repairAppointment.update({
       where: { id },
