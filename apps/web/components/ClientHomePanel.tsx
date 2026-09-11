@@ -34,7 +34,7 @@ function quickLinks(isRepairType: boolean): QuickLink[] {
   if (isRepairType) {
     return [
       { tab: "repairs", label: "Repairs", hint: "View all repairs and appointments" },
-      { tab: "orders", label: "Appointments", hint: "Book, track, and manage repairs" },
+      { tab: "orders", label: "Orders", hint: "Book, track, and manage repairs" },
       { tab: "staff", label: "Staff", hint: "Manage technicians" },
       { tab: "inventory", label: "Inventory", hint: "Parts, stock, and pricing" },
       { tab: "invoices", label: "Invoices", hint: "Bill customers, record payments" },

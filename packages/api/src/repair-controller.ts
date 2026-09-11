@@ -14,6 +14,9 @@ export interface CreateOrderEntryInput {
   deviceType: string;
   deviceModel?: string;
   issueDescription: string;
+  // Parts/services entered directly on the create form -- so a manual
+  // order doesn't need to be created, then reopened, just to bill it.
+  items?: AddOrderItemInput[];
 }
 
 export interface BookRepairInput {
@@ -60,7 +63,7 @@ export class RepairController {
 
     const trackingToken = await this.repairs.generateTrackingToken();
 
-    await this.repairs.book({
+    const appointment = await this.repairs.book({
       businessId: input.businessId,
       trackingToken,
       customerName: input.customerName,
@@ -76,8 +79,14 @@ export class RepairController {
     });
 
     // Non-blocking — never delay the booking response on CRM bookkeeping.
+    // Sets the real contactId FK (not just an upsert left to phone-match
+    // later) so this appointment reliably shows up under that contact in
+    // Customer Database regardless of what happens to it afterward --
+    // confirmed live, a walk-in booked this way and later cancelled had
+    // contactId still null, invisible from the customer's own record.
     this.contacts
       .upsert({ businessId: input.businessId, name: input.customerName, phone: input.phone, email: input.email })
+      .then((contact) => this.repairs.setContact(appointment.id, contact.id))
       .catch(() => {});
 
     // No AI here at all — straight to a human handoff so the appointment
@@ -261,7 +270,13 @@ export class RepairController {
       email: input.email,
     });
 
-    return this.repairs.setContact(appointment.id, contact.id);
+    const linked = await this.repairs.setContact(appointment.id, contact.id);
+
+    for (const item of input.items ?? []) {
+      await this.repairs.addItem(appointment.id, item);
+    }
+
+    return linked;
   }
 
   addOrderItem(repairAppointmentId: string, input: AddOrderItemInput) {

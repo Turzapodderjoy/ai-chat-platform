@@ -69,6 +69,7 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
   const [draftTax, setDraftTax] = useState("");
   const [draftDueDate, setDraftDueDate] = useState("");
   const [saving, setSaving] = useState(false);
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
 
   function refresh() {
     const qs = businessId ? `?businessId=${encodeURIComponent(businessId)}` : "";
@@ -92,6 +93,14 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
 
   const contactById = useMemo(() => new Map((contacts ?? []).map((c) => [c.id, c])), [contacts]);
   const repairById = useMemo(() => new Map(repairs.map((r) => [r.id, r])), [repairs]);
+
+  const sortedInvoices = useMemo(() => {
+    if (!invoices) return null;
+    return [...invoices].sort((a, b) => {
+      const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      return sortOrder === "newest" ? -diff : diff;
+    });
+  }, [invoices, sortOrder]);
 
   const stats = useMemo(() => {
     if (!invoices) return null;
@@ -250,6 +259,15 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
       {invoices && invoices.length === 0 && <p style={subtleTextStyle}>No invoices yet — generate one from a repair order, or add one by hand above.</p>}
 
       {invoices && invoices.length > 0 && (
+        <div style={{ display: "flex", justifyContent: "flex-end", margin: "8px 0" }}>
+          <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")} style={{ padding: 8, fontSize: 12 }}>
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+          </select>
+        </div>
+      )}
+
+      {invoices && invoices.length > 0 && (
         <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
@@ -265,7 +283,7 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
               </tr>
             </thead>
             <tbody>
-              {invoices.map((inv) => (
+              {sortedInvoices!.map((inv) => (
                 <tr key={inv.id}>
                   <td style={{ padding: "6px 8px", fontWeight: 600 }}>{inv.invoiceNumber}</td>
                   <td style={{ padding: "6px 8px", fontSize: 12 }}>

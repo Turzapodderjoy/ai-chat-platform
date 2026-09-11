@@ -55,11 +55,51 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [openId, setOpenId] = useState<string | null>(null);
 
   const [showNew, setShowNew] = useState(false);
   const [form, setForm] = useState({ customerName: "", phone: "", email: "", deviceType: "", deviceModel: "", issueDescription: "" });
   const [saving, setSaving] = useState(false);
+
+  // Parts/services added while the order doesn't exist yet -- held here
+  // and sent along with the create request, instead of forcing a second
+  // trip through "create, then reopen, then add items" for the common
+  // case of already knowing the price up front.
+  const [draftItems, setDraftItems] = useState<{ kind: "part" | "service"; productId?: string; name: string; quantity: string; price: string }[]>([]);
+  const [newItemKind, setNewItemKind] = useState<"part" | "service">("part");
+  const [newItemProductId, setNewItemProductId] = useState("");
+  const [newItemName, setNewItemName] = useState("");
+  const [newItemQuantity, setNewItemQuantity] = useState("1");
+  const [newItemPrice, setNewItemPrice] = useState("");
+
+  function pickNewItemProduct(id: string) {
+    setNewItemProductId(id);
+    const p = products.find((x) => x.id === id);
+    if (p) {
+      setNewItemName(p.name);
+      setNewItemPrice(p.price ?? "0");
+    } else {
+      setNewItemName("");
+      setNewItemPrice("");
+    }
+  }
+
+  function addDraftItem() {
+    if (!newItemName.trim() || !newItemPrice.trim()) return;
+    setDraftItems((items) => [
+      ...items,
+      { kind: newItemKind, productId: newItemKind === "part" && newItemProductId ? newItemProductId : undefined, name: newItemName, quantity: newItemQuantity, price: newItemPrice },
+    ]);
+    setNewItemProductId("");
+    setNewItemName("");
+    setNewItemQuantity("1");
+    setNewItemPrice("");
+  }
+
+  function removeDraftItem(index: number) {
+    setDraftItems((items) => items.filter((_, i) => i !== index));
+  }
 
   function refreshOrderTags(ids: string[]) {
     if (ids.length === 0) return;
@@ -117,10 +157,21 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
       const res = await fetch("/api/admin/repairs/order-entry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, ...form }),
+        body: JSON.stringify({
+          businessId,
+          ...form,
+          items: draftItems.map((i) => ({
+            kind: i.kind,
+            productId: i.productId,
+            name: i.name,
+            quantity: Number(i.quantity) || 1,
+            defaultPrice: Number(i.price) || 0,
+          })),
+        }),
       });
       if (res.ok) {
         setForm({ customerName: "", phone: "", email: "", deviceType: "", deviceModel: "", issueDescription: "" });
+        setDraftItems([]);
         setShowNew(false);
         refresh();
       }
@@ -153,7 +204,7 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
       total: orderTotal(o),
       data: o,
     }));
-    return [...ai, ...service].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return [...ai, ...service];
   }, [aiOrders, serviceOrders]);
 
   // Fuzzy-ish: case-insensitive substring match across every field a
@@ -165,7 +216,7 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
     const from = dateFrom ? new Date(dateFrom).getTime() : null;
     const to = dateTo ? new Date(dateTo).getTime() + 24 * 60 * 60 * 1000 - 1 : null;
 
-    return rows.filter((r) => {
+    const result = rows.filter((r) => {
       if (from !== null || to !== null) {
         const t = new Date(r.date).getTime();
         if (from !== null && t < from) return false;
@@ -176,7 +227,11 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
       return [r.id, serial, r.customerName, r.phone, r.detail, r.status]
         .some((f) => f?.toLowerCase().includes(q));
     });
-  }, [rows, search, dateFrom, dateTo]);
+    return result.sort((a, b) => {
+      const diff = new Date(a.date).getTime() - new Date(b.date).getTime();
+      return sortOrder === "newest" ? -diff : diff;
+    });
+  }, [rows, search, dateFrom, dateTo, sortOrder]);
 
   const loading = !aiOrders || !serviceOrders;
 
@@ -184,10 +239,10 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
   
   return (
     <section style={cardStyle}>
-      <h2 style={{ marginTop: 0 }}>{isRepair ? "Appointments" : "Order Management"}</h2>
+      <h2 style={{ marginTop: 0 }}>Orders</h2>
       <p style={subtleTextStyle}>
         {isRepair
-          ? "All repair appointments — booked through chat, by phone, or walk-in — in one place."
+          ? "Every repair order — booked through chat, by phone, or walk-in — in one place."
           : "Every order — taken by the AI directly in a chat, or a staff-managed service/repair job with itemized parts & services billed against Inventory and Invoices — in one place."}
       </p>
 
@@ -206,6 +261,43 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
             {deviceModelOptions.map((m) => <option key={m} value={m} />)}
           </datalist>
           <input placeholder="Issue *" value={form.issueDescription} onChange={(e) => setForm({ ...form, issueDescription: e.target.value })} style={{ padding: 8, flex: 1, minWidth: 180 }} />
+
+          <div style={{ width: "100%", borderTop: "1px solid var(--border)", paddingTop: 10, marginTop: 4 }}>
+            <div style={{ fontSize: 12, color: "var(--text-faint)", marginBottom: 6 }}>Parts / services (optional — can also be added later)</div>
+            {draftItems.map((item, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, fontSize: 13 }}>
+                <span style={badgeStyle(item.kind === "part" ? "info" : "neutral")}>{item.kind}</span>
+                <span style={{ flex: 1 }}>{item.name} × {item.quantity}</span>
+                <strong>{currency}{(Number(item.price) || 0) * (Number(item.quantity) || 1)}</strong>
+                <button onClick={() => removeDraftItem(i)} style={{ fontSize: 11, padding: "3px 6px" }}>✕</button>
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+              <select value={newItemKind} onChange={(e) => setNewItemKind(e.target.value as "part" | "service")} style={{ padding: 6 }}>
+                <option value="part">Part</option>
+                <option value="service">Service</option>
+              </select>
+              {newItemKind === "part" ? (
+                <>
+                  <select value={newItemProductId} onChange={(e) => pickNewItemProduct(e.target.value)} style={{ padding: 6, minWidth: 160 }}>
+                    <option value="">Custom part (not in Inventory)</option>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name} {p.price ? `(${currency}${p.price})` : ""}</option>
+                    ))}
+                  </select>
+                  <input placeholder="Part name" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} style={{ padding: 6, minWidth: 140 }} />
+                </>
+              ) : (
+                <input placeholder="Service name" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} style={{ padding: 6, minWidth: 160 }} />
+              )}
+              <input placeholder="Qty" type="number" min={1} value={newItemQuantity} onChange={(e) => setNewItemQuantity(e.target.value)} style={{ padding: 6, width: 60 }} />
+              <input placeholder="Price" type="number" value={newItemPrice} onChange={(e) => setNewItemPrice(e.target.value)} style={{ padding: 6, width: 90 }} />
+              <button onClick={addDraftItem} disabled={!newItemName.trim() || !newItemPrice.trim()} style={{ fontSize: 12, padding: "6px 10px" }}>
+                + Add item
+              </button>
+            </div>
+          </div>
+
           <button onClick={createOrder} disabled={saving} style={primaryButtonStyle}>
             {saving ? "Creating…" : "Create"}
           </button>
@@ -225,6 +317,10 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
         <label style={{ ...subtleTextStyle, display: "flex", alignItems: "center", gap: 6 }}>
           To <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ padding: 6 }} />
         </label>
+        <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")} style={{ padding: 8, fontSize: 12 }}>
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+        </select>
         {(search || dateFrom || dateTo) && (
           <button onClick={() => { setSearch(""); setDateFrom(""); setDateTo(""); }} style={{ fontSize: 12, padding: "6px 10px" }}>
             Clear filters
