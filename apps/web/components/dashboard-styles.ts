@@ -120,24 +120,24 @@ export const gridStyle: CSSProperties = {
 
 export const grid2Style: CSSProperties = {
   ...gridStyle,
-  gridTemplateColumns: "repeat(2, 1fr)",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
 };
 
 export const grid3Style: CSSProperties = {
   ...gridStyle,
-  gridTemplateColumns: "repeat(3, 1fr)",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
 };
 
 export const grid4Style: CSSProperties = {
   ...gridStyle,
-  gridTemplateColumns: "repeat(4, 1fr)",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 180px), 1fr))",
 };
 
 // Responsive grid
 export const responsiveGridStyle: CSSProperties = {
   display: "grid",
   gap: 16,
-  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
 };
 
 // Flex styles

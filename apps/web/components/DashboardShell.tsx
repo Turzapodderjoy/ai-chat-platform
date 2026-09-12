@@ -126,7 +126,6 @@ export function DashboardShell<T extends string>({
     setCollapsedGroups((prev) => ({ ...prev, [i]: !prev[i] }));
   }
 
-  const railCollapsed = isMobile ? false : collapsed;
   const sidebarOpen = isMobile ? mobileOpen : true;
 
   return (
@@ -142,31 +141,43 @@ export function DashboardShell<T extends string>({
       {/* Sidebar */}
       <aside
         style={{
-          width: railCollapsed ? 72 : 260,
-          flexShrink: 0,
+          width: isMobile ? 260 : collapsed ? 72 : 260,
+          flexShrink: isMobile ? undefined : 0,
           background: "var(--bg-elevated)",
-          borderRight: "1px solid var(--border-subtle)",
+          borderRight: isMobile ? "none" : "1px solid var(--border-subtle)",
           display: "flex",
           flexDirection: "column",
           height: "100%",
           overflowY: "auto",
           overflowX: "hidden",
           zIndex: 50,
-          transform: isMobile && !sidebarOpen ? "translateX(-100%)" : "translateX(0)",
-          transition: "width 0.2s var(--ease-out), transform 0.3s var(--ease-out)",
+          ...(isMobile
+            ? {
+                position: "fixed" as const,
+                top: 0,
+                left: 0,
+                boxShadow: sidebarOpen ? "4px 0 24px rgba(0,0,0,0.5)" : "none",
+                transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
+              }
+            : {
+                transform: collapsed ? "translateX(0)" : "translateX(0)",
+              }),
+          transition: isMobile
+            ? "transform 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out)"
+            : "width 0.2s var(--ease-out)",
         }}
       >
         {/* Logo */}
         <div
           style={{
-            padding: railCollapsed ? "20px 0" : "20px 20px",
+            padding: isMobile ? "20px 20px" : collapsed ? "20px 0" : "20px 20px",
             display: "flex",
             alignItems: "center",
-            justifyContent: railCollapsed ? "center" : "space-between",
+            justifyContent: isMobile ? "space-between" : collapsed ? "center" : "space-between",
             borderBottom: "1px solid var(--border-subtle)",
           }}
         >
-          {!railCollapsed && (
+          {(!collapsed || isMobile) && (
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div
                 style={{
@@ -192,7 +203,7 @@ export function DashboardShell<T extends string>({
               </div>
             </div>
           )}
-          {railCollapsed && (
+          {collapsed && !isMobile && (
             <div
               style={{
                 width: 36,
@@ -211,7 +222,7 @@ export function DashboardShell<T extends string>({
               </svg>
             </div>
           )}
-          {!railCollapsed && (
+          {!collapsed && !isMobile && (
             <button
               onClick={() => setCollapsed(true)}
               className="ghost"
@@ -223,16 +234,16 @@ export function DashboardShell<T extends string>({
               </svg>
             </button>
           )}
-          {railCollapsed && (
+          {collapsed && !isMobile && (
             <div style={{ padding: "0 8px 12px", borderTop: "1px solid var(--border-subtle)", marginTop: "auto" }}>
               <button
                 onClick={() => setCollapsed(false)}
                 className="ghost"
                 title="Expand sidebar"
-                style={{ 
-                  width: "100%", 
-                  height: 36, 
-                  padding: 0, 
+                style={{
+                  width: "100%",
+                  height: 36,
+                  padding: 0,
                   borderRadius: "var(--radius-sm)",
                   display: "flex",
                   alignItems: "center",
@@ -253,7 +264,7 @@ export function DashboardShell<T extends string>({
             const groupCollapsed = collapsedGroups[i];
             return (
               <div key={i} style={{ marginBottom: 8 }}>
-                {group.label && !railCollapsed && (
+                {group.label && !collapsed && (
                   <button
                     onClick={() => toggleGroup(i)}
                     className="ghost"
@@ -294,13 +305,13 @@ export function DashboardShell<T extends string>({
                           onSelect(item.id);
                           if (isMobile) setMobileOpen(false);
                         }}
-                        title={railCollapsed ? item.label : undefined}
+                        title={collapsed ? item.label : undefined}
                         className="ghost"
                         style={{
                           width: "100%",
-                          justifyContent: railCollapsed ? "center" : "flex-start",
+                          justifyContent: collapsed ? "center" : "flex-start",
                           textAlign: "left",
-                          padding: railCollapsed ? "10px" : "10px 12px",
+                          padding: collapsed ? "10px" : "10px 12px",
                           borderRadius: "var(--radius-sm)",
                           marginBottom: 2,
                           background: active ? "var(--accent-subtle)" : "transparent",
@@ -311,7 +322,7 @@ export function DashboardShell<T extends string>({
                         <span style={{ display: "flex", flexShrink: 0 }}>
                           <NavIcon id={item.id} />
                         </span>
-                        {!railCollapsed && (
+                        {!collapsed && (
                           <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {item.label}
                           </span>
@@ -340,13 +351,13 @@ export function DashboardShell<T extends string>({
             flexShrink: 0,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
             {isMobile && (
               <button
                 onClick={() => setMobileOpen(true)}
                 className="ghost"
                 title="Open menu"
-                style={{ width: 36, height: 36, padding: 0 }}
+                style={{ width: 36, height: 36, padding: 0, flexShrink: 0 }}
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <line x1="4" x2="20" y1="6" y2="6" />
@@ -355,13 +366,13 @@ export function DashboardShell<T extends string>({
                 </svg>
               </button>
             )}
-            <div>
+            <div style={{ minWidth: 0, overflow: "hidden" }}>
               {activeGroup?.label && (
                 <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", marginBottom: 2 }}>
                   {activeGroup.label}
                 </div>
               )}
-              <h1 style={{ fontSize: 18, fontWeight: 600, letterSpacing: "-0.02em", margin: 0 }}>
+              <h1 style={{ fontSize: isMobile ? 16 : 18, fontWeight: 600, letterSpacing: "-0.02em", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {activeLabel}
               </h1>
             </div>
