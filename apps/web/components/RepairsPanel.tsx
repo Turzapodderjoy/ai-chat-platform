@@ -765,7 +765,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
                 </div>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
               <select
                 value={selected.status}
                 onChange={(e) => updateStatus(selected.id, e.target.value)}

@@ -265,7 +265,7 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
 
       <div style={{ display: "flex", gap: 8, margin: "16px 0", flexWrap: "wrap", alignItems: "center" }}>
         <input
-          style={{ padding: 8, flex: 1, minWidth: 220, maxWidth: 320 }}
+          style={{ padding: 8, flex: "1 1 200px", minWidth: 0, maxWidth: 320 }}
           placeholder="Search by name, phone, serial/order ID, device, product…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}

@@ -182,7 +182,7 @@ export function ClientHomePanel({
       </StatCardRow>
 
       {stats && (
-        <div style={{ display: "flex", gap: 16, marginBottom: 16, fontSize: 12, color: "var(--text-secondary)" }}>
+        <div style={{ display: "flex", gap: 16, marginBottom: 16, fontSize: 12, color: "var(--text-secondary)", flexWrap: "wrap" }}>
           <span>📅 Booked: <strong>{stats.bookedTodayCount ?? 0}</strong></span>
           <span>🚶 Walk-ins: <strong>{stats.walkinsTodayCount ?? 0}</strong></span>
           <span>✅ Completed: <strong>{stats.completedTodayCount ?? 0}</strong></span>

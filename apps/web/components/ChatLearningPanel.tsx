@@ -55,6 +55,15 @@ interface AnalysisRun {
 export function ChatLearningPanel({ businessId }: { businessId?: string }) {
   const qs = businessId ? `businessId=${encodeURIComponent(businessId)}` : "";
 
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 860px)");
+    setIsMobile(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
   const [conversations, setConversations] = useState<ConversationSummary[] | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -237,8 +246,8 @@ export function ChatLearningPanel({ businessId }: { businessId?: string }) {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
-        <div style={{ width: 320, flexShrink: 0, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", maxHeight: 560, overflowY: "auto" }}>
+      <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 12 : 20, alignItems: "flex-start" }}>
+        <div style={{ width: isMobile ? "100%" : 320, flexShrink: 0, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", maxHeight: isMobile ? 300 : 560, overflowY: "auto" }}>
           {!conversations && <p style={{ padding: 10, ...subtleTextStyle }}>Loading…</p>}
           {conversations?.length === 0 && <p style={{ padding: 10, ...subtleTextStyle }}>No chats yet.</p>}
           {conversations?.map((c) => {

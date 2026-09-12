@@ -142,7 +142,7 @@ export function AiBrainPanel({ businessId }: AiBrainPanelProps) {
       )}
 
       {current && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 16 }}>
           {/* Left Column - Prompt Editor */}
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* System Prompt */}

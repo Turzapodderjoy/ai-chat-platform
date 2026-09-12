@@ -292,7 +292,7 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
       {showAdd && (
         <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 14, marginBottom: 16 }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
-            <select value={draftContactId} onChange={(e) => setDraftContactId(e.target.value)} disabled={!!draftNewName.trim()} style={{ padding: 8, minWidth: 200 }}>
+            <select value={draftContactId} onChange={(e) => setDraftContactId(e.target.value)} disabled={!!draftNewName.trim()} style={{ padding: 8, minWidth: 0, flex: "1 1 180px" }}>
               <option value="">Existing customer…</option>
               {(contacts ?? []).map((c) => (
                 <option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ""}</option>
@@ -313,9 +313,9 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
             Line items — type any name and price, no Inventory link required
           </div>
           {draftItems.map((item, i) => (
-            <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6 }}>
-              <input placeholder="Item name" value={item.name} onChange={(e) => updateDraftItem(i, "name", e.target.value)} style={{ padding: 8, flex: 1, minWidth: 160 }} />
-              <input placeholder="Qty" type="number" min={1} value={item.quantity} onChange={(e) => updateDraftItem(i, "quantity", e.target.value)} style={{ padding: 8, width: 70 }} />
+            <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+              <input placeholder="Item name" value={item.name} onChange={(e) => updateDraftItem(i, "name", e.target.value)} style={{ padding: 8, flex: "1 1 140px", minWidth: 0 }} />
+              <input placeholder="Qty" type="number" min={1} value={item.quantity} onChange={(e) => updateDraftItem(i, "quantity", e.target.value)} style={{ padding: 8, width: 70, flex: "0 0 70px" }} />
               <input placeholder="Unit price" type="number" value={item.unitPrice} onChange={(e) => updateDraftItem(i, "unitPrice", e.target.value)} style={{ padding: 8, width: 100 }} />
               {draftItems.length > 1 && (
                 <button onClick={() => setDraftItems((prev) => prev.filter((_, idx) => idx !== i))} style={{ fontSize: 11, padding: "4px 8px" }}>✕</button>
@@ -424,9 +424,9 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
                             Line items
                           </div>
                           {editItems.map((item, i) => (
-                            <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6 }}>
-                              <input placeholder="Item name" value={item.name} onChange={(e) => updateEditItem(i, "name", e.target.value)} style={{ padding: 8, flex: 1, minWidth: 160 }} />
-                              <input placeholder="Qty" type="number" min={1} value={item.quantity} onChange={(e) => updateEditItem(i, "quantity", e.target.value)} style={{ padding: 8, width: 70 }} />
+                            <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+                              <input placeholder="Item name" value={item.name} onChange={(e) => updateEditItem(i, "name", e.target.value)} style={{ padding: 8, flex: "1 1 140px", minWidth: 0 }} />
+                              <input placeholder="Qty" type="number" min={1} value={item.quantity} onChange={(e) => updateEditItem(i, "quantity", e.target.value)} style={{ padding: 8, width: 70, flex: "0 0 70px" }} />
                               <input placeholder="Unit price" type="number" value={item.unitPrice} onChange={(e) => updateEditItem(i, "unitPrice", e.target.value)} style={{ padding: 8, width: 100 }} />
                               {editItems.length > 1 && (
                                 <button onClick={() => setEditItems((prev) => prev.filter((_, idx) => idx !== i))} style={{ fontSize: 11, padding: "4px 8px" }}>✕</button>

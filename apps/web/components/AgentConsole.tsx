@@ -207,7 +207,7 @@ export function AgentConsole({
       username={username}
       onLogout={onLogout}
     >
-      <div style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 16, flexWrap: "wrap" }}>
         <button
           onClick={togglePresence}
           style={{

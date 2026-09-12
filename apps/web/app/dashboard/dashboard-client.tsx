@@ -497,9 +497,9 @@ function ClientsPanel() {
         of them at once.
       </p>
 
-      <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <input
-          style={{ ...inputStyle, flex: 1 }}
+          style={{ ...inputStyle, flex: "1 1 200px", minWidth: 0 }}
           placeholder="Company name"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -507,7 +507,7 @@ function ClientsPanel() {
             if (e.key === "Enter") addClient();
           }}
         />
-        <select value={type} onChange={(e) => setType(e.target.value)} style={{ ...inputStyle, width: 130 }}>
+        <select value={type} onChange={(e) => setType(e.target.value)} style={{ ...inputStyle, width: "auto", flex: "0 0 auto" }}>
           <option value="regular">Regular</option>
           <option value="repair">Repair</option>
         </select>

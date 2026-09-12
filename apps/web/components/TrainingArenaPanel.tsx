@@ -47,6 +47,15 @@ type Mode = "live" | "dump";
 export function TrainingArenaPanel({ businessId }: { businessId: string }) {
   const [mode, setMode] = useState<Mode>("live");
 
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 860px)");
+    setIsMobile(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null);
   const [viewingSessionId, setViewingSessionId] = useState<string | null>(null);
   const [viewingMessages, setViewingMessages] = useState<Message[] | null>(null);
@@ -149,8 +158,8 @@ export function TrainingArenaPanel({ businessId }: { businessId: string }) {
         Chat with the AI (or paste a completed chat) to create a session — review and curate it in Chat Learning.
       </p>
 
-      <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
-        <div style={{ width: 220, flexShrink: 0, border: "1px solid var(--border)", borderRadius: 8, maxHeight: 480, overflowY: "auto" }}>
+      <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 12 : 20, alignItems: "flex-start" }}>
+        <div style={{ width: isMobile ? "100%" : 220, flexShrink: 0, border: "1px solid var(--border)", borderRadius: 8, maxHeight: isMobile ? 250 : 480, overflowY: "auto" }}>
           <div style={{ padding: 10, borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <strong style={{ fontSize: 13 }}>Sessions</strong>
             <button

@@ -609,7 +609,8 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
 
   return (
     <div style={{ display: "flex", flex: 1, minHeight: 0, background: "var(--bg)", overflow: "hidden" }}>
-      {/* ─── Left Sidebar ─── */}
+      {/* ─── Left Sidebar (hidden on mobile) ─── */}
+      {!isMobile && (
       <div style={{ width: sidebarCollapsed ? 56 : 220, flexShrink: 0, background: "var(--bg-elevated)", borderRight: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", transition: "width 0.2s ease" }}>
         <div style={{ padding: sidebarCollapsed ? "12px 0" : "12px 16px", borderBottom: "1px solid var(--border-subtle)", display: "flex", alignItems: "center", justifyContent: sidebarCollapsed ? "center" : "space-between" }}>
           {!sidebarCollapsed && (
@@ -733,9 +734,10 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
           )}
         </nav>
       </div>
+      )}
 
       {/* ─── Center: Conversation List ─── */}
-      <div style={{ width: 340, flexShrink: 0, borderRight: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
+      <div style={{ width: isMobile ? "100%" : 340, flexShrink: 0, borderRight: isMobile ? "none" : "1px solid var(--border-subtle)", display: (isMobile && selectedId) ? "none" : "flex", flexDirection: "column", background: "var(--bg)" }}>
         {/* Search bar */}
         <div style={{ padding: "12px 12px 8px", borderBottom: "1px solid var(--border-subtle)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "7px 10px" }}>
@@ -875,7 +877,7 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
       </div>
 
       {/* ─── Right: Chat + Detail ─── */}
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "var(--bg)" }}>
+      <div style={{ flex: 1, minWidth: 0, display: (isMobile && !selectedId) ? "none" : "flex", flexDirection: "column", background: "var(--bg)" }}>
         {!selected ? (
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ textAlign: "center" }}>
@@ -890,7 +892,12 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
           <>
             {/* Chat Header */}
             <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-elevated)" }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                {isMobile && (
+                  <button onClick={() => setSelectedId(null)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "var(--text-muted)", display: "flex", alignItems: "center", flexShrink: 0 }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m15 18-6-6 6-6" /></svg>
+                  </button>
+                )}
                 <div style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--accent)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 12 }}>
                   {initials(displayName(selected))}
                 </div>
@@ -958,7 +965,8 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                 </div>
               </div>
 
-              {/* Detail Panel (right side) */}
+              {/* Detail Panel (right side) - hidden on mobile */}
+              {!isMobile && (
               <div style={{ width: 260, flexShrink: 0, borderLeft: "1px solid var(--border-subtle)", overflowY: "auto", background: "var(--bg-elevated)", padding: "12px" }}>
                 {/* AI Controls */}
                 <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
@@ -1116,6 +1124,7 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                   </div>
                 )}
               </div>
+              )}
             </div>
           </>
         )}
