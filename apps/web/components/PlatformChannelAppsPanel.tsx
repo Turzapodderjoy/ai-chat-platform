@@ -86,7 +86,7 @@ export function PlatformChannelAppsPanel() {
               <tr>
                 <th style={cellStyle}>Channel</th>
                 <th style={cellStyle}>App ID</th>
-                <th style={cellStyle}>App Secret</th>
+                <th style={{ ...cellStyle, whiteSpace: "nowrap" }}>App Secret</th>
                 <th style={cellStyle}>Webhook verify token</th>
               </tr>
             </thead>

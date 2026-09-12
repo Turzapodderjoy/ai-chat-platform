@@ -425,7 +425,7 @@ export function KnowledgeHubPanel({ businessId, active = true }: { businessId?: 
           <thead>
             <tr>
               <th style={cellStyle}>URL</th>
-              <th style={cellStyle}>Progress</th>
+              <th style={{ ...cellStyle, whiteSpace: "nowrap" }}>Progress</th>
               <th style={cellStyle}>Last crawled</th>
               <th style={cellStyle}>Pages / chunks</th>
               <th style={cellStyle}></th>

@@ -145,6 +145,16 @@ export class AdminController {
     });
   }
 
+  /** Returns a map from custom provider cuid → human label, so
+   *  getProviderStatus() callers can display a friendly name instead
+   *  of the raw database ID. */
+  async customProviderLabelMap(): Promise<Map<string, string>> {
+    const rows = await prisma.customProvider.findMany({
+      select: { id: true, label: true },
+    });
+    return new Map(rows.map((r) => [r.id, r.label]));
+  }
+
   /** Clears a provider's key both live (so it stops being usable
    * immediately, not just after a restart) and in Postgres. For a
    * catalog provider this leaves it registered-but-keyless — activating

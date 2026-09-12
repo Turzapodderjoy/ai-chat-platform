@@ -20,6 +20,7 @@ interface AiConfig {
 
 interface ProviderStatus {
   name: string;
+  label?: string | null;
   healthy: boolean;
   hasUsableKey: boolean;
   enabled: boolean;
@@ -231,9 +232,13 @@ export function AiParametersPanel({ businessId }: AiParametersPanelProps) {
                       fontSize: 12,
                       background: p.hasUsableKey && p.healthy ? "var(--success-subtle)" : "var(--surface-hover)",
                       color: p.hasUsableKey && p.healthy ? "var(--success)" : "var(--text-muted)",
+                      maxWidth: 120,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
                     }}>
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: p.hasUsableKey && p.healthy ? "var(--success)" : "var(--text-faint)" }} />
-                      {p.name}
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: p.hasUsableKey && p.healthy ? "var(--success)" : "var(--text-faint)", flexShrink: 0 }} />
+                      {p.label || p.name}
                     </span>
                   ))}
                 </div>
