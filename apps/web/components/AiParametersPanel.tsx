@@ -175,7 +175,7 @@ export function AiParametersPanel({ businessId }: AiParametersPanelProps) {
       )}
 
       {current && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: 16 }}>
           {/* Left Column - Presets */}
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* Reply Length */}
@@ -280,7 +280,7 @@ export function AiParametersPanel({ businessId }: AiParametersPanelProps) {
               </div>
               
               {advanced && (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))", gap: 12 }}>
                   <div>
                     <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Max Tokens</label>
                     <input

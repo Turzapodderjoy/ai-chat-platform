@@ -110,7 +110,7 @@ export default function OffersPanel({ businessId }: Props) {
 
       {showForm && (
         <div style={cardStyle}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 12 }}>
             <input
               placeholder="Offer title (e.g. 20% Off Screen Repair)"
               value={form.title}

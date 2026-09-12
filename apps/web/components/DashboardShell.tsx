@@ -129,7 +129,7 @@ export function DashboardShell<T extends string>({
   const sidebarOpen = isMobile ? mobileOpen : true;
 
   return (
-    <div className="app-shell" data-theme={theme} style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+    <div className="app-shell" data-theme={theme} style={{ display: "flex", height: "100vh", overflow: "hidden", overflowX: "hidden" }}>
       {/* Mobile overlay */}
       {isMobile && mobileOpen && (
         <div
@@ -141,8 +141,8 @@ export function DashboardShell<T extends string>({
       {/* Sidebar */}
       <aside
         style={{
-          width: isMobile ? 260 : collapsed ? 72 : 260,
-          flexShrink: isMobile ? undefined : 0,
+          width: isMobile ? (sidebarOpen ? 260 : 0) : collapsed ? 72 : 260,
+          flexShrink: isMobile ? 0 : 0,
           background: "var(--bg-elevated)",
           borderRight: isMobile ? "none" : "1px solid var(--border-subtle)",
           display: "flex",
