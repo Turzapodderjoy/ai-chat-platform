@@ -77,11 +77,22 @@ export class CustomOpenAICompatibleProvider implements AIProvider {
     }
 
     const data = (await res.json()) as ChatCompletionsResponse;
+    const message = data.choices?.[0]?.message?.content ?? "";
+
+    // A 200 with empty content happens (confirmed live, nvidia/nemotron
+    // via OpenRouter's free tier): the model apparently returned nothing
+    // usable that particular call. Treating this as success would hand
+    // the customer a blank reply instead of AIManager rotating to the
+    // next provider -- surfacing it as a failure is what actually gets
+    // them a real answer.
+    if (!message) {
+      throw new Error(`${this.name} returned an empty response`);
+    }
 
     return {
       success: true,
       provider: this.displayName,
-      message: data.choices?.[0]?.message?.content ?? "",
+      message,
       tokens: data.usage?.total_tokens ?? 0,
     };
   }

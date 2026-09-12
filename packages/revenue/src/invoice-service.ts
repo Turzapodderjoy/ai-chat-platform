@@ -30,6 +30,7 @@ export interface Invoice {
   discount: number;
   tax: number;
   amountPaid: number;
+  totalOverride: number | null;
   issueDate: string;
   dueDate: string | null;
   items: InvoiceItem[];
@@ -70,6 +71,7 @@ type InvoiceRow = {
   discount: number;
   tax: number;
   amountPaid: number;
+  totalOverride: number | null;
   issueDate: Date;
   dueDate: Date | null;
   items: { id: string; name: string; quantity: number; unitPrice: number }[];
@@ -79,7 +81,8 @@ type InvoiceRow = {
 };
 
 function toInvoice(row: InvoiceRow): Invoice {
-  const { subtotal, total } = calcTotals(row.items, row.discount, row.tax);
+  const { subtotal, total: computedTotal } = calcTotals(row.items, row.discount, row.tax);
+  const total = row.totalOverride ?? computedTotal;
   return {
     id: row.id,
     businessId: row.businessId,
@@ -91,6 +94,7 @@ function toInvoice(row: InvoiceRow): Invoice {
     discount: row.discount,
     tax: row.tax,
     amountPaid: row.amountPaid,
+    totalOverride: row.totalOverride,
     issueDate: row.issueDate.toISOString(),
     dueDate: row.dueDate?.toISOString() ?? null,
     items: row.items,

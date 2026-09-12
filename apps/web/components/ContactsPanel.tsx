@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 
 import { cardStyle, cellStyle, subtleTextStyle, shortId, badgeStyle, type BadgeTone } from "./dashboard-styles";
+import { useCurrencySymbol } from "../lib/currency";
 
 interface Contact {
   id: string;
@@ -34,6 +35,7 @@ const INVOICE_TONE: Record<string, BadgeTone> = { draft: "neutral", issued: "inf
  * row to expand their full history — the actual "connected record"
  * this is for, not just a flat list. */
 export function ContactsPanel({ businessId, active = true }: { businessId?: string; active?: boolean }) {
+  const currency = useCurrencySymbol(businessId ?? "");
   const [contacts, setContacts] = useState<Contact[] | null>(null);
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -191,7 +193,7 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                     <td style={{ ...cellStyle, fontFamily: "monospace", fontSize: 12 }}>
                       {expandedId === c.id && record ? (
                         <span style={{ color: computeCLV(record) > 0 ? "var(--success)" : "var(--text-faint)" }}>
-                          ${computeCLV(record).toLocaleString()}
+                          {currency}{computeCLV(record).toLocaleString()}
                         </span>
                       ) : (
                         <span style={{ color: "var(--text-faint)" }}>—</span>
@@ -209,7 +211,7 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                         {record && (
                           <div style={{ marginBottom: 14, fontSize: 13 }}>
                             <span style={{ fontWeight: 650 }}>Lifetime value: </span>
-                            <span style={{ fontWeight: 700, color: "var(--success, var(--text))" }}>${record.lifetimeValue.toLocaleString()}</span>
+                            <span style={{ fontWeight: 700, color: "var(--success, var(--text))" }}>{currency}{record.lifetimeValue.toLocaleString()}</span>
                             <span style={{ ...subtleTextStyle, marginLeft: 8 }}>(real amount paid, across every invoice)</span>
                           </div>
                         )}
@@ -220,7 +222,7 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                                 <div>
                                   <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Customer Lifetime Value</span>
-                                  <div style={{ fontSize: 18, fontWeight: 700, color: "var(--success)" }}>${computeCLV(record).toLocaleString()}</div>
+                                  <div style={{ fontSize: 18, fontWeight: 700, color: "var(--success)" }}>{currency}{computeCLV(record).toLocaleString()}</div>
                                 </div>
                                 <div>
                                   <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Total Orders</span>
@@ -233,7 +235,7 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                                 <div>
                                   <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Outstanding</span>
                                   <div style={{ fontSize: 18, fontWeight: 700, color: record.invoices.reduce((s, i) => s + i.balanceDue, 0) > 0 ? "var(--danger)" : "var(--text)" }}>
-                                    ${record.invoices.reduce((s, i) => s + i.balanceDue, 0).toLocaleString()}
+                                    {currency}{record.invoices.reduce((s, i) => s + i.balanceDue, 0).toLocaleString()}
                                   </div>
                                 </div>
                               </div>

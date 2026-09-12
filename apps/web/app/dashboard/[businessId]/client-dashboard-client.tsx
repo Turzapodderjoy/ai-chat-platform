@@ -3,6 +3,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 
+import { cardStyle, subtleTextStyle } from "../../../components/dashboard-styles";
+
 import { KnowledgeHubPanel } from "../../../components/KnowledgeHubPanel";
 import { AllChatsPanel } from "../../../components/AllChatsPanel";
 import { StoragePanel } from "../../../components/StoragePanel";
@@ -53,7 +55,6 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
     items: [
       { id: "orders", label: "Orders" },
       { id: "delivery", label: "Delivery" },
-      { id: "repairs", label: "Repairs" },
       { id: "offers", label: "Offers" },
       { id: "staff", label: "Staff" },
       { id: "products", label: "Product Catalog" },
@@ -111,7 +112,7 @@ const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
   {
     label: "Operations",
     items: [
-      { id: "orders", label: "Appointments" },
+      { id: "orders", label: "Orders" },
       { id: "offers", label: "Offers" },
       { id: "staff", label: "Staff" },
       { id: "inventory", label: "Inventory" },
@@ -407,15 +408,25 @@ export default function ClientDashboardClient() {
         ["invoices", <InvoicesPanel key="invoices" businessId={businessId} active={tab === "invoices"} />],
         [
           "reports",
-          <ReportsPanel
-            key="reports"
-            businessId={businessId}
-            active={tab === "reports"}
-            allowedPanels={allowedPanels}
-            hiddenWidgets={hiddenWidgets}
-            editable={!actsAsClient}
-            onToggleWidget={toggleWidget}
-          />,
+          clientType === "repair" ? (
+            <ReportsPanel
+              key="reports"
+              businessId={businessId}
+              active={tab === "reports"}
+              allowedPanels={allowedPanels}
+              hiddenWidgets={hiddenWidgets}
+              editable={!actsAsClient}
+              onToggleWidget={toggleWidget}
+            />
+          ) : (
+            // Regular (non-repair) clients get their own report shape --
+            // not built yet, so this is deliberately blank rather than
+            // showing the repair-appointment-based numbers ReportsPanel
+            // computes, which don't apply to a product-sale business.
+            <div key="reports" style={cardStyle}>
+              <p style={subtleTextStyle}>Reports for this business type are coming soon.</p>
+            </div>
+          ),
         ],
         ["allchats", <AllChatsPanel key="allchats" businessId={businessId} active={tab === "allchats"} />],
         ["storage", <StoragePanel key="storage" businessId={businessId} />],

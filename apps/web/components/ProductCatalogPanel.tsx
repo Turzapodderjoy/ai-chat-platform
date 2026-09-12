@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { cardStyle, subtleTextStyle, badgeStyle } from "./dashboard-styles";
+import { useCurrencySymbol } from "../lib/currency";
 
 interface Product {
   id: string;
@@ -25,6 +26,7 @@ const PAGE_SIZE = 25;
  * For manually adding/editing/importing inventory directly, see
  * InventoryPanel — a separate tab, same underlying Product table. */
 export function ProductCatalogPanel({ businessId }: { businessId: string }) {
+  const currency = useCurrencySymbol(businessId);
   const [products, setProducts] = useState<Product[] | null>(null);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
@@ -146,7 +148,7 @@ export function ProductCatalogPanel({ businessId }: { businessId: string }) {
 
               <strong style={{ fontSize: 13, lineHeight: 1.3 }}>{p.name}</strong>
 
-              {p.price && <div style={{ fontSize: 14, fontWeight: 600 }}>${p.price}</div>}
+              {p.price && <div style={{ fontSize: 14, fontWeight: 600 }}>{currency} {p.price}</div>}
 
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {p.stock && (

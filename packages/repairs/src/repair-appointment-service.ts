@@ -31,6 +31,7 @@ export interface RepairAppointment extends RepairAppointmentInput {
   actualCost?: number;
   warrantyExpiry?: Date;
   serialNumber?: string;
+  totalOverride?: number;
   contactId?: string;
   items: RepairOrderItem[];
   createdAt: string;
@@ -120,6 +121,7 @@ function toAppointment(row: {
   actualCost: number | null;
   warrantyExpiry: Date | null;
   serialNumber: string | null;
+  totalOverride: number | null;
   contactId: string | null;
   items?: Parameters<typeof toItem>[0][];
   createdAt: Date;
@@ -151,6 +153,7 @@ function toAppointment(row: {
     actualCost: row.actualCost ?? undefined,
     warrantyExpiry: row.warrantyExpiry ?? undefined,
     serialNumber: row.serialNumber ?? undefined,
+    totalOverride: row.totalOverride ?? undefined,
     contactId: row.contactId ?? undefined,
     items: (row.items ?? []).map(toItem),
     createdAt: row.createdAt.toISOString(),
@@ -306,6 +309,14 @@ export class RepairAppointmentService {
 
   async setSerialNumber(id: string, serialNumber: string): Promise<RepairAppointment> {
     const row = await prisma.repairAppointment.update({ where: { id }, data: { serialNumber }, include: { items: true } });
+    return toAppointment(row);
+  }
+
+  /** Mirrors the linked Invoice's "Paid" override -- so the order's own
+   * total (see OrderManagementPanel's orderTotal()) matches what was
+   * actually recorded as paid, not the stale itemized sum. */
+  async setTotalOverride(id: string, totalOverride: number): Promise<RepairAppointment> {
+    const row = await prisma.repairAppointment.update({ where: { id }, data: { totalOverride }, include: { items: true } });
     return toAppointment(row);
   }
 

@@ -382,6 +382,10 @@ export function DashboardShell<T extends string>({
                     onChange={(e) => { setSearch(e.target.value); setSearchOpen(true); }}
                     onFocus={() => setSearchOpen(true)}
                     placeholder="Search..."
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
                     style={{
                       width: 200,
                       padding: "8px 12px 8px 36px",

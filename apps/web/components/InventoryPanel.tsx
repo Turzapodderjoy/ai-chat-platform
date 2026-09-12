@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { cardStyle, cellStyle, subtleTextStyle, badgeStyle, primaryButtonStyle } from "./dashboard-styles";
+import { useCurrencySymbol } from "../lib/currency";
 
 interface Product {
   id: string;
@@ -21,7 +22,7 @@ interface Product {
 }
 
 const PAGE_SIZE = 25;
-const EMPTY_DRAFT = { name: "", price: "", costPrice: "", tier: "regular", stock: "", sku: "", description: "", category: "", minStock: "0" };
+const EMPTY_DRAFT = { name: "", price: "", costPrice: "", tier: "regular", stock: "", sku: "", description: "", category: "", minStock: "" };
 
 /** A client's own inventory record -- manual add/edit/delete, or bulk
  * CSV/XLSX import, over the SAME Product table the (read-only) Product
@@ -33,6 +34,7 @@ const EMPTY_DRAFT = { name: "", price: "", costPrice: "", tier: "regular", stock
  * own entries, and vice versa. Manually managed rows are NOT taught to
  * the AI chat (that stays crawl/upload-only via Knowledge Hub). */
 export function InventoryPanel({ businessId }: { businessId: string }) {
+  const currency = useCurrencySymbol(businessId);
   const [products, setProducts] = useState<Product[] | null>(null);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
@@ -88,7 +90,7 @@ export function InventoryPanel({ businessId }: { businessId: string }) {
 
   function startEdit(p: Product) {
     setEditId(p.id);
-    setEditDraft({ name: p.name, price: p.price ?? "", costPrice: p.costPrice ?? "", tier: p.tier ?? "regular", stock: p.stock ?? "", sku: p.sku ?? "", description: p.description ?? "", category: p.category ?? "", minStock: String(p.minStock ?? 0) });
+    setEditDraft({ name: p.name, price: p.price ?? "", costPrice: p.costPrice ?? "", tier: p.tier ?? "regular", stock: p.stock ?? "", sku: p.sku ?? "", description: p.description ?? "", category: p.category ?? "", minStock: p.minStock ? String(p.minStock) : "" });
   }
 
   async function saveEdit(id: string) {
@@ -276,8 +278,8 @@ export function InventoryPanel({ businessId }: { businessId: string }) {
                     <td style={{ ...cellStyle, fontSize: 11, color: "var(--text-faint)" }}>{p.sku ?? "—"}</td>
                     <td style={cellStyle}>{p.category ?? "—"}</td>
                     <td style={cellStyle}>{p.tier === "premium" && <span style={badgeStyle("info")}>Premium</span>}</td>
-                    <td style={cellStyle}>{p.price ? `$ ${p.price}` : "—"}</td>
-                    <td style={{ ...cellStyle, color: "var(--text-faint)" }}>{p.costPrice ? `$ ${p.costPrice}` : "—"}</td>
+                    <td style={cellStyle}>{p.price ? `${currency} ${p.price}` : "—"}</td>
+                    <td style={{ ...cellStyle, color: "var(--text-faint)" }}>{p.costPrice ? `${currency} ${p.costPrice}` : "—"}</td>
                     <td style={cellStyle}>
                       {p.stock ? <span style={badgeStyle(/out/i.test(p.stock) ? "error" : "ok")}>{p.stock}</span> : "—"}
                       {p.stock && p.minStock > 0 && !/out/i.test(p.stock) && (() => {

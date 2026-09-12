@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { subtleTextStyle, primaryButtonStyle, badgeStyle } from "./dashboard-styles";
+import { useCurrencySymbol } from "../lib/currency";
 
 interface OrderItem {
   id: string;
@@ -28,6 +29,7 @@ export interface RepairOrder {
   appointmentDate: string;
   status: string;
   serialNumber?: string;
+  totalOverride?: number;
   contactId?: string;
   items: OrderItem[];
 }
@@ -40,7 +42,7 @@ export interface Product {
 }
 
 export function orderTotal(order: RepairOrder): number {
-  return order.items.reduce((sum, item) => sum + item.finalPrice, 0);
+  return order.totalOverride ?? order.items.reduce((sum, item) => sum + item.finalPrice, 0);
 }
 
 /** Shared parts/services billing sub-panel for one service/repair order --
@@ -50,6 +52,7 @@ export function orderTotal(order: RepairOrder): number {
  * which also adjusts real Inventory stock for part line-items (see
  * RepairAppointmentService.addItem/removeItem). */
 export function OrderItemsEditor({ order, products, onChanged }: { order: RepairOrder; products: Product[]; onChanged: () => void }) {
+  const currency = useCurrencySymbol(order.businessId);
   const [kind, setKind] = useState<"part" | "service">("part");
   const [productId, setProductId] = useState("");
   const [name, setName] = useState("");
@@ -134,7 +137,7 @@ export function OrderItemsEditor({ order, products, onChanged }: { order: Repair
           <span style={badgeStyle(item.kind === "part" ? "info" : "neutral")}>{item.kind}</span>
           <span style={{ flex: 1 }}>{item.name} × {item.quantity}</span>
           <span style={{ color: "var(--text-faint)", textDecoration: item.overridePrice != null ? "line-through" : "none" }}>
-            Initial: ${item.defaultPrice * item.quantity}
+            Initial: {currency}{item.defaultPrice * item.quantity}
           </span>
           <input
             placeholder="Override total"
@@ -144,7 +147,7 @@ export function OrderItemsEditor({ order, products, onChanged }: { order: Repair
             style={{ width: 100, padding: 4, fontSize: 12 }}
           />
           {item.overridePrice != null && <span style={badgeStyle("warn")}>Overridden</span>}
-          <strong style={{ width: 70, textAlign: "right" }}>${item.finalPrice}</strong>
+          <strong style={{ width: 70, textAlign: "right" }}>{currency}{item.finalPrice}</strong>
           <button onClick={() => removeItem(item.id)} style={{ fontSize: 11, padding: "3px 6px" }}>✕</button>
         </div>
       ))}
@@ -159,7 +162,7 @@ export function OrderItemsEditor({ order, products, onChanged }: { order: Repair
             <select value={productId} onChange={(e) => pickProduct(e.target.value)} style={{ padding: 6, minWidth: 160 }}>
               <option value="">Custom part (not in Inventory)</option>
               {products.map((p) => (
-                <option key={p.id} value={p.id}>{p.name} {p.price ? `($${p.price})` : ""}</option>
+                <option key={p.id} value={p.id}>{p.name} {p.price ? `(${currency}${p.price})` : ""}</option>
               ))}
             </select>
             <input placeholder="Part name" value={name} onChange={(e) => setName(e.target.value)} style={{ padding: 6, minWidth: 140 }} />
@@ -175,7 +178,7 @@ export function OrderItemsEditor({ order, products, onChanged }: { order: Repair
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
-        <strong>Total: ${orderTotal(order)}</strong>
+        <strong>Total: {currency}{orderTotal(order)}</strong>
         <button onClick={generateInvoice} disabled={order.items.length === 0} style={primaryButtonStyle}>
           Generate Invoice
         </button>

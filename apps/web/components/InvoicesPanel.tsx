@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 
 import { cardStyle, cellStyle, subtleTextStyle, shortId, badgeStyle, primaryButtonStyle, type BadgeTone } from "./dashboard-styles";
 import { StatCard, StatCardRow } from "./StatCard";
+import { currencySymbol, useCurrencySymbol } from "../lib/currency";
 
 interface Invoice {
   id: string;
@@ -49,7 +50,6 @@ interface DraftItem {
   unitPrice: string;
 }
 
-const STATUSES = ["draft", "issued", "partially_paid", "paid", "overdue", "void"] as const;
 const STATUS_TONE: Record<string, BadgeTone> = { draft: "neutral", issued: "info", partially_paid: "warn", paid: "ok", overdue: "error", void: "neutral" };
 const EMPTY_ITEM: DraftItem = { name: "", quantity: "1", unitPrice: "" };
 
@@ -61,6 +61,7 @@ const EMPTY_ITEM: DraftItem = { name: "", quantity: "1", unitPrice: "" };
  * status server-side in PaymentService.reconcileInvoice, so this list
  * is always the source of truth for what's actually still owed. */
 export function InvoicesPanel({ businessId, active = true }: { businessId?: string; active?: boolean }) {
+  const currency = useCurrencySymbol(businessId ?? "");
   const [invoices, setInvoices] = useState<Invoice[] | null>(null);
   const [contacts, setContacts] = useState<Contact[] | null>(null);
   const [repairs, setRepairs] = useState<RepairSummary[]>([]);
@@ -76,6 +77,7 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
   const [draftTax, setDraftTax] = useState("");
   const [draftDueDate, setDraftDueDate] = useState("");
   const [saving, setSaving] = useState(false);
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
 
   // Edit invoice state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -110,6 +112,14 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
 
   const contactById = useMemo(() => new Map((contacts ?? []).map((c) => [c.id, c])), [contacts]);
   const repairById = useMemo(() => new Map(repairs.map((r) => [r.id, r])), [repairs]);
+
+  const sortedInvoices = useMemo(() => {
+    if (!invoices) return null;
+    return [...invoices].sort((a, b) => {
+      const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      return sortOrder === "newest" ? -diff : diff;
+    });
+  }, [invoices, sortOrder]);
 
   const stats = useMemo(() => {
     if (!invoices) return null;
@@ -231,18 +241,16 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
   }
 
   async function recordPayment(inv: Invoice) {
-    const amountStr = window.prompt(`Amount received for ${inv.invoiceNumber} (balance due: ${inv.currency}${inv.balanceDue.toLocaleString()})`, String(inv.balanceDue));
+    const amountStr = window.prompt(`Amount collected for ${inv.invoiceNumber} — this becomes the invoice's total and marks it fully paid`, String(inv.total));
     if (!amountStr) return;
     const amount = Number(amountStr);
     if (!amount || amount <= 0) return;
-    const method = window.prompt("Payment method (e.g. bKash, Nagad, bank transfer, cash)", "bank transfer");
-    if (!method || !method.trim()) return;
     setBusyId(inv.id);
     try {
       const res = await fetch("/api/admin/revenue/payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId: inv.businessId, invoiceId: inv.id, amount, method: method.trim() }),
+        body: JSON.stringify({ businessId: inv.businessId, invoiceId: inv.id, amount }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
@@ -327,13 +335,22 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
       {stats && (
         <StatCardRow>
           <StatCard label="Invoices" value={String(stats.count)} tone="info" />
-          <StatCard label="Collected" value={`$${stats.collected.toLocaleString()}`} tone="success" />
-          <StatCard label="Outstanding" value={`$${stats.outstanding.toLocaleString()}`} tone={stats.outstanding > 0 ? "warning" : "success"} />
+          <StatCard label="Collected" value={`${currency}${stats.collected.toLocaleString()}`} tone="success" />
+          <StatCard label="Outstanding" value={`${currency}${stats.outstanding.toLocaleString()}`} tone={stats.outstanding > 0 ? "warning" : "success"} />
         </StatCardRow>
       )}
 
       {!invoices && <p style={subtleTextStyle}>Loading…</p>}
       {invoices && invoices.length === 0 && <p style={subtleTextStyle}>No invoices yet — generate one from a repair order, or add one by hand above.</p>}
+
+      {invoices && invoices.length > 0 && (
+        <div style={{ display: "flex", justifyContent: "flex-end", margin: "8px 0" }}>
+          <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")} style={{ padding: 8, fontSize: 12 }}>
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+          </select>
+        </div>
+      )}
 
       {invoices && invoices.length > 0 && (
         <div className="table-scroll">

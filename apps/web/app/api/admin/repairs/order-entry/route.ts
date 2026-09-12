@@ -29,6 +29,19 @@ export async function POST(req: NextRequest) {
       deviceType: body.deviceType,
       deviceModel: typeof body.deviceModel === "string" ? body.deviceModel : undefined,
       issueDescription: body.issueDescription,
+      items: Array.isArray(body.items)
+        ? body.items
+            .filter((i: unknown): i is { kind: string; name: string; quantity: number; defaultPrice: number } =>
+              !!i && typeof i === "object" && typeof (i as { name?: unknown }).name === "string" && (i as { name: string }).name.trim() !== ""
+            )
+            .map((i: { kind: string; name: string; quantity: number; defaultPrice: number; productId?: string }) => ({
+              kind: i.kind === "part" ? "part" as const : "service" as const,
+              name: i.name,
+              quantity: Number(i.quantity) || 1,
+              defaultPrice: Number(i.defaultPrice) || 0,
+              productId: typeof i.productId === "string" && i.productId ? i.productId : undefined,
+            }))
+        : undefined,
     });
     return NextResponse.json(appointment);
   } catch (err) {
