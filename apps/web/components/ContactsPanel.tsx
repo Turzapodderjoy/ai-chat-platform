@@ -43,10 +43,12 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
   const [companyDraft, setCompanyDraft] = useState<Record<string, { name: string; domain: string }>>({});
 
   function refresh() {
+    let mounted = true;
     const qs = businessId ? `?businessId=${encodeURIComponent(businessId)}` : "";
     fetch(`/api/admin/crm/contacts${qs}`)
       .then((r) => r.json())
-      .then((d) => setContacts(d.contacts));
+      .then((d) => { if (mounted) setContacts(d.contacts); });
+    return () => { mounted = false; };
   }
 
   useEffect(() => {
@@ -260,7 +262,7 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                               <div style={{ fontWeight: 650, marginBottom: 6 }}>Issue history ({record.repairs.length})</div>
                               {record.repairs.length === 0 && <span style={{ color: "var(--text-faint)" }}>None</span>}
                               {record.repairs.map((r) => (
-                                <div key={r.id} style={{ marginBottom: 6, padding: "6px 8px", background: "var(--bg)", borderRadius: "var(--radius-xs)", border: "1px solid var(--border)" }}>
+                                <div key={r.id} style={{ marginBottom: 6, padding: "6px 8px", background: "var(--bg)", borderRadius: "var(--radius-xs)", border: "1px solid var(--border)", opacity: r.status === "cancelled" ? 0.5 : 1, textDecoration: r.status === "cancelled" ? "line-through" : "none" }}>
                                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
                                     <span style={{ fontWeight: 600 }}>{r.deviceType}</span>
                                     {r.deviceModel && <span style={{ color: "var(--text-muted)" }}>{r.deviceModel}</span>}

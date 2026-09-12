@@ -196,7 +196,17 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
   }
 
   const [, forceNotifRerender] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
+
   useEffect(() => onNotificationsChanged(() => forceNotifRerender((n) => n + 1)), []);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 860px)");
+    setIsMobile(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   function refresh() {
     const qs = businessId ? `?businessId=${encodeURIComponent(businessId)}` : "";
@@ -627,7 +637,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
 
       {!viewMode.includes("kanban") && (
         <div style={{ display: "flex", gap: 20, marginBottom: 20, flexWrap: "wrap" }}>
-          <div style={{ width: 280, flexShrink: 0 }}>
+          <div style={{ width: isMobile ? "100%" : 280, flexShrink: isMobile ? 1 : 0, minWidth: isMobile ? 0 : 280 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <button onClick={() => setMonthOffset((m) => m - 1)}>‹</button>
               <strong style={{ fontSize: 13 }}>{calendarMonth.label}</strong>
@@ -667,7 +677,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
             )}
           </div>
 
-          <div style={{ flex: 1, minWidth: 280 }}>
+          <div style={{ flex: 1, minWidth: isMobile ? 0 : 280 }}>
             <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", maxHeight: 400, overflowY: "auto", padding: 6 }}>
               {!appointments && <p style={{ padding: 10, ...subtleTextStyle }}>Loading…</p>}
               {appointments && visibleAppointments.length === 0 && <p style={{ padding: 10, ...subtleTextStyle }}>No appointments match.</p>}
@@ -678,9 +688,9 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
       )}
 
       {viewMode === "kanban" && (
-        <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, marginBottom: 20, flex: 1 }}>
+        <div style={{ display: "flex", gap: 12, overflowX: isMobile ? "auto" : "auto", paddingBottom: 8, marginBottom: 20, flex: 1 }}>
           {KANBAN_STATUSES.map((s) => (
-            <div key={s} style={{ minWidth: 280, maxWidth: 320, flex: 1, display: "flex", flexDirection: "column" }}>
+            <div key={s} style={{ minWidth: isMobile ? 260 : 280, maxWidth: isMobile ? "none" : 320, flex: isMobile ? "0 0 260" : 1, display: "flex", flexDirection: "column" }}>
               {/* Column header */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, paddingBottom: 8, borderBottom: `2px solid ${KANBAN_COLORS[s]}` }}>
                 <span style={{ fontSize: 14 }}>{KANBAN_ICONS[s]}</span>
@@ -723,7 +733,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
       )}
 
       {selected && (
-        <div id="repair-detail-panel" style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: "60%", minWidth: 500, maxWidth: 800, zIndex: 100, background: "var(--bg)", borderLeft: "1px solid var(--border)", display: "flex", flexDirection: "column", boxShadow: "-4px 0 20px rgba(0,0,0,0.15)" }}>
+        <div id="repair-detail-panel" style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: isMobile ? "100%" : "60%", minWidth: isMobile ? 0 : 500, maxWidth: isMobile ? "none" : 800, zIndex: 100, background: "var(--bg)", borderLeft: isMobile ? "none" : "1px solid var(--border)", display: "flex", flexDirection: "column", boxShadow: "-4px 0 20px rgba(0,0,0,0.15)" }}>
           {/* Header bar */}
           <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, background: "var(--surface)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>

@@ -1,4 +1,4 @@
-import { InvoiceService, PaymentService, type CreateInvoiceInput, type RecordPaymentInput } from "@ai-chat-platform/revenue";
+import { InvoiceService, PaymentService, type CreateInvoiceInput, type UpdateInvoiceInput, type RecordPaymentInput } from "@ai-chat-platform/revenue";
 
 export class RevenueController {
   constructor(
@@ -16,6 +16,10 @@ export class RevenueController {
 
   createInvoice(input: CreateInvoiceInput) {
     return this.invoices.create(input);
+  }
+
+  updateInvoice(id: string, input: UpdateInvoiceInput) {
+    return this.invoices.update(id, input);
   }
 
   updateInvoiceStatus(id: string, status: string) {

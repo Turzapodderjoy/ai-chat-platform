@@ -297,20 +297,11 @@ export class RepairAppointmentService {
     await prisma.repairAppointment.delete({ where: { id } });
   }
 
-  /** Per-business, per-day sequence ("20260901-001" style) -- same shape
-   * as InvoiceService.nextInvoiceNumber's existing sequential pattern.
-   * Counts today's appointments that already have a serial number so a
-   * gap from a deleted one never gets reused. */
+  /** Per-business global sequence ("001", "002", "003"...) -- simple
+   * sequential numbering across all time, not reset daily. */
   async nextSerialNumber(businessId: string): Promise<string> {
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const datePart = startOfDay.toISOString().slice(0, 10).replace(/-/g, "");
-
-    const countToday = await prisma.repairAppointment.count({
-      where: { businessId, serialNumber: { startsWith: datePart } },
-    });
-
-    return `${datePart}-${String(countToday + 1).padStart(3, "0")}`;
+    const count = await prisma.repairAppointment.count({ where: { businessId } });
+    return String(count + 1).padStart(3, "0");
   }
 
   async setSerialNumber(id: string, serialNumber: string): Promise<RepairAppointment> {

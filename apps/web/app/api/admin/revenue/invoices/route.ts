@@ -41,11 +41,31 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   const body = await req.json().catch(() => null);
-  if (!body || typeof body.id !== "string" || typeof body.status !== "string") {
-    return NextResponse.json({ error: "id and status are required" }, { status: 400 });
+  if (!body || typeof body.id !== "string") {
+    return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
   const app = await getApp();
-  const result = await app.container.router.revenue.updateInvoiceStatus(body.id, body.status);
+
+  // If only status is provided, use the existing updateInvoiceStatus
+  if (typeof body.status === "string" && Object.keys(body).length === 2) {
+    const result = await app.container.router.revenue.updateInvoiceStatus(body.id, body.status);
+    return NextResponse.json(result);
+  }
+
+  // Otherwise, full update (items, discount, tax, contactId, dueDate)
+  const result = await app.container.router.revenue.updateInvoice(body.id, {
+    contactId: body.contactId ?? undefined,
+    items: Array.isArray(body.items)
+      ? body.items.map((i: { name: string; quantity: number; unitPrice: number }) => ({
+          name: i.name,
+          quantity: Number(i.quantity) || 1,
+          unitPrice: Number(i.unitPrice) || 0,
+        }))
+      : undefined,
+    discount: typeof body.discount === "number" ? body.discount : undefined,
+    tax: typeof body.tax === "number" ? body.tax : undefined,
+    dueDate: body.dueDate || undefined,
+  });
   return NextResponse.json(result);
 }
 

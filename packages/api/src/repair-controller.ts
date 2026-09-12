@@ -14,6 +14,7 @@ export interface CreateOrderEntryInput {
   deviceType: string;
   deviceModel?: string;
   issueDescription: string;
+  isWalkIn?: boolean;
 }
 
 export interface BookRepairInput {
@@ -246,6 +247,7 @@ export class RepairController {
       deviceModel: input.deviceModel,
       issueDescription: input.issueDescription,
       appointmentDate: new Date(),
+      isWalkIn: input.isWalkIn,
     });
 
     const serialNumber = await this.repairs.nextSerialNumber(input.businessId);

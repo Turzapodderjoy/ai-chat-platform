@@ -42,7 +42,7 @@ export function SubscriptionPanel() {
     setForm({
       planName: client.subscriptionPlanName || "",
       fee: client.subscriptionFee?.toString() || "",
-      currency: client.subscriptionCurrency || "BDT",
+      currency: client.subscriptionCurrency || "USD",
       startDate: client.subscriptionStartDate ? client.subscriptionStartDate.split("T")[0] || "" : "",
       endDate: client.subscriptionEndDate ? client.subscriptionEndDate.split("T")[0] || "" : "",
       active: client.subscriptionActive,

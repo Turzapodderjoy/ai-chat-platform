@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 
-import { cardStyle, subtleTextStyle, shortId, badgeStyle, primaryButtonStyle, type BadgeTone } from "./dashboard-styles";
+import { cardStyle, cellStyle, subtleTextStyle, shortId, badgeStyle, primaryButtonStyle, type BadgeTone } from "./dashboard-styles";
 import { StatCard, StatCardRow } from "./StatCard";
 
 interface Invoice {
@@ -19,6 +19,14 @@ interface Invoice {
   balanceDue: number;
   dueDate: string | null;
   createdAt: string;
+  items: InvoiceItem[];
+}
+
+interface InvoiceItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
 }
 
 interface Contact {
@@ -69,19 +77,30 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
   const [draftDueDate, setDraftDueDate] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Edit invoice state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContactId, setEditContactId] = useState("");
+  const [editItems, setEditItems] = useState<DraftItem[]>([]);
+  const [editDiscount, setEditDiscount] = useState("");
+  const [editTax, setEditTax] = useState("");
+  const [editDueDate, setEditDueDate] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+
   function refresh() {
     const qs = businessId ? `?businessId=${encodeURIComponent(businessId)}` : "";
+    let mounted = true;
     fetch(`/api/admin/revenue/invoices${qs}`)
       .then((r) => r.json())
-      .then((d) => setInvoices(d.invoices));
+      .then((d) => { if (mounted) setInvoices(d.invoices); });
     fetch(`/api/admin/crm/contacts${qs}`)
       .then((r) => r.json())
-      .then((d) => setContacts(d.contacts));
+      .then((d) => { if (mounted) setContacts(d.contacts); });
     if (businessId) {
       fetch(`/api/admin/repairs?businessId=${encodeURIComponent(businessId)}`)
         .then((r) => r.json())
-        .then((d: { appointments: RepairSummary[] }) => setRepairs(d.appointments));
+        .then((d: { appointments: RepairSummary[] }) => { if (mounted) setRepairs(d.appointments); });
     }
+    return () => { mounted = false; };
   }
 
   useEffect(() => {
@@ -103,6 +122,10 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
     setDraftItems((prev) => prev.map((item, idx) => (idx === i ? { ...item, [field]: value } : item)));
   }
 
+  function updateEditItem(i: number, field: keyof DraftItem, value: string) {
+    setEditItems((prev) => prev.map((item, idx) => (idx === i ? { ...item, [field]: value } : item)));
+  }
+
   function resetDraft() {
     setDraftContactId("");
     setDraftNewName("");
@@ -115,15 +138,12 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
   }
 
   const validDraftItems = draftItems.filter((i) => i.name.trim() && Number(i.unitPrice) > 0);
+  const validEditItems = editItems.filter((i) => i.name.trim() && Number(i.unitPrice) > 0);
 
   async function createInvoice() {
     if (!businessId || validDraftItems.length === 0) return;
     setSaving(true);
     try {
-      // Typing a new customer's name always wins over the existing-
-      // customer dropdown -- billing here was never meant to be limited
-      // to people already in the Customer Database, so this creates
-      // (or matches, by phone/email) a real Contact on the fly.
       let contactId = draftContactId || undefined;
       if (draftNewName.trim()) {
         const res = await fetch("/api/admin/crm/contacts", {
@@ -155,6 +175,47 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
     }
   }
 
+  async function startEdit(inv: Invoice) {
+    // Fetch full invoice with items
+    const res = await fetch(`/api/admin/revenue/invoices?id=${encodeURIComponent(inv.id)}`);
+    const full = await res.json();
+    if (full.invoice) {
+      setEditingId(inv.id);
+      setEditContactId(full.invoice.contactId || "");
+      setEditItems(full.invoice.items.map((i: InvoiceItem) => ({ name: i.name, quantity: String(i.quantity), unitPrice: String(i.unitPrice) })));
+      setEditDiscount(String(full.invoice.discount ?? ""));
+      setEditTax(String(full.invoice.tax ?? ""));
+      setEditDueDate(full.invoice.dueDate ? full.invoice.dueDate.slice(0, 10) : "");
+    }
+  }
+
+  async function saveEdit(inv: Invoice) {
+    if (!businessId || validEditItems.length === 0) return;
+    setEditSaving(true);
+    try {
+      await fetch("/api/admin/revenue/invoices", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: inv.id,
+          contactId: editContactId || null,
+          items: validEditItems.map((i) => ({ name: i.name.trim(), quantity: Number(i.quantity) || 1, unitPrice: Number(i.unitPrice) || 0 })),
+          discount: editDiscount ? Number(editDiscount) : undefined,
+          tax: editTax ? Number(editTax) : undefined,
+          dueDate: editDueDate || null,
+        }),
+      });
+      setEditingId(null);
+      refresh();
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+  }
+
   async function setStatus(inv: Invoice, status: string) {
     setBusyId(inv.id);
     try {
@@ -178,11 +239,16 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
     if (!method || !method.trim()) return;
     setBusyId(inv.id);
     try {
-      await fetch("/api/admin/revenue/payments", {
+      const res = await fetch("/api/admin/revenue/payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ businessId: inv.businessId, invoiceId: inv.id, amount, method: method.trim() }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Unknown error" }));
+        alert(err.error ?? "Failed to record payment");
+        return;
+      }
       refresh();
     } finally {
       setBusyId(null);
@@ -192,7 +258,12 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
   async function deleteInvoice(inv: Invoice) {
     const confirmed = window.confirm(`Delete invoice ${inv.invoiceNumber}? This cannot be undone.`);
     if (!confirmed) return;
-    await fetch(`/api/admin/revenue/invoices?id=${encodeURIComponent(inv.id)}`, { method: "DELETE" });
+    const res = await fetch(`/api/admin/revenue/invoices?id=${encodeURIComponent(inv.id)}`, { method: "DELETE" });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Unknown error" }));
+      alert(err.error ?? "Failed to delete invoice");
+      return;
+    }
     setInvoices((prev) => prev?.filter((i) => i.id !== inv.id) ?? prev);
   }
 
@@ -281,41 +352,90 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
             </thead>
             <tbody>
               {invoices.map((inv) => (
-                <tr key={inv.id}>
-                  <td style={{ padding: "6px 8px", fontWeight: 600 }}>{inv.invoiceNumber}</td>
-                  <td style={{ padding: "6px 8px", fontSize: 12 }}>
-                    {inv.contactId && contactById.get(inv.contactId) ? (
-                      <>
-                        {contactById.get(inv.contactId)!.name}
-                        <div style={{ color: "var(--text-faint)" }}>
-                          {[contactById.get(inv.contactId)!.phone, contactById.get(inv.contactId)!.email].filter(Boolean).join(" · ")}
+                <Fragment key={inv.id}>
+                  <tr>
+                    <td style={{ padding: "6px 8px", fontWeight: 600 }}>{inv.invoiceNumber}</td>
+                    <td style={{ padding: "6px 8px", fontSize: 12 }}>
+                      {inv.contactId && contactById.get(inv.contactId) ? (
+                        <>
+                          {contactById.get(inv.contactId)!.name}
+                          <div style={{ color: "var(--text-faint)" }}>
+                            {[contactById.get(inv.contactId)!.phone, contactById.get(inv.contactId)!.email].filter(Boolean).join(" · ")}
+                          </div>
+                        </>
+                      ) : "—"}
+                    </td>
+                    <td style={{ padding: "6px 8px", fontSize: 12 }}>
+                      {inv.repairAppointmentId && repairById.get(inv.repairAppointmentId) ? (
+                        <>
+                          {repairById.get(inv.repairAppointmentId)!.deviceType}
+                          {repairById.get(inv.repairAppointmentId)!.deviceModel ? ` (${repairById.get(inv.repairAppointmentId)!.deviceModel})` : ""}
+                          <div style={{ color: "var(--text-faint)" }}>{repairById.get(inv.repairAppointmentId)!.issueDescription}</div>
+                        </>
+                      ) : "—"}
+                    </td>
+                    <td style={{ padding: "6px 8px" }}>{inv.currency}{inv.total.toLocaleString()}</td>
+                    <td style={{ padding: "6px 8px" }}>{inv.currency}{inv.amountPaid.toLocaleString()}</td>
+                    <td style={{ padding: "6px 8px", color: inv.balanceDue > 0 ? "var(--danger)" : "var(--success)" }}>{inv.currency}{inv.balanceDue.toLocaleString()}</td>
+                    <td style={{ padding: "6px 8px" }}>
+                      <select value={inv.status} onChange={(e) => setStatus(inv, e.target.value)} disabled={busyId === inv.id} style={{ padding: 4, fontSize: 11 }}>
+                        {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      <span style={{ marginLeft: 6, ...badgeStyle(STATUS_TONE[inv.status] ?? "neutral") }}>{inv.status}</span>
+                    </td>
+                    <td style={{ padding: "6px 8px", display: "flex", gap: 6 }}>
+                      <button onClick={() => recordPayment(inv)} disabled={busyId === inv.id || inv.balanceDue <= 0} style={{ fontSize: 11, padding: "4px 8px" }}>Record Payment</button>
+                      <button onClick={() => editingId === inv.id ? cancelEdit() : startEdit(inv)} style={{ fontSize: 11, padding: "4px 8px" }}>{editingId === inv.id ? "Cancel" : "Edit"}</button>
+                      <button onClick={() => deleteInvoice(inv)} style={{ fontSize: 11, padding: "4px 6px" }}>✕</button>
+                    </td>
+                  </tr>
+                  {editingId === inv.id && (
+                    <tr>
+                      <td colSpan={8} style={{ ...cellStyle, background: "var(--surface)", padding: 16 }}>
+                        <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 16, background: "var(--bg-elevated)" }}>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+                            <select value={editContactId} onChange={(e) => setEditContactId(e.target.value)} style={{ padding: 8, minWidth: 200 }}>
+                              <option value="">— No customer —</option>
+                              {(contacts ?? []).map((c) => (
+                                <option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ""}</option>
+                              ))}
+                            </select>
+                            <span style={{ color: "var(--text-faint)", fontSize: 12 }}>or type new name in Add Invoice form</span>
+                          </div>
+                          <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 6 }}>
+                            Line items
+                          </div>
+                          {editItems.map((item, i) => (
+                            <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                              <input placeholder="Item name" value={item.name} onChange={(e) => updateEditItem(i, "name", e.target.value)} style={{ padding: 8, flex: 1, minWidth: 160 }} />
+                              <input placeholder="Qty" type="number" min={1} value={item.quantity} onChange={(e) => updateEditItem(i, "quantity", e.target.value)} style={{ padding: 8, width: 70 }} />
+                              <input placeholder="Unit price" type="number" value={item.unitPrice} onChange={(e) => updateEditItem(i, "unitPrice", e.target.value)} style={{ padding: 8, width: 100 }} />
+                              {editItems.length > 1 && (
+                                <button onClick={() => setEditItems((prev) => prev.filter((_, idx) => idx !== i))} style={{ fontSize: 11, padding: "4px 8px" }}>✕</button>
+                              )}
+                            </div>
+                          ))}
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 8, marginBottom: 10 }}>
+                            <button onClick={() => setEditItems((prev) => [...prev, { ...EMPTY_ITEM }])} style={{ fontSize: 12, padding: "6px 10px" }}>
+                              + Add item
+                            </button>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginLeft: "auto" }}>
+                              <input placeholder="Discount" type="number" value={editDiscount} onChange={(e) => setEditDiscount(e.target.value)} style={{ padding: 8, width: 100 }} />
+                              <input placeholder="Tax" type="number" value={editTax} onChange={(e) => setEditTax(e.target.value)} style={{ padding: 8, width: 100 }} />
+                              <input placeholder="Due date" type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} style={{ padding: 8 }} />
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", paddingTop: 8, borderTop: "1px solid var(--border)" }}>
+                            <button onClick={cancelEdit} style={{ fontSize: 12, padding: "6px 12px" }}>Cancel</button>
+                            <button onClick={() => saveEdit(inv)} disabled={editSaving || validEditItems.length === 0} style={primaryButtonStyle}>
+                              {editSaving ? "Saving…" : "Save Changes"}
+                            </button>
+                          </div>
                         </div>
-                      </>
-                    ) : "—"}
-                  </td>
-                  <td style={{ padding: "6px 8px", fontSize: 12 }}>
-                    {inv.repairAppointmentId && repairById.get(inv.repairAppointmentId) ? (
-                      <>
-                        {repairById.get(inv.repairAppointmentId)!.deviceType}
-                        {repairById.get(inv.repairAppointmentId)!.deviceModel ? ` (${repairById.get(inv.repairAppointmentId)!.deviceModel})` : ""}
-                        <div style={{ color: "var(--text-faint)" }}>{repairById.get(inv.repairAppointmentId)!.issueDescription}</div>
-                      </>
-                    ) : "—"}
-                  </td>
-                  <td style={{ padding: "6px 8px" }}>{inv.currency}{inv.total.toLocaleString()}</td>
-                  <td style={{ padding: "6px 8px" }}>{inv.currency}{inv.amountPaid.toLocaleString()}</td>
-                  <td style={{ padding: "6px 8px", color: inv.balanceDue > 0 ? "var(--danger)" : "var(--success)" }}>{inv.currency}{inv.balanceDue.toLocaleString()}</td>
-                  <td style={{ padding: "6px 8px" }}>
-                    <select value={inv.status} onChange={(e) => setStatus(inv, e.target.value)} disabled={busyId === inv.id} style={{ padding: 4, fontSize: 11 }}>
-                      {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                    <span style={{ marginLeft: 6, ...badgeStyle(STATUS_TONE[inv.status] ?? "neutral") }}>{inv.status}</span>
-                  </td>
-                  <td style={{ padding: "6px 8px", display: "flex", gap: 6 }}>
-                    <button onClick={() => recordPayment(inv)} disabled={busyId === inv.id || inv.balanceDue <= 0} style={{ fontSize: 11, padding: "4px 8px" }}>Record Payment</button>
-                    <button onClick={() => deleteInvoice(inv)} style={{ fontSize: 11, padding: "4px 6px" }}>✕</button>
-                  </td>
-                </tr>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>

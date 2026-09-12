@@ -38,10 +38,9 @@ type Row =
  * directly inside a chat (conversational, no billing) alongside every
  * service/repair job (staff-managed, itemized parts/services billing
  * wired to Inventory, generates real Invoices) in the SAME table, not
- * two separate panels or a tab toggle. A "Type" column distinguishes
- * them since the two are genuinely different records (Order vs
- * RepairAppointment) under the hood, but they belong in one place from
- * a staff member's point of view — "all our orders". */
+ * two separate panels or a tab toggle. The two are genuinely different
+ * records (Order vs RepairAppointment) under the hood, but they belong
+ * in one place from a staff member's point of view — "all our orders". */
 export function OrdersPanel({ businessId, businessType }: { businessId: string; businessType?: string }) {
   const [aiOrders, setAiOrders] = useState<AiOrder[] | null>(null);
   const [serviceOrders, setServiceOrders] = useState<RepairOrder[] | null>(null);
@@ -56,7 +55,7 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
   const [openId, setOpenId] = useState<string | null>(null);
 
   const [showNew, setShowNew] = useState(false);
-  const [form, setForm] = useState({ customerName: "", phone: "", email: "", deviceType: "", deviceModel: "", issueDescription: "" });
+  const [form, setForm] = useState({ customerName: "", phone: "", email: "", deviceType: "", deviceModel: "", issueDescription: "", isWalkIn: false });
   const [saving, setSaving] = useState(false);
 
   function refreshOrderTags(ids: string[]) {
@@ -67,23 +66,17 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
   }
 
   function refresh() {
+    let mounted = true;
     fetch(`/api/admin/orders?businessId=${encodeURIComponent(businessId)}`)
       .then((r) => r.json())
-      .then((data: AiOrder[]) => {
-        setAiOrders(data);
-        if (data.length > 0) refreshOrderTags(data.map((o) => o.id));
-      });
+      .then((data: AiOrder[]) => { if (mounted) { setAiOrders(data); if (data.length > 0) refreshOrderTags(data.map((o) => o.id)); } });
     fetch(`/api/admin/repairs?businessId=${encodeURIComponent(businessId)}`)
       .then((r) => r.json())
-      .then((d: { appointments: RepairOrder[] }) => {
-        setServiceOrders(d.appointments);
-        // Device-model dropdown auto-grows from real history -- no
-        // separate managed catalog needed.
-        setDeviceModelOptions([...new Set(d.appointments.map((a) => a.deviceModel).filter((x): x is string => !!x))]);
-      });
+      .then((d: { appointments: RepairOrder[] }) => { if (mounted) { setServiceOrders(d.appointments); setDeviceModelOptions([...new Set(d.appointments.map((a) => a.deviceModel).filter((x): x is string => !!x))]); } });
     fetch(`/api/admin/products?businessId=${encodeURIComponent(businessId)}&limit=200`)
       .then((r) => r.json())
-      .then((d: { products: Product[] }) => setProducts(d.products));
+      .then((d: { products: Product[] }) => { if (mounted) setProducts(d.products); });
+    return () => { mounted = false; };
   }
 
   useEffect(() => {
@@ -118,7 +111,7 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
         body: JSON.stringify({ businessId, ...form }),
       });
       if (res.ok) {
-        setForm({ customerName: "", phone: "", email: "", deviceType: "", deviceModel: "", issueDescription: "" });
+        setForm({ customerName: "", phone: "", email: "", deviceType: "", deviceModel: "", issueDescription: "", isWalkIn: false });
         setShowNew(false);
         refresh();
       }
@@ -204,6 +197,10 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
             {deviceModelOptions.map((m) => <option key={m} value={m} />)}
           </datalist>
           <input placeholder="Issue *" value={form.issueDescription} onChange={(e) => setForm({ ...form, issueDescription: e.target.value })} style={{ padding: 8, flex: 1, minWidth: 180 }} />
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+            <input type="checkbox" checked={form.isWalkIn} onChange={(e) => setForm({ ...form, isWalkIn: e.target.checked })} />
+            Walk-in
+          </label>
           <button onClick={createOrder} disabled={saving} style={primaryButtonStyle}>
             {saving ? "Creating…" : "Create"}
           </button>
@@ -239,7 +236,6 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                <th style={cellStyle}>Type</th>
                 <th style={cellStyle}>ID / Serial</th>
                 <th style={cellStyle}>Date</th>
                 <th style={cellStyle}>Customer</th>
@@ -254,9 +250,6 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
               {filtered.map((r) => (
                 <Fragment key={r.id}>
                   <tr>
-                    <td style={cellStyle}>
-                      <span style={badgeStyle(r.kind === "ai" ? "info" : "neutral")}>{r.kind === "ai" ? "AI Order" : "Service"}</span>
-                    </td>
                     <td style={{ ...cellStyle, fontSize: 11, color: "var(--text-faint)" }}>
                       {r.kind === "service" ? r.data.serialNumber ?? shortId(r.id) : shortId(r.id)}
                     </td>

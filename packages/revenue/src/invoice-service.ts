@@ -51,6 +51,14 @@ export interface CreateInvoiceInput {
   dueDate?: string;
 }
 
+export interface UpdateInvoiceInput {
+  contactId?: string | null;
+  items?: LineItemInput[];
+  discount?: number;
+  tax?: number;
+  dueDate?: string | null;
+}
+
 type InvoiceRow = {
   id: string;
   businessId: string;
@@ -105,6 +113,7 @@ export class InvoiceService {
 
   async create(input: CreateInvoiceInput): Promise<Invoice> {
     const invoiceNumber = await this.nextInvoiceNumber(input.businessId);
+    const business = await prisma.business.findUnique({ where: { id: input.businessId }, select: { subscriptionCurrency: true } });
     const row = await prisma.invoice.create({
       data: {
         businessId: input.businessId,
@@ -112,6 +121,7 @@ export class InvoiceService {
         repairAppointmentId: input.repairAppointmentId,
         invoiceNumber,
         status: "issued",
+        currency: business?.subscriptionCurrency ?? "USD",
         discount: input.discount ?? 0,
         tax: input.tax ?? 0,
         dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
@@ -152,5 +162,22 @@ export class InvoiceService {
 
   async delete(id: string): Promise<void> {
     await prisma.invoice.delete({ where: { id } });
+  }
+
+  async update(id: string, input: UpdateInvoiceInput): Promise<Invoice> {
+    const data: Record<string, unknown> = {};
+    if (input.contactId !== undefined) data.contactId = input.contactId;
+    if (input.discount !== undefined) data.discount = input.discount;
+    if (input.tax !== undefined) data.tax = input.tax;
+    if (input.dueDate !== undefined) data.dueDate = input.dueDate ? new Date(input.dueDate) : null;
+
+    if (input.items) {
+      // Delete existing items and create new ones
+      await prisma.invoiceItem.deleteMany({ where: { invoiceId: id } });
+      data.items = { create: input.items.map((i) => ({ name: i.name, quantity: i.quantity, unitPrice: i.unitPrice })) };
+    }
+
+    const row = await prisma.invoice.update({ where: { id }, data, include: INCLUDE });
+    return toInvoice(row);
   }
 }

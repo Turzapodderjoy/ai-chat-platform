@@ -22,6 +22,8 @@ interface Appointment {
   cancelRequested: boolean;
   trackingToken: string;
   createdAt: string;
+  isWalkIn?: boolean;
+  source?: string;
 }
 
 interface QuickLink {
@@ -123,11 +125,17 @@ export function ClientHomePanel({
 
   const stats = useMemo(() => {
     if (!appointments || !todayKey) return null;
-    const today = appointments.filter((a) => a.appointmentDate.slice(0, 10) === todayKey);
+    // Count by createdAt (when the repair/order was created) so manually
+    // created orders and walk-ins show up on the day they're entered,
+    // not just on their scheduled appointmentDate.
+    const today = appointments.filter((a) => a.createdAt.slice(0, 10) === todayKey);
     const active = appointments.filter((a) => a.status !== "completed" && a.status !== "cancelled");
     const urgent = active.filter((a) => a.priority === "urgent" || a.priority === "high");
     const needsAttention = appointments.filter((a) => a.rescheduleRequested || a.cancelRequested);
     const completedToday = appointments.filter((a) => a.status === "completed" && a.appointmentDate.slice(0, 10) === todayKey);
+    // Sub-breakdown for today's items
+    const bookedToday = today.filter((a) => !a.isWalkIn && a.source !== "walkin");
+    const walkinsToday = today.filter((a) => a.isWalkIn || a.source === "walkin");
     return {
       todayCount: today.length,
       activeCount: active.length,
@@ -135,6 +143,8 @@ export function ClientHomePanel({
       needsAttentionCount: needsAttention.length,
       completedTodayCount: completedToday.length,
       needsAttention,
+      bookedTodayCount: bookedToday.length,
+      walkinsTodayCount: walkinsToday.length,
     };
   }, [appointments, todayKey]);
 
@@ -171,6 +181,14 @@ export function ClientHomePanel({
         <StatCard label="Needs Attention" value={stats?.needsAttentionCount ?? "…"} tone={stats?.needsAttentionCount && stats.needsAttentionCount > 0 ? "warning" : "neutral"} />
         <StatCard label="Completed Today" value={stats?.completedTodayCount ?? "…"} tone="success" />
       </StatCardRow>
+
+      {stats && (
+        <div style={{ display: "flex", gap: 16, marginBottom: 16, fontSize: 12, color: "var(--text-secondary)" }}>
+          <span>📅 Booked: <strong>{stats.bookedTodayCount ?? 0}</strong></span>
+          <span>🚶 Walk-ins: <strong>{stats.walkinsTodayCount ?? 0}</strong></span>
+          <span>✅ Completed: <strong>{stats.completedTodayCount ?? 0}</strong></span>
+        </div>
+      )}
 
       {stats && stats.needsAttention.length > 0 && (
         <div style={cardStyle}>
