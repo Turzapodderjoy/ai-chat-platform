@@ -15,6 +15,7 @@ export interface CreateOrderEntryInput {
   deviceModel?: string;
   issueDescription: string;
   isWalkIn?: boolean;
+  items?: { kind: "part" | "service"; name: string; quantity: number; defaultPrice: number; productId?: string }[];
 }
 
 export interface BookRepairInput {

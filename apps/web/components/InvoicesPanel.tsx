@@ -51,6 +51,7 @@ interface DraftItem {
 }
 
 const STATUS_TONE: Record<string, BadgeTone> = { draft: "neutral", issued: "info", partially_paid: "warn", paid: "ok", overdue: "error", void: "neutral" };
+const STATUSES = ["draft", "issued", "partially_paid", "paid", "overdue", "void"] as const;
 const EMPTY_ITEM: DraftItem = { name: "", quantity: "1", unitPrice: "" };
 
 /** Invoices — generated automatically from a repair order (Order

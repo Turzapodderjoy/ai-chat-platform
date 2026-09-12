@@ -543,7 +543,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
   }
 
   return (
-    <section style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 60px)", background: "var(--bg)", overflow: "hidden", position: "relative" }}>
+    <section style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, background: "var(--bg)", overflow: "hidden", position: "relative" }}>
       {/* Header */}
       <div style={{ padding: "16px 20px 0", flexShrink: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>

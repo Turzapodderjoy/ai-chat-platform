@@ -608,7 +608,7 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
-    <div style={{ display: "flex", height: "calc(100vh - 60px)", background: "var(--bg)", overflow: "hidden" }}>
+    <div style={{ display: "flex", flex: 1, minHeight: 0, background: "var(--bg)", overflow: "hidden" }}>
       {/* ─── Left Sidebar ─── */}
       <div style={{ width: sidebarCollapsed ? 56 : 220, flexShrink: 0, background: "var(--bg-elevated)", borderRight: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", transition: "width 0.2s ease" }}>
         <div style={{ padding: sidebarCollapsed ? "12px 0" : "12px 16px", borderBottom: "1px solid var(--border-subtle)", display: "flex", alignItems: "center", justifyContent: sidebarCollapsed ? "center" : "space-between" }}>
