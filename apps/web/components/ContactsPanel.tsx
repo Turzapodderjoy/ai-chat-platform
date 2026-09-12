@@ -173,13 +173,13 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                               value={draft.name}
                               onChange={(e) => setCompanyDraft((prev) => ({ ...prev, [c.id]: { ...draft, name: e.target.value } }))}
                               placeholder="Company"
-                              style={{ padding: 4, fontSize: 12, width: 90 }}
+                              style={{ padding: 4, fontSize: 12, minWidth: 90, flex: 1 }}
                             />
                             <input
                               value={draft.domain}
                               onChange={(e) => setCompanyDraft((prev) => ({ ...prev, [c.id]: { ...draft, domain: e.target.value } }))}
                               placeholder="Domain"
-                              style={{ padding: 4, fontSize: 12, width: 90 }}
+                              style={{ padding: 4, fontSize: 12, minWidth: 90, flex: 1 }}
                             />
                             {dirty && (
                               <button onClick={() => saveCompany(c)} disabled={busyId === c.id} style={{ fontSize: 11, padding: "3px 6px" }}>

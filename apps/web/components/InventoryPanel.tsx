@@ -270,7 +270,7 @@ export function InventoryPanel({ businessId }: { businessId: string }) {
                     <td style={cellStyle}>
                       <strong>{p.name}</strong>
                       {p.description && (
-                        <div style={{ fontSize: 11, color: "var(--text-faint)", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <div style={{ fontSize: 11, color: "var(--text-faint)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {p.description}
                         </div>
                       )}

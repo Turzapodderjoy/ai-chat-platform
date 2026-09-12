@@ -154,7 +154,7 @@ export function StaffPanel({ businessId }: { businessId: string }) {
                 <button onClick={() => setEditId(null)} style={{ fontSize: 12 }}>Cancel</button>
               </div>
             ) : (
-              <div key={m.id} style={{ ...cardStyle, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+              <div key={m.id} style={{ ...cardStyle, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
                   <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--accent-subtle)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 600, color: "var(--accent)", flexShrink: 0 }}>
                     {m.name.charAt(0).toUpperCase()}

@@ -132,7 +132,7 @@ export function SubscriptionPanel() {
 
               {isEditing ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border-subtle)" }}>
-                  <div style={{ display: "flex", gap: 12 }}>
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <div style={{ flex: 1 }}>
                       <label style={labelTextStyle}>Plan Name</label>
                       <input
@@ -153,7 +153,7 @@ export function SubscriptionPanel() {
                         style={inputStyle}
                       />
                     </div>
-                    <div style={{ width: 100 }}>
+                    <div style={{ flex: "0 0 100px" }}>
                       <label style={labelTextStyle}>Currency</label>
                       <select
                         value={form.currency}
@@ -166,7 +166,7 @@ export function SubscriptionPanel() {
                       </select>
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 12 }}>
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <div style={{ flex: 1 }}>
                       <label style={labelTextStyle}>Start Date</label>
                       <input

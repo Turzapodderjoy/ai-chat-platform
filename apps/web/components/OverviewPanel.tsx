@@ -16,6 +16,7 @@ interface BusinessKnowledgeStatus {
 }
 
 interface ProviderStatus {
+  label?: string;
   name: string;
   healthy: boolean;
   hasUsableKey: boolean;
@@ -63,10 +64,22 @@ function ProviderList({ providers }: { providers: ProviderStatus[] }) {
               borderRadius: "50%",
               background: p.enabled && p.healthy ? "var(--success)" : p.enabled ? "var(--danger)" : "var(--text-faint)",
             }} />
-            <span style={{ color: "var(--text)", fontWeight: 500, textTransform: "capitalize" }}>{p.name}</span>
+            <span style={{ color: "var(--text)", fontWeight: 500 }}>{p.label || p.name || "Custom Provider"}</span>
           </div>
-          <span style={{ color: "var(--text-muted)", fontSize: 11 }}>
-            {p.maskedKey || "No key"}
+          <span style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            fontSize: 11,
+            color: p.hasUsableKey ? "var(--success)" : "var(--text-muted)",
+          }}>
+            <span style={{
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: p.hasUsableKey ? "var(--success)" : "var(--text-faint)",
+            }} />
+            {p.hasUsableKey ? "Configured" : "No key"}
           </span>
         </div>
       ))}
@@ -176,7 +189,7 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
   const val = (n: number | null) => (n === null ? "—" : String(n));
 
   const knowledgeChartData = knowledgeStatus?.slice(0, 6).map((s) => ({
-    name: s.businessName.length > 10 ? s.businessName.slice(0, 10) + "…" : s.businessName,
+    name: s.businessName.length > 16 ? s.businessName.slice(0, 16) + "…" : s.businessName,
     documents: s.documentCount,
     crawlTargets: s.crawlTargets.total,
   })) ?? [];
@@ -201,7 +214,7 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
 
       {/* Knowledge Base Chart */}
       <div style={{ ...cardStyle, marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 16 }}>
           <div style={labelTextStyle}>Knowledge Base Overview</div>
           <button onClick={runRefreshAll} disabled={refreshingAll} className="primary" style={{ fontSize: 12, padding: "6px 12px" }}>
             {refreshingAll ? "Refreshing..." : "Refresh All"}
@@ -214,7 +227,7 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
         )}
         {knowledgeChartData.length > 0 ? (
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={knowledgeChartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+            <BarChart data={knowledgeChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: "var(--text-muted)" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "var(--text-muted)" }} axisLine={false} tickLine={false} />
@@ -244,8 +257,8 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
               {counts.aiHealthy ?? 0}/{counts.aiTotal ?? 0} healthy
             </div>
           </div>
-          <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
-            <div style={{ flexShrink: 0 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center" }}>
+            <div style={{ flex: "0 0 100%", display: "flex", justifyContent: "center" }}>
               {aiPieData.length > 0 ? (
                 <ResponsiveContainer width={120} height={120}>
                   <PieChart>
@@ -280,8 +293,8 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
               {counts.embeddingHealthy ?? 0}/{counts.embeddingTotal ?? 0} healthy
             </div>
           </div>
-          <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
-            <div style={{ flexShrink: 0 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center" }}>
+            <div style={{ flex: "0 0 100%", display: "flex", justifyContent: "center" }}>
               {embeddingPieData.length > 0 ? (
                 <ResponsiveContainer width={120} height={120}>
                   <PieChart>

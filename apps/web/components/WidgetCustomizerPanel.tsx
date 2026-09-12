@@ -17,7 +17,7 @@ interface WidgetConfig {
 }
 
 const FIELD_LABEL_STYLE = { display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4 };
-const FIELD_WRAP_STYLE = { minWidth: 180, flex: "1 1 180px" };
+const FIELD_WRAP_STYLE = { minWidth: 140, flex: "1 1 180px" };
 
 /** Every option here is a real column on WidgetConfig — nothing is
  * hardcoded per business. Saving writes straight to that row, and

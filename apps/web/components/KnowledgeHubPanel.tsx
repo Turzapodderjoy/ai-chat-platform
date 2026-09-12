@@ -331,7 +331,7 @@ export function KnowledgeHubPanel({ businessId, active = true }: { businessId?: 
 
   return (
     <section>
-      <h1 style={{ marginBottom: 4 }}>Knowledge Hub</h1>
+      <h2 style={{ marginBottom: 4 }}>Knowledge Hub</h2>
 
       <div style={cardStyle}>
         <h3 style={{ marginTop: 0 }}>Auto-heal</h3>

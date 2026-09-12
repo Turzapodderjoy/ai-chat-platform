@@ -91,11 +91,11 @@ function BreakdownBar({ label, count, total, tone }: { label: string; count: num
   const width = total > 0 ? Math.max(2, (count / total) * 100) : 0;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, marginBottom: 6 }}>
-      <span style={{ width: 100, flexShrink: 0, color: "var(--text-muted)" }}>{label}</span>
+      <span style={{ minWidth: 80, flexShrink: 0, color: "var(--text-muted)" }}>{label}</span>
       <div style={{ flex: 1, height: 8, background: "var(--surface)", borderRadius: 4, overflow: "hidden" }}>
         <div style={{ width: `${width}%`, height: "100%", background: `var(--${tone === "ok" ? "success" : tone === "error" ? "danger" : tone === "warn" ? "warning" : "accent"})` }} />
       </div>
-      <span style={{ width: 28, textAlign: "right", flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>{count}</span>
+      <span style={{ minWidth: 28, width: "auto", textAlign: "right", flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>{count}</span>
     </div>
   );
 }

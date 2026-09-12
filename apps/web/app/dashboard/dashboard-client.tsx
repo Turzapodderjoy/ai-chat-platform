@@ -519,8 +519,8 @@ function ClientsPanel() {
       {!clients && <p>Loading…</p>}
 
       {clients && (
-        <div className="table-scroll">
-        <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
+        <div className="table-scroll" style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16, minWidth: 700 }}>
           <thead>
             <tr>
               <th style={cellStyle}>Name</th>
@@ -551,7 +551,7 @@ function ClientsPanel() {
                     type="number"
                     min={0}
                     defaultValue={c.maxAgents}
-                    style={{ width: 56, padding: 4 }}
+                    style={{ width: 72, padding: "6px 8px" }}
                     onBlur={(e) => {
                       const next = Math.max(0, Number(e.target.value) || 0);
                       if (next !== c.maxAgents) setMaxAgents(c, next);
@@ -595,13 +595,13 @@ function ClientsPanel() {
                         placeholder="Title"
                         value={notifyTitle}
                         onChange={(e) => setNotifyTitle(e.target.value)}
-                        style={{ padding: 8, minWidth: 200 }}
+                        style={{ padding: 8, flex: "1 1 150px", minWidth: 0 }}
                       />
                       <input
                         placeholder="Message (optional)"
                         value={notifyBody}
                         onChange={(e) => setNotifyBody(e.target.value)}
-                        style={{ padding: 8, flex: 1, minWidth: 240 }}
+                        style={{ padding: 8, flex: "1 1 180px", minWidth: 0 }}
                       />
                       <button onClick={() => sendNotification(c)} disabled={sendingNotify || !notifyTitle.trim()} style={primaryButtonStyle}>
                         {sendingNotify ? "Sending…" : `Send to ${c.name}`}
@@ -848,7 +848,7 @@ function AiProvidersPanel() {
           </p>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <input
-              style={{ padding: 8, width: 140 }}
+              style={{ padding: 8, flex: "1 1 120px", minWidth: 0 }}
               placeholder="Label (e.g. Kimi)"
               value={customLabel}
               onChange={(e) => setCustomLabel(e.target.value)}
@@ -860,13 +860,13 @@ function AiProvidersPanel() {
               onChange={(e) => setCustomBaseUrl(e.target.value)}
             />
             <input
-              style={{ padding: 8, width: 160 }}
+              style={{ padding: 8, flex: "1 1 120px", minWidth: 0 }}
               placeholder="Model name"
               value={customModel}
               onChange={(e) => setCustomModel(e.target.value)}
             />
             <input
-              style={{ padding: 8, width: 160 }}
+              style={{ padding: 8, flex: "1 1 120px", minWidth: 0 }}
               placeholder="API key"
               type="password"
               value={customApiKey}
