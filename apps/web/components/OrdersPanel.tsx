@@ -244,11 +244,11 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
 
       {showNew && (
         <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 14, marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input placeholder="Customer name *" value={form.customerName} onChange={(e) => setForm({ ...form, customerName: e.target.value })} style={{ padding: 8 }} />
-          <input placeholder="Phone *" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} style={{ padding: 8 }} />
-          <input placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} style={{ padding: 8 }} />
-          <input placeholder="Device type *" value={form.deviceType} onChange={(e) => setForm({ ...form, deviceType: e.target.value })} style={{ padding: 8 }} />
-          <input list="device-models" placeholder="Device model" value={form.deviceModel} onChange={(e) => setForm({ ...form, deviceModel: e.target.value })} style={{ padding: 8 }} />
+          <input placeholder="Customer name *" value={form.customerName} onChange={(e) => setForm({ ...form, customerName: e.target.value })} style={{ padding: 8, flex: "1 1 180px", minWidth: 0 }} />
+          <input placeholder="Phone *" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} style={{ padding: 8, flex: "1 1 150px", minWidth: 0 }} />
+          <input placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} style={{ padding: 8, flex: "1 1 180px", minWidth: 0 }} />
+          <input placeholder="Device type *" value={form.deviceType} onChange={(e) => setForm({ ...form, deviceType: e.target.value })} style={{ padding: 8, flex: "1 1 150px", minWidth: 0 }} />
+          <input list="device-models" placeholder="Device model" value={form.deviceModel} onChange={(e) => setForm({ ...form, deviceModel: e.target.value })} style={{ padding: 8, flex: "1 1 150px", minWidth: 0 }} />
           <datalist id="device-models">
             {deviceModelOptions.map((m) => <option key={m} value={m} />)}
           </datalist>
@@ -281,7 +281,7 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
           <option value="oldest">Oldest first</option>
         </select>
         {(search || dateFrom || dateTo) && (
-          <button onClick={() => { setSearch(""); setDateFrom(""); setDateTo(""); }} style={{ fontSize: 12, padding: "6px 10px" }}>
+          <button onClick={() => { setSearch(""); setDateFrom(""); setDateTo(""); }} style={{ fontSize: 12, padding: "8px 12px" }}>
             Clear filters
           </button>
         )}
@@ -328,7 +328,7 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
                           onRemove={(tagId) => removeTag(r.id, tagId)}
                         />
                       ) : (
-                        <button onClick={() => setOpenId(openId === r.id ? null : r.id)} style={{ fontSize: 12, padding: "4px 10px" }}>
+                        <button onClick={() => setOpenId(openId === r.id ? null : r.id)} style={{ fontSize: 12, padding: "6px 12px" }}>
                           {openId === r.id ? "Close" : "Open"}
                         </button>
                       )}
@@ -336,7 +336,7 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
                   </tr>
                   {r.kind === "service" && openId === r.id && (
                     <tr>
-                      <td colSpan={9} style={{ ...cellStyle, background: "var(--surface)" }}>
+                      <td colSpan={8} style={{ ...cellStyle, background: "var(--surface)" }}>
                         <OrderItemsEditor order={r.data} products={products} onChanged={refresh} />
                       </td>
                     </tr>

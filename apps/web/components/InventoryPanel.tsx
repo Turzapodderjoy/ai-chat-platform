@@ -292,10 +292,10 @@ export function InventoryPanel({ businessId }: { businessId: string }) {
                     </td>
                     <td style={cellStyle}>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <button onClick={() => startEdit(p)} disabled={busyId === p.id} style={{ fontSize: 11, padding: "4px 8px" }}>
+                        <button onClick={() => startEdit(p)} disabled={busyId === p.id} style={{ fontSize: 11, padding: "6px 12px" }}>
                           Edit
                         </button>
-                        <button onClick={() => deleteProduct(p)} disabled={busyId === p.id} style={{ fontSize: 11, padding: "4px 8px" }}>
+                        <button onClick={() => deleteProduct(p)} disabled={busyId === p.id} style={{ fontSize: 11, padding: "6px 12px" }}>
                           {busyId === p.id ? "…" : "Delete"}
                         </button>
                       </div>

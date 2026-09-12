@@ -132,8 +132,8 @@ function GmailSenderBox({ businessId, onMessage }: { businessId: string; onMessa
             {sender.oauthConnected && <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.6 }}>(Google OAuth)</span>}
             {!sender.oauthConnected && <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.6 }}>(App Password)</span>}
           </span>
-          {!sender.oauthConnected && <button onClick={() => setEditing(true)} style={{ fontSize: 12, padding: "4px 10px" }}>Change</button>}
-          <button onClick={disconnect} style={{ fontSize: 12, padding: "4px 10px" }}>Disconnect</button>
+          {!sender.oauthConnected && <button onClick={() => setEditing(true)} style={{ fontSize: 12, padding: "6px 12px" }}>Change</button>}
+          <button onClick={disconnect} style={{ fontSize: 12, padding: "6px 12px" }}>Disconnect</button>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

@@ -189,7 +189,7 @@ export function DeliveryPanel({ businessId }: { businessId: string }) {
                         value={o.deliveryStatus}
                         onChange={(e) => setDeliveryStatus(o, e.target.value)}
                         disabled={busyId === o.id}
-                        style={{ padding: 4, fontSize: 11, marginRight: 6 }}
+                        style={{ padding: "6px 12px", fontSize: 11, marginRight: 6 }}
                       >
                         {DELIVERY_STATUSES.map((s) => (
                           <option key={s} value={s}>{DELIVERY_LABEL[s]}</option>
@@ -198,7 +198,7 @@ export function DeliveryPanel({ businessId }: { businessId: string }) {
                       <span style={badgeStyle(DELIVERY_TONE[o.deliveryStatus] ?? "neutral")}>{DELIVERY_LABEL[o.deliveryStatus] ?? o.deliveryStatus}</span>
                     </td>
                     <td style={cellStyle}>
-                      <button onClick={() => toggleManage(o)} style={{ fontSize: 11, padding: "3px 8px" }}>
+                      <button onClick={() => toggleManage(o)} style={{ fontSize: 11, padding: "6px 12px" }}>
                         {expandedId === o.id ? "Close" : "Edit"}
                       </button>
                     </td>

@@ -206,7 +206,7 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                   </tr>
                   {expandedId === c.id && (
                     <tr>
-                      <td colSpan={9} style={{ ...cellStyle, background: "var(--surface)", padding: 14 }}>
+                      <td colSpan={8} style={{ ...cellStyle, background: "var(--surface)", padding: 14 }}>
                         {loadingRecord && <p style={subtleTextStyle}>Loading history…</p>}
                         {record && (
                           <div style={{ marginBottom: 14, fontSize: 13 }}>

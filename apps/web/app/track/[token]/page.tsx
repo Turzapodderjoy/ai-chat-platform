@@ -141,7 +141,7 @@ export default function TrackRepairPage() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
+      <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
         <p style={{ color: "var(--text-muted)", fontSize: 14 }}>Loading...</p>
       </div>
     );
@@ -149,7 +149,7 @@ export default function TrackRepairPage() {
 
   if (error || !appointment) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)", padding: 24 }}>
+      <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)", padding: 24 }}>
         <div style={{ textAlign: "center" }}>
           <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 8, color: "var(--text)" }}>Repair Not Found</h1>
           <p style={{ color: "var(--text-muted)", marginBottom: 16 }}>{error}</p>
@@ -176,23 +176,23 @@ export default function TrackRepairPage() {
         {/* Status Timeline */}
         {appointment.status !== "cancelled" && (
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 20, marginBottom: 16 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", position: "relative" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", position: "relative", overflowX: "auto" }}>
               {/* Progress line */}
               <div style={{ position: "absolute", top: 12, left: 0, right: 0, height: 2, background: "var(--border)" }} />
               <div style={{ position: "absolute", top: 12, left: 0, height: 2, background: "var(--accent)", width: `${Math.min(100, (currentStep / (STEPS.length - 1)) * 100)}%`, transition: "width 0.3s" }} />
               {STEPS.map((step, i) => (
-                <div key={step} style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative", zIndex: 1 }}>
+                <div key={step} style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative", zIndex: 1, flex: "1 1 0", minWidth: 0 }}>
                   <div style={{
                     width: 24, height: 24, borderRadius: "50%",
                     background: i <= currentStep ? "var(--accent)" : "var(--surface)",
                     border: `2px solid ${i <= currentStep ? "var(--accent)" : "var(--border)"}`,
                     display: "flex", alignItems: "center", justifyContent: "center",
                     fontSize: 11, color: i <= currentStep ? "white" : "var(--text-muted)",
-                    fontWeight: 600, marginBottom: 6,
+                    fontWeight: 600, marginBottom: 6, flexShrink: 0,
                   }}>
                     {i < currentStep ? "\u2713" : i + 1}
                   </div>
-                  <span style={{ fontSize: 10, color: i <= currentStep ? "var(--text)" : "var(--text-muted)", textAlign: "center", maxWidth: 60 }}>
+                  <span style={{ fontSize: 9, color: i <= currentStep ? "var(--text)" : "var(--text-muted)", textAlign: "center", maxWidth: 56, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {step}
                   </span>
                 </div>
@@ -213,7 +213,7 @@ export default function TrackRepairPage() {
         {/* Appointment Details */}
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 20, marginBottom: 16 }}>
           <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: "var(--text)" }}>Details</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 13 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))", gap: 12, fontSize: 13 }}>
             <div><span style={{ color: "var(--text-muted)" }}>Customer</span><br />{appointment.customerName}</div>
             <div><span style={{ color: "var(--text-muted)" }}>Phone</span><br />{appointment.phone}</div>
             <div><span style={{ color: "var(--text-muted)" }}>Device</span><br />{appointment.deviceType}{appointment.deviceModel ? ` ${appointment.deviceModel}` : ""}</div>

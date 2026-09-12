@@ -318,7 +318,7 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
               <input placeholder="Qty" type="number" min={1} value={item.quantity} onChange={(e) => updateDraftItem(i, "quantity", e.target.value)} style={{ padding: 8, width: 70, flex: "0 0 70px" }} />
               <input placeholder="Unit price" type="number" value={item.unitPrice} onChange={(e) => updateDraftItem(i, "unitPrice", e.target.value)} style={{ padding: 8, width: 100 }} />
               {draftItems.length > 1 && (
-                <button onClick={() => setDraftItems((prev) => prev.filter((_, idx) => idx !== i))} style={{ fontSize: 11, padding: "4px 8px" }}>✕</button>
+                <button onClick={() => setDraftItems((prev) => prev.filter((_, idx) => idx !== i))} style={{ fontSize: 11, padding: "6px 12px" }}>✕</button>
               )}
             </div>
           ))}
@@ -396,15 +396,15 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
                     <td style={{ padding: "6px 8px" }}>{inv.currency}{inv.amountPaid.toLocaleString()}</td>
                     <td style={{ padding: "6px 8px", color: inv.balanceDue > 0 ? "var(--danger)" : "var(--success)" }}>{inv.currency}{inv.balanceDue.toLocaleString()}</td>
                     <td style={{ padding: "6px 8px" }}>
-                      <select value={inv.status} onChange={(e) => setStatus(inv, e.target.value)} disabled={busyId === inv.id} style={{ padding: 4, fontSize: 11 }}>
+                      <select value={inv.status} onChange={(e) => setStatus(inv, e.target.value)} disabled={busyId === inv.id} style={{ padding: "6px 12px", fontSize: 11 }}>
                         {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                       </select>
                       <span style={{ marginLeft: 6, ...badgeStyle(STATUS_TONE[inv.status] ?? "neutral") }}>{inv.status}</span>
                     </td>
                     <td style={{ padding: "6px 8px", display: "flex", gap: 6 }}>
-                      <button onClick={() => recordPayment(inv)} disabled={busyId === inv.id || inv.balanceDue <= 0} style={{ fontSize: 11, padding: "4px 8px" }}>Record Payment</button>
-                      <button onClick={() => editingId === inv.id ? cancelEdit() : startEdit(inv)} style={{ fontSize: 11, padding: "4px 8px" }}>{editingId === inv.id ? "Cancel" : "Edit"}</button>
-                      <button onClick={() => deleteInvoice(inv)} style={{ fontSize: 11, padding: "4px 6px" }}>✕</button>
+                      <button onClick={() => recordPayment(inv)} disabled={busyId === inv.id || inv.balanceDue <= 0} style={{ fontSize: 11, padding: "6px 12px" }}>Record Payment</button>
+                      <button onClick={() => editingId === inv.id ? cancelEdit() : startEdit(inv)} style={{ fontSize: 11, padding: "6px 12px" }}>{editingId === inv.id ? "Cancel" : "Edit"}</button>
+                      <button onClick={() => deleteInvoice(inv)} style={{ fontSize: 11, padding: "6px 12px" }}>✕</button>
                     </td>
                   </tr>
                   {editingId === inv.id && (
@@ -429,7 +429,7 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
                               <input placeholder="Qty" type="number" min={1} value={item.quantity} onChange={(e) => updateEditItem(i, "quantity", e.target.value)} style={{ padding: 8, width: 70, flex: "0 0 70px" }} />
                               <input placeholder="Unit price" type="number" value={item.unitPrice} onChange={(e) => updateEditItem(i, "unitPrice", e.target.value)} style={{ padding: 8, width: 100 }} />
                               {editItems.length > 1 && (
-                                <button onClick={() => setEditItems((prev) => prev.filter((_, idx) => idx !== i))} style={{ fontSize: 11, padding: "4px 8px" }}>✕</button>
+                                <button onClick={() => setEditItems((prev) => prev.filter((_, idx) => idx !== i))} style={{ fontSize: 11, padding: "6px 12px" }}>✕</button>
                               )}
                             </div>
                           ))}

@@ -196,13 +196,13 @@ export default function OffersPanel({ businessId }: Props) {
                   <span style={{ fontWeight: 600, color: "var(--text)", fontSize: 14 }}>{offer.title}</span>
                   <span style={{
                     ...badgeStyle,
-                    background: offer.isActive ? "#dcfce7" : "#fef2f2",
-                    color: offer.isActive ? "#166534" : "#991b1b",
+                    background: offer.isActive ? "var(--success-subtle, rgba(16,185,129,0.15))" : "var(--danger-subtle, rgba(239,68,68,0.15))",
+                    color: offer.isActive ? "var(--success)" : "var(--danger)",
                   }}>
                     {offer.isActive ? "Active" : "Inactive"}
                   </span>
                   {offer.promoCode && (
-                    <span style={{ ...badgeStyle, background: "#e0e7ff", color: "#3730a3", fontFamily: "monospace" }}>
+                    <span style={{ ...badgeStyle, background: "var(--accent-subtle, rgba(99,102,241,0.15))", color: "var(--accent)", fontFamily: "monospace" }}>
                       {offer.promoCode}
                     </span>
                   )}
@@ -218,13 +218,13 @@ export default function OffersPanel({ businessId }: Props) {
               <div style={{ display: "flex", gap: 6 }}>
                 <button
                   onClick={() => toggleActive(offer)}
-                  style={{ padding: "4px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm, 6px)", background: "var(--bg)", color: "var(--text)", fontSize: 12, cursor: "pointer" }}
+                  style={{ padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm, 6px)", background: "var(--bg)", color: "var(--text)", fontSize: 12, cursor: "pointer" }}
                 >
                   {offer.isActive ? "Deactivate" : "Activate"}
                 </button>
                 <button
                   onClick={() => deleteOffer(offer.id)}
-                  style={{ padding: "4px 10px", border: "1px solid #fecaca", borderRadius: "var(--radius-sm, 6px)", background: "#fef2f2", color: "#991b1b", fontSize: 12, cursor: "pointer" }}
+                  style={{ padding: "6px 12px", border: "1px solid var(--danger-subtle, rgba(239,68,68,0.3))", borderRadius: "var(--radius-sm, 6px)", background: "var(--danger-subtle, rgba(239,68,68,0.1))", color: "var(--danger)", fontSize: 12, cursor: "pointer" }}
                 >
                   Delete
                 </button>

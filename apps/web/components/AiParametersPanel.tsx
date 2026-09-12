@@ -274,7 +274,7 @@ export function AiParametersPanel({ businessId }: AiParametersPanelProps) {
             <div style={cardStyle}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                 <div style={labelTextStyle}>Advanced Parameters</div>
-                <button onClick={() => setAdvanced(!advanced)} className="ghost" style={{ fontSize: 11, padding: "4px 8px" }}>
+                <button onClick={() => setAdvanced(!advanced)} className="ghost" style={{ fontSize: 11, padding: "6px 12px" }}>
                   {advanced ? "Collapse" : "Expand"}
                 </button>
               </div>

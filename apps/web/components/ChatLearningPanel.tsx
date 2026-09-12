@@ -279,7 +279,7 @@ export function ChatLearningPanel({ businessId }: { businessId?: string }) {
                       setDecision(c.id, review.decision === "add" ? null : "add");
                     }}
                     disabled={savingReview === c.id}
-                    style={review.decision === "add" ? { ...primaryButtonStyle, fontSize: 11, padding: "3px 8px" } : { fontSize: 11, padding: "3px 8px" }}
+                    style={review.decision === "add" ? { ...primaryButtonStyle, fontSize: 11, padding: "6px 12px" } : { fontSize: 11, padding: "6px 12px" }}
                   >
                     Add
                   </button>
@@ -289,7 +289,7 @@ export function ChatLearningPanel({ businessId }: { businessId?: string }) {
                       setDecision(c.id, review.decision === "drop" ? null : "drop");
                     }}
                     disabled={savingReview === c.id}
-                    style={{ fontSize: 11, padding: "3px 8px", ...(review.decision === "drop" ? { borderColor: "var(--danger)", color: "var(--danger)" } : {}) }}
+                    style={{ fontSize: 11, padding: "6px 12px", ...(review.decision === "drop" ? { borderColor: "var(--danger)", color: "var(--danger)" } : {}) }}
                   >
                     Drop
                   </button>
@@ -355,13 +355,13 @@ export function ChatLearningPanel({ businessId }: { businessId?: string }) {
                         <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 4 }}>
                           <button
                             onClick={() => setMessageQa(m.id, "pass")}
-                            style={{ fontSize: 11, padding: "2px 8px", ...(fb?.verdict === "pass" ? { borderColor: "var(--success)", color: "var(--success)" } : {}) }}
+                            style={{ fontSize: 11, padding: "6px 12px", ...(fb?.verdict === "pass" ? { borderColor: "var(--success)", color: "var(--success)" } : {}) }}
                           >
                             👍
                           </button>
                           <button
                             onClick={() => setMessageQa(m.id, "fail")}
-                            style={{ fontSize: 11, padding: "2px 8px", ...(fb?.verdict === "fail" ? { borderColor: "var(--danger)", color: "var(--danger)" } : {}) }}
+                            style={{ fontSize: 11, padding: "6px 12px", ...(fb?.verdict === "fail" ? { borderColor: "var(--danger)", color: "var(--danger)" } : {}) }}
                           >
                             👎
                           </button>

@@ -111,7 +111,7 @@ const REPAIR_STATUS_LABEL: Record<string, string> = {
 };
 
 const CHANNEL_LABEL: Record<string, { color: string; label: string }> = {
-  website: { color: "#ffffff", label: "Website" },
+  website: { color: "var(--text-muted)", label: "Website" },
   messenger: { color: "#0084ff", label: "Messenger" },
   instagram: { color: "#e1306c", label: "Instagram" },
   whatsapp: { color: "#25d366", label: "WhatsApp" },
@@ -145,7 +145,7 @@ function ChannelDot({ channel }: { channel: string }) {
         height: 9,
         borderRadius: "50%",
         background: color,
-        border: "1px solid rgba(255,255,255,0.25)",
+        border: "1px solid var(--border)",
         flexShrink: 0,
       }}
     />
@@ -838,7 +838,7 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                       fontSize: 10,
                       padding: "1px 6px",
                       borderRadius: "var(--radius-full)",
-                      background: isActive ? "rgba(255,255,255,0.1)" : "var(--surface)",
+                      background: isActive ? "var(--accent-subtle)" : "var(--surface)",
                       border: "1px solid var(--border)",
                       color: "var(--text-muted)",
                       display: "inline-flex",

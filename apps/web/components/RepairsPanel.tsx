@@ -446,7 +446,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
         }}
       >
         {/* Top row: badges */}
-        <div style={{ display: "flex", gap: 4, alignItems: "center", marginBottom: 8 }}>
+        <div style={{ display: "flex", gap: 4, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
           {a.isWalkIn && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "#f97316", color: "#fff", fontSize: 10, fontWeight: 600 }}>
               🚶 Walk-in
@@ -507,7 +507,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
             {a.status === "booked" && (
               <button
                 onClick={(e) => { e.stopPropagation(); updateStatus(a.id, "received"); }}
-                style={{ flex: 1, fontSize: 10, padding: "4px 8px", border: "1px solid var(--accent)", borderRadius: 4, background: "var(--accent-subtle)", cursor: "pointer", color: "var(--accent)", fontWeight: 600, fontFamily: "inherit" }}
+                style={{ flex: 1, fontSize: 11, padding: "6px 12px", border: "1px solid var(--accent)", borderRadius: 4, background: "var(--accent-subtle)", cursor: "pointer", color: "var(--accent)", fontWeight: 600, fontFamily: "inherit" }}
               >
                 Mark Received
               </button>
@@ -515,7 +515,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
             {a.status === "received" && (
               <button
                 onClick={(e) => { e.stopPropagation(); updateStatus(a.id, "in_repair"); }}
-                style={{ flex: 1, fontSize: 10, padding: "4px 8px", border: "1px solid var(--accent)", borderRadius: 4, background: "var(--accent-subtle)", cursor: "pointer", color: "var(--accent)", fontWeight: 600, fontFamily: "inherit" }}
+                style={{ flex: 1, fontSize: 11, padding: "6px 12px", border: "1px solid var(--accent)", borderRadius: 4, background: "var(--accent-subtle)", cursor: "pointer", color: "var(--accent)", fontWeight: 600, fontFamily: "inherit" }}
               >
                 Start Repair
               </button>
@@ -523,7 +523,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
             {a.status === "in_repair" && (
               <button
                 onClick={(e) => { e.stopPropagation(); updateStatus(a.id, "ready"); }}
-                style={{ flex: 1, fontSize: 10, padding: "4px 8px", border: "1px solid #10b981", borderRadius: 4, background: "rgba(16,185,129,0.1)", cursor: "pointer", color: "#10b981", fontWeight: 600, fontFamily: "inherit" }}
+                style={{ flex: 1, fontSize: 11, padding: "6px 12px", border: "1px solid #10b981", borderRadius: 4, background: "rgba(16,185,129,0.1)", cursor: "pointer", color: "#10b981", fontWeight: 600, fontFamily: "inherit" }}
               >
                 Mark Ready
               </button>
@@ -531,7 +531,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
             {a.status === "ready" && (
               <button
                 onClick={(e) => { e.stopPropagation(); updateStatus(a.id, "completed"); }}
-                style={{ flex: 1, fontSize: 10, padding: "4px 8px", border: "1px solid #6b7280", borderRadius: 4, background: "rgba(107,114,128,0.1)", cursor: "pointer", color: "#6b7280", fontWeight: 600, fontFamily: "inherit" }}
+                style={{ flex: 1, fontSize: 11, padding: "6px 12px", border: "1px solid #6b7280", borderRadius: 4, background: "rgba(107,114,128,0.1)", cursor: "pointer", color: "#6b7280", fontWeight: 600, fontFamily: "inherit" }}
               >
                 Complete
               </button>
@@ -688,7 +688,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
       )}
 
       {viewMode === "kanban" && (
-        <div style={{ display: "flex", gap: 12, overflowX: isMobile ? "auto" : "auto", paddingBottom: 8, marginBottom: 20, flex: 1 }}>
+        <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, marginBottom: 20, flex: 1 }}>
           {KANBAN_STATUSES.map((s) => (
             <div key={s} style={{ minWidth: isMobile ? 260 : 280, maxWidth: isMobile ? "none" : 320, flex: isMobile ? "0 0 260" : 1, display: "flex", flexDirection: "column" }}>
               {/* Column header */}
@@ -769,7 +769,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
               <select
                 value={selected.status}
                 onChange={(e) => updateStatus(selected.id, e.target.value)}
-                style={{ padding: "5px 8px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontFamily: "inherit" }}
+                style={{ padding: "6px 12px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontFamily: "inherit" }}
               >
                 {STATUS_OPTIONS.map((s) => (
                   <option key={s} value={s}>{STATUS_LABEL[s]}</option>
@@ -778,14 +778,14 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
               <select
                 value={selected.technicianId || ""}
                 onChange={(e) => assignTechnician(selected.id, e.target.value)}
-                style={{ padding: "5px 8px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontFamily: "inherit" }}
+                style={{ padding: "6px 12px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontFamily: "inherit" }}
               >
                 <option value="">Unassigned</option>
                 {staff.filter((s) => s.active).map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
-              <button onClick={() => setOrderOpen((o) => !o)} style={{ padding: "5px 10px", fontSize: 12, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: orderOpen ? "var(--accent-subtle)" : "var(--bg)", cursor: "pointer", color: "var(--text)", fontFamily: "inherit" }}>
+              <button onClick={() => setOrderOpen((o) => !o)} style={{ padding: "6px 12px", fontSize: 12, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: orderOpen ? "var(--accent-subtle)" : "var(--bg)", cursor: "pointer", color: "var(--text)", fontFamily: "inherit" }}>
                 {orderOpen ? "Close Order" : "Order"}
               </button>
             </div>
@@ -818,7 +818,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                 <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", margin: 0 }}>Device Photos</h3>
-                <label style={{ fontSize: 11, padding: "4px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", cursor: "pointer", color: "var(--text-muted)", background: "var(--surface)", fontFamily: "inherit" }}>
+                <label style={{ fontSize: 11, padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", cursor: "pointer", color: "var(--text-muted)", background: "var(--surface)", fontFamily: "inherit" }}>
                   + Upload
                   <input
                     type="file"
@@ -865,7 +865,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
                           });
                           refresh();
                         }}
-                        style={{ position: "absolute", top: -4, right: -4, width: 20, height: 20, borderRadius: "50%", background: "var(--danger)", color: "white", border: "none", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                        style={{ position: "absolute", top: -4, right: -4, width: 28, height: 28, borderRadius: "50%", background: "var(--danger)", color: "white", border: "none", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
                       >
                         ✕
                       </button>
@@ -885,8 +885,8 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
                     <div style={{ fontSize: 12, fontWeight: 600, color: "var(--warning)", marginBottom: 6 }}>Reschedule Requested</div>
                     {selected.rescheduleNewDate && <div style={{ fontSize: 12, color: "var(--text-muted)" }}>New date: {new Date(selected.rescheduleNewDate).toLocaleString()}</div>}
                     <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                      <button onClick={() => handleRescheduleRequest(selected.id, "approve")} style={{ padding: "6px 12px", fontSize: 12, background: "var(--success)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontFamily: "inherit" }}>Approve</button>
-                      <button onClick={() => handleRescheduleRequest(selected.id, "reject")} style={{ padding: "6px 12px", fontSize: 12, background: "var(--danger)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontFamily: "inherit" }}>Reject</button>
+                      <button onClick={() => handleRescheduleRequest(selected.id, "approve")} style={{ padding: "8px 14px", fontSize: 12, background: "var(--success)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontFamily: "inherit" }}>Approve</button>
+                      <button onClick={() => handleRescheduleRequest(selected.id, "reject")} style={{ padding: "8px 14px", fontSize: 12, background: "var(--danger)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontFamily: "inherit" }}>Reject</button>
                     </div>
                   </div>
                 )}
@@ -895,8 +895,8 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
                     <div style={{ fontSize: 12, fontWeight: 600, color: "var(--danger)", marginBottom: 6 }}>Cancel Requested</div>
                     {selected.cancelReason && <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Reason: {selected.cancelReason}</div>}
                     <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                      <button onClick={() => handleCancelRequest(selected.id, "approve")} style={{ padding: "6px 12px", fontSize: 12, background: "var(--success)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontFamily: "inherit" }}>Approve</button>
-                      <button onClick={() => handleCancelRequest(selected.id, "reject")} style={{ padding: "6px 12px", fontSize: 12, background: "var(--danger)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontFamily: "inherit" }}>Reject</button>
+                      <button onClick={() => handleCancelRequest(selected.id, "approve")} style={{ padding: "8px 14px", fontSize: 12, background: "var(--success)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontFamily: "inherit" }}>Approve</button>
+                      <button onClick={() => handleCancelRequest(selected.id, "reject")} style={{ padding: "8px 14px", fontSize: 12, background: "var(--danger)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontFamily: "inherit" }}>Reject</button>
                     </div>
                   </div>
                 )}

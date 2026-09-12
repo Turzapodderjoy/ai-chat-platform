@@ -384,7 +384,7 @@ export function AiBrainPanel({ businessId }: AiBrainPanelProps) {
                       <td style={{ fontFamily: "monospace", fontSize: 12 }}>{v.temperature}</td>
                       <td style={{ fontSize: 12 }}>{v.languageMode}</td>
                       <td>
-                        <button onClick={() => setExpandedId(expandedId === v.id ? null : v.id)} className="ghost" style={{ fontSize: 11, padding: "4px 8px" }}>
+                        <button onClick={() => setExpandedId(expandedId === v.id ? null : v.id)} className="ghost" style={{ fontSize: 11, padding: "6px 12px" }}>
                           {expandedId === v.id ? "Hide" : "View"}
                         </button>
                       </td>

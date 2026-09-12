@@ -170,13 +170,13 @@ export function StaffPanel({ businessId }: { businessId: string }) {
                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                   <span style={badgeStyle(m.role === "manager" ? "info" : "neutral")}>{m.role}</span>
                   <span style={badgeStyle(m.active ? "ok" : "error")}>{m.active ? "Active" : "Inactive"}</span>
-                  <button onClick={() => toggleActive(m)} disabled={busyId === m.id} style={{ fontSize: 11, padding: "4px 8px" }}>
+                  <button onClick={() => toggleActive(m)} disabled={busyId === m.id} style={{ fontSize: 11, padding: "6px 12px" }}>
                     {m.active ? "Deactivate" : "Activate"}
                   </button>
-                  <button onClick={() => startEdit(m)} disabled={busyId === m.id} style={{ fontSize: 11, padding: "4px 8px" }}>
+                  <button onClick={() => startEdit(m)} disabled={busyId === m.id} style={{ fontSize: 11, padding: "6px 12px" }}>
                     Edit
                   </button>
-                  <button onClick={() => deleteMember(m)} disabled={busyId === m.id} style={{ fontSize: 11, padding: "4px 8px" }}>
+                  <button onClick={() => deleteMember(m)} disabled={busyId === m.id} style={{ fontSize: 11, padding: "6px 12px" }}>
                     {busyId === m.id ? "..." : "Delete"}
                   </button>
                 </div>

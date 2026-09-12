@@ -231,7 +231,7 @@ export function AgentConsole({
       </div>
 
       <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
-        <section style={{ ...cardStyle, width: 320, flexShrink: 0, padding: 0, overflow: "hidden" }}>
+        <section style={{ ...cardStyle, width: "100%", maxWidth: 320, flexShrink: 0, padding: 0, overflow: "hidden" }}>
           <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", fontSize: 13, fontWeight: 600 }}>
             {tab === "team" ? "Every chat in this business" : "Chats assigned to you"}
           </div>
@@ -325,7 +325,7 @@ export function AgentConsole({
         </section>
 
         {selected && (
-          <section style={{ ...cardStyle, width: 260, flexShrink: 0 }}>
+          <section style={{ ...cardStyle, width: "100%", maxWidth: 260, flexShrink: 0 }}>
             <div style={{ fontSize: 10.5, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 10 }}>
               Notes
             </div>
@@ -339,7 +339,7 @@ export function AgentConsole({
                 <div key={n.id} style={{ background: "var(--warning-soft, rgba(210,153,34,0.12))", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: 8, fontSize: 12 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                     <span style={{ fontWeight: 650 }}>{n.author}</span>
-                    <button onClick={() => deleteNote(n.id)} className="plain" style={{ opacity: 0.5, fontSize: 10 }}>✕</button>
+                    <button onClick={() => deleteNote(n.id)} className="plain" style={{ opacity: 0.5, fontSize: 11, padding: "4px 8px" }}>✕</button>
                   </div>
                   <div style={{ whiteSpace: "pre-wrap" }}>{n.body}</div>
                   <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 4 }}>{new Date(n.createdAt).toLocaleString()}</div>
@@ -352,7 +352,7 @@ export function AgentConsole({
               placeholder="Leave a note for your team…"
               style={{ width: "100%", padding: 6, fontSize: 12, boxSizing: "border-box", minHeight: 50, resize: "vertical" }}
             />
-            <button onClick={addNote} disabled={savingNote || !newNote.trim()} style={{ fontSize: 11, padding: "4px 8px", marginTop: 4 }}>
+            <button onClick={addNote} disabled={savingNote || !newNote.trim()} style={{ fontSize: 11, padding: "6px 12px", marginTop: 4 }}>
               {savingNote ? "Saving…" : "+ Add note"}
             </button>
           </section>

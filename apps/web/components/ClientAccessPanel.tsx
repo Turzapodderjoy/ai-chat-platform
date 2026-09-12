@@ -654,7 +654,7 @@ export function ClientAccessPanel() {
                 <button onClick={() => toggleTeamPanelsBox(t)} className="plain" style={{ fontSize: 11, color: "var(--accent)" }}>
                   panels
                 </button>
-                <button onClick={() => deleteTeam(t)} className="plain" style={{ color: "var(--danger)", fontSize: 11, padding: 0 }}>✕</button>
+                <button onClick={() => deleteTeam(t)} className="plain" style={{ color: "var(--danger)", fontSize: 11, padding: "4px 8px" }}>✕</button>
               </span>
             ))}
           </div>
@@ -904,7 +904,7 @@ export function ClientAccessPanel() {
         </tr>
         {expandedId === a.id && (
           <tr>
-            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={10}>
+            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={11}>
               <Collapsible title={`Which panels can "${a.username}" see?`} defaultOpen>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
                   {ALL_PANELS.map((p) => (
@@ -930,7 +930,7 @@ export function ClientAccessPanel() {
         )}
         {pwExpandedId === a.id && (
           <tr>
-            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={10}>
+            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={11}>
               <Collapsible title={`Password & activity for "${a.username}"`} defaultOpen>
                 <p style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 0 }}>
                   Reveal the current password below, or set a new one — that immediately signs out any of
@@ -1079,10 +1079,10 @@ export function ClientAccessPanel() {
                             </td>
                             <td style={cellStyle}>
                               <div style={{ display: "flex", gap: 6 }}>
-                                <button onClick={() => deviceAction(a, "fix", d.id)} disabled={devBusy === a.id || d.fixed} style={{ fontSize: 11, padding: "4px 8px" }}>
+                                <button onClick={() => deviceAction(a, "fix", d.id)} disabled={devBusy === a.id || d.fixed} style={{ fontSize: 11, padding: "6px 12px" }}>
                                   Fix
                                 </button>
-                                <button onClick={() => deviceAction(a, "block", d.id)} disabled={devBusy === a.id || d.blocked} style={{ fontSize: 11, padding: "4px 8px" }}>
+                                <button onClick={() => deviceAction(a, "block", d.id)} disabled={devBusy === a.id || d.blocked} style={{ fontSize: 11, padding: "6px 12px" }}>
                                   Block
                                 </button>
                               </div>
