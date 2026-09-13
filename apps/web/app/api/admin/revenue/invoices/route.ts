@@ -46,8 +46,16 @@ export async function PATCH(req: NextRequest) {
   }
   const app = await getApp();
 
-  // If only status is provided, use the existing updateInvoiceStatus
+  // If only status is provided, use the existing updateInvoiceStatus --
+  // "paid"/"partially_paid" are excluded here on purpose. Those two are
+  // only ever set by PaymentService.reconcileInvoice (via the "Paid"
+  // action's amount override, POST /api/admin/revenue/payments), which
+  // keeps amountPaid in sync with the status. Allowing them here would
+  // let a client set "paid" with no amount recorded at all.
   if (typeof body.status === "string" && Object.keys(body).length === 2) {
+    if (body.status === "paid" || body.status === "partially_paid") {
+      return NextResponse.json({ error: `Use the "Paid" action to record an amount instead of setting status "${body.status}" directly.` }, { status: 400 });
+    }
     const result = await app.container.router.revenue.updateInvoiceStatus(body.id, body.status);
     return NextResponse.json(result);
   }
