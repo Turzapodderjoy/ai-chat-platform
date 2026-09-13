@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, type ReactNode, type CSSProperties } from "react";
 
 /** Wraps any panel or panel-section with an admin-only hover "remove
  * this for this client" control — the general mechanism behind
@@ -17,12 +17,18 @@ export function RemovableSection({
   editable,
   onToggle,
   children,
+  style,
 }: {
   id: string;
   hidden: boolean;
   editable: boolean;
   onToggle: (widgetId: string, hide: boolean) => void;
   children: ReactNode;
+  /** Merged into the root div's style -- e.g. a full-height flex panel
+   * (an inbox with its own internal scroll regions) needs this wrapper
+   * to actually stretch instead of defaulting to block/shrink-to-fit,
+   * or its reply box ends up stranded below the fold. */
+  style?: CSSProperties;
 }) {
   const [hover, setHover] = useState(false);
 
@@ -30,7 +36,7 @@ export function RemovableSection({
 
   return (
     <div
-      style={{ position: "relative", opacity: hidden ? 0.45 : 1 }}
+      style={{ position: "relative", opacity: hidden ? 0.45 : 1, ...style }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >

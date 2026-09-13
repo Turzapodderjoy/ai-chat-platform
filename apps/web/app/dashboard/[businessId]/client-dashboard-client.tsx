@@ -364,6 +364,7 @@ export default function ClientDashboardClient() {
       onLogout={logout}
       backHref={isAdmin ? "/dashboard" : undefined}
       topbarExtra={<AppointmentNotificationBell businessId={businessId} />}
+      fillHeight={tab === "allchats"}
     >
       {previewAsClient && isAdmin && (
         <div
@@ -439,12 +440,22 @@ export default function ClientDashboardClient() {
       ] as [Tab, ReactNode][])
         .filter(([id]) => id !== "settings" || accountRole === "owner")
         .map(([id, panel]) => (
-        <div key={id} style={{ display: tab === id ? "block" : "none" }}>
+        <div
+          key={id}
+          style={
+            tab === id
+              ? id === "allchats"
+                ? { display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }
+                : { display: "block" }
+              : { display: "none" }
+          }
+        >
           <RemovableSection
             id={`panel.${id}`}
             hidden={hiddenWidgets.includes(`panel.${id}`)}
             editable={!actsAsClient}
             onToggle={toggleWidget}
+            style={id === "allchats" ? { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } : undefined}
           >
             {panel}
           </RemovableSection>

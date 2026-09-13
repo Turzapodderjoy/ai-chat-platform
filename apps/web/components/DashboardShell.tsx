@@ -26,6 +26,7 @@ export function DashboardShell<T extends string>({
   onLogout,
   backHref,
   topbarExtra,
+  fillHeight,
   children,
 }: {
   sidebarLabel: ReactNode;
@@ -39,6 +40,16 @@ export function DashboardShell<T extends string>({
    * business-scoped notification bell. Omit where there's no single
    * business in scope (the mother dashboard). */
   topbarExtra?: ReactNode;
+  /** For a panel that manages its own internal scroll regions (an
+   * email-client-style 3-pane inbox with a message list and a reply box
+   * pinned to the bottom) -- default (.panel-scroll: height 100% +
+   * overflow-y auto) lets <main> itself grow and scroll past the
+   * viewport, which fights the panel's own flex/minHeight:0 children
+   * and stranded the reply box below the fold (confirmed live). true
+   * makes <main> a hard-clipped box instead, so the panel's own
+   * overflow:auto regions are what actually scrolls.
+   */
+  fillHeight?: boolean;
   children: ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -548,7 +559,20 @@ export function DashboardShell<T extends string>({
         </header>
 
         {/* Content */}
-        <main className="panel-scroll" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, padding: isMobile ? "16px" : "24px", maxWidth: 1400, width: "100%", margin: "0 auto" }}>
+        <main
+          className={fillHeight ? undefined : "panel-scroll"}
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
+            padding: isMobile ? "16px" : "24px",
+            maxWidth: 1400,
+            width: "100%",
+            margin: "0 auto",
+            ...(fillHeight ? { overflow: "hidden" } : {}),
+          }}
+        >
           {children}
         </main>
       </div>

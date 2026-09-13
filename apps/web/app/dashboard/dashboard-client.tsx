@@ -295,6 +295,7 @@ export default function DashboardClient() {
       onSelect={selectTab}
       username={username}
       onLogout={logout}
+      fillHeight={tab === "allchats"}
     >
       {/* Every panel stays mounted (hidden via CSS, not unmounted) so
           switching tabs never wipes a panel's local state. */}
@@ -340,7 +341,7 @@ export default function DashboardClient() {
       <div style={{ display: tab === "knowledge" ? "block" : "none" }}>
         <KnowledgeHubPanel active={tab === "knowledge"} />
       </div>
-      <div style={{ display: tab === "allchats" ? "block" : "none" }}>
+      <div style={{ display: tab === "allchats" ? "flex" : "none", flexDirection: "column", flex: 1, minHeight: 0 }}>
         <AllChatsPanel active={tab === "allchats"} />
       </div>
       <div style={{ display: tab === "contacts" ? "block" : "none" }}>
