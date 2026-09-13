@@ -91,39 +91,42 @@ function run(cmd, cwd) {
   execSync(cmd, { cwd, stdio: "inherit", shell: true, env: { ...process.env, CI: "true" } });
 }
 
-// Root cause (confirmed live 2026-09-13, three separate times, each
+// Root cause investigation (2026-09-13, four separate deploys, each
 // time on a DIFFERENT missing package -- typescript-config/eslint-config
-// workspace links one run, @types/nodemailer a completely unrelated
-// package the next): this VPS's pnpm store is shared across every
-// release worktree, and something else on the box can run its own pnpm
-// install against that same store concurrently, corrupting a handful of
-// entries mid-install. A narrow "check these 3 known names" patch only
-// ever caught the symptom it was written for -- the next flaky package
-// just sailed through as a silent build failure instead.
+// workspace links twice, then a completely unrelated one,
+// @types/nodemailer, twice more): this repo's .npmrc sets
+// node-linker=hoisted (deliberately, so `next`'s binary ends up
+// root-hoisted the way ecosystem.config.js's script path expects) --
+// and pnpm's hoisted linker is known to be nondeterministic about
+// fully materializing every hoisted package on a single install pass.
+// Giving each release an isolated --store-dir was tried and DID NOT
+// help (confirmed live: the store dir was never even created --
+// hoisted mode doesn't route through it the way the default linker
+// does), so that's gone; switching off node-linker=hoisted entirely
+// would fix pnpm's determinism but breaks the next-binary-hoisting
+// assumption other parts of this deploy rely on, so that's out of
+// scope for this fix.
 //
-// The actual fix removes the shared state entirely: each release gets
-// its OWN pnpm store (--store-dir), so no install can ever race another
-// worktree's. Slower (no cross-release content reuse) and uses more
-// disk, but correctness beats a few extra seconds here.
-function storeDirFor(releaseDir) {
-  return join(releaseDir, ".pnpm-store");
-}
-
-// Kept as a cheap last-resort safety net for the specific workspace
-// links a build can't proceed without at all (a completely missing
-// @repo/* symlink fails immediately at the module-resolution stage,
-// before TypeScript even gets a chance to report a clearer error) --
-// the isolated store above is what actually stops the underlying race,
-// this just catches the one class of failure that isn't self-evident
-// from a build log.
+// What DOES reliably fix it, confirmed by hand every single time this
+// has come up: a subsequent full "pnpm install --force" pass. So
+// unlike the old version, every attempt here always runs (never
+// short-circuits the moment the 3 known @repo names happen to look
+// fine) -- the last one running catches whatever ELSE hoisting missed
+// that a narrower check can't see coming.
 const REQUIRED_WORKSPACE_LINKS = ["typescript-config", "eslint-config", "ui"];
-const INSTALL_ATTEMPTS = 2;
+const INSTALL_ATTEMPTS = 3;
 
 function workspaceLinksOk(releaseDir) {
   const repoDir = join(releaseDir, "apps", "web", "node_modules", "@repo");
   return REQUIRED_WORKSPACE_LINKS.every((name) => existsSync(join(repoDir, name)));
 }
 
+// Last-resort safety net for specifically the @repo/* workspace links
+// a build can't even start resolving modules without -- everything
+// else hoisting might have missed (like @types/nodemailer) has no
+// fixed, predictable location to hand-link, so this can't cover those;
+// the unconditional extra install pass above is what actually catches
+// those.
 function healWorkspaceLinks(releaseDir) {
   const repoDir = join(releaseDir, "apps", "web", "node_modules", "@repo");
   mkdirSync(repoDir, { recursive: true });
@@ -140,18 +143,18 @@ function installWithRetry(releaseDir) {
   for (let attempt = 1; attempt <= INSTALL_ATTEMPTS; attempt++) {
     // pnpm's frozen-lockfile fast path skips re-linking when it thinks
     // node_modules already satisfies the lockfile -- confirmed live, that
-    // "already satisfies" check doesn't verify each symlink actually
-    // exists, so a broken first attempt just gets silently repeated
+    // "already satisfies" check doesn't verify every package actually
+    // got hoisted, so a broken first attempt just gets silently repeated
     // as-is on every retry in the same worktree. --force bypasses that
-    // fast path and makes the retry actually re-link from scratch.
-    run(`pnpm install --frozen-lockfile --store-dir "${storeDirFor(releaseDir)}"${attempt > 1 ? " --force" : ""}`, releaseDir);
-    if (workspaceLinksOk(releaseDir)) return;
-    log(`Workspace symlinks incomplete after install attempt ${attempt}/${INSTALL_ATTEMPTS} -- retrying.`);
+    // fast path and makes the retry actually redo the hoisting.
+    run(`pnpm install --frozen-lockfile${attempt > 1 ? " --force" : ""}`, releaseDir);
   }
-  log(`Workspace symlinks still incomplete after ${INSTALL_ATTEMPTS} install attempts -- creating the missing ones directly instead of retrying pnpm again.`);
-  healWorkspaceLinks(releaseDir);
   if (!workspaceLinksOk(releaseDir)) {
-    throw new Error(`apps/web/node_modules/@repo is still missing required links even after manual linking.`);
+    log(`Workspace symlinks still incomplete after ${INSTALL_ATTEMPTS} install attempts -- creating the missing ones directly.`);
+    healWorkspaceLinks(releaseDir);
+    if (!workspaceLinksOk(releaseDir)) {
+      throw new Error(`apps/web/node_modules/@repo is still missing required links even after manual linking.`);
+    }
   }
 }
 
