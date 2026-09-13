@@ -144,6 +144,9 @@ export function DeliveryPanel({ businessId }: { businessId: string }) {
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
         <input
+          type="search"
+          name="aiva-search-delivery"
+          autoComplete="off"
           style={{ padding: 8, width: "100%", maxWidth: 320 }}
           placeholder="Search by name, phone, product, courier, tracking ID…"
           value={search}

@@ -130,6 +130,9 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
       </p>
 
       <input
+        type="search"
+        name="aiva-search-contacts"
+        autoComplete="off"
         style={{ padding: 8, width: "100%", maxWidth: 320, marginBottom: 12 }}
         placeholder="Search by name, phone, email, ID…"
         value={search}

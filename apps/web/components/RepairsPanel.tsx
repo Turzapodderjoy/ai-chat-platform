@@ -624,6 +624,9 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         <input
+          type="search"
+          name="aiva-search-repairs"
+          autoComplete="off"
           style={{ padding: 8, flex: 1, fontSize: 12 }}
           placeholder="Search by name, phone, device, order ID…"
           value={search}

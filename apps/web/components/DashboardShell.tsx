@@ -404,6 +404,14 @@ export function DashboardShell<T extends string>({
                     onChange={(e) => { setSearch(e.target.value); setSearchOpen(true); }}
                     onFocus={() => setSearchOpen(true)}
                     placeholder="Search..."
+                    // Confirmed live: Chrome ignores autoComplete="off" on a
+                    // plain text input and offers to fill it with the
+                    // username just saved from the login form on this same
+                    // origin -- type="search" opts out of that heuristic
+                    // entirely (Chrome doesn't treat search inputs as
+                    // login-autofill candidates), which "off" alone doesn't.
+                    type="search"
+                    name="aiva-topbar-search"
                     autoComplete="off"
                     autoCorrect="off"
                     autoCapitalize="off"

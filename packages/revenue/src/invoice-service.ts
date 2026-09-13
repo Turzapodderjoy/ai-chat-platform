@@ -9,6 +9,10 @@ export interface InvoiceItem {
   name: string;
   quantity: number;
   unitPrice: number;
+  // Internal only -- costPrice never appears on the customer-facing
+  // print/PDF view, only sell price (unitPrice) and totals do.
+  productId?: string | null;
+  costPrice?: number | null;
 }
 
 export interface InvoicePayment {
@@ -74,7 +78,7 @@ type InvoiceRow = {
   totalOverride: number | null;
   issueDate: Date;
   dueDate: Date | null;
-  items: { id: string; name: string; quantity: number; unitPrice: number }[];
+  items: { id: string; name: string; quantity: number; unitPrice: number; productId: string | null; costPrice: number | null }[];
   payments: { id: string; amount: number; method: string; note: string | null; paidAt: Date }[];
   createdAt: Date;
   updatedAt: Date;
@@ -129,7 +133,7 @@ export class InvoiceService {
         discount: input.discount ?? 0,
         tax: input.tax ?? 0,
         dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
-        items: { create: input.items.map((i) => ({ name: i.name, quantity: i.quantity, unitPrice: i.unitPrice })) },
+        items: { create: input.items.map((i) => ({ name: i.name, quantity: i.quantity, unitPrice: i.unitPrice, productId: i.productId, costPrice: i.costPrice })) },
       },
       include: INCLUDE,
     });
@@ -178,7 +182,7 @@ export class InvoiceService {
     if (input.items) {
       // Delete existing items and create new ones
       await prisma.invoiceItem.deleteMany({ where: { invoiceId: id } });
-      data.items = { create: input.items.map((i) => ({ name: i.name, quantity: i.quantity, unitPrice: i.unitPrice })) };
+      data.items = { create: input.items.map((i) => ({ name: i.name, quantity: i.quantity, unitPrice: i.unitPrice, productId: i.productId, costPrice: i.costPrice })) };
     }
 
     const row = await prisma.invoice.update({ where: { id }, data, include: INCLUDE });

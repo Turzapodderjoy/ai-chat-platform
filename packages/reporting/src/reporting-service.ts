@@ -88,12 +88,14 @@ export class ReportingService {
    * used the wrong date entirely (booked-date, not paid-date).
    *
    * Cost is Inventory's own cost basis (Product.costPrice) for whatever
-   * was actually sold on those paid invoices, traced through each
-   * payment's invoice back to its linked repair appointment's
-   * itemized parts (RepairOrderItem.productId) -- an invoice with no
-   * repair appointment behind it (added by hand, free-text line items)
-   * has no inventory link and contributes $0 cost, same limitation
-   * inventory-based costing always has for non-stocked line items. */
+   * was actually sold on those paid invoices -- traced through each
+   * payment's invoice, either back to a linked repair appointment's
+   * itemized parts (RepairOrderItem) or, for an invoice added by hand
+   * with no repair appointment behind it, the invoice's own line items
+   * (InvoiceItem). Either way, an item without a real Inventory product
+   * still counts if a cost was typed in by hand for it
+   * (RepairOrderItem.costPrice / InvoiceItem.costPrice) -- only a
+   * custom item with NEITHER contributes $0 cost. */
   async getSummary(businessId: string | undefined, from: Date, to: Date): Promise<SummaryReport> {
     const paymentWhere = { ...(businessId ? { businessId } : {}), paidAt: { gte: from, lte: to } };
     const payments = await prisma.payment.findMany({ where: paymentWhere, select: { amount: true, invoiceId: true } });
@@ -101,21 +103,41 @@ export class ReportingService {
 
     const invoiceIds = [...new Set(payments.map((p) => p.invoiceId))];
     const invoices = invoiceIds.length
-      ? await prisma.invoice.findMany({ where: { id: { in: invoiceIds } }, select: { repairAppointmentId: true } })
+      ? await prisma.invoice.findMany({
+          where: { id: { in: invoiceIds } },
+          select: { repairAppointmentId: true, items: { select: { productId: true, quantity: true, costPrice: true } } },
+        })
       : [];
     const apptIds = [...new Set(invoices.map((i) => i.repairAppointmentId).filter((id): id is string => !!id))];
     const paidAppointments = apptIds.length
-      ? await prisma.repairAppointment.findMany({ where: { id: { in: apptIds } }, select: { items: { select: { productId: true, quantity: true } } } })
+      ? await prisma.repairAppointment.findMany({ where: { id: { in: apptIds } }, select: { items: { select: { productId: true, quantity: true, costPrice: true } } } })
       : [];
-    const productIds = [...new Set(paidAppointments.flatMap((a) => a.items.map((i) => i.productId).filter((id): id is string => !!id)))];
+
+    const productIds = [
+      ...new Set([
+        ...paidAppointments.flatMap((a) => a.items.map((i) => i.productId).filter((id): id is string => !!id)),
+        ...invoices.flatMap((i) => i.items.map((it) => it.productId).filter((id): id is string => !!id)),
+      ]),
+    ];
     const products = productIds.length
       ? await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, costPrice: true } })
       : [];
     const costById = new Map(products.map((p) => [p.id, parseFloat(p.costPrice ?? "") || 0]));
+
     let totalCost = 0;
     for (const appt of paidAppointments) {
       for (const item of appt.items) {
-        if (item.productId) totalCost += (costById.get(item.productId) ?? 0) * item.quantity;
+        const cost = item.productId ? (costById.get(item.productId) ?? 0) : (item.costPrice ?? 0);
+        totalCost += cost * item.quantity;
+      }
+    }
+    // Only count an invoice's OWN items when it has no repair appointment
+    // behind it -- one already counted via paidAppointments above.
+    for (const inv of invoices) {
+      if (inv.repairAppointmentId) continue;
+      for (const item of inv.items) {
+        const cost = item.productId ? (costById.get(item.productId) ?? 0) : (item.costPrice ?? 0);
+        totalCost += cost * item.quantity;
       }
     }
 

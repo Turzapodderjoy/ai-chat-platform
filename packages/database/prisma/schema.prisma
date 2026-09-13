@@ -1190,6 +1190,12 @@ model RepairOrderItem {
   quantity            Float    @default(1)
   defaultPrice        Float
   overridePrice       Float?
+  // Cost basis for a CUSTOM item (no productId) -- an inventory-linked
+  // item's cost always comes live from Product.costPrice instead (see
+  // ReportingService.getSummary), so this only matters, and is only
+  // ever shown/editable, when productId is null. Keeps profit accurate
+  // for a part/service that was never added to Inventory.
+  costPrice           Float?
 
   repairAppointment RepairAppointment @relation(fields: [repairAppointmentId], references: [id], onDelete: Cascade)
 
@@ -1390,6 +1396,18 @@ model Invoice {
 model InvoiceItem {
   id        String  @id @default(cuid())
   invoiceId String
+  // Set when this line was picked from Inventory rather than typed as a
+  // free-text custom item -- lets Reports trace a manually-created
+  // invoice's items back to real inventory cost, the same way
+  // RepairOrderItem.productId already does for repair-order billing.
+  productId String?
+  // Snapshotted at creation from Product.costPrice, not a live lookup --
+  // an invoice must keep showing what the part actually cost the
+  // business AT THE TIME, unaffected by a later price change in
+  // Inventory. Null for a custom (non-inventory) item, which has no
+  // cost basis at all. Never sent to the customer -- only unitPrice
+  // (the sell price) appears on the printed/emailed invoice.
+  costPrice Float?
   name      String
   quantity  Float   @default(1)
   unitPrice Float

@@ -96,6 +96,9 @@ export function MessageTagControl({
           }}
         >
           <input
+            type="search"
+            name="aiva-search-tags"
+            autoComplete="off"
             autoFocus
             placeholder="Search tags…"
             value={search}

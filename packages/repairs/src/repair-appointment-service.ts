@@ -56,6 +56,10 @@ export interface AddOrderItemInput {
   name: string;
   quantity: number;
   defaultPrice: number;
+  // Only meaningful (and only ever settable) for a custom item with no
+  // productId -- an inventory-linked item's cost always comes live from
+  // Product.costPrice instead. Never shown to the customer.
+  costPrice?: number;
 }
 
 function toItem(row: {
@@ -355,6 +359,7 @@ export class RepairAppointmentService {
         name: input.name,
         quantity: input.quantity,
         defaultPrice: input.defaultPrice,
+        costPrice: input.productId ? null : (input.costPrice ?? null),
       },
     });
 

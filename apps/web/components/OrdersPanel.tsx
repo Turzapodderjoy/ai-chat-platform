@@ -65,12 +65,16 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
   // and sent along with the create request, instead of forcing a second
   // trip through "create, then reopen, then add items" for the common
   // case of already knowing the price up front.
-  const [draftItems, setDraftItems] = useState<{ kind: "part" | "service"; productId?: string; name: string; quantity: string; price: string }[]>([]);
+  const [draftItems, setDraftItems] = useState<{ kind: "part" | "service"; productId?: string; name: string; quantity: string; price: string; costPrice?: string }[]>([]);
   const [newItemKind, setNewItemKind] = useState<"part" | "service">("part");
   const [newItemProductId, setNewItemProductId] = useState("");
   const [newItemName, setNewItemName] = useState("");
   const [newItemQuantity, setNewItemQuantity] = useState("1");
   const [newItemPrice, setNewItemPrice] = useState("");
+  // Custom (non-inventory) item only -- an inventory pick's cost always
+  // comes from Product.costPrice on the backend, silently, never shown
+  // here (staff picking a real part sees only its sell price).
+  const [newItemCostPrice, setNewItemCostPrice] = useState("");
 
   function pickNewItemProduct(id: string) {
     setNewItemProductId(id);
@@ -86,14 +90,23 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
 
   function addDraftItem() {
     if (!newItemName.trim() || !newItemPrice.trim()) return;
+    const isInventoryPick = newItemKind === "part" && !!newItemProductId;
     setDraftItems((items) => [
       ...items,
-      { kind: newItemKind, productId: newItemKind === "part" && newItemProductId ? newItemProductId : undefined, name: newItemName, quantity: newItemQuantity, price: newItemPrice },
+      {
+        kind: newItemKind,
+        productId: isInventoryPick ? newItemProductId : undefined,
+        name: newItemName,
+        quantity: newItemQuantity,
+        price: newItemPrice,
+        costPrice: isInventoryPick ? undefined : (newItemCostPrice.trim() || undefined),
+      },
     ]);
     setNewItemProductId("");
     setNewItemName("");
     setNewItemQuantity("1");
     setNewItemPrice("");
+    setNewItemCostPrice("");
   }
 
   function removeDraftItem(index: number) {
@@ -159,6 +172,7 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
             name: i.name,
             quantity: Number(i.quantity) || 1,
             defaultPrice: Number(i.price) || 0,
+            costPrice: i.costPrice ? Number(i.costPrice) || undefined : undefined,
           })),
         }),
       });
@@ -289,6 +303,16 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
               )}
               <input placeholder="Qty" type="number" min={1} value={newItemQuantity} onChange={(e) => setNewItemQuantity(e.target.value)} style={{ padding: 6, width: 60 }} />
               <input placeholder="Price" type="number" value={newItemPrice} onChange={(e) => setNewItemPrice(e.target.value)} style={{ padding: 6, width: 90 }} />
+              {!newItemProductId && (
+                <input
+                  placeholder="Cost price (optional)"
+                  type="number"
+                  value={newItemCostPrice}
+                  onChange={(e) => setNewItemCostPrice(e.target.value)}
+                  title="What this part/service actually costs the business -- used for profit reporting, never shown to the customer. Leave blank if unknown."
+                  style={{ padding: 6, width: 130 }}
+                />
+              )}
               <button onClick={addDraftItem} disabled={!newItemName.trim() || !newItemPrice.trim()} style={{ fontSize: 12, padding: "6px 10px" }}>
                 + Add item
               </button>
@@ -303,6 +327,9 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
 
       <div style={{ display: "flex", gap: 8, margin: "16px 0", flexWrap: "wrap", alignItems: "center" }}>
         <input
+          type="search"
+          name="aiva-search-orders"
+          autoComplete="off"
           style={{ padding: 8, flex: "1 1 200px", minWidth: 0, maxWidth: 320 }}
           placeholder="Search by name, phone, serial/order ID, device, product…"
           value={search}

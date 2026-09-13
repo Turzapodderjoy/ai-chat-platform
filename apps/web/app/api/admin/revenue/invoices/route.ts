@@ -35,10 +35,12 @@ export async function POST(req: NextRequest) {
   const result = await app.container.router.revenue.createInvoice({
     businessId: body.businessId,
     contactId: body.contactId || undefined,
-    items: body.items.map((i: { name: string; quantity: number; unitPrice: number }) => ({
+    items: body.items.map((i: { name: string; quantity: number; unitPrice: number; productId?: string; costPrice?: number }) => ({
       name: i.name,
       quantity: Number(i.quantity) || 1,
       unitPrice: Number(i.unitPrice) || 0,
+      productId: typeof i.productId === "string" && i.productId ? i.productId : undefined,
+      costPrice: typeof i.costPrice === "number" ? i.costPrice : undefined,
     })),
     discount: typeof body.discount === "number" ? body.discount : undefined,
     tax: typeof body.tax === "number" ? body.tax : undefined,
@@ -72,10 +74,12 @@ export async function PATCH(req: NextRequest) {
   const result = await app.container.router.revenue.updateInvoice(body.id, {
     contactId: body.contactId ?? undefined,
     items: Array.isArray(body.items)
-      ? body.items.map((i: { name: string; quantity: number; unitPrice: number }) => ({
+      ? body.items.map((i: { name: string; quantity: number; unitPrice: number; productId?: string; costPrice?: number }) => ({
           name: i.name,
           quantity: Number(i.quantity) || 1,
           unitPrice: Number(i.unitPrice) || 0,
+          productId: typeof i.productId === "string" && i.productId ? i.productId : undefined,
+          costPrice: typeof i.costPrice === "number" ? i.costPrice : undefined,
         }))
       : undefined,
     discount: typeof body.discount === "number" ? body.discount : undefined,

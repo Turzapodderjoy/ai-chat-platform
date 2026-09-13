@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
       name: body.name,
       quantity: body.quantity,
       defaultPrice: body.defaultPrice,
+      costPrice: typeof body.costPrice === "number" ? body.costPrice : undefined,
     });
     return NextResponse.json(item);
   } catch (err) {

@@ -96,6 +96,9 @@ export function ProductCatalogPanel({ businessId }: { businessId: string }) {
 
       <div style={{ display: "flex", gap: 8, margin: "16px 0" }}>
         <input
+          type="search"
+          name="aiva-search-products"
+          autoComplete="off"
           placeholder="Search by name, SKU, or description…"
           value={search}
           onChange={(e) => {

@@ -48,6 +48,17 @@ interface DraftItem {
   name: string;
   quantity: string;
   unitPrice: string;
+  // Set when this line was picked from Inventory -- its cost then comes
+  // live from Product.costPrice on the backend, never shown here.
+  // Unset means a custom item, where costPrice below is staff-entered.
+  productId?: string;
+  costPrice?: string;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  price: string | null;
 }
 
 const STATUS_TONE: Record<string, BadgeTone> = { draft: "neutral", issued: "info", partially_paid: "warn", paid: "ok", overdue: "error", void: "neutral" };
@@ -60,10 +71,14 @@ const MANUAL_STATUSES = ["draft", "issued", "overdue", "void"] as const;
 const EMPTY_ITEM: DraftItem = { name: "", quantity: "1", unitPrice: "" };
 
 /** Invoices — generated automatically from a repair order (Order
- * Management's "Generate Invoice"), or added by hand here directly.
- * Manual line items are always freeform (name + price typed in), never
- * tied to an Inventory product — a business can bill for something
- * that isn't in stock. Recording a Payment recomputes amountPaid/
+ * Management's "Generate Invoice"), or added by hand here directly. A
+ * manual line item can be picked straight from Inventory (its cost
+ * then comes from Product.costPrice, silently -- never shown here, the
+ * same way it's hidden on the Orders panel's own item picker) or typed
+ * as a custom item, where staff can optionally enter its cost directly
+ * so profit reporting still has a real basis for it. Either way, only
+ * the sell price (unitPrice) ever reaches the customer-facing
+ * print/PDF invoice. Recording a Payment recomputes amountPaid/
  * status server-side in PaymentService.reconcileInvoice, so this list
  * is always the source of truth for what's actually still owed. */
 export function InvoicesPanel({ businessId, active = true }: { businessId?: string; active?: boolean }) {
@@ -71,6 +86,7 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
   const [invoices, setInvoices] = useState<Invoice[] | null>(null);
   const [contacts, setContacts] = useState<Contact[] | null>(null);
   const [repairs, setRepairs] = useState<RepairSummary[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const [showAdd, setShowAdd] = useState(false);
@@ -107,6 +123,9 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
       fetch(`/api/admin/repairs?businessId=${encodeURIComponent(businessId)}`)
         .then((r) => r.json())
         .then((d: { appointments: RepairSummary[] }) => { if (mounted) setRepairs(d.appointments); });
+      fetch(`/api/admin/products?businessId=${encodeURIComponent(businessId)}&limit=200`)
+        .then((r) => r.json())
+        .then((d: { products: Product[] }) => { if (mounted) setProducts(d.products); });
     }
     return () => { mounted = false; };
   }
@@ -140,6 +159,21 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
 
   function updateEditItem(i: number, field: keyof DraftItem, value: string) {
     setEditItems((prev) => prev.map((item, idx) => (idx === i ? { ...item, [field]: value } : item)));
+  }
+
+  // Picking a real Inventory product auto-fills name + sell price and
+  // carries productId along (cost then comes from Product.costPrice on
+  // the backend); picking "Custom item" clears productId back to a
+  // plain typed-in row, with an optional visible cost input of its own.
+  function pickItemProduct(setter: typeof setDraftItems, i: number, productId: string) {
+    const p = products.find((x) => x.id === productId);
+    setter((prev) =>
+      prev.map((item, idx) =>
+        idx === i
+          ? { ...item, productId: productId || undefined, name: p?.name ?? item.name, unitPrice: p?.price ?? item.unitPrice, costPrice: productId ? undefined : item.costPrice }
+          : item
+      )
+    );
   }
 
   function resetDraft() {
@@ -177,7 +211,7 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
         body: JSON.stringify({
           businessId,
           contactId,
-          items: validDraftItems.map((i) => ({ name: i.name.trim(), quantity: Number(i.quantity) || 1, unitPrice: Number(i.unitPrice) || 0 })),
+          items: validDraftItems.map((i) => ({ name: i.name.trim(), quantity: Number(i.quantity) || 1, unitPrice: Number(i.unitPrice) || 0, productId: i.productId, costPrice: i.costPrice ? Number(i.costPrice) : undefined })),
           discount: draftDiscount ? Number(draftDiscount) : undefined,
           tax: draftTax ? Number(draftTax) : undefined,
           dueDate: draftDueDate || undefined,
@@ -215,7 +249,7 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
         body: JSON.stringify({
           id: inv.id,
           contactId: editContactId || null,
-          items: validEditItems.map((i) => ({ name: i.name.trim(), quantity: Number(i.quantity) || 1, unitPrice: Number(i.unitPrice) || 0 })),
+          items: validEditItems.map((i) => ({ name: i.name.trim(), quantity: Number(i.quantity) || 1, unitPrice: Number(i.unitPrice) || 0, productId: i.productId, costPrice: i.costPrice ? Number(i.costPrice) : undefined })),
           discount: editDiscount ? Number(editDiscount) : undefined,
           tax: editTax ? Number(editTax) : undefined,
           dueDate: editDueDate || null,
@@ -334,13 +368,29 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
           </div>
 
           <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 6 }}>
-            Line items — type any name and price, no Inventory link required
+            Line items — pick from Inventory, or type a custom item
           </div>
           {draftItems.map((item, i) => (
-            <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+            <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, flexWrap: "wrap", alignItems: "center" }}>
+              <select value={item.productId ?? ""} onChange={(e) => pickItemProduct(setDraftItems, i, e.target.value)} style={{ padding: 8, minWidth: 150 }}>
+                <option value="">Custom item</option>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}{p.price ? ` (${currency}${p.price})` : ""}</option>
+                ))}
+              </select>
               <input placeholder="Item name" value={item.name} onChange={(e) => updateDraftItem(i, "name", e.target.value)} style={{ padding: 8, flex: "1 1 140px", minWidth: 0 }} />
               <input placeholder="Qty" type="number" min={1} value={item.quantity} onChange={(e) => updateDraftItem(i, "quantity", e.target.value)} style={{ padding: 8, width: 70, flex: "0 0 70px" }} />
-              <input placeholder="Unit price" type="number" value={item.unitPrice} onChange={(e) => updateDraftItem(i, "unitPrice", e.target.value)} style={{ padding: 8, width: 100 }} />
+              <input placeholder="Sell price" type="number" value={item.unitPrice} onChange={(e) => updateDraftItem(i, "unitPrice", e.target.value)} style={{ padding: 8, width: 100 }} />
+              {!item.productId && (
+                <input
+                  placeholder="Cost price (optional)"
+                  type="number"
+                  value={item.costPrice ?? ""}
+                  onChange={(e) => updateDraftItem(i, "costPrice", e.target.value)}
+                  title="What this actually costs the business -- used for profit reporting, never shown to the customer."
+                  style={{ padding: 8, width: 130 }}
+                />
+              )}
               {draftItems.length > 1 && (
                 <button onClick={() => setDraftItems((prev) => prev.filter((_, idx) => idx !== i))} style={{ fontSize: 11, padding: "6px 12px" }}>✕</button>
               )}
@@ -453,10 +503,26 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
                             Line items
                           </div>
                           {editItems.map((item, i) => (
-                            <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+                            <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, flexWrap: "wrap", alignItems: "center" }}>
+                              <select value={item.productId ?? ""} onChange={(e) => pickItemProduct(setEditItems, i, e.target.value)} style={{ padding: 8, minWidth: 150 }}>
+                                <option value="">Custom item</option>
+                                {products.map((p) => (
+                                  <option key={p.id} value={p.id}>{p.name}{p.price ? ` (${currency}${p.price})` : ""}</option>
+                                ))}
+                              </select>
                               <input placeholder="Item name" value={item.name} onChange={(e) => updateEditItem(i, "name", e.target.value)} style={{ padding: 8, flex: "1 1 140px", minWidth: 0 }} />
                               <input placeholder="Qty" type="number" min={1} value={item.quantity} onChange={(e) => updateEditItem(i, "quantity", e.target.value)} style={{ padding: 8, width: 70, flex: "0 0 70px" }} />
                               <input placeholder="Unit price" type="number" value={item.unitPrice} onChange={(e) => updateEditItem(i, "unitPrice", e.target.value)} style={{ padding: 8, width: 100 }} />
+                              {!item.productId && (
+                                <input
+                                  placeholder="Cost price (optional)"
+                                  type="number"
+                                  value={item.costPrice ?? ""}
+                                  onChange={(e) => updateEditItem(i, "costPrice", e.target.value)}
+                                  title="What this actually costs the business -- used for profit reporting, never shown to the customer."
+                                  style={{ padding: 8, width: 130 }}
+                                />
+                              )}
                               {editItems.length > 1 && (
                                 <button onClick={() => setEditItems((prev) => prev.filter((_, idx) => idx !== i))} style={{ fontSize: 11, padding: "6px 12px" }}>✕</button>
                               )}

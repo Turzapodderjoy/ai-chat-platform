@@ -2,6 +2,12 @@ export interface LineItemInput {
   name: string;
   quantity: number;
   unitPrice: number;
+  // Set when this line came from Inventory (auto-filled, never shown to
+  // staff at pick time) or was typed by hand for a custom item (staff
+  // enters it directly) -- null/undefined means no cost basis at all.
+  // Never sent to the customer; only used for internal profit reporting.
+  productId?: string | null;
+  costPrice?: number | null;
 }
 
 /** Shared subtotal/total math for Invoice line items — computed here, not
