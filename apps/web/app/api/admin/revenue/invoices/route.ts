@@ -4,6 +4,14 @@ import { getApp } from "../../../../../lib/app";
 
 export async function GET(req: NextRequest) {
   const app = await getApp();
+  const id = req.nextUrl.searchParams.get("id");
+  if (id) {
+    const invoice = await app.container.router.revenue.getInvoice(id);
+    if (!invoice) {
+      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+    }
+    return NextResponse.json({ invoice });
+  }
   const contactId = req.nextUrl.searchParams.get("contactId");
   if (contactId) {
     const invoices = await app.container.router.revenue.listInvoicesForContact(contactId);

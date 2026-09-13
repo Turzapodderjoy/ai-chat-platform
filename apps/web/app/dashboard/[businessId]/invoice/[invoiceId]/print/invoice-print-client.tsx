@@ -50,17 +50,23 @@ export default function InvoicePrintClient() {
   const money = (n: number) => `${currencySymbol}${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: 40, fontFamily: "Helvetica, Arial, sans-serif", color: "#111" }}>
+    <div style={{ background: "#fff", minHeight: "100vh" }}>
       <style>{`
+        /* This page renders inside the dashboard's dark theme by default
+           (no scoped stylesheet of its own) -- an invoice printout must
+           always be plain black-on-white regardless, on screen and on
+           paper, so this forces it unconditionally rather than only
+           inside @media print. */
+        html, body { background: #fff !important; }
         @media print {
           .no-print { display: none !important; }
-          body { background: #fff; }
         }
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 8px 4px; text-align: left; }
         thead th { border-bottom: 2px solid #ccc; font-size: 12px; text-transform: uppercase; color: #666; }
         tbody tr { border-bottom: 1px solid #eee; }
       `}</style>
+      <div style={{ maxWidth: 720, margin: "0 auto", padding: 40, fontFamily: "Helvetica, Arial, sans-serif", color: "#111" }}>
 
       <div className="no-print" style={{ marginBottom: 24 }}>
         <button
@@ -122,6 +128,7 @@ export default function InvoicePrintClient() {
           <Row label="Paid" value={money(invoice.amountPaid)} />
           <Row label="Balance Due" value={money(invoice.balanceDue)} bold />
         </div>
+      </div>
       </div>
     </div>
   );

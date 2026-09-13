@@ -91,25 +91,31 @@ function run(cmd, cwd) {
   execSync(cmd, { cwd, stdio: "inherit", shell: true, env: { ...process.env, CI: "true" } });
 }
 
-// The workspace packages every build actually needs resolved via
-// symlink in apps/web/node_modules/@repo -- confirmed live, repeatedly,
-// that CI=true alone doesn't reliably stop pnpm from leaving one or
-// more of these missing after "pnpm install" reports success (exit
-// code 0, no error). Root cause (confirmed live 2026-09-13 by catching
-// it mid-failure): this VPS's pnpm store is shared across every release
-// worktree, and something else on the box (the other developer's
-// separate manual deploy path has done this before -- see CLAUDE.md)
-// can run its own pnpm install against that same store concurrently.
-// Retrying the whole install just re-rolls the same race, which is why
-// it used to still fail 3/3 attempts in a row.
+// Root cause (confirmed live 2026-09-13, three separate times, each
+// time on a DIFFERENT missing package -- typescript-config/eslint-config
+// workspace links one run, @types/nodemailer a completely unrelated
+// package the next): this VPS's pnpm store is shared across every
+// release worktree, and something else on the box can run its own pnpm
+// install against that same store concurrently, corrupting a handful of
+// entries mid-install. A narrow "check these 3 known names" patch only
+// ever caught the symptom it was written for -- the next flaky package
+// just sailed through as a silent build failure instead.
 //
-// The actual fix doesn't depend on pnpm's linking step at all: a
-// workspace-protocol dependency is always a plain relative symlink from
-// the consumer's node_modules straight to the package directory
-// (verified live: apps/web/node_modules/@repo/ui -> ../../../../packages/ui),
-// with no content-addressable store involved. So after install, just
-// create any missing one directly -- deterministic, and immune to
-// whatever else is hammering the shared store at the same time.
+// The actual fix removes the shared state entirely: each release gets
+// its OWN pnpm store (--store-dir), so no install can ever race another
+// worktree's. Slower (no cross-release content reuse) and uses more
+// disk, but correctness beats a few extra seconds here.
+function storeDirFor(releaseDir) {
+  return join(releaseDir, ".pnpm-store");
+}
+
+// Kept as a cheap last-resort safety net for the specific workspace
+// links a build can't proceed without at all (a completely missing
+// @repo/* symlink fails immediately at the module-resolution stage,
+// before TypeScript even gets a chance to report a clearer error) --
+// the isolated store above is what actually stops the underlying race,
+// this just catches the one class of failure that isn't self-evident
+// from a build log.
 const REQUIRED_WORKSPACE_LINKS = ["typescript-config", "eslint-config", "ui"];
 const INSTALL_ATTEMPTS = 2;
 
@@ -138,7 +144,7 @@ function installWithRetry(releaseDir) {
     // exists, so a broken first attempt just gets silently repeated
     // as-is on every retry in the same worktree. --force bypasses that
     // fast path and makes the retry actually re-link from scratch.
-    run(`pnpm install --frozen-lockfile${attempt > 1 ? " --force" : ""}`, releaseDir);
+    run(`pnpm install --frozen-lockfile --store-dir "${storeDirFor(releaseDir)}"${attempt > 1 ? " --force" : ""}`, releaseDir);
     if (workspaceLinksOk(releaseDir)) return;
     log(`Workspace symlinks incomplete after install attempt ${attempt}/${INSTALL_ATTEMPTS} -- retrying.`);
   }
