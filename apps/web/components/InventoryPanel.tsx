@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { cardStyle, cellStyle, subtleTextStyle, badgeStyle, primaryButtonStyle } from "./dashboard-styles";
 import { useCurrencySymbol } from "../lib/currency";
+import { showConfirm } from "../lib/app-dialog";
 
 interface Product {
   id: string;
@@ -111,7 +112,7 @@ export function InventoryPanel({ businessId }: { businessId: string }) {
   }
 
   async function deleteProduct(p: Product) {
-    if (!window.confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
+    if (!(await showConfirm(`Delete "${p.name}"? This cannot be undone.`))) return;
     setBusyId(p.id);
     try {
       await fetch(`/api/admin/products?id=${encodeURIComponent(p.id)}`, { method: "DELETE" });

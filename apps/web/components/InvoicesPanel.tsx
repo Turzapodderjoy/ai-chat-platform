@@ -5,6 +5,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { cardStyle, cellStyle, subtleTextStyle, shortId, badgeStyle, primaryButtonStyle, type BadgeTone } from "./dashboard-styles";
 import { StatCard, StatCardRow } from "./StatCard";
 import { currencySymbol, useCurrencySymbol } from "../lib/currency";
+import { showAlert, showConfirm } from "../lib/app-dialog";
 
 interface Invoice {
   id: string;
@@ -272,7 +273,7 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
-        alert(err.error ?? "Failed to update invoice amounts");
+        await showAlert(err.error ?? "Failed to update invoice amounts");
         return;
       }
       refresh();
@@ -309,22 +310,22 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
       const res = await fetch(`/api/admin/revenue/invoices/${inv.id}/send`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(data.error ?? "Failed to send invoice");
+        await showAlert(data.error ?? "Failed to send invoice");
         return;
       }
-      alert(`Invoice ${inv.invoiceNumber} sent.`);
+      await showAlert(`Invoice ${inv.invoiceNumber} sent.`);
     } finally {
       setBusyId(null);
     }
   }
 
   async function deleteInvoice(inv: Invoice) {
-    const confirmed = window.confirm(`Delete invoice ${inv.invoiceNumber}? This cannot be undone.`);
+    const confirmed = await showConfirm(`Delete invoice ${inv.invoiceNumber}? This cannot be undone.`);
     if (!confirmed) return;
     const res = await fetch(`/api/admin/revenue/invoices?id=${encodeURIComponent(inv.id)}`, { method: "DELETE" });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: "Unknown error" }));
-      alert(err.error ?? "Failed to delete invoice");
+      await showAlert(err.error ?? "Failed to delete invoice");
       return;
     }
     setInvoices((prev) => prev?.filter((i) => i.id !== inv.id) ?? prev);

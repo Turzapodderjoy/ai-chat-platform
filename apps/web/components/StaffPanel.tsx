@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { cardStyle, subtleTextStyle, badgeStyle, primaryButtonStyle } from "./dashboard-styles";
+import { showConfirm } from "../lib/app-dialog";
 
 interface StaffMember {
   id: string;
@@ -77,7 +78,7 @@ export function StaffPanel({ businessId }: { businessId: string }) {
   }
 
   async function deleteMember(m: StaffMember) {
-    if (!window.confirm(`Delete "${m.name}"? This cannot be undone.`)) return;
+    if (!(await showConfirm(`Delete "${m.name}"? This cannot be undone.`))) return;
     setBusyId(m.id);
     try {
       await fetch(`/api/admin/staff?id=${encodeURIComponent(m.id)}`, { method: "DELETE" });

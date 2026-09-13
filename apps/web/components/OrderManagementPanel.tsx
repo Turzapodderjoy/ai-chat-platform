@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { subtleTextStyle, primaryButtonStyle, badgeStyle } from "./dashboard-styles";
 import { useCurrencySymbol } from "../lib/currency";
+import { showAlert } from "../lib/app-dialog";
 
 interface OrderItem {
   id: string;
@@ -122,10 +123,10 @@ export function OrderItemsEditor({ order, products, onChanged }: { order: Repair
     const res = await fetch(`/api/admin/repairs/${order.id}/invoice`, { method: "POST" });
     const data = await res.json();
     if (!res.ok) {
-      alert(`Couldn't generate invoice: ${data.error ?? "unknown error"}`);
+      await showAlert(`Couldn't generate invoice: ${data.error ?? "unknown error"}`);
       return;
     }
-    alert(`Invoice ${data.invoiceNumber} generated.`);
+    await showAlert(`Invoice ${data.invoiceNumber} generated.`);
     onChanged();
   }
 

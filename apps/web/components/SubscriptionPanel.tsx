@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { cardStyle, primaryButtonStyle, subtleTextStyle, inputStyle, labelTextStyle } from "./dashboard-styles";
 import { SUBSCRIPTION_CURRENCIES, currencySymbol } from "../lib/currency";
+import { showConfirm } from "../lib/app-dialog";
 
 interface Client {
   id: string;
@@ -73,7 +74,7 @@ export function SubscriptionPanel() {
   }
 
   async function renew(client: Client) {
-    if (!confirm(`Renew subscription for "${client.name}"? Extends end date by 1 month.`)) return;
+    if (!(await showConfirm(`Renew subscription for "${client.name}"? Extends end date by 1 month.`))) return;
     setSaving(true);
     try {
       await fetch(`/api/admin/clients/${client.id}/subscription/renew`, { method: "POST" });

@@ -6,6 +6,7 @@ import { cardStyle, subtleTextStyle, primaryButtonStyle, badgeStyle, shortId, ty
 import { MarkdownMessage } from "./MarkdownMessage";
 import { OrderItemsEditor } from "./OrderManagementPanel";
 import { isNewAppointment, dismissNotification, onNotificationsChanged } from "../lib/appointment-notifications";
+import { showConfirm } from "../lib/app-dialog";
 
 interface Appointment {
   id: string;
@@ -147,6 +148,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [viewMode, setViewMode] = useState<"list" | "kanban">("kanban");
   const [orderOpen, setOrderOpen] = useState(false);
+  const [completedPromptId, setCompletedPromptId] = useState<string | null>(null);
   const [products, setProducts] = useState<{ id: string; name: string; price: string | null; stock: string | null }[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
 
@@ -283,6 +285,17 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
     });
     refresh();
     if (selected?.id === id) fetchMessages(selected.trackingToken);
+    // Floats an in-app "create an order?" prompt right here in the
+    // Repairs panel instead of a native browser dialog -- a completed
+    // repair is exactly the moment staff need to bill it.
+    if (status === "completed") setCompletedPromptId(id);
+  }
+
+  function openOrderForCompleted() {
+    if (!completedPromptId) return;
+    setSelectedId(completedPromptId);
+    setOrderOpen(true);
+    setCompletedPromptId(null);
   }
 
   async function updatePriority(id: string, priority: string) {
@@ -334,7 +347,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
   }
 
   async function deleteAppointment(a: Appointment) {
-    const confirmed = window.confirm(
+    const confirmed = await showConfirm(
       `Delete the repair appointment for "${a.customerName}" (${a.trackingToken})? This also removes its message thread — cannot be undone.`
     );
     if (!confirmed) return;
@@ -974,6 +987,27 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
           </div>
         </div>
       )}
+
+      {completedPromptId && (() => {
+        const apt = appointments?.find((a) => a.id === completedPromptId);
+        if (!apt) return null;
+        return (
+          <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 200, width: 320, background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "var(--radius-md, 12px)", boxShadow: "var(--shadow-lg)", padding: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>Repair completed 🎉</div>
+            <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 12 }}>
+              {apt.customerName}'s {apt.deviceType} is marked completed — create an order to bill it?
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button onClick={() => setCompletedPromptId(null)} style={{ fontSize: 12, padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--surface)", color: "var(--text)", fontFamily: "inherit", cursor: "pointer" }}>
+                Dismiss
+              </button>
+              <button onClick={openOrderForCompleted} style={primaryButtonStyle}>
+                Create Order
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </section>
   );
 }

@@ -4,6 +4,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 
 import { UploadWidget } from "./UploadWidget";
 import { cardStyle, cellStyle, subtleTextStyle, primaryButtonStyle } from "./dashboard-styles";
+import { showConfirm } from "../lib/app-dialog";
 
 interface KnowledgeDocument {
   documentId: string;
@@ -257,7 +258,7 @@ export function KnowledgeHubPanel({ businessId, active = true }: { businessId?: 
   }
 
   async function deleteDocument(doc: KnowledgeDocument) {
-    const confirmed = window.confirm(
+    const confirmed = await showConfirm(
       `Delete "${doc.filename}" (${doc.chunks} chunk${doc.chunks === 1 ? "" : "s"}) from the knowledge base? This cannot be undone.`
     );
     if (!confirmed) return;

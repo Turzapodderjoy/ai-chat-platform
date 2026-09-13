@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { NavIcon } from "./nav-icons";
+import { AppDialogHost } from "../lib/app-dialog";
 
 type ThemeMode = "dark" | "light";
 
@@ -597,6 +598,7 @@ export function DashboardShell<T extends string>({
           {children}
         </main>
       </div>
+      <AppDialogHost />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 
 import { cardStyle, cellStyle, subtleTextStyle, badgeStyle, primaryButtonStyle } from "./dashboard-styles";
 import { Collapsible } from "./Collapsible";
+import { showConfirm } from "../lib/app-dialog";
 
 interface Client {
   id: string;
@@ -272,7 +273,7 @@ export function ClientAccessPanel() {
   }
 
   async function deleteTeam(team: Team) {
-    if (!window.confirm(`Delete team "${team.name}"? Members keep their own login, just lose this team's default panel access.`)) return;
+    if (!(await showConfirm(`Delete team "${team.name}"? Members keep their own login, just lose this team's default panel access.`))) return;
     await fetch(`/api/admin/teams?id=${encodeURIComponent(team.id)}`, { method: "DELETE" });
     refreshTeams(businessId);
   }
@@ -556,7 +557,7 @@ export function ClientAccessPanel() {
   }
 
   async function deleteAccount(account: ClientAccount) {
-    const confirmed = window.confirm(
+    const confirmed = await showConfirm(
       `Delete the login "${account.username}"? They'll lose access to ${account.businessName} immediately — this cannot be undone.`
     );
     if (!confirmed) return;

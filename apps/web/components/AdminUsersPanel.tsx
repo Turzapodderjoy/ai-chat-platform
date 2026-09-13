@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState } from "react";
 
 import { cardStyle, cellStyle, subtleTextStyle, badgeStyle, primaryButtonStyle } from "./dashboard-styles";
 import { generatePassword } from "./ClientAccessPanel";
+import { showConfirm } from "../lib/app-dialog";
 
 interface AdminAccount {
   id: string;
@@ -89,7 +90,7 @@ export function AdminUsersPanel() {
   }
 
   async function deleteAccount(account: AdminAccount) {
-    const confirmed = window.confirm(`Delete the admin login "${account.username}"? This cannot be undone.`);
+    const confirmed = await showConfirm(`Delete the admin login "${account.username}"? This cannot be undone.`);
     if (!confirmed) return;
     setBusyId(account.id);
     try {

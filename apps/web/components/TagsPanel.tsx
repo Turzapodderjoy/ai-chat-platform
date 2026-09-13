@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { cardStyle, cellStyle, subtleTextStyle, primaryButtonStyle } from "./dashboard-styles";
+import { showConfirm } from "../lib/app-dialog";
 
 interface Tag {
   id: string;
@@ -75,7 +76,7 @@ export function TagsPanel() {
   }
 
   async function deleteTag(tag: Tag) {
-    const confirmed = window.confirm(
+    const confirmed = await showConfirm(
       `Delete "${tag.label}"? Every conversation/message it's applied to loses this tag — this cannot be undone.`
     );
     if (!confirmed) return;

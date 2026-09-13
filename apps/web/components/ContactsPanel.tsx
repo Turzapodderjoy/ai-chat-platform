@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 
 import { cardStyle, cellStyle, subtleTextStyle, shortId, badgeStyle, type BadgeTone } from "./dashboard-styles";
 import { useCurrencySymbol } from "../lib/currency";
+import { showConfirm } from "../lib/app-dialog";
 
 interface Contact {
   id: string;
@@ -109,7 +110,7 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
   }
 
   async function deleteContact(contact: Contact) {
-    const confirmed = window.confirm(`Delete the contact "${contact.name}"? This cannot be undone.`);
+    const confirmed = await showConfirm(`Delete the contact "${contact.name}"? This cannot be undone.`);
     if (!confirmed) return;
     setBusyId(contact.id);
     try {

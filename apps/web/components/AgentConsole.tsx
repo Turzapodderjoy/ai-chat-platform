@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { DashboardShell, type NavGroup } from "./DashboardShell";
 import { cardStyle, subtleTextStyle, badgeStyle, primaryButtonStyle } from "./dashboard-styles";
+import { showAlert } from "../lib/app-dialog";
 
 type Tab = "inbox" | "team";
 
@@ -182,7 +183,7 @@ export function AgentConsole({
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        alert(body?.error ?? "Couldn't send reply.");
+        await showAlert(body?.error ?? "Couldn't send reply.");
         return;
       }
       setReply("");

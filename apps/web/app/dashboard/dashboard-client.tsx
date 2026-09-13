@@ -20,6 +20,7 @@ import { SubscriptionPanel } from "../../components/SubscriptionPanel";
 import { StatusBadge } from "../../components/StatusBadge";
 import { DashboardShell, type NavGroup } from "../../components/DashboardShell";
 import { cardStyle, cellStyle, formatBytes, subtleTextStyle, primaryButtonStyle, inputStyle } from "../../components/dashboard-styles";
+import { showAlert, showConfirm } from "../../lib/app-dialog";
 import { StatCard, StatCardRow } from "../../components/StatCard";
 
 // PLATFORM_CONFIG_ID as used by @ai-chat-platform/ai-config — kept as a
@@ -488,7 +489,7 @@ function ClientsPanel() {
   }
 
   async function deleteClient(client: Client) {
-    const confirmed = window.confirm(
+    const confirmed = await showConfirm(
       `Delete "${client.name}"? This permanently removes their conversations, crawl targets, and indexed knowledge base — it cannot be undone.`
     );
     if (!confirmed) return;
@@ -496,7 +497,7 @@ function ClientsPanel() {
     const res = await fetch(`/api/admin/clients/${client.id}`, { method: "DELETE" });
     if (!res.ok) {
       const body = await res.json().catch(() => null);
-      alert(`Couldn't delete "${client.name}": ${body?.error ?? res.statusText}`);
+      await showAlert(`Couldn't delete "${client.name}": ${body?.error ?? res.statusText}`);
       return;
     }
     setClients((prev) => prev?.filter((c) => c.id !== client.id) ?? prev);
@@ -763,7 +764,7 @@ function AiProvidersPanel() {
   }
 
   async function remove(name: string) {
-    const confirmed = window.confirm(
+    const confirmed = await showConfirm(
       `Remove the API key for "${customLabels[name] ?? name}"? It stays registered but won't be usable until re-activated with a new key.`
     );
     if (!confirmed) return;
@@ -1038,7 +1039,7 @@ function EmbeddingProvidersPanel() {
   }
 
   async function removeExtractionKey(id: string) {
-    const confirmed = window.confirm("Remove this extraction key? Takes effect on the next server restart.");
+    const confirmed = await showConfirm("Remove this extraction key? Takes effect on the next server restart.");
     if (!confirmed) return;
 
     setRemovingExtraction(id);
@@ -1076,7 +1077,7 @@ function EmbeddingProvidersPanel() {
   }
 
   async function remove(name: string) {
-    const confirmed = window.confirm(
+    const confirmed = await showConfirm(
       `Remove the API key for "${name}"? It stays registered but won't be usable until re-activated with a new key.`
     );
     if (!confirmed) return;

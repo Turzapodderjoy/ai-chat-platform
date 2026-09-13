@@ -16,6 +16,7 @@ import {
 
 import { StatCard, StatCardRow } from "./StatCard";
 import { cardStyle, cellStyle, subtleTextStyle, primaryButtonStyle } from "./dashboard-styles";
+import { showConfirm } from "../lib/app-dialog";
 
 interface Tag {
   id: string;
@@ -198,7 +199,7 @@ export function ClientTagDashboardPanel({ businessId }: { businessId: string }) 
   }
 
   async function deleteMyTag(tag: Tag) {
-    const confirmed = window.confirm(`Delete "${tag.label}"? This removes it from every conversation it's applied to.`);
+    const confirmed = await showConfirm(`Delete "${tag.label}"? This removes it from every conversation it's applied to.`);
     if (!confirmed) return;
     await fetch(`/api/admin/tags?id=${encodeURIComponent(tag.id)}`, { method: "DELETE" });
     setTags((prev) => prev?.filter((t) => t.id !== tag.id) ?? prev);
