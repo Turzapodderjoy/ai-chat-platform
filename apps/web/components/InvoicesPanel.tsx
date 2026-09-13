@@ -62,12 +62,6 @@ interface Product {
 }
 
 const STATUS_TONE: Record<string, BadgeTone> = { draft: "neutral", issued: "info", partially_paid: "warn", paid: "ok", overdue: "error", void: "neutral" };
-// "paid" and "partially_paid" are excluded here on purpose -- those two
-// are only ever set by PaymentService.reconcileInvoice (via the "Paid"
-// button's amount override), never by hand. Letting someone flip the
-// dropdown straight to "paid" skipped that reconciliation entirely and
-// left amountPaid/total out of sync with what the badge claimed.
-const MANUAL_STATUSES = ["draft", "issued", "overdue", "void"] as const;
 const EMPTY_ITEM: DraftItem = { name: "", quantity: "1", unitPrice: "" };
 
 /** Invoices — generated automatically from a repair order (Order
@@ -266,25 +260,7 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
     setEditingId(null);
   }
 
-  async function setStatus(inv: Invoice, status: string) {
-    setBusyId(inv.id);
-    try {
-      await fetch("/api/admin/revenue/invoices", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: inv.id, status }),
-      });
-      refresh();
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function recordPayment(inv: Invoice) {
-    const amountStr = window.prompt(`Amount collected for ${inv.invoiceNumber} — this becomes the invoice's total and marks it fully paid`, String(inv.total));
-    if (!amountStr) return;
-    const amount = Number(amountStr);
-    if (!amount || amount <= 0) return;
+  async function submitPayment(inv: Invoice, amount: number) {
     setBusyId(inv.id);
     try {
       const res = await fetch("/api/admin/revenue/payments", {
@@ -301,6 +277,22 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
     } finally {
       setBusyId(null);
     }
+  }
+
+  async function recordPayment(inv: Invoice) {
+    const amountStr = window.prompt(`Amount collected for ${inv.invoiceNumber} — this becomes the invoice's total (fully paid if it covers the balance, partially paid otherwise)`, String(inv.balanceDue > 0 ? inv.balanceDue : inv.total));
+    if (!amountStr) return;
+    const amount = Number(amountStr);
+    if (!amount || amount <= 0) return;
+    await submitPayment(inv, amount);
+  }
+
+  async function recordFullPayment(inv: Invoice) {
+    const amountStr = window.prompt(`How much has been paid in total for ${inv.invoiceNumber}? This overrides the invoice's total and marks it fully paid.`, String(inv.total));
+    if (!amountStr) return;
+    const amount = Number(amountStr);
+    if (!amount || amount <= 0) return;
+    await submitPayment(inv, amount);
   }
 
   function printInvoice(inv: Invoice) {
@@ -470,16 +462,13 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
                     <td style={{ padding: "6px 8px" }}>{currency}{inv.amountPaid.toLocaleString()}</td>
                     <td style={{ padding: "6px 8px", color: inv.balanceDue > 0 ? "var(--danger)" : "var(--success)" }}>{currency}{inv.balanceDue.toLocaleString()}</td>
                     <td style={{ padding: "6px 8px" }}>
-                      {inv.status === "paid" || inv.status === "partially_paid" ? (
-                        <span style={badgeStyle(STATUS_TONE[inv.status] ?? "neutral")}>{inv.status}</span>
-                      ) : (
-                        <select value={inv.status} onChange={(e) => setStatus(inv, e.target.value)} disabled={busyId === inv.id} style={{ padding: "6px 12px", fontSize: 11 }}>
-                          {MANUAL_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                      )}
+                      <span style={badgeStyle(STATUS_TONE[inv.status] ?? "neutral")}>{inv.status}</span>
                     </td>
                     <td style={{ padding: "6px 8px", display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      <button onClick={() => recordPayment(inv)} disabled={busyId === inv.id || inv.balanceDue <= 0} style={{ fontSize: 11, padding: "6px 12px" }}>Paid</button>
+                      <button onClick={() => recordPayment(inv)} disabled={busyId === inv.id} style={{ fontSize: 11, padding: "6px 12px" }}>Paid</button>
+                      {inv.status === "partially_paid" && (
+                        <button onClick={() => recordFullPayment(inv)} disabled={busyId === inv.id} style={{ fontSize: 11, padding: "6px 12px" }}>Fully Paid</button>
+                      )}
                       <button onClick={() => printInvoice(inv)} style={{ fontSize: 11, padding: "6px 12px" }}>Print</button>
                       <button onClick={() => sendInvoice(inv)} disabled={busyId === inv.id} style={{ fontSize: 11, padding: "6px 12px" }}>Send</button>
                       <button onClick={() => editingId === inv.id ? cancelEdit() : startEdit(inv)} style={{ fontSize: 11, padding: "6px 12px" }}>{editingId === inv.id ? "Cancel" : "Edit"}</button>

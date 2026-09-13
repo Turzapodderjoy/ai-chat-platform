@@ -807,15 +807,13 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
               <div style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 12 }}>
                 <span style={{ color: "var(--text-faint)" }}>Source:</span> {selected.isWalkIn ? "🚶 Walk-in" : "📅 Scheduled"}
               </div>
-              <a
-                href={`/track/${selected.trackingToken}`}
-                target="_blank"
-                rel="noreferrer"
-                style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 12, color: "var(--text)", textDecoration: "none" }}
-                title="Open this repair's customer tracking page"
+              <button
+                onClick={() => { navigator.clipboard.writeText(selected.trackingToken); }}
+                style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 12, color: "var(--text)", fontFamily: "inherit", cursor: "pointer" }}
+                title="Click to copy tracking code"
               >
                 <span style={{ color: "var(--text-faint)" }}>Tracking code:</span> {selected.trackingToken}
-              </a>
+              </button>
             </div>
 
             {/* Issue */}
