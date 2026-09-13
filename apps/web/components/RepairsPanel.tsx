@@ -789,7 +789,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
                 ))}
               </select>
               <button onClick={() => setOrderOpen((o) => !o)} style={{ padding: "6px 12px", fontSize: 12, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: orderOpen ? "var(--accent-subtle)" : "var(--bg)", cursor: "pointer", color: "var(--text)", fontFamily: "inherit" }}>
-                {orderOpen ? "Close Order" : "Order"}
+                {orderOpen ? "Close Order" : "Create Order"}
               </button>
             </div>
           </div>
