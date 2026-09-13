@@ -138,7 +138,7 @@ export class ReportingService {
       newContactsThisMonth,
     ] = await Promise.all([
       this.getSummary(businessId, summaryRange[0]!, summaryRange[1]!),
-      prisma.invoice.findMany({ where, select: { status: true, discount: true, tax: true, amountPaid: true, items: { select: { quantity: true, unitPrice: true } } } }),
+      prisma.invoice.findMany({ where, select: { status: true, discount: true, tax: true, amountPaid: true, totalOverride: true, items: { select: { quantity: true, unitPrice: true } } } }),
       prisma.payment.findMany({ where, select: { amount: true, paidAt: true } }),
       prisma.order.findMany({ where, select: { deliveryStatus: true } }),
       prisma.repairAppointment.findMany({ where, select: { status: true } }),
@@ -152,8 +152,14 @@ export class ReportingService {
     let totalOutstanding = 0;
     const invoicesByStatus: Record<string, number> = {};
     for (const inv of invoices) {
+      // Same override-wins rule as InvoiceService.toInvoice -- confirmed
+      // live, this previously ignored totalOverride entirely and always
+      // summed raw item price, overstating Total Invoiced/Outstanding by
+      // exactly the gap between an invoice's itemized total and whatever
+      // it was actually marked "Paid" at (the everyday case: every "Paid"
+      // action sets totalOverride to a different amount than the items).
       const subtotal = inv.items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
-      const total = Math.max(0, subtotal - inv.discount + inv.tax);
+      const total = inv.totalOverride ?? Math.max(0, subtotal - inv.discount + inv.tax);
       totalInvoiced += total;
       if (inv.status !== "void") totalOutstanding += Math.max(0, total - inv.amountPaid);
       invoicesByStatus[inv.status] = (invoicesByStatus[inv.status] ?? 0) + 1;
