@@ -92,19 +92,42 @@ function run(cmd, cwd) {
 }
 
 // The workspace packages every build actually needs resolved via
-// symlink in apps/web/node_modules/@repo -- confirmed live, THREE
-// separate times, that CI=true alone doesn't reliably stop pnpm from
-// leaving one or more of these missing after "pnpm install" reports
-// success (exit code 0, no error) in a second/third worktree sharing
-// this repo's pnpm store. A plain re-run of install reliably fixes it
-// when done by hand, so this just automates that instead of leaving it
-// as a manual intervention every time.
+// symlink in apps/web/node_modules/@repo -- confirmed live, repeatedly,
+// that CI=true alone doesn't reliably stop pnpm from leaving one or
+// more of these missing after "pnpm install" reports success (exit
+// code 0, no error). Root cause (confirmed live 2026-09-13 by catching
+// it mid-failure): this VPS's pnpm store is shared across every release
+// worktree, and something else on the box (the other developer's
+// separate manual deploy path has done this before -- see CLAUDE.md)
+// can run its own pnpm install against that same store concurrently.
+// Retrying the whole install just re-rolls the same race, which is why
+// it used to still fail 3/3 attempts in a row.
+//
+// The actual fix doesn't depend on pnpm's linking step at all: a
+// workspace-protocol dependency is always a plain relative symlink from
+// the consumer's node_modules straight to the package directory
+// (verified live: apps/web/node_modules/@repo/ui -> ../../../../packages/ui),
+// with no content-addressable store involved. So after install, just
+// create any missing one directly -- deterministic, and immune to
+// whatever else is hammering the shared store at the same time.
 const REQUIRED_WORKSPACE_LINKS = ["typescript-config", "eslint-config", "ui"];
-const INSTALL_ATTEMPTS = 3;
+const INSTALL_ATTEMPTS = 2;
 
 function workspaceLinksOk(releaseDir) {
   const repoDir = join(releaseDir, "apps", "web", "node_modules", "@repo");
   return REQUIRED_WORKSPACE_LINKS.every((name) => existsSync(join(repoDir, name)));
+}
+
+function healWorkspaceLinks(releaseDir) {
+  const repoDir = join(releaseDir, "apps", "web", "node_modules", "@repo");
+  mkdirSync(repoDir, { recursive: true });
+  for (const name of REQUIRED_WORKSPACE_LINKS) {
+    const linkPath = join(repoDir, name);
+    if (existsSync(linkPath)) continue;
+    const target = join("..", "..", "..", "..", "packages", name);
+    symlinkSync(target, linkPath, IS_WINDOWS ? "junction" : "dir");
+    log(`Manually linked missing workspace package: @repo/${name} -> ${target}`);
+  }
 }
 
 function installWithRetry(releaseDir) {
@@ -119,7 +142,11 @@ function installWithRetry(releaseDir) {
     if (workspaceLinksOk(releaseDir)) return;
     log(`Workspace symlinks incomplete after install attempt ${attempt}/${INSTALL_ATTEMPTS} -- retrying.`);
   }
-  throw new Error(`apps/web/node_modules/@repo is still missing required links after ${INSTALL_ATTEMPTS} install attempts.`);
+  log(`Workspace symlinks still incomplete after ${INSTALL_ATTEMPTS} install attempts -- creating the missing ones directly instead of retrying pnpm again.`);
+  healWorkspaceLinks(releaseDir);
+  if (!workspaceLinksOk(releaseDir)) {
+    throw new Error(`apps/web/node_modules/@repo is still missing required links even after manual linking.`);
+  }
 }
 
 function currentDeployedSha() {
