@@ -204,6 +204,12 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
   const [savingNewOrder, setSavingNewOrder] = useState(false);
   const [savingRepairStatus, setSavingRepairStatus] = useState(false);
   const [contactForSelected, setContactForSelected] = useState<Contact | null | undefined>(undefined);
+  // Cached by businessId (not per-conversation) since many conversations
+  // share the same client -- avoids refetching on every row click. Used
+  // to hide Stop/Resume AI entirely once a client's AI Replies toggle
+  // (Client Access panel) is off, since flipping one conversation back
+  // to "bot" would be a no-op lie while the whole client's AI is off.
+  const [businessAiEnabled, setBusinessAiEnabled] = useState<Record<string, boolean>>({});
   const [notes, setNotes] = useState<Note[] | null>(null);
   const [newNote, setNewNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
@@ -430,6 +436,14 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
       .then((d: { appointments: RepairAppointment[] }) =>
         setRepairForSelected(d.appointments.find((a) => a.trackingToken === c.id) ?? null)
       );
+
+    if (!(c.businessId in businessAiEnabled)) {
+      fetch(`/api/admin/clients/${encodeURIComponent(c.businessId)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { aiEnabled?: boolean } | null) => {
+          if (d) setBusinessAiEnabled((prev) => ({ ...prev, [c.businessId]: d.aiEnabled !== false }));
+        });
+    }
 
     setContactForSelected(undefined);
   }
@@ -968,15 +982,24 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
               {/* Detail Panel (right side) - hidden on mobile */}
               {!isMobile && (
               <div style={{ width: 260, flexShrink: 0, borderLeft: "1px solid var(--border-subtle)", overflowY: "auto", background: "var(--bg-elevated)", padding: "12px" }}>
-                {/* AI Controls */}
-                <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-                  <button onClick={() => setAiStatus("human")} disabled={settingStatus || selected.handoffStatus === "human"} style={{ flex: 1, fontSize: 11, padding: "6px 8px", background: selected.handoffStatus === "human" ? "var(--danger-subtle)" : "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: selected.handoffStatus === "human" ? "var(--danger)" : "var(--text-secondary)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer" }}>
-                    Stop AI
-                  </button>
-                  <button onClick={() => setAiStatus("bot")} disabled={settingStatus || selected.handoffStatus === "bot"} style={{ flex: 1, fontSize: 11, padding: "6px 8px", background: selected.handoffStatus === "bot" ? "var(--success-subtle)" : "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: selected.handoffStatus === "bot" ? "var(--success)" : "var(--text-secondary)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer" }}>
-                    Resume AI
-                  </button>
-                </div>
+                {/* AI Controls -- hidden entirely once this client's AI
+                    Replies toggle (Client Access panel) is off. Defaults
+                    to shown (true) until the lookup resolves, matching
+                    Business.aiEnabled's own default-true. */}
+                {businessAiEnabled[selected.businessId] !== false ? (
+                  <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+                    <button onClick={() => setAiStatus("human")} disabled={settingStatus || selected.handoffStatus === "human"} style={{ flex: 1, fontSize: 11, padding: "6px 8px", background: selected.handoffStatus === "human" ? "var(--danger-subtle)" : "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: selected.handoffStatus === "human" ? "var(--danger)" : "var(--text-secondary)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer" }}>
+                      Stop AI
+                    </button>
+                    <button onClick={() => setAiStatus("bot")} disabled={settingStatus || selected.handoffStatus === "bot"} style={{ flex: 1, fontSize: 11, padding: "6px 8px", background: selected.handoffStatus === "bot" ? "var(--success-subtle)" : "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: selected.handoffStatus === "bot" ? "var(--success)" : "var(--text-secondary)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer" }}>
+                      Resume AI
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ marginBottom: 16, fontSize: 11, color: "var(--text-faint)", padding: "6px 8px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
+                    AI replies are off for this client (Client Access panel).
+                  </div>
+                )}
 
                 {/* Agent Assignment */}
                 {businessId && (

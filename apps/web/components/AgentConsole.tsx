@@ -75,6 +75,18 @@ export function AgentConsole({
   const [notes, setNotes] = useState<Note[] | null>(null);
   const [newNote, setNewNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  // Hides "Mark Resolved" (which releases a conversation back to the
+  // bot) once this client's AI Replies toggle (Client Access panel) is
+  // off -- releasing to a bot that won't reply would just strand the
+  // customer. Defaults true until the fetch resolves, matching
+  // Business.aiEnabled's own default-true.
+  const [aiEnabled, setAiEnabled] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/admin/clients/${encodeURIComponent(businessId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { aiEnabled?: boolean } | null) => setAiEnabled(d?.aiEnabled !== false));
+  }, [businessId]);
 
   function refreshRoster() {
     fetch("/api/client/agents")
@@ -275,7 +287,7 @@ export function AgentConsole({
             <>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                 <h3 style={{ margin: 0 }}>{selected.customerName ?? selected.id.slice(0, 10)}</h3>
-                {canReply && (
+                {canReply && aiEnabled && (
                   <button onClick={markResolved} style={{ fontSize: 12 }}>
                     Mark resolved
                   </button>

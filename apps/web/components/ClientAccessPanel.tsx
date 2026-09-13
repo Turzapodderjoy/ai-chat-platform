@@ -8,6 +8,7 @@ import { Collapsible } from "./Collapsible";
 interface Client {
   id: string;
   name: string;
+  aiEnabled: boolean;
 }
 
 interface ClientAccount {
@@ -370,6 +371,28 @@ export function ClientAccessPanel() {
       .then((data) => setAccounts(data.accounts));
   }
 
+  const [togglingAi, setTogglingAi] = useState(false);
+
+  // Takes effect on the very next customer message -- ChatService reads
+  // Business.aiEnabled fresh on every chat() call, nothing cached. Off
+  // also hides every per-conversation Stop/Resume AI control for this
+  // client everywhere it appears (Inbox, Agent Console), since toggling
+  // one conversation back to "bot" would be a no-op lie once the whole
+  // client's AI is off -- see AllChatsPanel/AgentConsole.
+  async function toggleAi(client: Client) {
+    setTogglingAi(true);
+    try {
+      await fetch(`/api/admin/clients/${client.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aiEnabled: !client.aiEnabled }),
+      });
+      refresh();
+    } finally {
+      setTogglingAi(false);
+    }
+  }
+
   useEffect(refresh, []);
 
   useEffect(() => {
@@ -637,6 +660,35 @@ export function ClientAccessPanel() {
       </div>
 
       {message && <p style={{ fontSize: 13, opacity: 0.85, marginTop: 8 }}>{message}</p>}
+
+      {!isAdmin && businessId && clients?.find((c) => c.id === businessId) && (
+        <div style={{ marginTop: 20, border: "1px solid var(--border)", borderRadius: 8, padding: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 4 }}>
+              AI Replies — {clients?.find((c) => c.id === businessId)?.name}
+            </div>
+            <p style={{ fontSize: 12, color: "var(--text-faint)", margin: 0 }}>
+              Off stops the AI from answering this client's customers everywhere (website, Messenger, Instagram, WhatsApp) — takes effect on the very next message, no restart. Also hides the per-conversation Stop/Resume AI control for every login of this client, since it'd be a no-op while this is off.
+            </p>
+          </div>
+          <button
+            onClick={() => toggleAi(clients!.find((c) => c.id === businessId)!)}
+            disabled={togglingAi}
+            style={{
+              padding: "8px 16px",
+              fontSize: 13,
+              fontWeight: 600,
+              borderRadius: "var(--radius-sm)",
+              border: "1px solid var(--border)",
+              cursor: "pointer",
+              background: clients?.find((c) => c.id === businessId)?.aiEnabled ? "var(--success-subtle)" : "var(--danger-subtle)",
+              color: clients?.find((c) => c.id === businessId)?.aiEnabled ? "var(--success)" : "var(--danger)",
+            }}
+          >
+            {clients?.find((c) => c.id === businessId)?.aiEnabled ? "AI: ON" : "AI: OFF"}
+          </button>
+        </div>
+      )}
 
       {!isAdmin && businessId && (
         <div style={{ marginTop: 20, border: "1px solid var(--border)", borderRadius: 8, padding: 14 }}>

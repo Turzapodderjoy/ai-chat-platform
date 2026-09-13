@@ -294,6 +294,18 @@ export class AdminController {
     return this.tenants.setBusinessType(id, type);
   }
 
+  /** The platform-wide AI kill switch for one client -- ChatService
+   * checks this on every single message (see chat-service.ts), so
+   * turning it off takes effect on the very next customer message, no
+   * restart. Flipping it also hides every per-conversation Stop/Resume
+   * AI control for this client everywhere they appear (Inbox, Agent
+   * Console) -- see AllChatsPanel/AgentConsole's own aiEnabled checks --
+   * since a per-conversation override is meaningless once AI is off
+   * for the whole client. */
+  setClientAiEnabled(id: string, aiEnabled: boolean) {
+    return this.tenants.setAiEnabled(id, aiEnabled);
+  }
+
   getClient(id: string) {
     return this.tenants.getBusiness(id);
   }

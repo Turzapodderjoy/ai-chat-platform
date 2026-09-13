@@ -55,6 +55,10 @@ export class TenantService {
     return prisma.business.update({ where: { id }, data: { type } });
   }
 
+  async setAiEnabled(id: string, aiEnabled: boolean) {
+    return prisma.business.update({ where: { id }, data: { aiEnabled } });
+  }
+
   /** Memberships cascade via the schema; conversations/crawl targets/
    * knowledge chunks are cleaned up separately by the caller (they're
    * plain-string businessId references, not Prisma relations). */

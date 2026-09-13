@@ -16,8 +16,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   const body = await req.json().catch(() => null);
 
-  if (!body || (typeof body.maxAgents !== "number" && typeof body.type !== "string" && !Array.isArray(body.enabledIntegrations) && body.enabledIntegrations !== null)) {
-    return NextResponse.json({ error: "maxAgents, type, or enabledIntegrations is required" }, { status: 400 });
+  if (
+    !body ||
+    (typeof body.maxAgents !== "number" &&
+      typeof body.type !== "string" &&
+      typeof body.aiEnabled !== "boolean" &&
+      !Array.isArray(body.enabledIntegrations) &&
+      body.enabledIntegrations !== null)
+  ) {
+    return NextResponse.json({ error: "maxAgents, type, aiEnabled, or enabledIntegrations is required" }, { status: 400 });
   }
 
   try {
@@ -27,6 +34,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
     if (typeof body.type === "string") {
       await app.container.router.admin.setClientType(id, body.type);
+    }
+    if (typeof body.aiEnabled === "boolean") {
+      await app.container.router.admin.setClientAiEnabled(id, body.aiEnabled);
     }
     if (Array.isArray(body.enabledIntegrations) || body.enabledIntegrations === null) {
       const { prisma } = await import("@ai-chat-platform/database");

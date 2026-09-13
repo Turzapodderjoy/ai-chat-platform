@@ -423,6 +423,9 @@ importers:
       '@ai-chat-platform/crm':
         specifier: workspace:*
         version: link:../crm
+      '@ai-chat-platform/database':
+        specifier: workspace:*
+        version: link:../database
       '@ai-chat-platform/embedding-manager':
         specifier: workspace:*
         version: link:../embedding-manager

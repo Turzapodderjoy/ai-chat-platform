@@ -9,6 +9,7 @@ import type { MasterCsvService } from "@ai-chat-platform/knowledge-refresh";
 import type { ContactService } from "@ai-chat-platform/crm";
 import type { VisionService } from "@ai-chat-platform/vision";
 import type { RepairAppointmentService } from "@ai-chat-platform/repairs";
+import { prisma } from "@ai-chat-platform/database";
 
 import { ChatUsageLog } from "./chat-usage-log";
 import { ResponseCache } from "./response-cache";
@@ -863,6 +864,16 @@ export class ChatService {
       conversation.handoffStatus = "bot";
     }
 
+    // Business-wide AI kill switch (Client Access panel's "AI Replies"
+    // toggle) -- read fresh on every message, same reasoning as config
+    // above, so turning it off takes effect on the very next customer
+    // message with no restart. Checked ahead of the per-conversation
+    // handoff check below: once a client's AI is off entirely, no
+    // individual conversation's handoffStatus should ever let the bot
+    // reply, so this can't be bypassed by a stale "bot" status.
+    const business = await prisma.business.findUnique({ where: { id: businessId }, select: { aiEnabled: true } });
+    const aiDisabledForBusiness = business ? !business.aiEnabled : false;
+
     // Already being handled by a human — don't let the bot jump back in.
     // (Doesn't record this as a message: the customer's real messages
     // while waiting should just accumulate for the agent to read, not
@@ -870,7 +881,7 @@ export class ChatService {
     // entirely for a Training Arena session — the whole point there is
     // to keep talking to the AI after it hands off, to correct exactly
     // that behavior, not to simulate the real "you're waiting" UX.
-    if (!conversation.isTraining && conversation.handoffStatus !== "bot") {
+    if (!conversation.isTraining && (aiDisabledForBusiness || conversation.handoffStatus !== "bot")) {
       const lang = cannedMessageLanguage(config.languageMode, request.message);
       const idx = greetingIndex(request.sessionId + request.message);
       const variants =
