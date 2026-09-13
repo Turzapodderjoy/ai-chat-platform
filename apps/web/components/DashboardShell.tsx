@@ -511,17 +511,30 @@ export function DashboardShell<T extends string>({
                   className="ghost"
                   title={username ?? "Account"}
                   style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    height: 36,
+                    borderRadius: "var(--radius-sm)",
+                    padding: "0 10px 0 0",
+                  }}
+                >
+                  <span style={{
                     width: 36,
                     height: 36,
+                    flexShrink: 0,
                     borderRadius: "var(--radius-sm)",
                     background: "var(--accent)",
                     color: "white",
                     fontSize: 14,
                     fontWeight: 600,
-                    padding: 0,
-                  }}
-                >
-                  {(username ?? "?").slice(0, 1).toUpperCase()}
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}>
+                    {(username ?? "?").slice(0, 1).toUpperCase()}
+                  </span>
+                  {username && <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>{username}</span>}
                 </button>
                 {profileOpen && (
                   <div style={{
