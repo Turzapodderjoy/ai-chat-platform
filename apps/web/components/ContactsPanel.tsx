@@ -246,8 +246,8 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
                               {record.invoices.map((inv) => (
                                 <div key={inv.id} style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
                                   <span style={badgeStyle(INVOICE_TONE[inv.status] ?? "neutral")}>{inv.status}</span>
-                                  {inv.invoiceNumber} — {inv.currency}{inv.total.toLocaleString()}
-                                  {inv.balanceDue > 0 && <span style={{ color: "var(--danger)" }}>({inv.currency}{inv.balanceDue.toLocaleString()} due)</span>}
+                                  {inv.invoiceNumber} — {currency}{inv.total.toLocaleString()}
+                                  {inv.balanceDue > 0 && <span style={{ color: "var(--danger)" }}>({currency}{inv.balanceDue.toLocaleString()} due)</span>}
                                 </div>
                               ))}
                             </div>

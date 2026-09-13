@@ -392,9 +392,9 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
                         </>
                       ) : "—"}
                     </td>
-                    <td style={{ padding: "6px 8px" }}>{inv.currency}{inv.total.toLocaleString()}</td>
-                    <td style={{ padding: "6px 8px" }}>{inv.currency}{inv.amountPaid.toLocaleString()}</td>
-                    <td style={{ padding: "6px 8px", color: inv.balanceDue > 0 ? "var(--danger)" : "var(--success)" }}>{inv.currency}{inv.balanceDue.toLocaleString()}</td>
+                    <td style={{ padding: "6px 8px" }}>{currency}{inv.total.toLocaleString()}</td>
+                    <td style={{ padding: "6px 8px" }}>{currency}{inv.amountPaid.toLocaleString()}</td>
+                    <td style={{ padding: "6px 8px", color: inv.balanceDue > 0 ? "var(--danger)" : "var(--success)" }}>{currency}{inv.balanceDue.toLocaleString()}</td>
                     <td style={{ padding: "6px 8px" }}>
                       <select value={inv.status} onChange={(e) => setStatus(inv, e.target.value)} disabled={busyId === inv.id} style={{ padding: "6px 12px", fontSize: 11 }}>
                         {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
