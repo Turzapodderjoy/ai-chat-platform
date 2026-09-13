@@ -51,7 +51,11 @@ export class RevenueController {
     return {
       invoice,
       businessName: business?.name ?? "",
-      currencySymbol: currencySymbol(invoice.currency),
+      // The business's CURRENT currency, not invoice.currency -- that's
+      // whatever was set when the invoice was created and goes stale
+      // forever if the business switches currencies later (same drift
+      // bug already fixed on the Invoices/Contacts panels).
+      currencySymbol: currencySymbol(business?.subscriptionCurrency),
       customerName: contact?.name ?? appointment?.customerName ?? null,
       customerPhone: contact?.phone ?? appointment?.phone ?? null,
       customerEmail: contact?.email ?? appointment?.email ?? null,
