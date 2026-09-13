@@ -113,7 +113,7 @@ function describeActivity(entry: ActivityEntry): string {
 
 const PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
 
-function generatePassword(length = 14): string {
+export function generatePassword(length = 14): string {
   const bytes = crypto.getRandomValues(new Uint32Array(length));
   return Array.from(bytes, (n) => PASSWORD_CHARS[n % PASSWORD_CHARS.length]).join("");
 }
