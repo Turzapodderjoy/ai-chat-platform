@@ -164,6 +164,7 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
       });
       if (res.ok) {
         setForm({ customerName: "", phone: "", email: "", deviceType: "", deviceModel: "", issueDescription: "", isWalkIn: false });
+        setDraftItems([]);
         setShowNew(false);
         refresh();
       }
@@ -257,6 +258,43 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
             <input type="checkbox" checked={form.isWalkIn} onChange={(e) => setForm({ ...form, isWalkIn: e.target.checked })} />
             Walk-in
           </label>
+
+          <div style={{ width: "100%", borderTop: "1px solid var(--border)", paddingTop: 10, marginTop: 4 }}>
+            <div style={{ fontSize: 12, color: "var(--text-faint)", marginBottom: 6 }}>Parts / services (optional — can also be added later)</div>
+            {draftItems.map((item, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, fontSize: 13 }}>
+                <span style={badgeStyle(item.kind === "part" ? "info" : "neutral")}>{item.kind}</span>
+                <span style={{ flex: 1 }}>{item.name} × {item.quantity}</span>
+                <strong>{currency}{(Number(item.price) || 0) * (Number(item.quantity) || 1)}</strong>
+                <button onClick={() => removeDraftItem(i)} style={{ fontSize: 11, padding: "3px 6px" }}>✕</button>
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+              <select value={newItemKind} onChange={(e) => setNewItemKind(e.target.value as "part" | "service")} style={{ padding: 6 }}>
+                <option value="part">Part</option>
+                <option value="service">Service</option>
+              </select>
+              {newItemKind === "part" ? (
+                <>
+                  <select value={newItemProductId} onChange={(e) => pickNewItemProduct(e.target.value)} style={{ padding: 6, minWidth: 160 }}>
+                    <option value="">Custom part (not in Inventory)</option>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name} {p.price ? `(${currency}${p.price})` : ""}</option>
+                    ))}
+                  </select>
+                  <input placeholder="Part name" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} style={{ padding: 6, minWidth: 140 }} />
+                </>
+              ) : (
+                <input placeholder="Service name" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} style={{ padding: 6, minWidth: 160 }} />
+              )}
+              <input placeholder="Qty" type="number" min={1} value={newItemQuantity} onChange={(e) => setNewItemQuantity(e.target.value)} style={{ padding: 6, width: 60 }} />
+              <input placeholder="Price" type="number" value={newItemPrice} onChange={(e) => setNewItemPrice(e.target.value)} style={{ padding: 6, width: 90 }} />
+              <button onClick={addDraftItem} disabled={!newItemName.trim() || !newItemPrice.trim()} style={{ fontSize: 12, padding: "6px 10px" }}>
+                + Add item
+              </button>
+            </div>
+          </div>
+
           <button onClick={createOrder} disabled={saving} style={primaryButtonStyle}>
             {saving ? "Creating…" : "Create"}
           </button>
