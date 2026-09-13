@@ -37,7 +37,7 @@ export default function InvoicePrintClient() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/admin/revenue/invoices/${params.invoiceId}/detail`)
+    fetch(`/api/admin/revenue/invoices/${params.invoiceId}/detail`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject(r)))
       .then(setDetail)
       .catch(() => setError("Could not load this invoice."));

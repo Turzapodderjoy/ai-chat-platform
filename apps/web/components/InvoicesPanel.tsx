@@ -82,6 +82,8 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
   const [repairs, setRepairs] = useState<RepairSummary[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [editingCell, setEditingCell] = useState<{ id: string; field: "total" | "paid" | "due" } | null>(null);
+  const [editingCellValue, setEditingCellValue] = useState("");
 
   const [showAdd, setShowAdd] = useState(false);
   const [draftContactId, setDraftContactId] = useState("");
@@ -260,17 +262,17 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
     setEditingId(null);
   }
 
-  async function submitPayment(inv: Invoice, amount: number) {
+  async function submitAmounts(inv: Invoice, input: { total?: number; amount?: number }) {
     setBusyId(inv.id);
     try {
       const res = await fetch("/api/admin/revenue/payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId: inv.businessId, invoiceId: inv.id, amount }),
+        body: JSON.stringify({ businessId: inv.businessId, invoiceId: inv.id, ...input }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
-        alert(err.error ?? "Failed to record payment");
+        alert(err.error ?? "Failed to update invoice amounts");
         return;
       }
       refresh();
@@ -279,20 +281,22 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
     }
   }
 
-  async function recordPayment(inv: Invoice) {
-    const amountStr = window.prompt(`Amount collected for ${inv.invoiceNumber} — this becomes the invoice's total (fully paid if it covers the balance, partially paid otherwise)`, String(inv.balanceDue > 0 ? inv.balanceDue : inv.total));
-    if (!amountStr) return;
-    const amount = Number(amountStr);
-    if (!amount || amount <= 0) return;
-    await submitPayment(inv, amount);
+  // Total/Paid/Due are three views of the same two numbers -- editing
+  // any one cell solves for the other via the invoice's current total,
+  // then commits through submitAmounts (which always goes through
+  // Payment rows for the paid side, so Reports stays in sync).
+  function commitAmountEdit(inv: Invoice, field: "total" | "paid" | "due", raw: string) {
+    setEditingCell(null);
+    const value = Math.max(0, Number(raw) || 0);
+    if (field === "total") submitAmounts(inv, { total: value });
+    else if (field === "paid") submitAmounts(inv, { amount: value });
+    else submitAmounts(inv, { amount: Math.max(0, inv.total - value) });
   }
 
-  async function recordFullPayment(inv: Invoice) {
-    const amountStr = window.prompt(`How much has been paid in total for ${inv.invoiceNumber}? This overrides the invoice's total and marks it fully paid.`, String(inv.total));
-    if (!amountStr) return;
-    const amount = Number(amountStr);
-    if (!amount || amount <= 0) return;
-    await submitPayment(inv, amount);
+  function startCellEdit(inv: Invoice, field: "total" | "paid" | "due") {
+    const current = field === "total" ? inv.total : field === "paid" ? inv.amountPaid : inv.balanceDue;
+    setEditingCell({ id: inv.id, field });
+    setEditingCellValue(String(current));
   }
 
   function printInvoice(inv: Invoice) {
@@ -427,9 +431,9 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
                 <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Number</th>
                 <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Contact</th>
                 <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Device / Issue</th>
-                <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Total</th>
-                <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Paid</th>
-                <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Balance</th>
+                <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Total Amount</th>
+                <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Paid Amount</th>
+                <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Due Amount</th>
                 <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Status</th>
                 <th></th>
               </tr>
@@ -458,17 +462,32 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
                         </>
                       ) : "—"}
                     </td>
-                    <td style={{ padding: "6px 8px" }}>{currency}{inv.total.toLocaleString()}</td>
-                    <td style={{ padding: "6px 8px" }}>{currency}{inv.amountPaid.toLocaleString()}</td>
-                    <td style={{ padding: "6px 8px", color: inv.balanceDue > 0 ? "var(--danger)" : "var(--success)" }}>{currency}{inv.balanceDue.toLocaleString()}</td>
+                    {(["total", "paid", "due"] as const).map((field) => {
+                      const value = field === "total" ? inv.total : field === "paid" ? inv.amountPaid : inv.balanceDue;
+                      const isEditing = editingCell?.id === inv.id && editingCell.field === field;
+                      return (
+                        <td key={field} style={{ padding: "6px 8px", color: field === "due" && value > 0 ? "var(--danger)" : field === "due" ? "var(--success)" : undefined }}>
+                          {isEditing ? (
+                            <input
+                              type="number"
+                              autoFocus
+                              value={editingCellValue}
+                              disabled={busyId === inv.id}
+                              onChange={(e) => setEditingCellValue(e.target.value)}
+                              onBlur={(e) => commitAmountEdit(inv, field, e.target.value)}
+                              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditingCell(null); }}
+                              style={{ width: 90, padding: 4, fontSize: 12 }}
+                            />
+                          ) : (
+                            <span onClick={() => startCellEdit(inv, field)} style={{ cursor: "pointer" }} title="Click to edit">{currency}{value.toLocaleString()}</span>
+                          )}
+                        </td>
+                      );
+                    })}
                     <td style={{ padding: "6px 8px" }}>
                       <span style={badgeStyle(STATUS_TONE[inv.status] ?? "neutral")}>{inv.status}</span>
                     </td>
                     <td style={{ padding: "6px 8px", display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      <button onClick={() => recordPayment(inv)} disabled={busyId === inv.id} style={{ fontSize: 11, padding: "6px 12px" }}>Paid</button>
-                      {inv.status === "partially_paid" && (
-                        <button onClick={() => recordFullPayment(inv)} disabled={busyId === inv.id} style={{ fontSize: 11, padding: "6px 12px" }}>Fully Paid</button>
-                      )}
                       <button onClick={() => printInvoice(inv)} style={{ fontSize: 11, padding: "6px 12px" }}>Print</button>
                       <button onClick={() => sendInvoice(inv)} disabled={busyId === inv.id} style={{ fontSize: 11, padding: "6px 12px" }}>Send</button>
                       <button onClick={() => editingId === inv.id ? cancelEdit() : startEdit(inv)} style={{ fontSize: 11, padding: "6px 12px" }}>{editingId === inv.id ? "Cancel" : "Edit"}</button>

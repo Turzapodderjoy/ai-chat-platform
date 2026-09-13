@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getApp } from "../../../../../lib/app";
 
-// The Invoices panel's "Paid" action -- one amount that becomes the
-// invoice's real total and marks it fully collected (see
-// PaymentService.setFinalAmount's own comment for why this replaces
-// prior payment rows instead of adding to them). When the invoice was
-// generated from a repair order, the order's own total is overridden to
-// match too, so Order Management doesn't show a stale itemized sum next
-// to an invoice that's since been marked paid at a different amount --
-// orchestrated here rather than inside either service so
+// Backs the Invoices panel's directly-editable Total/Paid/Due cells --
+// `total` and `amount` (paid) are independent, either or both may be
+// given (see PaymentService.setAmounts's own comment for why a given
+// `amount` replaces prior payment rows instead of adding to them). When
+// the invoice was generated from a repair order, the order's own total
+// is overridden to match too, so Order Management doesn't show a stale
+// itemized sum next to an invoice whose total/paid has since been
+// edited -- orchestrated here rather than inside either service so
 // revenue/repairs stay decoupled from each other.
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -17,18 +17,18 @@ export async function POST(req: NextRequest) {
     !body ||
     typeof body.businessId !== "string" ||
     typeof body.invoiceId !== "string" ||
-    typeof body.amount !== "number"
+    (typeof body.total !== "number" && typeof body.amount !== "number")
   ) {
-    return NextResponse.json({ error: "businessId, invoiceId, and amount are required" }, { status: 400 });
+    return NextResponse.json({ error: "businessId, invoiceId, and total and/or amount are required" }, { status: 400 });
   }
   const app = await getApp();
-  const { repairAppointmentId } = await app.container.router.revenue.setInvoicePaidAmount(
-    body.invoiceId,
-    body.businessId,
-    body.amount
-  );
+  const { repairAppointmentId } = await app.container.router.revenue.setInvoiceAmounts(body.invoiceId, body.businessId, {
+    total: typeof body.total === "number" ? body.total : undefined,
+    paidAmount: typeof body.amount === "number" ? body.amount : undefined,
+  });
   if (repairAppointmentId) {
-    await app.container.router.repairs.setOrderTotalOverride(repairAppointmentId, body.amount);
+    const invoice = await app.container.router.revenue.getInvoice(body.invoiceId);
+    if (invoice) await app.container.router.repairs.setOrderTotalOverride(repairAppointmentId, invoice.total);
   }
   return NextResponse.json({ ok: true });
 }

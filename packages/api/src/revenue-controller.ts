@@ -83,8 +83,8 @@ export class RevenueController {
     return this.payments.record(input);
   }
 
-  setInvoicePaidAmount(invoiceId: string, businessId: string, amount: number) {
-    return this.payments.setFinalAmount(invoiceId, businessId, amount);
+  setInvoiceAmounts(invoiceId: string, businessId: string, input: { total?: number; paidAmount?: number }) {
+    return this.payments.setAmounts(invoiceId, businessId, input);
   }
 
   deletePayment(id: string) {

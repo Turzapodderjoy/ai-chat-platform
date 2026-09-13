@@ -66,20 +66,26 @@ export class PaymentService {
     return toPayment(row);
   }
 
-  /** The Invoices panel's single "Paid" action -- the amount typed
-   * becomes the invoice's real total (same override-wins rule as
-   * RepairOrderItem.overridePrice), replaces any prior payment rows
-   * instead of adding another on top of them (that additive behavior
-   * was the actual bug: a second payment on an already-partially-paid
-   * invoice summed with the first, overshooting the total), and marks
-   * it fully collected -- no separate payment-method prompt, this is a
-   * simple "mark as paid at this amount" action, not itemized payment
-   * history. */
-  async setFinalAmount(invoiceId: string, businessId: string, amount: number): Promise<{ repairAppointmentId: string | null }> {
+  /** Backs the Invoices panel's directly-editable Total/Paid/Due cells.
+   * Total and Paid are independent -- either can be given alone, or
+   * both together (same override-wins rule as
+   * RepairOrderItem.overridePrice for total). A given `paidAmount`
+   * replaces any prior payment rows instead of adding another on top of
+   * them (that additive behavior was a real bug: a second payment on an
+   * already-partially-paid invoice summed with the first, overshooting
+   * the total) -- this is a "set the paid amount to exactly this" cell
+   * edit, not itemized payment history. */
+  async setAmounts(invoiceId: string, businessId: string, input: { total?: number; paidAmount?: number }): Promise<{ repairAppointmentId: string | null }> {
     const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { repairAppointmentId: true } });
-    await prisma.payment.deleteMany({ where: { invoiceId } });
-    await prisma.invoice.update({ where: { id: invoiceId }, data: { totalOverride: amount } });
-    await prisma.payment.create({ data: { businessId, invoiceId, amount, method: "manual" } });
+    if (input.total !== undefined) {
+      await prisma.invoice.update({ where: { id: invoiceId }, data: { totalOverride: input.total } });
+    }
+    if (input.paidAmount !== undefined) {
+      await prisma.payment.deleteMany({ where: { invoiceId } });
+      if (input.paidAmount > 0) {
+        await prisma.payment.create({ data: { businessId, invoiceId, amount: input.paidAmount, method: "manual" } });
+      }
+    }
     await this.reconcileInvoice(invoiceId);
     return { repairAppointmentId: invoice?.repairAppointmentId ?? null };
   }
