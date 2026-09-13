@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { cardStyle, subtleTextStyle, primaryButtonStyle, shortId } from "./dashboard-styles";
 import { MessageTagControl } from "./MessageTagControl";
@@ -178,13 +178,29 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
   // inside a 375px viewport) collapse into a single-column, one-thing-
   // at-a-time flow instead: list, OR thread+detail with a back button —
   // same pattern DashboardShell's own sidebar already uses.
+  //
+  // This panel's OWN width, not window.innerWidth -- confirmed live: a
+  // 1024px browser window still leaves this panel only ~716px once
+  // DashboardShell's own sidebar and padding are subtracted, which
+  // isn't enough for its own 220px rail + 340px list + 260px detail
+  // pane (820px) side by side. window.matchMedia said "desktop" (over
+  // the 860px breakpoint) while the panel's actual available space was
+  // narrower than mobile -- the message thread got squeezed to 0
+  // width, not hidden, so it silently vanished instead of falling back
+  // to the single-column mobile layout that exists for exactly this.
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
-    const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
-    setIsMobile(mq.matches);
-    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
+    const el = rootRef.current;
+    if (!el) return;
+    const check = (width: number) => setIsMobile(width <= MOBILE_BREAKPOINT);
+    check(el.getBoundingClientRect().width);
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (w !== undefined) check(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
   const [channelFilter, setChannelFilter] = useState("");
@@ -622,7 +638,7 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
-    <div style={{ display: "flex", flex: 1, minHeight: 0, background: "var(--bg)", overflow: "hidden" }}>
+    <div ref={rootRef} style={{ display: "flex", flex: 1, minHeight: 0, background: "var(--bg)", overflow: "hidden" }}>
       {/* ─── Left Sidebar (hidden on mobile) ─── */}
       {!isMobile && (
       <div style={{ width: sidebarCollapsed ? 56 : 220, flexShrink: 0, background: "var(--bg-elevated)", borderRight: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", transition: "width 0.2s ease" }}>
