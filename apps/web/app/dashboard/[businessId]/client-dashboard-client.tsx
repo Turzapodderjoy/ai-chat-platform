@@ -243,10 +243,18 @@ export default function ClientDashboardClient() {
 
   useEffect(() => {
     if (!previewAsClient || !isAdmin) return;
+    // ?accountId= (set by the Clients panel's "View as" list) picks a
+    // SPECIFIC login instead of guessing at the first one -- multiple
+    // logins for one business don't always share the same allowedPanels
+    // (an Owner and a Staff login can differ), so "the first one found"
+    // was only ever a stand-in for "some login on this business."
+    const requestedId = new URLSearchParams(window.location.search).get("accountId");
     fetch("/api/admin/client-accounts")
       .then((r) => r.json())
-      .then((d: { accounts: { businessId: string | null; isAdmin: boolean; allowedPanels: string[] | null; role: string | null }[] }) => {
-        const account = d.accounts?.find((a) => a.businessId === businessId && !a.isAdmin);
+      .then((d: { accounts: { id: string; businessId: string | null; isAdmin: boolean; allowedPanels: string[] | null; role: string | null }[] }) => {
+        const account = requestedId
+          ? d.accounts?.find((a) => a.id === requestedId)
+          : d.accounts?.find((a) => a.businessId === businessId && !a.isAdmin);
         setAllowedPanels(account?.allowedPanels ?? null);
         setAccountRole(account?.role ?? null);
       });

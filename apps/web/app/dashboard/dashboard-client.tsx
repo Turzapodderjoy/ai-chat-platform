@@ -378,6 +378,25 @@ function ClientsPanel() {
 
   const [integrationsOpenId, setIntegrationsOpenId] = useState<string | null>(null);
 
+  // Every real login for every client, so "Client view" can jump straight
+  // into a SPECIFIC login's exact view (their own allowedPanels) instead
+  // of guessing at the first one -- avoids burning one of that login's
+  // limited device slots just to check what they see.
+  interface ClientLogin {
+    id: string;
+    businessId: string | null;
+    username: string;
+    role: string | null;
+    isAdmin: boolean;
+  }
+  const [accounts, setAccounts] = useState<ClientLogin[]>([]);
+  const [viewAsOpenId, setViewAsOpenId] = useState<string | null>(null);
+  useEffect(() => {
+    fetch("/api/admin/client-accounts")
+      .then((r) => r.json())
+      .then((d: { accounts: ClientLogin[] }) => setAccounts(d.accounts ?? []));
+  }, []);
+
   const ALL_INTEGRATIONS = [
     { id: "website", label: "Website" },
     { id: "messenger", label: "Messenger" },
@@ -571,7 +590,14 @@ function ClientsPanel() {
                 <td style={cellStyle}>
                   <a href={`/dashboard/${c.id}`}>Admin view</a>
                   {" · "}
-                  <a href={`/dashboard/${c.id}?view=client`}>Client view</a>
+                  <button
+                    className="plain"
+                    onClick={() => setViewAsOpenId(viewAsOpenId === c.id ? null : c.id)}
+                    style={{ fontSize: "inherit", color: "var(--accent)", textDecoration: "underline", cursor: "pointer" }}
+                    title="Open exactly as one of this client's own logins sees it -- no sign-in, doesn't touch their device limit"
+                  >
+                    View as…
+                  </button>
                 </td>
                 <td style={cellStyle}>
                   <button
@@ -588,6 +614,31 @@ function ClientsPanel() {
                   <button onClick={() => deleteClient(c)}>Delete</button>
                 </td>
               </tr>
+              {viewAsOpenId === c.id && (
+                <tr>
+                  <td style={{ ...cellStyle, background: "var(--surface)" }} colSpan={8}>
+                    {(() => {
+                      const logins = accounts.filter((a) => a.businessId === c.id && !a.isAdmin);
+                      if (logins.length === 0) {
+                        return <p style={subtleTextStyle}>No logins yet for this client — create one in Client Access.</p>;
+                      }
+                      return (
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          {logins.map((a) => (
+                            <a
+                              key={a.id}
+                              href={`/dashboard/${c.id}?view=client&accountId=${encodeURIComponent(a.id)}`}
+                              style={{ fontSize: 12, padding: "6px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--bg)" }}
+                            >
+                              {a.username} {a.role ? `(${a.role})` : ""}
+                            </a>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </td>
+                </tr>
+              )}
               {notifyOpenId === c.id && (
                 <tr>
                   <td style={{ ...cellStyle, background: "var(--surface)" }} colSpan={8}>

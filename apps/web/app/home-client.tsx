@@ -153,7 +153,7 @@ export default function HomeClient() {
 
           <p className={styles.footer}>
             By signing in, you agree to our{" "}
-            <a href="#" onClick={(e) => e.preventDefault()}>Terms of Service</a>
+            <a href="/terms">Terms of Service</a>
             {" "}and{" "}
             <a href="/privacy">Privacy Policy</a>.
           </p>
