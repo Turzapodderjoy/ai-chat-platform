@@ -62,8 +62,9 @@ export default function HomeClient() {
           </div>
           <h1 className={styles.brandTitle}>AIVA</h1>
           <p className={styles.brandSubtitle}>
-            AI-powered customer support platform. Automate responses, 
-            manage conversations, and scale your business.
+            AI chat that answers your customers on your website, Messenger,
+            Instagram, and WhatsApp — and hands off to your team the moment
+            it can&apos;t help.
           </p>
           <div className={styles.features}>
             <div className={styles.feature}>
@@ -73,7 +74,7 @@ export default function HomeClient() {
                   <polyline points="22 4 12 14.01 9 11.01" />
                 </svg>
               </div>
-              <span>AI-powered instant responses</span>
+              <span>Instant AI replies, human handoff when it matters</span>
             </div>
             <div className={styles.feature}>
               <div className={styles.featureIcon}>
@@ -84,7 +85,7 @@ export default function HomeClient() {
                   <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                 </svg>
               </div>
-              <span>Multi-tenant business management</span>
+              <span>One customer record across every channel</span>
             </div>
             <div className={styles.feature}>
               <div className={styles.featureIcon}>
@@ -94,7 +95,7 @@ export default function HomeClient() {
                   <line x1="9" y1="21" x2="9" y2="9" />
                 </svg>
               </div>
-              <span>Real-time analytics dashboard</span>
+              <span>Orders, invoices, and inventory in one place</span>
             </div>
           </div>
         </div>
