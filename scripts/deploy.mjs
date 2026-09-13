@@ -204,6 +204,15 @@ async function main() {
 async function deploy() {
   log("=== Deploy check starting ===");
   run("git fetch origin main", REPO_SOURCE);
+  // REPO_SOURCE's own checked-out files -- including this very script --
+  // are never otherwise updated (every release is built in a SEPARATE
+  // worktree; "git fetch" only updates the remote-tracking ref, not this
+  // working tree). Without this, a fix landed in deploy.mjs itself would
+  // silently never take effect: the webhook always re-reads and re-runs
+  // deploy.mjs from REPO_SOURCE's own files, not from the new commit
+  // being deployed. Fast-forward only -- REPO_SOURCE should never carry
+  // local commits of its own.
+  run("git merge --ff-only origin/main", REPO_SOURCE);
 
   const remoteSha = execFileSync("git", ["rev-parse", "origin/main"], { cwd: REPO_SOURCE }).toString().trim();
   const deployedSha = currentDeployedSha();
