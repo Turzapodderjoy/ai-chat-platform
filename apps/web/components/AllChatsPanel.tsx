@@ -170,7 +170,7 @@ const STATUS_TABS: { id: StatusTab; label: string }[] = [
  * handoffs, orders) rather than inventing new ones. */
 const MOBILE_BREAKPOINT = 860;
 
-export function AllChatsPanel({ businessId, active = true }: { businessId?: string; active?: boolean }) {
+export function AllChatsPanel({ businessId, active = true, businessType }: { businessId?: string; active?: boolean; businessType?: string }) {
   const [conversations, setConversations] = useState<ConversationSummary[] | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -665,11 +665,14 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
         </div>
 
         <nav style={{ padding: sidebarCollapsed ? "8px 0" : "8px 0", flex: 1, overflowY: "auto" }}>
-          {[
-            { id: "all" as StatusTab, label: "All Conversations", icon: "💬", count: tabCounts.all },
-            { id: "handoff" as StatusTab, label: "Needs Attention", icon: "🔔", count: tabCounts.handoff },
-            { id: "human" as StatusTab, label: "Human Handling", icon: "👤", count: tabCounts.human },
-          ].map((item) => (
+          {(businessType === "repair"
+            ? [{ id: "all" as StatusTab, label: "All Conversations", icon: "💬", count: tabCounts.all }]
+            : [
+                { id: "all" as StatusTab, label: "All Conversations", icon: "💬", count: tabCounts.all },
+                { id: "handoff" as StatusTab, label: "Needs Attention", icon: "🔔", count: tabCounts.handoff },
+                { id: "human" as StatusTab, label: "Human Handling", icon: "👤", count: tabCounts.human },
+              ]
+          ).map((item) => (
             <button
               key={item.id}
               onClick={() => setStatusTab(item.id)}

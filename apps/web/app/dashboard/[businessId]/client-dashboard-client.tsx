@@ -437,7 +437,7 @@ export default function ClientDashboardClient() {
             </div>
           ),
         ],
-        ["allchats", <AllChatsPanel key="allchats" businessId={businessId} active={tab === "allchats"} />],
+        ["allchats", <AllChatsPanel key="allchats" businessId={businessId} active={tab === "allchats"} businessType={clientType} />],
         ["storage", <StoragePanel key="storage" businessId={businessId} />],
         ["brain", <AiBrainPanel key="brain" businessId={businessId} />],
         ["parameters", <AiParametersPanel key="parameters" businessId={businessId} />],
