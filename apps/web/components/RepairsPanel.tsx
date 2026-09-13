@@ -764,7 +764,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
               <div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>{selected.customerName}</div>
                 <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  {selected.phone} · <span style={{ color: KANBAN_COLORS[selected.status] }}>{STATUS_LABEL[selected.status]}</span>
+                  {selected.phone}{selected.email ? ` · ${selected.email}` : ""} · <span style={{ color: KANBAN_COLORS[selected.status] }}>{STATUS_LABEL[selected.status]}</span>
                 </div>
               </div>
             </div>
@@ -807,6 +807,15 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
               <div style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 12 }}>
                 <span style={{ color: "var(--text-faint)" }}>Source:</span> {selected.isWalkIn ? "🚶 Walk-in" : "📅 Scheduled"}
               </div>
+              <a
+                href={`/track/${selected.trackingToken}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 12, color: "var(--text)", textDecoration: "none" }}
+                title="Open this repair's customer tracking page"
+              >
+                <span style={{ color: "var(--text-faint)" }}>Tracking code:</span> {selected.trackingToken}
+              </a>
             </div>
 
             {/* Issue */}

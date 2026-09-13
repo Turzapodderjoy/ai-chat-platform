@@ -92,12 +92,14 @@ interface RepairAppointment {
   trackingToken: string;
   customerName: string;
   phone: string;
+  email?: string;
   deviceType: string;
   deviceModel?: string;
   issueDescription: string;
   appointmentDate: string;
   status: string;
   serialNumber?: string;
+  isWalkIn?: boolean;
 }
 
 const REPAIR_STATUS_OPTIONS = ["booked", "received", "in_repair", "ready", "completed", "cancelled"] as const;
@@ -1104,8 +1106,13 @@ export function AllChatsPanel({ businessId, active = true }: { businessId?: stri
                       <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12 }}>
                         <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Order ID</span><span style={{ color: "var(--text)" }}>{shortId(repairForSelected.id)}</span></div>
                         <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Customer</span><span style={{ color: "var(--text)" }}>{repairForSelected.customerName}</span></div>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Phone</span><span style={{ color: "var(--text)" }}>{repairForSelected.phone}</span></div>
+                        {repairForSelected.email && (
+                          <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Email</span><span style={{ color: "var(--text)" }}>{repairForSelected.email}</span></div>
+                        )}
                         <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Device</span><span style={{ color: "var(--text)" }}>{repairForSelected.deviceType}{repairForSelected.deviceModel ? ` — ${repairForSelected.deviceModel}` : ""}</span></div>
-                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Appointment</span><span style={{ color: "var(--text)" }}>{new Date(repairForSelected.appointmentDate).toLocaleString()}</span></div>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>{repairForSelected.isWalkIn ? "Source" : "Appointment"}</span><span style={{ color: "var(--text)" }}>{repairForSelected.isWalkIn ? "🚶 Walk-in" : new Date(repairForSelected.appointmentDate).toLocaleString()}</span></div>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Tracking code</span><a href={`/track/${repairForSelected.trackingToken}`} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>{repairForSelected.trackingToken}</a></div>
                         <div style={{ color: "var(--text-secondary)", marginTop: 4 }}>{repairForSelected.issueDescription}</div>
                         <select value={repairForSelected.status} onChange={(e) => updateRepairStatus(e.target.value)} disabled={savingRepairStatus} style={{ padding: "7px 10px", fontSize: 12, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)", fontFamily: "inherit" }}>
                           {REPAIR_STATUS_OPTIONS.map((s) => (<option key={s} value={s}>{REPAIR_STATUS_LABEL[s]}</option>))}
