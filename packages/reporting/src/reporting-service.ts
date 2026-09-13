@@ -78,38 +78,51 @@ function bucketCount<T extends string>(rows: { field: T }[], keys: readonly stri
  * circular workspace dependencies between those packages. */
 export class ReportingService {
   /** The date-ranged summary row (Total Revenue / Appointments Booked /
-   * Appointments Success / Total Cost / Total Profit) — scoped to
-   * `from`..`to` by when the appointment was booked (createdAt).
-   * Revenue/cost/profit are computed off each appointment's own
-   * RepairOrderItem lines (the actual priced billing layer), not
-   * generic Invoices, since only order items carry a cost basis
-   * (Product.costPrice) to compute profit against. */
+   * Appointments Success / Total Cost / Total Profit) — Appointments
+   * Booked/Success stay scoped to `from`..`to` by when the appointment
+   * was created (a genuine appointment-count metric), but Revenue is
+   * real money actually collected in that window: the sum of Payment
+   * rows by paidAt, the same figure the Invoices panel's own "Paid"
+   * total reflects — not appointment line-item prices, which counted
+   * money that was only ever billed, never necessarily collected, and
+   * used the wrong date entirely (booked-date, not paid-date).
+   *
+   * Cost is Inventory's own cost basis (Product.costPrice) for whatever
+   * was actually sold on those paid invoices, traced through each
+   * payment's invoice back to its linked repair appointment's
+   * itemized parts (RepairOrderItem.productId) -- an invoice with no
+   * repair appointment behind it (added by hand, free-text line items)
+   * has no inventory link and contributes $0 cost, same limitation
+   * inventory-based costing always has for non-stocked line items. */
   async getSummary(businessId: string | undefined, from: Date, to: Date): Promise<SummaryReport> {
-    const where = { ...(businessId ? { businessId } : {}), createdAt: { gte: from, lte: to } };
+    const paymentWhere = { ...(businessId ? { businessId } : {}), paidAt: { gte: from, lte: to } };
+    const payments = await prisma.payment.findMany({ where: paymentWhere, select: { amount: true, invoiceId: true } });
+    const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
 
-    const appointments = await prisma.repairAppointment.findMany({
-      where,
-      select: {
-        status: true,
-        items: { select: { productId: true, quantity: true, defaultPrice: true, overridePrice: true } },
-      },
-    });
-
-    const productIds = [...new Set(appointments.flatMap((a) => a.items.map((i) => i.productId).filter((id): id is string => !!id)))];
+    const invoiceIds = [...new Set(payments.map((p) => p.invoiceId))];
+    const invoices = invoiceIds.length
+      ? await prisma.invoice.findMany({ where: { id: { in: invoiceIds } }, select: { repairAppointmentId: true } })
+      : [];
+    const apptIds = [...new Set(invoices.map((i) => i.repairAppointmentId).filter((id): id is string => !!id))];
+    const paidAppointments = apptIds.length
+      ? await prisma.repairAppointment.findMany({ where: { id: { in: apptIds } }, select: { items: { select: { productId: true, quantity: true } } } })
+      : [];
+    const productIds = [...new Set(paidAppointments.flatMap((a) => a.items.map((i) => i.productId).filter((id): id is string => !!id)))];
     const products = productIds.length
       ? await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, costPrice: true } })
       : [];
     const costById = new Map(products.map((p) => [p.id, parseFloat(p.costPrice ?? "") || 0]));
-
-    let totalRevenue = 0;
     let totalCost = 0;
-    for (const appt of appointments) {
+    for (const appt of paidAppointments) {
       for (const item of appt.items) {
-        const finalPrice = item.overridePrice ?? item.defaultPrice * item.quantity;
-        totalRevenue += finalPrice;
         if (item.productId) totalCost += (costById.get(item.productId) ?? 0) * item.quantity;
       }
     }
+
+    const appointments = await prisma.repairAppointment.findMany({
+      where: { ...(businessId ? { businessId } : {}), createdAt: { gte: from, lte: to } },
+      select: { status: true },
+    });
 
     return {
       totalRevenue,
