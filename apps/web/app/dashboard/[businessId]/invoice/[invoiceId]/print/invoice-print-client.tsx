@@ -48,7 +48,7 @@ export default function InvoicePrintClient() {
 
   const { invoice, currencySymbol } = detail;
   const money = (n: number) => `${currencySymbol}${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const statusStyle = STATUS_STYLE[invoice.status] ?? STATUS_STYLE.default;
+  const statusStyle = STATUS_STYLE[invoice.status] ?? DEFAULT_STATUS_STYLE;
 
   return (
     <div style={{ background: "#f4f5f7", minHeight: "100vh" }}>
@@ -153,13 +153,13 @@ export default function InvoicePrintClient() {
   );
 }
 
+const DEFAULT_STATUS_STYLE = { bg: "#e0e7ff", fg: "#4338ca" };
 const STATUS_STYLE: Record<string, { bg: string; fg: string }> = {
   paid: { bg: "#dcfce7", fg: "#15803d" },
   partially_paid: { bg: "#ffedd5", fg: "#c2410c" },
   overdue: { bg: "#fee2e2", fg: "#b91c1c" },
   void: { bg: "#f1f1f1", fg: "#666" },
   draft: { bg: "#f1f1f1", fg: "#666" },
-  default: { bg: "#e0e7ff", fg: "#4338ca" },
 };
 
 function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
