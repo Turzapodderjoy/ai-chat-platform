@@ -5,7 +5,7 @@ Multi-tenant AI customer-support chatbot SaaS. A "mother" dashboard for the plat
 ## Stack
 
 - Turborepo + pnpm monorepo. `apps/web` is the only app — Next.js 16 (App Router), Node ≥18.
-- Postgres via Prisma (`packages/database/prisma/schema.prisma`) — a local Postgres instance on this machine (`DATABASE_URL`/`DIRECT_URL` in `.env` and `apps/web/.env.local`), which is also what production runs against. There is no separate hosted/cloud database.
+- Postgres via Prisma (`packages/database/prisma/schema.prisma`) — production runs its own local Postgres on the VPS (see Deployment below); this laptop's local Postgres (`DATABASE_URL`/`DIRECT_URL` in `.env` and `apps/web/.env.local`) is a separate dev-only instance, not the same database as production anymore.
 - ~35 single-purpose packages under `packages/`, wired together through one composition root.
 
 Root commands: `pnpm dev` / `pnpm build` / `pnpm lint` / `pnpm check-types` (all `turbo run ...` across the workspace). `apps/web` also has its own `next dev`/`next build`/`eslint --max-warnings 0`.
@@ -38,4 +38,9 @@ Root commands: `pnpm dev` / `pnpm build` / `pnpm lint` / `pnpm check-types` (all
 
 ## Deployment
 
-Vercel (Hobby plan — cron jobs only run daily, regardless of the schedule expression in `vercel.json`). The 30-minute auto-heal cadence is driven by an external scheduler (e.g. GitHub Actions) hitting `/api/cron/auto-heal` with a `CRON_SECRET` bearer token, since Vercel's own cron can't do sub-daily schedules on this plan.
+**Production runs on a VPS, not Vercel** (`server1.therevenuemakers.com`, domain `app.aiva-ai.net`) — migrated off Vercel/the dev laptop. `pm2` (`ai-chat-web`, `next start -p 3001`) serves the app; a Cloudflare-fronted domain points at it.
+
+- **Deploy pipeline**: push to `main` → `.github/workflows/deploy.yml` POSTs to `/api/webhooks/deploy` with a `DEPLOY_SECRET` bearer token → `scripts/deploy.mjs` on the VPS does `git worktree add` for the new commit under `/opt/aiva/releases/<sha>`, `pnpm install --frozen-lockfile` (retries with `--force` up to 3x if workspace symlinks come up incomplete — a known transient pnpm issue on this box), `prisma generate`, `pnpm --filter web run build`, then repoints the `/opt/aiva/current` symlink and runs `pm2 restart ai-chat-web`. Deploy log: `/opt/aiva/ops/deploy.log` on the VPS.
+- **Always verify a deploy actually landed** — `git log --oneline -1` inside `/opt/aiva/current` on the VPS, and `pm2 describe ai-chat-web`'s `exec cwd` should resolve through `/opt/aiva/current`. A "deploy succeeded" log line is not sufficient proof; pm2 does **not** re-read `ecosystem.config.js` or follow a repointed symlink on `pm2 restart` if the process's cwd/script path was frozen at a different location when it was last `pm2 start`'d — this has silently served stale code for a full day in the past.
+- **Do not deploy by hand-copying files into a new `/opt/aiva/releases/<timestamp>` folder outside `deploy.mjs`.** A previous manual/AI-assisted deploy did this and left `pm2` pointed at a folder untracked by `git worktree`, which is not compatible with the normal pipeline and caused stale-code incidents. If the site isn't reflecting a pushed commit, check `git worktree list` in `/opt/aiva/repo` on the VPS — the currently-live release should appear there.
+- The 30-minute auto-heal cadence is driven by an external scheduler (e.g. GitHub Actions) hitting `/api/cron/auto-heal` with a `CRON_SECRET` bearer token.

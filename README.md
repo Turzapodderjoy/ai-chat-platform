@@ -42,4 +42,4 @@ Required core env vars: `DATABASE_URL`, `DIRECT_URL`. AI provider keys are optio
 
 ## Deployment
 
-Vercel (Hobby plan) with the auto-heal cadence driven by an external scheduler (`.github/workflows/auto-heal.yml`) hitting `/api/cron/auto-heal` with a `CRON_SECRET` bearer token. Cron schedules in `apps/web/vercel.json`.
+Production runs on a VPS (`app.aiva-ai.net`) under `pm2`, not Vercel — push to `main` triggers a webhook-driven deploy (`scripts/deploy.mjs`) that builds a new release and restarts `pm2`. See `CLAUDE.md`'s Deployment section for the full pipeline and known gotchas. The auto-heal cadence is driven by an external scheduler (`.github/workflows/auto-heal.yml`) hitting `/api/cron/auto-heal` with a `CRON_SECRET` bearer token.
