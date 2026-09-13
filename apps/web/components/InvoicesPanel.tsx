@@ -269,6 +269,25 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
     }
   }
 
+  function printInvoice(inv: Invoice) {
+    window.open(`/dashboard/${inv.businessId}/invoice/${inv.id}/print`, "_blank");
+  }
+
+  async function sendInvoice(inv: Invoice) {
+    setBusyId(inv.id);
+    try {
+      const res = await fetch(`/api/admin/revenue/invoices/${inv.id}/send`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.error ?? "Failed to send invoice");
+        return;
+      }
+      alert(`Invoice ${inv.invoiceNumber} sent.`);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function deleteInvoice(inv: Invoice) {
     const confirmed = window.confirm(`Delete invoice ${inv.invoiceNumber}? This cannot be undone.`);
     if (!confirmed) return;
@@ -409,8 +428,10 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
                         </select>
                       )}
                     </td>
-                    <td style={{ padding: "6px 8px", display: "flex", gap: 6 }}>
+                    <td style={{ padding: "6px 8px", display: "flex", gap: 6, flexWrap: "wrap" }}>
                       <button onClick={() => recordPayment(inv)} disabled={busyId === inv.id || inv.balanceDue <= 0} style={{ fontSize: 11, padding: "6px 12px" }}>Paid</button>
+                      <button onClick={() => printInvoice(inv)} style={{ fontSize: 11, padding: "6px 12px" }}>Print</button>
+                      <button onClick={() => sendInvoice(inv)} disabled={busyId === inv.id} style={{ fontSize: 11, padding: "6px 12px" }}>Send</button>
                       <button onClick={() => editingId === inv.id ? cancelEdit() : startEdit(inv)} style={{ fontSize: 11, padding: "6px 12px" }}>{editingId === inv.id ? "Cancel" : "Edit"}</button>
                       <button onClick={() => deleteInvoice(inv)} style={{ fontSize: 11, padding: "6px 12px" }}>✕</button>
                     </td>

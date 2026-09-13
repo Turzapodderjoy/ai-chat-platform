@@ -342,7 +342,7 @@ export class Container {
         new RepairController(repairs, staff, conversations, gmailEmailClient, tenants, contacts, statusEmails, invoices),
         new EmailController(emailSenderConfig),
         new CrmController(contacts),
-        new RevenueController(invoices, payments),
+        new RevenueController(invoices, payments, contacts, repairs, tenants, gmailEmailClient),
         new ReportingController(reporting),
         new WidgetVisibilityController(widgetVisibility),
         new AdminNotificationController(adminNotifications),

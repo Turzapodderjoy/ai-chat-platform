@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // pdfkit (invoice PDF generation) pulls in fontkit, whose compiled
+  // output imports a helper name that doesn't exist in the @swc/helpers
+  // version Turbopack bundles with -- confirmed live, "Export
+  // applyDecoratedDescriptor doesn't exist". Marking it external skips
+  // bundling it entirely; it's loaded via plain Node require at
+  // runtime instead, same as any other native/CJS-heavy package.
+  serverExternalPackages: ["pdfkit", "fontkit"],
   transpilePackages: [
     "@ai-chat-platform/ai-manager",
     "@ai-chat-platform/chunker",
