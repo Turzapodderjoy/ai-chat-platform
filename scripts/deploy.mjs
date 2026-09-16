@@ -19,7 +19,7 @@
 // mid-swap while this script is running, the source checkout never is.
 
 import { execFileSync, execSync } from "node:child_process";
-import { existsSync, mkdirSync, appendFileSync, writeFileSync, readFileSync, rmSync, symlinkSync, lstatSync, readdirSync, statSync, copyFileSync, openSync, closeSync } from "node:fs";
+import { existsSync, mkdirSync, appendFileSync, writeFileSync, readFileSync, rmSync, symlinkSync, lstatSync, readdirSync, statSync, copyFileSync, openSync, closeSync, cpSync } from "node:fs";
 import { join } from "node:path";
 import { platform } from "node:os";
 
@@ -136,6 +136,30 @@ function healWorkspaceLinks(releaseDir) {
     const target = join("..", "..", "..", "..", "packages", name);
     symlinkSync(target, linkPath, IS_WINDOWS ? "junction" : "dir");
     log(`Manually linked missing workspace package: @repo/${name} -> ${target}`);
+  }
+}
+
+// The install-attempt loop and the build-retry fallback both guard
+// against pnpm's hoisted-linker nondeterminism, but confirmed live
+// (repeatedly, a DIFFERENT @types/* package incomplete each time --
+// nodemailer, then pdfkit, then nodemailer again) that even a build
+// retry doesn't always land every hoisted @types package. The
+// currently-live release's node_modules is a KNOWN-GOOD, fully-hoisted
+// baseline (it's running production right now) -- if that link exists,
+// copy across any @types/* entry it has that this fresh release is
+// missing, before building. This is exactly the manual step this
+// deploy needed by hand every single time this flake showed up.
+function healHoistedTypes(releaseDir) {
+  if (!existsSync(CURRENT_LINK)) return;
+  const goodTypesDir = join(CURRENT_LINK, "node_modules", "@types");
+  const newTypesDir = join(releaseDir, "node_modules", "@types");
+  if (!existsSync(goodTypesDir)) return;
+  mkdirSync(newTypesDir, { recursive: true });
+  for (const name of readdirSync(goodTypesDir)) {
+    const dest = join(newTypesDir, name);
+    if (existsSync(dest)) continue;
+    cpSync(join(goodTypesDir, name), dest, { recursive: true, dereference: true });
+    log(`Copied missing @types/${name} from the current live release.`);
   }
 }
 
@@ -268,23 +292,22 @@ async function deploy() {
 
   try {
     installWithRetry(releaseDir);
+    healHoistedTypes(releaseDir);
     run("npx prisma generate --schema=packages/database/prisma/schema.prisma", releaseDir);
     try {
       run("pnpm --filter web run build", releaseDir);
     } catch (buildErr) {
-      // The install-attempt count above guards against @repo/* workspace
-      // links specifically -- pnpm's hoisted-linker nondeterminism can
-      // just as easily leave some OTHER package's hoisted copy
-      // incomplete (confirmed live, repeatedly, for @types/nodemailer
-      // specifically -- a real declared devDependency, not a missing
-      // one), which only ever surfaced as a TypeScript build failure,
-      // not an install-time error. Rather than guess which package name
-      // to special-case, react to the actual failure: one more forced
-      // reinstall, then retry the build once. This is exactly the
-      // manual rescue this deploy needed by hand on nearly every run
-      // this session.
+      // The install-attempt count and healHoistedTypes above both guard
+      // against pnpm's hoisted-linker nondeterminism, but confirmed live
+      // that even both together don't always catch it (a DIFFERENT
+      // @types/* package incomplete each time). Rather than guess which
+      // package name to special-case, react to the actual failure: one
+      // more forced reinstall + re-heal, then retry the build once. This
+      // is exactly the manual rescue this deploy needed by hand on
+      // nearly every run this session.
       log(`Build failed, retrying once after a forced reinstall: ${buildErr.message}`);
       run("pnpm install --frozen-lockfile --force", releaseDir);
+      healHoistedTypes(releaseDir);
       run("pnpm --filter web run build", releaseDir);
     }
   } catch (err) {
