@@ -406,7 +406,7 @@ export default function ClientDashboardClient() {
         ["tagdashboard", <ClientTagDashboardPanel key="tagdashboard" businessId={businessId} />],
         ["knowledge", <KnowledgeHubPanel key="knowledge" businessId={businessId} active={tab === "knowledge"} />],
         ["products", <ProductCatalogPanel key="products" businessId={businessId} />],
-        ["inventory", <InventoryPanel key="inventory" businessId={businessId} />],
+        ["inventory", <InventoryPanel key="inventory" businessId={businessId} active={tab === "inventory"} />],
         ["notifications", <StatusEmailTemplatesPanel key="notifications" businessId={businessId} />],
         ["orders", <OrdersPanel key="orders" businessId={businessId} businessType={clientType} />],
         ["delivery", <DeliveryPanel key="delivery" businessId={businessId} />],

@@ -34,7 +34,7 @@ const EMPTY_DRAFT = { name: "", price: "", costPrice: "", tier: "regular", stock
  * shouldn't have to wade through crawler-sourced rows to find their
  * own entries, and vice versa. Manually managed rows are NOT taught to
  * the AI chat (that stays crawl/upload-only via Knowledge Hub). */
-export function InventoryPanel({ businessId }: { businessId: string }) {
+export function InventoryPanel({ businessId, active = true }: { businessId: string; active?: boolean }) {
   const currency = useCurrencySymbol(businessId);
   const [products, setProducts] = useState<Product[] | null>(null);
   const [total, setTotal] = useState(0);
@@ -68,7 +68,11 @@ export function InventoryPanel({ businessId }: { businessId: string }) {
       });
   }
 
-  useEffect(refresh, [businessId, search, offset]);
+  // All dashboard tabs stay mounted (hidden via CSS, not unmounted) --
+  // without refetching on becoming active, stock consumed by an order
+  // in a different tab would never show up here until a full page
+  // reload, even though the write itself is correct in the database.
+  useEffect(() => { if (active) refresh(); }, [businessId, search, offset, active]);
 
   async function addProduct() {
     if (!draft.name.trim()) return;
