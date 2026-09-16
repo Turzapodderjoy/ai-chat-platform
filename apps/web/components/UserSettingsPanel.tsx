@@ -88,12 +88,75 @@ function AccountRow({ account, label, onSaved }: { account: Account; label: stri
   );
 }
 
+// The full IANA zone list, straight from the runtime -- no reason to
+// hand-curate a shorter one and risk missing a zone a client needs.
+const TIMEZONE_OPTIONS: string[] =
+  typeof Intl !== "undefined" && "supportedValuesOf" in Intl
+    ? (Intl as unknown as { supportedValuesOf: (key: string) => string[] }).supportedValuesOf("timeZone")
+    : ["America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "UTC"];
+
+/** Saved on the Business row itself (not per-device/browser), so it
+ * sticks for every user of this client's dashboard and persists across
+ * sessions until changed again -- used to correctly interpret AI-booked
+ * repair appointment times (see chat-service.ts's parseDateTimeInZone). */
+function TimezoneSetting({ businessId }: { businessId: string }) {
+  const [timezone, setTimezone] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    fetch(`/api/admin/clients/${businessId}`)
+      .then((r) => r.json())
+      .then((d: { timezone?: string }) => setTimezone(d.timezone ?? "America/New_York"));
+  }, [businessId]);
+
+  async function save(next: string) {
+    setTimezone(next);
+    setSaving(true);
+    setMessage("");
+    try {
+      const res = await fetch(`/api/admin/clients/${businessId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ timezone: next }),
+      });
+      setMessage(res.ok ? "Saved." : "Couldn't save.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!timezone) return null;
+
+  return (
+    <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 14, marginBottom: 12 }}>
+      <div style={{ fontSize: 12, fontWeight: 650, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>
+        Timezone
+      </div>
+      <p style={{ ...subtleTextStyle, marginTop: 0 }}>
+        Every date/time shown in this dashboard, and every AI-booked repair appointment, is interpreted in this timezone. Stays set until you change it again.
+      </p>
+      <select
+        value={timezone}
+        disabled={saving}
+        onChange={(e) => save(e.target.value)}
+        style={{ padding: 8, minWidth: 260 }}
+      >
+        {TIMEZONE_OPTIONS.map((tz) => (
+          <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>
+        ))}
+      </select>
+      {message && <p style={{ ...subtleTextStyle, marginTop: 8, marginBottom: 0 }}>{message}</p>}
+    </div>
+  );
+}
+
 /** Self-service login management -- every client account can change its
  * own username/password here; an owner additionally sees and manages
  * every staff login under their own business. Passwords are revealed
  * from the server on load (see /api/client/user-settings), never typed
  * in from a client-side store. */
-export function UserSettingsPanel({ active = true }: { active?: boolean }) {
+export function UserSettingsPanel({ active = true, businessId }: { active?: boolean; businessId?: string }) {
   const [self, setSelf] = useState<Account | null>(null);
   const [staff, setStaff] = useState<Account[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -119,6 +182,8 @@ export function UserSettingsPanel({ active = true }: { active?: boolean }) {
       <p style={subtleTextStyle}>
         Change your own login here. Changing a password signs that login out everywhere — you&apos;ll need the new one next time.
       </p>
+
+      {businessId && <TimezoneSetting businessId={businessId} />}
 
       {!loaded && <p style={subtleTextStyle}>Loading…</p>}
       {self && <AccountRow account={self} label="Your login" onSaved={refresh} />}

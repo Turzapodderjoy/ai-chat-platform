@@ -504,7 +504,7 @@ export default function ClientDashboardClient() {
         ["arena", <TrainingArenaPanel key="arena" businessId={businessId} />],
         ["review", <ChatLearningPanel key="review" businessId={businessId} />],
         ["channels", <ChannelsPanel key="channels" businessId={businessId} />],
-        ["settings", <UserSettingsPanel key="settings" active={tab === "settings"} />],
+        ["settings", <UserSettingsPanel key="settings" active={tab === "settings"} businessId={businessId} />],
       ] as [Tab, ReactNode][])
         .filter(([id]) => id !== "settings" || accountRole === "owner")
         .map(([id, panel]) => (
