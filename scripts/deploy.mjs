@@ -114,14 +114,7 @@ function run(cmd, cwd) {
 // fine) -- the last one running catches whatever ELSE hoisting missed
 // that a narrower check can't see coming.
 const REQUIRED_WORKSPACE_LINKS = ["typescript-config", "eslint-config", "ui"];
-// Bumped from 3 -- confirmed live, repeatedly, that 3 (2 forced) still
-// wasn't reliably enough: nearly every deploy this session needed one
-// more manual `pnpm install --force` pass after the automated attempts
-// ran out, which is exactly attempt 4 of this same loop. Since the
-// comment above already established "one more forced install" is the
-// real fix every time, giving it more attempts up front removes the
-// manual step instead of just describing why it's needed.
-const INSTALL_ATTEMPTS = 6;
+const INSTALL_ATTEMPTS = 3;
 
 function workspaceLinksOk(releaseDir) {
   const repoDir = join(releaseDir, "apps", "web", "node_modules", "@repo");
@@ -276,7 +269,24 @@ async function deploy() {
   try {
     installWithRetry(releaseDir);
     run("npx prisma generate --schema=packages/database/prisma/schema.prisma", releaseDir);
-    run("pnpm --filter web run build", releaseDir);
+    try {
+      run("pnpm --filter web run build", releaseDir);
+    } catch (buildErr) {
+      // The install-attempt count above guards against @repo/* workspace
+      // links specifically -- pnpm's hoisted-linker nondeterminism can
+      // just as easily leave some OTHER package's hoisted copy
+      // incomplete (confirmed live, repeatedly, for @types/nodemailer
+      // specifically -- a real declared devDependency, not a missing
+      // one), which only ever surfaced as a TypeScript build failure,
+      // not an install-time error. Rather than guess which package name
+      // to special-case, react to the actual failure: one more forced
+      // reinstall, then retry the build once. This is exactly the
+      // manual rescue this deploy needed by hand on nearly every run
+      // this session.
+      log(`Build failed, retrying once after a forced reinstall: ${buildErr.message}`);
+      run("pnpm install --frozen-lockfile --force", releaseDir);
+      run("pnpm --filter web run build", releaseDir);
+    }
   } catch (err) {
     log(`BUILD FAILED for ${shortSha} -- live site left untouched on the previous release. ${err.message}`);
     process.exitCode = 1;
