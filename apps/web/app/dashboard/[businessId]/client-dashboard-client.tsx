@@ -33,6 +33,7 @@ import { AgentConsole } from "../../../components/AgentConsole";
 import { UserSettingsPanel } from "../../../components/UserSettingsPanel";
 import { ClientHomePanel } from "../../../components/ClientHomePanel";
 import { AppointmentNotificationBell } from "../../../components/AppointmentNotificationBell";
+import { loadNotifications as loadAppointmentNotifications, onNotificationsChanged } from "../../../lib/appointment-notifications";
 
 type Tab = "home" | "overview" | "tagdashboard" | "knowledge" | "products" | "inventory" | "orders" | "delivery" | "repairs" | "offers" | "staff" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "invoices" | "reports" | "notifications" | "settings";
 
@@ -180,6 +181,48 @@ export default function ClientDashboardClient() {
   // User Settings tab (self + staff username/password management).
   const [accountRole, setAccountRole] = useState<string | null>(null);
 
+  // Sidebar nav badges (highlighted count on the Repairs/Inbox tiles) --
+  // client-local, same per-browser convention as the topbar bell
+  // (lib/appointment-notifications.ts) and AllChatsPanel's own unread
+  // row-highlighting (localStorage key "allChatsSeen:<businessId>").
+  const [repairsBadge, setRepairsBadge] = useState(0);
+  const [inboxBadge, setInboxBadge] = useState(0);
+
+  useEffect(() => {
+    function refreshRepairsBadge() {
+      setRepairsBadge(loadAppointmentNotifications(businessId).length);
+    }
+    refreshRepairsBadge();
+    return onNotificationsChanged(refreshRepairsBadge);
+  }, [businessId]);
+
+  useEffect(() => {
+    function refreshInboxBadge() {
+      fetch(`/api/admin/conversations?businessId=${encodeURIComponent(businessId)}&sort=newest`)
+        .then((r) => r.json())
+        .then((d: { conversations?: { id: string; messageCount: number }[] }) => {
+          let seen: Record<string, number> = {};
+          try {
+            seen = JSON.parse(window.localStorage.getItem(`allChatsSeen:${businessId}`) ?? "{}");
+          } catch {
+            seen = {};
+          }
+          const unread = (d.conversations ?? []).filter((c) => c.messageCount > (seen[c.id] ?? 0)).length;
+          setInboxBadge(unread);
+        })
+        .catch(() => {});
+    }
+    refreshInboxBadge();
+    const interval = setInterval(refreshInboxBadge, 15000);
+    window.addEventListener("aiva-inbox-seen-updated", refreshInboxBadge);
+    window.addEventListener("storage", refreshInboxBadge);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("aiva-inbox-seen-updated", refreshInboxBadge);
+      window.removeEventListener("storage", refreshInboxBadge);
+    };
+  }, [businessId]);
+
   function logout() {
     fetch("/api/auth/logout", { method: "POST" }).finally(() => router.push("/"));
   }
@@ -296,6 +339,13 @@ export default function ClientDashboardClient() {
       })).filter((g) => g.items.length > 0)
     : baseGroups;
 
+  const badgedGroups: NavGroup<Tab>[] = visibleGroups.map((g) => ({
+    ...g,
+    items: g.items.map((i) =>
+      i.id === "repairs" ? { ...i, badge: repairsBadge } : i.id === "allchats" ? { ...i, badge: inboxBadge } : i
+    ),
+  }));
+
   // If a restriction kicks in after first paint and the currently-open
   // tab isn't in the allow-list, jump to the first tab that is —
   // otherwise the content pane would keep showing a panel whose own nav
@@ -365,7 +415,7 @@ export default function ClientDashboardClient() {
           )}
         </div>
       }
-      groups={visibleGroups}
+      groups={badgedGroups}
       activeTab={tab}
       onSelect={selectTab}
       username={previewAsClient ? `${username} (previewing as client)` : username}

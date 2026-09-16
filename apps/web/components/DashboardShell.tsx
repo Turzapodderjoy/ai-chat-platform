@@ -9,6 +9,14 @@ type ThemeMode = "dark" | "light";
 export interface NavItem<T extends string> {
   id: T;
   label: string;
+  // New-activity count (new messages/conversations, new appointments,
+  // etc.) shown as a highlighted badge on this nav row -- capped at
+  // 100 for display so it never grows into an unreadable number.
+  badge?: number;
+}
+
+function formatBadgeCount(n: number): string {
+  return n > 100 ? "100+" : String(n);
 }
 
 export interface NavGroup<T extends string> {
@@ -320,6 +328,7 @@ export function DashboardShell<T extends string>({
                         title={collapsed ? item.label : undefined}
                         className="ghost"
                         style={{
+                          position: "relative",
                           width: "100%",
                           justifyContent: collapsed ? "center" : "flex-start",
                           textAlign: "left",
@@ -331,12 +340,22 @@ export function DashboardShell<T extends string>({
                           fontWeight: active ? 500 : 400,
                         }}
                       >
-                        <span style={{ display: "flex", flexShrink: 0 }}>
+                        <span style={{ display: "flex", flexShrink: 0, position: "relative" }}>
                           <NavIcon id={item.id} />
+                          {collapsed && !!item.badge && (
+                            <span style={{ position: "absolute", top: -6, right: -8, minWidth: 15, height: 15, padding: "0 3px", borderRadius: 999, background: "var(--danger)", color: "white", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>
+                              {formatBadgeCount(item.badge)}
+                            </span>
+                          )}
                         </span>
                         {!collapsed && (
                           <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {item.label}
+                          </span>
+                        )}
+                        {!collapsed && !!item.badge && (
+                          <span style={{ marginLeft: "auto", minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, background: "var(--danger)", color: "white", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>
+                            {formatBadgeCount(item.badge)}
                           </span>
                         )}
                       </button>

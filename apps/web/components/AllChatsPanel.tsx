@@ -265,6 +265,11 @@ export function AllChatsPanel({ businessId, active = true, businessType }: { bus
       window.localStorage.setItem(seenKey, JSON.stringify(next));
       return next;
     });
+    // The Inbox sidebar badge (client-dashboard-client.tsx) reads this
+    // same localStorage key -- dispatch so it updates immediately in
+    // this tab too, not just on its next poll (native `storage` only
+    // fires in OTHER tabs).
+    window.dispatchEvent(new Event("aiva-inbox-seen-updated"));
   }
 
   const [tagCatalog, setTagCatalog] = useState<Tag[]>([]);
