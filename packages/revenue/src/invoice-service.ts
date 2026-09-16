@@ -113,6 +113,23 @@ function toInvoice(row: InvoiceRow): Invoice {
 
 const INCLUDE = { items: true, payments: true } as const;
 
+/** delta is negative to consume stock, positive to restore it. Silently
+ * no-ops when stock isn't a plain parseable number -- Product.stock is
+ * free text by design (see Product's own schema comment), and this
+ * shouldn't corrupt a value like "12 (backordered)". Same convention as
+ * RepairAppointmentService's own adjustProductStock -- kept as a
+ * separate copy here rather than a shared package for ~10 lines, and
+ * because the two callers' item shapes (RepairOrderItem vs
+ * InvoiceItem) are different enough that a shared signature would just
+ * add an adapter layer. */
+async function adjustProductStock(productId: string, delta: number): Promise<void> {
+  const product = await prisma.product.findUnique({ where: { id: productId }, select: { stock: true } });
+  if (!product?.stock) return;
+  const current = Number(product.stock);
+  if (!Number.isFinite(current)) return;
+  await prisma.product.update({ where: { id: productId }, data: { stock: String(current + delta) } });
+}
+
 export class InvoiceService {
   private async nextInvoiceNumber(businessId: string): Promise<string> {
     const count = await prisma.invoice.count({ where: { businessId } });
@@ -137,6 +154,9 @@ export class InvoiceService {
       },
       include: INCLUDE,
     });
+    for (const item of input.items) {
+      if (item.productId) await adjustProductStock(item.productId, -item.quantity);
+    }
     return toInvoice(row);
   }
 
@@ -169,7 +189,11 @@ export class InvoiceService {
   }
 
   async delete(id: string): Promise<void> {
+    const existing = await prisma.invoiceItem.findMany({ where: { invoiceId: id }, select: { productId: true, quantity: true } });
     await prisma.invoice.delete({ where: { id } });
+    for (const item of existing) {
+      if (item.productId) await adjustProductStock(item.productId, item.quantity);
+    }
   }
 
   async update(id: string, input: UpdateInvoiceInput): Promise<Invoice> {
@@ -179,13 +203,25 @@ export class InvoiceService {
     if (input.tax !== undefined) data.tax = input.tax;
     if (input.dueDate !== undefined) data.dueDate = input.dueDate ? new Date(input.dueDate) : null;
 
+    let restoreStock: { productId: string; quantity: number }[] = [];
     if (input.items) {
-      // Delete existing items and create new ones
+      // Delete existing items and create new ones -- restore stock for
+      // whatever the old items consumed first, then decrement for the
+      // new set below, so editing a line item's quantity (or swapping
+      // which product it uses) doesn't leak or double-count stock.
+      const existing = await prisma.invoiceItem.findMany({ where: { invoiceId: id }, select: { productId: true, quantity: true } });
+      restoreStock = existing.filter((i): i is { productId: string; quantity: number } => !!i.productId);
       await prisma.invoiceItem.deleteMany({ where: { invoiceId: id } });
       data.items = { create: input.items.map((i) => ({ name: i.name, quantity: i.quantity, unitPrice: i.unitPrice, productId: i.productId, costPrice: i.costPrice })) };
     }
 
     const row = await prisma.invoice.update({ where: { id }, data, include: INCLUDE });
+    for (const item of restoreStock) await adjustProductStock(item.productId, item.quantity);
+    if (input.items) {
+      for (const item of input.items) {
+        if (item.productId) await adjustProductStock(item.productId, -item.quantity);
+      }
+    }
     return toInvoice(row);
   }
 }
