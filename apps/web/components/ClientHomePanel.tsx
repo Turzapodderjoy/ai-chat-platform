@@ -112,26 +112,39 @@ export function ClientHomePanel({
 }) {
   const [appointments, setAppointments] = useState<Appointment[] | null>(null);
   const [now, setNow] = useState<Date | null>(null);
+  const [timezone, setTimezone] = useState("America/New_York");
 
   useEffect(() => {
     setNow(new Date());
     fetch(`/api/admin/repairs?businessId=${encodeURIComponent(businessId)}`)
       .then((r) => r.json())
       .then((d: { appointments: Appointment[] }) => setAppointments(d.appointments ?? []));
+    fetch(`/api/admin/clients/${businessId}`)
+      .then((r) => r.json())
+      .then((d: { timezone?: string }) => { if (d.timezone) setTimezone(d.timezone); });
   }, [businessId]);
 
-  const todayKey = now ? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}` : null;
+  // "Today" has to be the SAME calendar day on both sides of every
+  // comparison below -- comparing the viewer's local browser date against
+  // a UTC-stored timestamp string (the previous approach) put appointments
+  // in the wrong bucket for any viewer not in UTC, exactly the mismatch the
+  // business timezone setting exists to prevent. en-CA formats as YYYY-MM-DD.
+  function dateKeyInZone(date: Date | string): string {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(date));
+  }
+
+  const todayKey = now ? dateKeyInZone(now) : null;
 
   const stats = useMemo(() => {
     if (!appointments || !todayKey) return null;
     // Count by createdAt (when the repair/order was created) so manually
     // created orders and walk-ins show up on the day they're entered,
     // not just on their scheduled appointmentDate.
-    const today = appointments.filter((a) => a.createdAt.slice(0, 10) === todayKey);
+    const today = appointments.filter((a) => dateKeyInZone(a.createdAt) === todayKey);
     const active = appointments.filter((a) => a.status !== "completed" && a.status !== "cancelled");
     const urgent = active.filter((a) => a.priority === "urgent" || a.priority === "high");
     const needsAttention = appointments.filter((a) => a.rescheduleRequested || a.cancelRequested);
-    const completedToday = appointments.filter((a) => a.status === "completed" && a.appointmentDate.slice(0, 10) === todayKey);
+    const completedToday = appointments.filter((a) => a.status === "completed" && dateKeyInZone(a.appointmentDate) === todayKey);
     // Sub-breakdown for today's items
     const bookedToday = today.filter((a) => !a.isWalkIn && a.source !== "walkin");
     const walkinsToday = today.filter((a) => a.isWalkIn || a.source === "walkin");
@@ -145,7 +158,7 @@ export function ClientHomePanel({
       bookedTodayCount: bookedToday.length,
       walkinsTodayCount: walkinsToday.length,
     };
-  }, [appointments, todayKey]);
+  }, [appointments, todayKey, timezone]);
 
   return (
     <section>
