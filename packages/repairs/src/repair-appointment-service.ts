@@ -307,7 +307,21 @@ export class RepairAppointmentService {
   }
 
   async delete(id: string, actorUsername: string): Promise<void> {
-    const row = await prisma.repairAppointment.findUnique({ where: { id }, select: { businessId: true, customerName: true } });
+    const row = await prisma.repairAppointment.findUnique({
+      where: { id },
+      select: { businessId: true, customerName: true, items: { select: { kind: true, productId: true, quantity: true } } },
+    });
+    // Deleting the appointment cascades its RepairOrderItem rows, but that
+    // cascade never ran the same stock-restoration removeItem() does --
+    // confirmed live, deleting an order with parts attached left Inventory
+    // permanently short. Restore each part's stock before the delete.
+    if (row) {
+      for (const item of row.items) {
+        if (item.kind === "part" && item.productId) {
+          await adjustProductStock(item.productId, item.quantity);
+        }
+      }
+    }
     await prisma.repairAppointment.delete({ where: { id } });
     if (row) {
       await logAudit({ businessId: row.businessId, entityType: "repair", entityId: id, action: "deleted", detail: row.customerName, actorUsername });
