@@ -95,6 +95,23 @@ const TIMEZONE_OPTIONS: string[] =
     ? (Intl as unknown as { supportedValuesOf: (key: string) => string[] }).supportedValuesOf("timeZone")
     : ["America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "UTC"];
 
+// Client asked for the offset up front (e.g. "GMT-05:00"), not the bare
+// zone name -- the name stays alongside it since several zones share an
+// offset and DST makes the offset itself change through the year.
+function gmtOffsetLabel(tz: string): string {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset" }).formatToParts(new Date());
+    const offset = parts.find((p) => p.type === "timeZoneName")?.value ?? "GMT+0";
+    return `${offset.replace("GMT", "GMT ")} — ${tz.replace(/_/g, " ")}`;
+  } catch {
+    return tz.replace(/_/g, " ");
+  }
+}
+
+const TIMEZONE_LABELS: [string, string][] = TIMEZONE_OPTIONS
+  .map((tz): [string, string] => [tz, gmtOffsetLabel(tz)])
+  .sort((a, b) => a[1].localeCompare(b[1], undefined, { numeric: true }));
+
 /** Saved on the Business row itself (not per-device/browser), so it
  * sticks for every user of this client's dashboard and persists across
  * sessions until changed again -- used to correctly interpret AI-booked
@@ -142,8 +159,8 @@ function TimezoneSetting({ businessId }: { businessId: string }) {
         onChange={(e) => save(e.target.value)}
         style={{ padding: 8, minWidth: 260 }}
       >
-        {TIMEZONE_OPTIONS.map((tz) => (
-          <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>
+        {TIMEZONE_LABELS.map(([tz, label]) => (
+          <option key={tz} value={tz}>{label}</option>
         ))}
       </select>
       {message && <p style={{ ...subtleTextStyle, marginTop: 8, marginBottom: 0 }}>{message}</p>}

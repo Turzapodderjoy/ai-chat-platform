@@ -258,6 +258,12 @@ export class RepairController {
       isWalkIn: input.isWalkIn,
     });
 
+    // book() above only creates the RepairAppointment row -- unlike the
+    // public book() flow, nothing here created the linked Conversation row,
+    // so every later addMessage() (status change, cancel, invoice) threw a
+    // FK error and 500'd even though its own DB write had already committed.
+    await this.conversations.getOrCreate(trackingToken, input.businessId, "customer", false, "repair-tracking", null);
+
     const serialNumber = await this.repairs.nextSerialNumber(input.businessId);
     await this.repairs.setSerialNumber(appointment.id, serialNumber);
 
