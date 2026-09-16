@@ -114,7 +114,14 @@ function run(cmd, cwd) {
 // fine) -- the last one running catches whatever ELSE hoisting missed
 // that a narrower check can't see coming.
 const REQUIRED_WORKSPACE_LINKS = ["typescript-config", "eslint-config", "ui"];
-const INSTALL_ATTEMPTS = 3;
+// Bumped from 3 -- confirmed live, repeatedly, that 3 (2 forced) still
+// wasn't reliably enough: nearly every deploy this session needed one
+// more manual `pnpm install --force` pass after the automated attempts
+// ran out, which is exactly attempt 4 of this same loop. Since the
+// comment above already established "one more forced install" is the
+// real fix every time, giving it more attempts up front removes the
+// manual step instead of just describing why it's needed.
+const INSTALL_ATTEMPTS = 6;
 
 function workspaceLinksOk(releaseDir) {
   const repoDir = join(releaseDir, "apps", "web", "node_modules", "@repo");

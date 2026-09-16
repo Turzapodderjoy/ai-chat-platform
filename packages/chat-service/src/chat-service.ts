@@ -162,6 +162,26 @@ function isOrderComplete(fields: Record<string, string> | null): fields is Order
 const REPAIR_MARKER_PATTERN = /\[\[REPAIR_BOOKED:([^\]]*)\]{1,2}/;
 const REPAIR_FIELDS_PATTERN = /\[\[REPAIR_FIELDS:([^\]]*)\]{1,2}/;
 
+/** The AI writes appointmentDate as a bare local-time string (no
+ * timezone offset -- it has no way to know one). `new Date(str)` would
+ * silently interpret that string as the SERVER's timezone instead of
+ * the business's, shifting the stored instant by however many hours
+ * separate the two (confirmed live: a customer's stated "12:00 PM"
+ * landed several hours off because this VPS runs UTC). Reinterprets a
+ * clean "YYYY-MM-DD[THH:mm[:ss]]" string in the given IANA zone;
+ * anything else (the AI wrote something unparseable, or already
+ * included an explicit offset) falls back to a plain Date parse,
+ * unchanged from before. */
+function parseDateTimeInZone(input: string, timeZone: string): Date {
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(input.trim());
+  if (!match) return new Date(input);
+  const [, y, mo, d, h = "0", mi = "0", s = "0"] = match;
+  const asUTC = Date.UTC(+y, +mo - 1, +d, +h, +mi, +s);
+  const tzDate = new Date(new Date(asUTC).toLocaleString("en-US", { timeZone }));
+  const offset = asUTC - tzDate.getTime();
+  return new Date(asUTC + offset);
+}
+
 const REPAIR_FIELD_KEYS = ["deviceType", "deviceModel", "issueDescription", "customerName", "phone", "email", "appointmentDate"] as const;
 type RepairFields = Record<(typeof REPAIR_FIELD_KEYS)[number], string>;
 
@@ -813,6 +833,7 @@ export class ChatService {
     if (this.repairs && isRepairComplete(conversation.pendingRepair) && isAffirmative(request.message)) {
       const pending = conversation.pendingRepair;
       const trackingToken = await this.repairs.generateTrackingToken();
+      const biz = await prisma.business.findUnique({ where: { id: businessId }, select: { timezone: true } });
       await this.repairs.book({
         businessId,
         trackingToken,
@@ -822,7 +843,7 @@ export class ChatService {
         deviceType: pending.deviceType,
         deviceModel: pending.deviceModel || undefined,
         issueDescription: pending.issueDescription,
-        appointmentDate: new Date(pending.appointmentDate),
+        appointmentDate: parseDateTimeInZone(pending.appointmentDate, biz?.timezone ?? "America/New_York"),
       });
       await this.conversations.setPendingRepair(request.sessionId, null);
 

@@ -154,7 +154,7 @@ export function ReportsPanel({
     // -- all of which can change from a different tab without this one
     // ever remounting. setReport never nulls first, so this is a silent
     // background refresh, not a loading flash.
-    const interval = setInterval(load, 15000);
+    const interval = setInterval(load, 5000);
     return () => clearInterval(interval);
   }, [businessId, active, from, to, range, customFrom, customTo]);
 

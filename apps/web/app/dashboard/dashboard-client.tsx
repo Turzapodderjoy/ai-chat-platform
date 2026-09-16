@@ -28,6 +28,14 @@ import { StatCard, StatCardRow } from "../../components/StatCard";
 // client component just for one string constant.
 const PLATFORM_CONFIG_ID = "__platform__";
 
+// The full IANA zone list, straight from the runtime -- every browser
+// and Node 18+ ships this, so there's no reason to hand-curate a
+// shorter list and risk missing one a client actually needs.
+const TIMEZONE_OPTIONS: string[] =
+  typeof Intl !== "undefined" && "supportedValuesOf" in Intl
+    ? (Intl as unknown as { supportedValuesOf: (key: string) => string[] }).supportedValuesOf("timeZone")
+    : ["America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "UTC"];
+
 type Tab = "overview" | "health" | "vpsHealth" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "access" | "adminUsers" | "knowledge" | "allchats" | "database" | "tags" | "contacts" | "invoices" | "subscription";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
@@ -165,6 +173,7 @@ interface Client {
   maxAgents: number;
   type: string;
   enabledIntegrations: string[] | null;
+  timezone: string;
 }
 
 /** One provider = one card, not a spreadsheet row — a raw <table> for a
@@ -512,6 +521,15 @@ function ClientsPanel() {
     refresh();
   }
 
+  async function setTimezone(client: Client, timezone: string) {
+    await fetch(`/api/admin/clients/${client.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ timezone }),
+    });
+    refresh();
+  }
+
   return (
     <section style={cardStyle}>
       <h2 style={{ marginTop: 0 }}>Clients</h2>
@@ -553,6 +571,7 @@ function ClientsPanel() {
               <th style={cellStyle}>Created</th>
               <th style={cellStyle}>Storage used</th>
               <th style={cellStyle}>Max agents</th>
+              <th style={cellStyle}>Timezone</th>
               <th style={cellStyle}>Integrations</th>
               <th style={cellStyle}>Dashboard</th>
               <th style={cellStyle}>Notify</th>
@@ -583,6 +602,18 @@ function ClientsPanel() {
                     }}
                     title="How many handoff-team agent logins this client can create for themselves"
                   />
+                </td>
+                <td style={cellStyle}>
+                  <select
+                    defaultValue={c.timezone}
+                    onChange={(e) => setTimezone(c, e.target.value)}
+                    style={{ padding: "6px 8px", maxWidth: 220 }}
+                    title="Timezone this client's AI-booked repair appointments are interpreted in"
+                  >
+                    {TIMEZONE_OPTIONS.map((tz) => (
+                      <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>
+                    ))}
+                  </select>
                 </td>
                 <td style={cellStyle}>
                   <button
@@ -621,7 +652,7 @@ function ClientsPanel() {
               </tr>
               {viewAsOpenId === c.id && (
                 <tr>
-                  <td style={{ ...cellStyle, background: "var(--surface)" }} colSpan={8}>
+                  <td style={{ ...cellStyle, background: "var(--surface)" }} colSpan={9}>
                     {(() => {
                       const logins = accounts.filter((a) => a.businessId === c.id && !a.isAdmin);
                       if (logins.length === 0) {
@@ -646,7 +677,7 @@ function ClientsPanel() {
               )}
               {notifyOpenId === c.id && (
                 <tr>
-                  <td style={{ ...cellStyle, background: "var(--surface)" }} colSpan={8}>
+                  <td style={{ ...cellStyle, background: "var(--surface)" }} colSpan={9}>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                       <input
                         placeholder="Title"
@@ -670,7 +701,7 @@ function ClientsPanel() {
               )}
               {integrationsOpenId === c.id && (
                 <tr>
-                  <td style={{ ...cellStyle, background: "var(--surface)" }} colSpan={8}>
+                  <td style={{ ...cellStyle, background: "var(--surface)" }} colSpan={9}>
                     <div style={{ fontSize: 12, marginBottom: 6, fontWeight: 600 }}>Enabled integrations for {c.name}:</div>
                     <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                       {ALL_INTEGRATIONS.map((intg) => {
@@ -698,7 +729,7 @@ function ClientsPanel() {
             ))}
             {clients.length === 0 && (
               <tr>
-                <td style={cellStyle} colSpan={8}>
+                <td style={cellStyle} colSpan={9}>
                   No clients yet — add one above.
                 </td>
               </tr>

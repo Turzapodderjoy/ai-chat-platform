@@ -84,7 +84,7 @@ export function InventoryPanel({ businessId, active = true }: { businessId: stri
   // since the table already has data to show.
   useEffect(() => {
     if (!active) return;
-    const interval = setInterval(refreshSilent, 15000);
+    const interval = setInterval(refreshSilent, 5000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, businessId, search, offset]);

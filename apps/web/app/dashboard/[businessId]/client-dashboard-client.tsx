@@ -33,7 +33,6 @@ import { AgentConsole } from "../../../components/AgentConsole";
 import { UserSettingsPanel } from "../../../components/UserSettingsPanel";
 import { ClientHomePanel } from "../../../components/ClientHomePanel";
 import { AppointmentNotificationBell } from "../../../components/AppointmentNotificationBell";
-import { loadNotifications as loadAppointmentNotifications, onNotificationsChanged } from "../../../lib/appointment-notifications";
 
 type Tab = "home" | "overview" | "tagdashboard" | "knowledge" | "products" | "inventory" | "orders" | "delivery" | "repairs" | "offers" | "staff" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "invoices" | "reports" | "notifications" | "settings";
 
@@ -189,11 +188,22 @@ export default function ClientDashboardClient() {
   const [inboxBadge, setInboxBadge] = useState(0);
 
   useEffect(() => {
+    // A live count of appointments still at the "booked" (brand new,
+    // untouched) stage -- not a dismiss-tracked notification list, so
+    // it clears itself the moment staff advances one to the next
+    // stage, and never accumulates stale entries for appointments
+    // that were already handled long ago.
     function refreshRepairsBadge() {
-      setRepairsBadge(loadAppointmentNotifications(businessId).length);
+      fetch(`/api/admin/repairs?businessId=${encodeURIComponent(businessId)}`)
+        .then((r) => r.json())
+        .then((d: { appointments?: { status: string }[] }) => {
+          setRepairsBadge((d.appointments ?? []).filter((a) => a.status === "booked").length);
+        })
+        .catch(() => {});
     }
     refreshRepairsBadge();
-    return onNotificationsChanged(refreshRepairsBadge);
+    const interval = setInterval(refreshRepairsBadge, 5000);
+    return () => clearInterval(interval);
   }, [businessId]);
 
   useEffect(() => {

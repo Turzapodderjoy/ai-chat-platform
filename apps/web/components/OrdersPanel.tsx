@@ -148,7 +148,7 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
   // without a manual reload. refresh() never blanks state first, so
   // this is a silent update, not a loading flash.
   useEffect(() => {
-    const interval = setInterval(refresh, 15000);
+    const interval = setInterval(refresh, 5000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [businessId]);

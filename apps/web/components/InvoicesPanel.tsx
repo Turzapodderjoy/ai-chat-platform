@@ -164,7 +164,7 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
   // current without a manual reload while this tab stays open.
   useEffect(() => {
     if (!active) return;
-    const interval = setInterval(refresh, 15000);
+    const interval = setInterval(refresh, 5000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, businessId]);

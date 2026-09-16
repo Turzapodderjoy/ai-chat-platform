@@ -147,6 +147,10 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
   const [search, setSearch] = useState("");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [viewMode, setViewMode] = useState<"list" | "kanban">("kanban");
+  // Board view defaults to a 3-day window (yesterday/today/tomorrow) so
+  // the board doesn't fill up with every appointment ever booked --
+  // "3day" is the default, switchable to "all" to see everything.
+  const [boardDateFilter, setBoardDateFilter] = useState<"3day" | "all">("3day");
   const [orderOpen, setOrderOpen] = useState(false);
   const [completedPromptId, setCompletedPromptId] = useState<string | null>(null);
   const [products, setProducts] = useState<{ id: string; name: string; price: string | null; stock: string | null }[]>([]);
@@ -223,7 +227,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
 
   useEffect(() => {
     if (!active) return;
-    const interval = setInterval(refresh, 10000);
+    const interval = setInterval(refresh, 5000);
     return () => clearInterval(interval);
   }, [businessId, active]);
 
@@ -412,6 +416,15 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
     if (!appointments) return [];
     let list = appointments;
     if (calendarDay) list = list.filter((a) => dateKey(a.appointmentDate) === calendarDay);
+    if (viewMode === "kanban" && boardDateFilter === "3day") {
+      const today = new Date();
+      const keys = new Set([-1, 0, 1].map((offset) => {
+        const d = new Date(today);
+        d.setDate(d.getDate() + offset);
+        return dateKey(d.toISOString());
+      }));
+      list = list.filter((a) => keys.has(dateKey(a.appointmentDate)));
+    }
     const q = search.trim().toLowerCase();
     if (q) {
       list = list.filter((a) =>
@@ -425,7 +438,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
       return sortOrder === "newest" ? -diff : diff;
     });
     return list;
-  }, [appointments, calendarDay, search, sortOrder]);
+  }, [appointments, calendarDay, search, sortOrder, viewMode, boardDateFilter]);
 
   const kanbanColumns = useMemo(() => {
     const cols: Record<string, Appointment[]> = {};
@@ -704,7 +717,41 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
       )}
 
       {viewMode === "kanban" && (
-        <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, marginBottom: 20, flex: 1 }}>
+        <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 10, flexShrink: 0 }}>
+            <button
+              onClick={() => setBoardDateFilter("3day")}
+              style={{
+                fontSize: 12,
+                padding: "6px 12px",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-sm)",
+                background: boardDateFilter === "3day" ? "var(--accent-subtle)" : "var(--surface)",
+                color: boardDateFilter === "3day" ? "var(--accent)" : "var(--text-muted)",
+                fontWeight: boardDateFilter === "3day" ? 600 : 400,
+                cursor: "pointer",
+              }}
+              title="Yesterday, today, and tomorrow only"
+            >
+              Last 3 days
+            </button>
+            <button
+              onClick={() => setBoardDateFilter("all")}
+              style={{
+                fontSize: 12,
+                padding: "6px 12px",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-sm)",
+                background: boardDateFilter === "all" ? "var(--accent-subtle)" : "var(--surface)",
+                color: boardDateFilter === "all" ? "var(--accent)" : "var(--text-muted)",
+                fontWeight: boardDateFilter === "all" ? 600 : 400,
+                cursor: "pointer",
+              }}
+            >
+              All
+            </button>
+          </div>
+          <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, marginBottom: 20, flex: 1 }}>
           {KANBAN_STATUSES.map((s) => (
             <div key={s} style={{ minWidth: isMobile ? 260 : 280, maxWidth: isMobile ? "none" : 320, flex: isMobile ? "0 0 260" : 1, display: "flex", flexDirection: "column" }}>
               {/* Column header */}
@@ -745,6 +792,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
               </div>
             </div>
           ))}
+          </div>
         </div>
       )}
 

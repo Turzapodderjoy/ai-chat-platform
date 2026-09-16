@@ -53,6 +53,17 @@ model Business {
   // convention as chat-image uploads, see that route's own comment).
   logoUrl       String?
 
+  // IANA zone name (e.g. "America/New_York"). Used to correctly
+  // interpret a naive local-time string the AI chatbot writes when
+  // booking a repair appointment (see chat-service.ts's
+  // parseDateTimeInZone) -- without this, `new Date(aiWrittenString)`
+  // silently assumed the SERVER's timezone (this VPS runs UTC), so a
+  // customer-stated "12:00 PM" landed on the calendar shifted by
+  // several hours. Set by the platform admin per client (Client
+  // Access panel); defaults to Eastern since this platform's clients
+  // are US-based.
+  timezone      String   @default("America/New_York")
+
   // Which integrations this business can access in their Integrations panel.
   // JSON array of integration IDs (e.g. ["website","email","messenger"]).
   // null or empty = all integrations enabled (backward compatible).
