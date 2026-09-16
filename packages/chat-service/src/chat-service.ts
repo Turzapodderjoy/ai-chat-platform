@@ -176,7 +176,7 @@ function parseDateTimeInZone(input: string, timeZone: string): Date {
   const match = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(input.trim());
   if (!match) return new Date(input);
   const [, y, mo, d, h = "0", mi = "0", s = "0"] = match;
-  const asUTC = Date.UTC(+y, +mo - 1, +d, +h, +mi, +s);
+  const asUTC = Date.UTC(+y!, +mo! - 1, +d!, +h, +mi, +s);
   const tzDate = new Date(new Date(asUTC).toLocaleString("en-US", { timeZone }));
   const offset = asUTC - tzDate.getTime();
   return new Date(asUTC + offset);
