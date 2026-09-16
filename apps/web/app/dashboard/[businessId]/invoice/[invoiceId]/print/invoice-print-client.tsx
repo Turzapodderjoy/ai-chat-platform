@@ -18,6 +18,7 @@ interface InvoiceDetail {
     balanceDue: number;
   };
   businessName: string;
+  logoUrl: string | null;
   currencySymbol: string;
   customerName: string | null;
   customerPhone: string | null;
@@ -80,8 +81,33 @@ export default function InvoicePrintClient() {
         </button>
       </div>
 
-      <div className="invoice-sheet" style={{ maxWidth: 720, margin: "24px auto", padding: 48, fontFamily: "Helvetica, Arial, sans-serif", color: "#111", background: "#fff", borderRadius: 10, boxShadow: "0 1px 4px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)" }}>
+      <div className="invoice-sheet" style={{ position: "relative", maxWidth: 720, margin: "24px auto", padding: 48, fontFamily: "Helvetica, Arial, sans-serif", color: "#111", background: "#fff", borderRadius: 10, boxShadow: "0 1px 4px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)", overflow: "hidden" }}>
 
+      {detail.logoUrl && (
+        // eslint-disable-next-line @next/next/no-img-element -- a plain
+        // <img> is correct here: this is a standalone print/PDF view, not
+        // a normal page needing Next's responsive-image optimization.
+        <img
+          src={detail.logoUrl}
+          alt=""
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "60%",
+            maxWidth: 420,
+            opacity: 0.06,
+            pointerEvents: "none",
+            userSelect: "none",
+          }}
+        />
+      )}
+
+      {/* Positioned (relative, no z-index) so it paints after the
+          watermark img above in the same stacking context -- real
+          content must sit visibly on top, not behind, the watermark. */}
+      <div style={{ position: "relative" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", paddingBottom: 24, borderBottom: "3px solid #1a1a1a", marginBottom: 28 }}>
         <div>
           <h1 style={{ fontSize: 26, margin: 0, letterSpacing: "-0.01em" }}>{detail.businessName}</h1>
@@ -147,6 +173,7 @@ export default function InvoicePrintClient() {
             <span style={{ color: invoice.balanceDue > 0 ? "#b45309" : "#15803d" }}>{money(invoice.balanceDue)}</span>
           </div>
         </div>
+      </div>
       </div>
       </div>
     </div>

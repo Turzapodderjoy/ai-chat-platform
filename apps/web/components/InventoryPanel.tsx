@@ -51,8 +51,7 @@ export function InventoryPanel({ businessId, active = true }: { businessId: stri
   const [importMsg, setImportMsg] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function refresh() {
-    setProducts(null);
+  function refreshSilent() {
     const params = new URLSearchParams({
       businessId,
       offset: String(offset),
@@ -68,11 +67,27 @@ export function InventoryPanel({ businessId, active = true }: { businessId: stri
       });
   }
 
+  function refresh() {
+    setProducts(null);
+    refreshSilent();
+  }
+
   // All dashboard tabs stay mounted (hidden via CSS, not unmounted) --
   // without refetching on becoming active, stock consumed by an order
   // in a different tab would never show up here until a full page
   // reload, even though the write itself is correct in the database.
   useEffect(() => { if (active) refresh(); }, [businessId, search, offset, active]);
+
+  // Also keep polling while this tab stays the visible one -- an order
+  // consuming stock without ever switching away from Inventory should
+  // still show up without a manual reload. Silent (no "Loading…" flash)
+  // since the table already has data to show.
+  useEffect(() => {
+    if (!active) return;
+    const interval = setInterval(refreshSilent, 15000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, businessId, search, offset]);
 
   async function addProduct() {
     if (!draft.name.trim()) return;

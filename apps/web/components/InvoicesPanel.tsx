@@ -85,6 +85,33 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editingCell, setEditingCell] = useState<{ id: string; field: "total" | "paid" | "due" } | null>(null);
   const [editingCellValue, setEditingCellValue] = useState("");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  useEffect(() => {
+    if (!businessId) return;
+    fetch(`/api/admin/clients/${businessId}`)
+      .then((r) => r.json())
+      .then((d: { logoUrl?: string | null }) => setLogoUrl(d.logoUrl ?? null));
+  }, [businessId]);
+
+  async function uploadLogo(file: File) {
+    if (!businessId) return;
+    setUploadingLogo(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`/api/admin/clients/${businessId}/logo`, { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) {
+        await showAlert(data.error ?? "Failed to upload logo");
+        return;
+      }
+      setLogoUrl(data.logoUrl);
+    } finally {
+      setUploadingLogo(false);
+    }
+  }
 
   const [showAdd, setShowAdd] = useState(false);
   const [draftContactId, setDraftContactId] = useState("");
@@ -131,6 +158,16 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
     if (active) refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [businessId, active]);
+
+  // refresh() never blanks state before fetching, so polling here is
+  // already silent -- keeps Total/Paid/Due and inventory-linked prices
+  // current without a manual reload while this tab stays open.
+  useEffect(() => {
+    if (!active) return;
+    const interval = setInterval(refresh, 15000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, businessId]);
 
   const contactById = useMemo(() => new Map((contacts ?? []).map((c) => [c.id, c])), [contacts]);
   const repairById = useMemo(() => new Map(repairs.map((r) => [r.id, r])), [repairs]);
@@ -337,10 +374,26 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
       <p style={subtleTextStyle}>Billed amounts owed by a customer — generated automatically from a repair order, or added by hand below.</p>
 
       {businessId && (
-        <div style={{ marginBottom: 12 }}>
+        <div style={{ marginBottom: 12, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <button onClick={() => setShowAdd((s) => !s)} style={primaryButtonStyle}>
             {showAdd ? "Cancel" : "+ Add Invoice"}
           </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+            {logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element -- a small settings thumbnail, no responsive-image needs
+              <img src={logoUrl} alt="Business logo" style={{ width: 32, height: 32, objectFit: "contain", borderRadius: 4, border: "1px solid var(--border)", background: "#fff" }} />
+            )}
+            <label style={{ fontSize: 12, padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", cursor: uploadingLogo ? "default" : "pointer", color: "var(--text-muted)" }}>
+              {uploadingLogo ? "Uploading…" : logoUrl ? "Change invoice logo" : "Add invoice logo"}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                disabled={uploadingLogo}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = ""; }}
+                style={{ display: "none" }}
+              />
+            </label>
+          </div>
         </div>
       )}
 

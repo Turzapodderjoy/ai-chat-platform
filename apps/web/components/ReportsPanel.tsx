@@ -142,11 +142,20 @@ export function ReportsPanel({
   useEffect(() => {
     if (!active) return;
     if (range === "custom" && (!customFrom || !customTo)) return;
-    const params = new URLSearchParams({ from, to });
-    if (businessId) params.set("businessId", businessId);
-    fetch(`/api/admin/reports/overview?${params.toString()}`)
-      .then((r) => r.json())
-      .then(setReport);
+    function load() {
+      const params = new URLSearchParams({ from, to });
+      if (businessId) params.set("businessId", businessId);
+      fetch(`/api/admin/reports/overview?${params.toString()}`)
+        .then((r) => r.json())
+        .then(setReport);
+    }
+    load();
+    // Revenue/cost/profit here depend on Invoices, Orders, and Inventory
+    // -- all of which can change from a different tab without this one
+    // ever remounting. setReport never nulls first, so this is a silent
+    // background refresh, not a loading flash.
+    const interval = setInterval(load, 15000);
+    return () => clearInterval(interval);
   }, [businessId, active, from, to, range, customFrom, customTo]);
 
   if (!report) {

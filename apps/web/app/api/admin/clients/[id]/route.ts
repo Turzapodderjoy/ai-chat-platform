@@ -22,9 +22,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       typeof body.type !== "string" &&
       typeof body.aiEnabled !== "boolean" &&
       !Array.isArray(body.enabledIntegrations) &&
-      body.enabledIntegrations !== null)
+      body.enabledIntegrations !== null &&
+      typeof body.logoUrl !== "string" &&
+      body.logoUrl !== null)
   ) {
-    return NextResponse.json({ error: "maxAgents, type, aiEnabled, or enabledIntegrations is required" }, { status: 400 });
+    return NextResponse.json({ error: "maxAgents, type, aiEnabled, enabledIntegrations, or logoUrl is required" }, { status: 400 });
   }
 
   try {
@@ -44,6 +46,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         where: { id },
         data: { enabledIntegrations: body.enabledIntegrations ? JSON.stringify(body.enabledIntegrations) : null },
       });
+    }
+    if (typeof body.logoUrl === "string" || body.logoUrl === null) {
+      const { prisma } = await import("@ai-chat-platform/database");
+      await prisma.business.update({ where: { id }, data: { logoUrl: body.logoUrl } });
     }
     return NextResponse.json({ ok: true });
   } catch (err) {

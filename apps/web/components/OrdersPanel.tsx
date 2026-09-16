@@ -142,6 +142,17 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [businessId]);
 
+  // This panel has no "active" signal from the parent (every dashboard
+  // tab stays mounted, hidden via CSS) -- poll unconditionally so an
+  // item added/removed elsewhere (or stock consumed) shows up here
+  // without a manual reload. refresh() never blanks state first, so
+  // this is a silent update, not a loading flash.
+  useEffect(() => {
+    const interval = setInterval(refresh, 15000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessId]);
+
   async function assignTag(orderId: string, tagId: string) {
     await fetch("/api/admin/tags/assign", {
       method: "POST",

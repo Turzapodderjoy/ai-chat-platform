@@ -46,6 +46,13 @@ model Business {
   // dashboard's Clients panel.
   type          String   @default("regular")
 
+  // Shown as a low-opacity watermark on this business's invoice
+  // print/PDF (see invoice-print-client.tsx) -- uploaded by the client
+  // themselves from the Invoices panel, stored under
+  // apps/web/public/uploads/business-logos (same persistent-disk
+  // convention as chat-image uploads, see that route's own comment).
+  logoUrl       String?
+
   // Which integrations this business can access in their Integrations panel.
   // JSON array of integration IDs (e.g. ["website","email","messenger"]).
   // null or empty = all integrations enabled (backward compatible).

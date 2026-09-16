@@ -51,6 +51,7 @@ export class RevenueController {
     return {
       invoice,
       businessName: business?.name ?? "",
+      logoUrl: business?.logoUrl ?? null,
       // The business's CURRENT currency, not invoice.currency -- that's
       // whatever was set when the invoice was created and goes stale
       // forever if the business switches currencies later (same drift
