@@ -965,6 +965,11 @@ export function AllChatsPanel({ businessId, active = true, businessType }: { bus
               <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                 <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
                   {!messages && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Loading messages...</p>}
+                  {messages?.length === 0 && selected.channel === "repair-tracking" && repairForSelected && (
+                    <div style={{ alignSelf: "center", fontSize: 10, color: "var(--text-faint)", textAlign: "center", padding: "3px 10px", background: "var(--surface)", borderRadius: "var(--radius-full)" }}>
+                      Appointment booked · {REPAIR_STATUS_LABEL[repairForSelected.status] ?? repairForSelected.status} · {new Date(repairForSelected.appointmentDate).toLocaleString()}
+                    </div>
+                  )}
                   {messages?.map((m) => {
                     if (m.role === "system") {
                       return (
