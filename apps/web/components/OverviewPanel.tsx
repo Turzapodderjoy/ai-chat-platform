@@ -207,9 +207,9 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
   return (
     <section>
       <StatCardRow>
-        <StatCard label="Total Clients" value={val(counts.clients)} tone="accent" icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /></svg>} />
-        <StatCard label="Open Handoffs" value={val(counts.openHandoffs)} hint={counts.totalHandoffs !== null ? `${counts.totalHandoffs} total` : undefined} tone={counts.openHandoffs !== null && counts.openHandoffs > 0 ? "warning" : "success"} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /></svg>} />
-        <StatCard label="QA Pending" value={val(counts.qaUnprocessed)} hint={counts.qaTotal !== null ? `${counts.qaTotal} total` : undefined} tone={counts.qaUnprocessed !== null && counts.qaUnprocessed > 0 ? "warning" : "success"} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" /></svg>} />
+        <StatCard label="Total Clients" value={val(counts.clients)} tone="accent" />
+        <StatCard label="Open Handoffs" value={val(counts.openHandoffs)} hint={counts.totalHandoffs !== null ? `${counts.totalHandoffs} total` : undefined} tone={counts.openHandoffs !== null && counts.openHandoffs > 0 ? "warning" : "success"} />
+        <StatCard label="QA Pending" value={val(counts.qaUnprocessed)} hint={counts.qaTotal !== null ? `${counts.qaTotal} total` : undefined} tone={counts.qaUnprocessed !== null && counts.qaUnprocessed > 0 ? "warning" : "success"} />
       </StatCardRow>
 
       {/* Knowledge Base Chart */}
