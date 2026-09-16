@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getApp } from "../../../../../lib/app";
+import { resolveAdminActor } from "../../../../../lib/admin-actor";
 
 // Backs the Invoices panel's directly-editable Total/Paid/Due cells --
 // `total` and `amount` (paid) are independent, either or both may be
@@ -22,10 +23,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "businessId, invoiceId, and total and/or amount are required" }, { status: 400 });
   }
   const app = await getApp();
+  const actorUsername = await resolveAdminActor(req);
   const { repairAppointmentId } = await app.container.router.revenue.setInvoiceAmounts(body.invoiceId, body.businessId, {
     total: typeof body.total === "number" ? body.total : undefined,
     paidAmount: typeof body.amount === "number" ? body.amount : undefined,
-  });
+  }, actorUsername);
   if (repairAppointmentId) {
     const invoice = await app.container.router.revenue.getInvoice(body.invoiceId);
     if (invoice) await app.container.router.repairs.setOrderTotalOverride(repairAppointmentId, invoice.total);
@@ -39,6 +41,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
   const app = await getApp();
-  await app.container.router.revenue.deletePayment(id);
+  const actorUsername = await resolveAdminActor(req);
+  await app.container.router.revenue.deletePayment(id, actorUsername);
   return NextResponse.json({ ok: true });
 }

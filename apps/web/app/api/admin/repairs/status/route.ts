@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getApp } from "../../../../../lib/app";
+import { resolveAdminActor } from "../../../../../lib/admin-actor";
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -10,6 +11,7 @@ export async function POST(req: NextRequest) {
   }
 
   const app = await getApp();
+  const actorUsername = await resolveAdminActor(req);
 
   // Handle priority update
   if (body.priority && typeof body.priority === "string") {
@@ -23,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   // Handle status update
   if (body.status && typeof body.status === "string") {
-    const result = await app.container.router.repairs.updateStatus(body.id, body.status);
+    const result = await app.container.router.repairs.updateStatus(body.id, body.status, actorUsername);
     return NextResponse.json(result);
   }
 

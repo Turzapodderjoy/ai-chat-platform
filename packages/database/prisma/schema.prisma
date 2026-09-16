@@ -909,6 +909,30 @@ model AccountActivityLog {
   @@index([clientAccountId])
 }
 
+// Generic "who did what" trail for Repairs/Orders/Invoices -- same
+// plain-string-id, no-FK-relation convention as AccountActivityLog
+// above (the log outlives whatever it's attached to). actorUsername
+// comes from resolveAdminActor() (apps/web/lib/admin-actor.ts) --
+// "admin" for the fixed admin identity, or a real ClientAccount
+// username. Read back per entity (entityType+entityId) to build a
+// hover tooltip's full history, newest first.
+model AuditLog {
+  id            String   @id @default(cuid())
+  businessId    String
+  // "repair" | "order-item" | "invoice" | "payment"
+  entityType    String
+  entityId      String
+  // "status_changed" | "booked" | "item_added" | "item_removed" |
+  // "price_overridden" | "generated" | "updated" | "marked_paid" | "deleted"
+  action        String
+  detail        String?
+  actorUsername String
+  createdAt     DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([businessId, createdAt])
+}
+
 // Disabling or deleting the owning ClientAccount deletes these too
 // (cascade), which is what makes "restrict" kick out an already-logged-in
 // session immediately rather than waiting for it to expire.

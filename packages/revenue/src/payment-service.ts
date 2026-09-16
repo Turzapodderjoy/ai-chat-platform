@@ -1,4 +1,4 @@
-import { prisma } from "@ai-chat-platform/database";
+import { prisma, logAudit } from "@ai-chat-platform/database";
 
 import { calcTotals } from "./money";
 
@@ -75,8 +75,8 @@ export class PaymentService {
    * already-partially-paid invoice summed with the first, overshooting
    * the total) -- this is a "set the paid amount to exactly this" cell
    * edit, not itemized payment history. */
-  async setAmounts(invoiceId: string, businessId: string, input: { total?: number; paidAmount?: number }): Promise<{ repairAppointmentId: string | null }> {
-    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { repairAppointmentId: true } });
+  async setAmounts(invoiceId: string, businessId: string, input: { total?: number; paidAmount?: number }, actorUsername: string): Promise<{ repairAppointmentId: string | null }> {
+    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { repairAppointmentId: true, invoiceNumber: true } });
     if (input.total !== undefined) {
       await prisma.invoice.update({ where: { id: invoiceId }, data: { totalOverride: input.total } });
     }
@@ -87,6 +87,12 @@ export class PaymentService {
       }
     }
     await this.reconcileInvoice(invoiceId);
+    if (input.paidAmount !== undefined) {
+      await logAudit({ businessId, entityType: "invoice", entityId: invoiceId, action: "marked_paid", detail: `${invoice?.invoiceNumber ?? ""} - ${input.paidAmount}`.trim(), actorUsername });
+    }
+    if (input.total !== undefined) {
+      await logAudit({ businessId, entityType: "invoice", entityId: invoiceId, action: "updated", detail: `total set to ${input.total}`, actorUsername });
+    }
     return { repairAppointmentId: invoice?.repairAppointmentId ?? null };
   }
 
@@ -113,8 +119,9 @@ export class PaymentService {
     return rows.map(toPayment);
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, actorUsername: string): Promise<void> {
     const row = await prisma.payment.delete({ where: { id } });
     await this.reconcileInvoice(row.invoiceId);
+    await logAudit({ businessId: row.businessId, entityType: "invoice", entityId: row.invoiceId, action: "updated", detail: `payment of ${row.amount} removed`, actorUsername });
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getApp } from "../../../../../lib/app";
+import { resolveAdminActor } from "../../../../../lib/admin-actor";
 
 export async function GET(req: NextRequest) {
   const app = await getApp();
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
   if (typeof body.businessId !== "string" || !Array.isArray(body.items) || body.items.length === 0) {
     return NextResponse.json({ error: "businessId and at least one line item are required" }, { status: 400 });
   }
+  const actorUsername = await resolveAdminActor(req);
   const result = await app.container.router.revenue.createInvoice({
     businessId: body.businessId,
     contactId: body.contactId || undefined,
@@ -45,7 +47,7 @@ export async function POST(req: NextRequest) {
     discount: typeof body.discount === "number" ? body.discount : undefined,
     tax: typeof body.tax === "number" ? body.tax : undefined,
     dueDate: body.dueDate || undefined,
-  });
+  }, actorUsername);
   return NextResponse.json(result);
 }
 
@@ -55,6 +57,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
   const app = await getApp();
+  const actorUsername = await resolveAdminActor(req);
 
   // If only status is provided, use the existing updateInvoiceStatus --
   // "paid"/"partially_paid" are excluded here on purpose. Those two are
@@ -66,7 +69,7 @@ export async function PATCH(req: NextRequest) {
     if (body.status === "paid" || body.status === "partially_paid") {
       return NextResponse.json({ error: `Use the "Paid" action to record an amount instead of setting status "${body.status}" directly.` }, { status: 400 });
     }
-    const result = await app.container.router.revenue.updateInvoiceStatus(body.id, body.status);
+    const result = await app.container.router.revenue.updateInvoiceStatus(body.id, body.status, actorUsername);
     return NextResponse.json(result);
   }
 
@@ -85,7 +88,7 @@ export async function PATCH(req: NextRequest) {
     discount: typeof body.discount === "number" ? body.discount : undefined,
     tax: typeof body.tax === "number" ? body.tax : undefined,
     dueDate: body.dueDate || undefined,
-  });
+  }, actorUsername);
   return NextResponse.json(result);
 }
 
@@ -95,6 +98,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
   const app = await getApp();
-  await app.container.router.revenue.deleteInvoice(id);
+  const actorUsername = await resolveAdminActor(req);
+  await app.container.router.revenue.deleteInvoice(id, actorUsername);
   return NextResponse.json({ ok: true });
 }

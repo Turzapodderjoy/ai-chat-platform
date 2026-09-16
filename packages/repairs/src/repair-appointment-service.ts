@@ -1,6 +1,6 @@
 import { randomInt } from "node:crypto";
 
-import { prisma } from "@ai-chat-platform/database";
+import { prisma, logAudit } from "@ai-chat-platform/database";
 
 export interface RepairAppointmentInput {
   businessId: string;
@@ -216,8 +216,12 @@ export class RepairAppointmentService {
     return rows.map(toAppointment);
   }
 
-  async updateStatus(id: string, status: string): Promise<RepairAppointment> {
+  async updateStatus(id: string, status: string, actorUsername: string): Promise<RepairAppointment> {
+    const before = await prisma.repairAppointment.findUnique({ where: { id }, select: { businessId: true, status: true } });
     const row = await prisma.repairAppointment.update({ where: { id }, data: { status } });
+    if (before) {
+      await logAudit({ businessId: before.businessId, entityType: "repair", entityId: id, action: "status_changed", detail: `${before.status} -> ${status}`, actorUsername });
+    }
     return toAppointment(row);
   }
 
@@ -279,19 +283,21 @@ export class RepairAppointmentService {
     return toAppointment(row);
   }
 
-  async approveCancel(id: string): Promise<RepairAppointment> {
+  async approveCancel(id: string, actorUsername: string): Promise<RepairAppointment> {
     const row = await prisma.repairAppointment.update({
       where: { id },
       data: { status: "cancelled", cancelRequested: false },
     });
+    await logAudit({ businessId: row.businessId, entityType: "repair", entityId: id, action: "status_changed", detail: "cancel approved", actorUsername });
     return toAppointment(row);
   }
 
-  async rejectCancel(id: string): Promise<RepairAppointment> {
+  async rejectCancel(id: string, actorUsername: string): Promise<RepairAppointment> {
     const row = await prisma.repairAppointment.update({
       where: { id },
       data: { cancelRequested: false, cancelReason: null },
     });
+    await logAudit({ businessId: row.businessId, entityType: "repair", entityId: id, action: "status_changed", detail: "cancel rejected", actorUsername });
     return toAppointment(row);
   }
 
@@ -300,8 +306,12 @@ export class RepairAppointmentService {
     return row ? toAppointment(row) : null;
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, actorUsername: string): Promise<void> {
+    const row = await prisma.repairAppointment.findUnique({ where: { id }, select: { businessId: true, customerName: true } });
     await prisma.repairAppointment.delete({ where: { id } });
+    if (row) {
+      await logAudit({ businessId: row.businessId, entityType: "repair", entityId: id, action: "deleted", detail: row.customerName, actorUsername });
+    }
   }
 
   /** Per-business global sequence ("001", "002", "003"...) -- simple
@@ -336,7 +346,7 @@ export class RepairAppointmentService {
    * convention as its `price` field), so this only adjusts it when it
    * parses as a plain number; a non-numeric stock value is left alone
    * rather than silently corrupted. */
-  async addItem(repairAppointmentId: string, input: AddOrderItemInput): Promise<RepairOrderItem> {
+  async addItem(repairAppointmentId: string, input: AddOrderItemInput, actorUsername: string): Promise<RepairOrderItem> {
     // Lazily assigns a serial number on the FIRST item added -- covers
     // both entry points: an order created via createOrderEntry (already
     // has one) and the "Manage Order" button on a normal booking (never
@@ -367,16 +377,21 @@ export class RepairAppointmentService {
       await adjustProductStock(input.productId, -input.quantity);
     }
 
+    if (appointment) {
+      await logAudit({ businessId: appointment.businessId, entityType: "order-item", entityId: row.id, action: "item_added", detail: input.name, actorUsername });
+    }
+
     return toItem(row);
   }
 
-  async updateItemPrice(itemId: string, overridePrice: number | null): Promise<RepairOrderItem> {
-    const row = await prisma.repairOrderItem.update({ where: { id: itemId }, data: { overridePrice } });
+  async updateItemPrice(itemId: string, overridePrice: number | null, actorUsername: string): Promise<RepairOrderItem> {
+    const row = await prisma.repairOrderItem.update({ where: { id: itemId }, data: { overridePrice }, include: { repairAppointment: { select: { businessId: true } } } });
+    await logAudit({ businessId: row.repairAppointment.businessId, entityType: "order-item", entityId: itemId, action: "price_overridden", detail: overridePrice != null ? String(overridePrice) : "cleared", actorUsername });
     return toItem(row);
   }
 
-  async removeItem(itemId: string): Promise<void> {
-    const item = await prisma.repairOrderItem.findUnique({ where: { id: itemId } });
+  async removeItem(itemId: string, actorUsername: string): Promise<void> {
+    const item = await prisma.repairOrderItem.findUnique({ where: { id: itemId }, include: { repairAppointment: { select: { businessId: true } } } });
     if (!item) return;
 
     if (item.kind === "part" && item.productId) {
@@ -384,6 +399,7 @@ export class RepairAppointmentService {
     }
 
     await prisma.repairOrderItem.delete({ where: { id: itemId } });
+    await logAudit({ businessId: item.repairAppointment.businessId, entityType: "order-item", entityId: itemId, action: "item_removed", detail: item.name, actorUsername });
   }
 
   totalForAppointment(appointment: RepairAppointment): number {

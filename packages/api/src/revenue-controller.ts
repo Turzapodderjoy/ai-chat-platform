@@ -64,32 +64,32 @@ export class RevenueController {
     };
   }
 
-  createInvoice(input: CreateInvoiceInput) {
-    return this.invoices.create(input);
+  createInvoice(input: CreateInvoiceInput, actorUsername: string) {
+    return this.invoices.create(input, actorUsername);
   }
 
-  updateInvoice(id: string, input: UpdateInvoiceInput) {
-    return this.invoices.update(id, input);
+  updateInvoice(id: string, input: UpdateInvoiceInput, actorUsername: string) {
+    return this.invoices.update(id, input, actorUsername);
   }
 
-  updateInvoiceStatus(id: string, status: string) {
-    return this.invoices.updateStatus(id, status);
+  updateInvoiceStatus(id: string, status: string, actorUsername: string) {
+    return this.invoices.updateStatus(id, status, actorUsername);
   }
 
-  deleteInvoice(id: string) {
-    return this.invoices.delete(id);
+  deleteInvoice(id: string, actorUsername: string) {
+    return this.invoices.delete(id, actorUsername);
   }
 
   recordPayment(input: RecordPaymentInput) {
     return this.payments.record(input);
   }
 
-  setInvoiceAmounts(invoiceId: string, businessId: string, input: { total?: number; paidAmount?: number }) {
-    return this.payments.setAmounts(invoiceId, businessId, input);
+  setInvoiceAmounts(invoiceId: string, businessId: string, input: { total?: number; paidAmount?: number }, actorUsername: string) {
+    return this.payments.setAmounts(invoiceId, businessId, input, actorUsername);
   }
 
-  deletePayment(id: string) {
-    return this.payments.delete(id);
+  deletePayment(id: string, actorUsername: string) {
+    return this.payments.delete(id, actorUsername);
   }
 
   /** The Invoices panel's "Send" button -- generates the invoice PDF

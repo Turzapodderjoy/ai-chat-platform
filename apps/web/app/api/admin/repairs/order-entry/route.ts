@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getApp } from "../../../../../lib/app";
+import { resolveAdminActor } from "../../../../../lib/admin-actor";
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -20,6 +21,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const app = await getApp();
+    const actorUsername = await resolveAdminActor(req);
     const appointment = await app.container.router.repairs.createOrderEntry({
       businessId: body.businessId,
       conversationId: typeof body.conversationId === "string" ? body.conversationId : undefined,
@@ -43,7 +45,7 @@ export async function POST(req: NextRequest) {
               costPrice: typeof i.costPrice === "number" ? i.costPrice : undefined,
             }))
         : undefined,
-    });
+    }, actorUsername);
     return NextResponse.json(appointment);
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 400 });

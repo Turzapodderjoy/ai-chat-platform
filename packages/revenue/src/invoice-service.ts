@@ -1,4 +1,4 @@
-import { prisma } from "@ai-chat-platform/database";
+import { prisma, logAudit } from "@ai-chat-platform/database";
 
 import { calcTotals, type LineItemInput } from "./money";
 
@@ -136,7 +136,7 @@ export class InvoiceService {
     return `INV-${String(count + 1).padStart(4, "0")}`;
   }
 
-  async create(input: CreateInvoiceInput): Promise<Invoice> {
+  async create(input: CreateInvoiceInput, actorUsername: string): Promise<Invoice> {
     const invoiceNumber = await this.nextInvoiceNumber(input.businessId);
     const business = await prisma.business.findUnique({ where: { id: input.businessId }, select: { subscriptionCurrency: true } });
     const row = await prisma.invoice.create({
@@ -157,6 +157,7 @@ export class InvoiceService {
     for (const item of input.items) {
       if (item.productId) await adjustProductStock(item.productId, -item.quantity);
     }
+    await logAudit({ businessId: input.businessId, entityType: "invoice", entityId: row.id, action: "generated", detail: row.invoiceNumber, actorUsername });
     return toInvoice(row);
   }
 
@@ -183,20 +184,25 @@ export class InvoiceService {
     return row ? toInvoice(row) : null;
   }
 
-  async updateStatus(id: string, status: string): Promise<Invoice> {
+  async updateStatus(id: string, status: string, actorUsername: string): Promise<Invoice> {
     const row = await prisma.invoice.update({ where: { id }, data: { status }, include: INCLUDE });
+    await logAudit({ businessId: row.businessId, entityType: "invoice", entityId: id, action: "status_changed", detail: status, actorUsername });
     return toInvoice(row);
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, actorUsername: string): Promise<void> {
+    const invoice = await prisma.invoice.findUnique({ where: { id }, select: { businessId: true, invoiceNumber: true } });
     const existing = await prisma.invoiceItem.findMany({ where: { invoiceId: id }, select: { productId: true, quantity: true } });
     await prisma.invoice.delete({ where: { id } });
     for (const item of existing) {
       if (item.productId) await adjustProductStock(item.productId, item.quantity);
     }
+    if (invoice) {
+      await logAudit({ businessId: invoice.businessId, entityType: "invoice", entityId: id, action: "deleted", detail: invoice.invoiceNumber, actorUsername });
+    }
   }
 
-  async update(id: string, input: UpdateInvoiceInput): Promise<Invoice> {
+  async update(id: string, input: UpdateInvoiceInput, actorUsername: string): Promise<Invoice> {
     const data: Record<string, unknown> = {};
     if (input.contactId !== undefined) data.contactId = input.contactId;
     if (input.discount !== undefined) data.discount = input.discount;
@@ -222,6 +228,7 @@ export class InvoiceService {
         if (item.productId) await adjustProductStock(item.productId, -item.quantity);
       }
     }
+    await logAudit({ businessId: row.businessId, entityType: "invoice", entityId: id, action: "updated", detail: row.invoiceNumber, actorUsername });
     return toInvoice(row);
   }
 }

@@ -1,3 +1,4 @@
+import { logAudit } from "@ai-chat-platform/database";
 import { ConversationService } from "@ai-chat-platform/conversation";
 import { RepairAppointmentService, StaffService, type AddOrderItemInput } from "@ai-chat-platform/repairs";
 import { GmailEmailClient, StatusEmailService } from "@ai-chat-platform/email";
@@ -143,8 +144,8 @@ export class RepairController {
     return this.repairs.listForBusiness(businessId);
   }
 
-  async updateStatus(id: string, status: string) {
-    const appointment = await this.repairs.updateStatus(id, status);
+  async updateStatus(id: string, status: string, actorUsername: string) {
+    const appointment = await this.repairs.updateStatus(id, status, actorUsername);
     // Logged as a plain system message in the SAME conversation the
     // customer's own messages live in — shows up right in the thread
     // with a real timestamp, no separate history table needed.
@@ -203,15 +204,15 @@ export class RepairController {
     return this.repairs.rejectReschedule(id);
   }
 
-  async approveCancel(id: string) {
-    const appointment = await this.repairs.approveCancel(id);
+  async approveCancel(id: string, actorUsername: string) {
+    const appointment = await this.repairs.approveCancel(id, actorUsername);
     await this.conversations.addMessage(appointment.trackingToken, "system", "Appointment cancelled");
     this.statusEmails.sendForRepairStatusChange(appointment).catch(() => {});
     return appointment;
   }
 
-  async rejectCancel(id: string) {
-    return this.repairs.rejectCancel(id);
+  async rejectCancel(id: string, actorUsername: string) {
+    return this.repairs.rejectCancel(id, actorUsername);
   }
 
   // Staff management
@@ -236,7 +237,7 @@ export class RepairController {
   // same RepairAppointment row) the Repairs panel's "Manage Order"
   // button, which just opens this same appointment's items sub-panel
   // instead of calling this at all.
-  async createOrderEntry(input: CreateOrderEntryInput) {
+  async createOrderEntry(input: CreateOrderEntryInput, actorUsername: string) {
     const business = await this.tenants.getBusiness(input.businessId);
     if (!business) {
       throw new Error(`Unknown businessId: "${input.businessId}"`);
@@ -272,30 +273,32 @@ export class RepairController {
 
     const linked = await this.repairs.setContact(appointment.id, contact.id);
 
+    await logAudit({ businessId: input.businessId, entityType: "repair", entityId: appointment.id, action: "booked", detail: input.customerName, actorUsername });
+
     for (const item of input.items ?? []) {
-      await this.repairs.addItem(appointment.id, item);
+      await this.repairs.addItem(appointment.id, item, actorUsername);
     }
 
     return linked;
   }
 
-  addOrderItem(repairAppointmentId: string, input: AddOrderItemInput) {
-    return this.repairs.addItem(repairAppointmentId, input);
+  addOrderItem(repairAppointmentId: string, input: AddOrderItemInput, actorUsername: string) {
+    return this.repairs.addItem(repairAppointmentId, input, actorUsername);
   }
 
-  updateOrderItemPrice(itemId: string, overridePrice: number | null) {
-    return this.repairs.updateItemPrice(itemId, overridePrice);
+  updateOrderItemPrice(itemId: string, overridePrice: number | null, actorUsername: string) {
+    return this.repairs.updateItemPrice(itemId, overridePrice, actorUsername);
   }
 
-  removeOrderItem(itemId: string) {
-    return this.repairs.removeItem(itemId);
+  removeOrderItem(itemId: string, actorUsername: string) {
+    return this.repairs.removeItem(itemId, actorUsername);
   }
 
   setOrderTotalOverride(repairAppointmentId: string, totalOverride: number) {
     return this.repairs.setTotalOverride(repairAppointmentId, totalOverride);
   }
 
-  async generateInvoice(repairAppointmentId: string) {
+  async generateInvoice(repairAppointmentId: string, actorUsername: string) {
     const appointment = await this.repairs.findById(repairAppointmentId);
     if (!appointment) {
       throw new Error("Order not found");
@@ -318,10 +321,10 @@ export class RepairController {
           ? { name: item.name, quantity: 1, unitPrice: item.overridePrice }
           : { name: item.name, quantity: item.quantity, unitPrice: item.defaultPrice }
       ),
-    });
+    }, actorUsername);
   }
 
-  async deleteAppointment(id: string): Promise<{ ok: true }> {
+  async deleteAppointment(id: string, actorUsername: string): Promise<{ ok: true }> {
     const appointment = await this.repairs.findById(id);
     if (appointment) {
       // trackingToken doubles as the linked Conversation's id — remove
@@ -330,7 +333,7 @@ export class RepairController {
       // appointment it was ever about.
       await this.conversations.deleteConversation(appointment.trackingToken);
     }
-    await this.repairs.delete(id);
+    await this.repairs.delete(id, actorUsername);
     return { ok: true };
   }
 }

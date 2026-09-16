@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getApp } from "../../../../lib/app";
+import { resolveAdminActor } from "../../../../lib/admin-actor";
 
 /** Repairs panel's data source — businessId omitted returns every
  * business's appointments, same "unscoped means platform-wide"
@@ -20,6 +21,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   const app = await getApp();
-  const result = await app.container.router.repairs.deleteAppointment(id);
+  const actorUsername = await resolveAdminActor(req);
+  const result = await app.container.router.repairs.deleteAppointment(id, actorUsername);
   return NextResponse.json(result);
 }

@@ -6,6 +6,7 @@ import { cardStyle, cellStyle, subtleTextStyle, shortId, badgeStyle, primaryButt
 import { StatCard, StatCardRow } from "./StatCard";
 import { currencySymbol, useCurrencySymbol } from "../lib/currency";
 import { showAlert, showConfirm } from "../lib/app-dialog";
+import { useAuditTooltip } from "../lib/audit-log";
 
 interface Invoice {
   id: string;
@@ -64,6 +65,15 @@ interface Product {
 
 const STATUS_TONE: Record<string, BadgeTone> = { draft: "neutral", issued: "info", partially_paid: "warn", paid: "ok", overdue: "error", void: "neutral" };
 const EMPTY_ITEM: DraftItem = { name: "", quantity: "1", unitPrice: "" };
+
+// A separate component (not inlined in the table's .map()) because the
+// activity-history hover tooltip needs its own useAuditTooltip() call
+// per row -- calling a hook inside a loop body directly would break
+// the rules of hooks.
+function InvoiceStatusBadge({ status, invoiceId }: { status: string; invoiceId: string }) {
+  const tooltip = useAuditTooltip("invoice", invoiceId);
+  return <span title={tooltip || undefined} style={badgeStyle(STATUS_TONE[status] ?? "neutral")}>{status}</span>;
+}
 
 /** Invoices — generated automatically from a repair order (Order
  * Management's "Generate Invoice"), or added by hand here directly. A
@@ -539,7 +549,7 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
                       );
                     })}
                     <td style={{ padding: "6px 8px" }}>
-                      <span style={badgeStyle(STATUS_TONE[inv.status] ?? "neutral")}>{inv.status}</span>
+                      <InvoiceStatusBadge status={inv.status} invoiceId={inv.id} />
                     </td>
                     <td style={{ padding: "6px 8px", display: "flex", gap: 6, flexWrap: "wrap" }}>
                       <button onClick={() => printInvoice(inv)} style={{ fontSize: 11, padding: "6px 12px" }}>Print</button>

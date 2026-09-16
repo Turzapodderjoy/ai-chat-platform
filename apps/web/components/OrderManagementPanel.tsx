@@ -4,6 +4,7 @@ import { useState } from "react";
 import { subtleTextStyle, primaryButtonStyle, badgeStyle } from "./dashboard-styles";
 import { useCurrencySymbol } from "../lib/currency";
 import { showAlert } from "../lib/app-dialog";
+import { useAuditTooltip } from "../lib/audit-log";
 
 interface OrderItem {
   id: string;
@@ -134,23 +135,14 @@ export function OrderItemsEditor({ order, products, onChanged }: { order: Repair
     <div style={{ marginTop: 12, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
       {order.items.length === 0 && <p style={subtleTextStyle}>No parts or services added yet.</p>}
       {order.items.map((item) => (
-        <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontSize: 13 }}>
-          <span style={badgeStyle(item.kind === "part" ? "info" : "neutral")}>{item.kind}</span>
-          <span style={{ flex: 1 }}>{item.name} × {item.quantity}</span>
-          <span style={{ color: "var(--text-faint)", textDecoration: item.overridePrice != null ? "line-through" : "none" }}>
-            Initial: {currency}{item.defaultPrice * item.quantity}
-          </span>
-          <input
-            placeholder="Override total"
-            defaultValue={item.overridePrice ?? ""}
-            onChange={(e) => setOverrideDrafts((d) => ({ ...d, [item.id]: e.target.value }))}
-            onBlur={() => saveOverride(item.id)}
-            style={{ width: 100, padding: 4, fontSize: 12 }}
-          />
-          {item.overridePrice != null && <span style={badgeStyle("warn")}>Overridden</span>}
-          <strong style={{ width: 70, textAlign: "right" }}>{currency}{item.finalPrice}</strong>
-          <button onClick={() => removeItem(item.id)} style={{ fontSize: 11, padding: "3px 6px" }}>✕</button>
-        </div>
+        <OrderItemRow
+          key={item.id}
+          item={item}
+          currency={currency}
+          onOverrideChange={(v) => setOverrideDrafts((d) => ({ ...d, [item.id]: v }))}
+          onOverrideBlur={() => saveOverride(item.id)}
+          onRemove={() => removeItem(item.id)}
+        />
       ))}
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10, alignItems: "center" }}>
@@ -184,6 +176,45 @@ export function OrderItemsEditor({ order, products, onChanged }: { order: Repair
           Generate Invoice
         </button>
       </div>
+    </div>
+  );
+}
+
+// Separate component (not inlined in the .map() above) because the
+// activity-history hover tooltip needs its own useAuditTooltip() call
+// per row -- calling a hook inside a loop body directly breaks the
+// rules of hooks.
+function OrderItemRow({
+  item,
+  currency,
+  onOverrideChange,
+  onOverrideBlur,
+  onRemove,
+}: {
+  item: OrderItem;
+  currency: string;
+  onOverrideChange: (value: string) => void;
+  onOverrideBlur: () => void;
+  onRemove: () => void;
+}) {
+  const tooltip = useAuditTooltip("order-item", item.id);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontSize: 13 }}>
+      <span style={badgeStyle(item.kind === "part" ? "info" : "neutral")}>{item.kind}</span>
+      <span style={{ flex: 1 }} title={tooltip || undefined}>{item.name} × {item.quantity}</span>
+      <span style={{ color: "var(--text-faint)", textDecoration: item.overridePrice != null ? "line-through" : "none" }}>
+        Initial: {currency}{item.defaultPrice * item.quantity}
+      </span>
+      <input
+        placeholder="Override total"
+        defaultValue={item.overridePrice ?? ""}
+        onChange={(e) => onOverrideChange(e.target.value)}
+        onBlur={onOverrideBlur}
+        style={{ width: 100, padding: 4, fontSize: 12 }}
+      />
+      {item.overridePrice != null && <span style={badgeStyle("warn")}>Overridden</span>}
+      <strong style={{ width: 70, textAlign: "right" }}>{currency}{item.finalPrice}</strong>
+      <button onClick={onRemove} style={{ fontSize: 11, padding: "3px 6px" }}>✕</button>
     </div>
   );
 }
