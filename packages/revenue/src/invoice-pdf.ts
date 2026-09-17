@@ -9,6 +9,7 @@ export interface InvoicePdfContext {
   customerPhone?: string;
   customerEmail?: string;
   deviceLabel?: string;
+  timezone?: string;
 }
 
 /** Renders one Invoice as a single-page PDF for emailing to a customer
@@ -45,10 +46,11 @@ export function generateInvoicePdf(invoice: Invoice, ctx: InvoicePdfContext): Pr
   doc.font("Helvetica-Bold").fontSize(11).text("Invoice Number", 320, topY);
   doc.font("Helvetica").fontSize(10).text(invoice.invoiceNumber, 320, doc.y + 2);
   doc.font("Helvetica-Bold").fontSize(11).text("Issue Date", 320, doc.y + 8);
-  doc.font("Helvetica").fontSize(10).text(new Date(invoice.issueDate).toLocaleDateString(), 320);
+  const tz = ctx.timezone ?? "America/New_York";
+  doc.font("Helvetica").fontSize(10).text(new Date(invoice.issueDate).toLocaleDateString("en-US", { timeZone: tz }), 320);
   if (invoice.dueDate) {
     doc.font("Helvetica-Bold").fontSize(11).text("Due Date", 320, doc.y + 8);
-    doc.font("Helvetica").fontSize(10).text(new Date(invoice.dueDate).toLocaleDateString(), 320);
+    doc.font("Helvetica").fontSize(10).text(new Date(invoice.dueDate).toLocaleDateString("en-US", { timeZone: tz }), 320);
   }
 
   doc.moveDown(2);

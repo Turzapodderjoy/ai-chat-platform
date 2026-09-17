@@ -520,6 +520,9 @@ importers:
       '@ai-chat-platform/repairs':
         specifier: workspace:*
         version: link:../repairs
+      '@ai-chat-platform/tenant':
+        specifier: workspace:*
+        version: link:../tenant
       nodemailer:
         specifier: ^7.0.0
         version: 7.0.13

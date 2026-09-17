@@ -1,5 +1,6 @@
 import type { Order } from "@ai-chat-platform/conversation";
 import type { RepairAppointment } from "@ai-chat-platform/repairs";
+import type { TenantService } from "@ai-chat-platform/tenant";
 import { GmailEmailClient } from "./gmail-email-client";
 import { StatusEmailTemplateService } from "./status-email-template-service";
 
@@ -24,6 +25,10 @@ function renderTemplate(template: string, vars: Record<string, string>): string 
   return template.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? "");
 }
 
+function formatInTimezone(date: Date, timezone: string): string {
+  return date.toLocaleString("en-US", { timeZone: timezone, dateStyle: "full", timeStyle: "short" });
+}
+
 /** Orchestrates "an Order/RepairAppointment status changed" -> "look up
  * this business's template for that exact status -> render -> send via
  * their connected Gmail account". Every step no-ops silently rather than
@@ -34,7 +39,8 @@ function renderTemplate(template: string, vars: Record<string, string>): string 
 export class StatusEmailService {
   constructor(
     private readonly templates: StatusEmailTemplateService,
-    private readonly gmail: GmailEmailClient
+    private readonly gmail: GmailEmailClient,
+    private readonly tenants: TenantService
   ) {}
 
   async sendForOrderStatusChange(order: Order): Promise<void> {
@@ -43,6 +49,9 @@ export class StatusEmailService {
     const template = await this.templates.get(order.businessId, "order_status", order.deliveryStatus);
     if (!template || !template.enabled) return;
 
+    const business = await this.tenants.getBusiness(order.businessId);
+    const timezone = business?.timezone ?? "America/New_York";
+
     const vars: Record<string, string> = {
       customerName: order.customerName,
       status: order.deliveryStatus,
@@ -50,6 +59,7 @@ export class StatusEmailService {
       trackingId: order.trackingId ?? "",
       courier: order.courier ?? "",
       products: order.products,
+      sentAt: formatInTimezone(new Date(), timezone),
     };
 
     await this.gmail.send(order.businessId, {
@@ -65,6 +75,9 @@ export class StatusEmailService {
     const template = await this.templates.get(appointment.businessId, "repair_status", appointment.status);
     if (!template || !template.enabled) return;
 
+    const business = await this.tenants.getBusiness(appointment.businessId);
+    const timezone = business?.timezone ?? "America/New_York";
+
     const vars: Record<string, string> = {
       customerName: appointment.customerName,
       status: appointment.status,
@@ -72,6 +85,7 @@ export class StatusEmailService {
       deviceType: appointment.deviceType,
       deviceModel: appointment.deviceModel ?? "",
       trackingToken: appointment.trackingToken,
+      sentAt: formatInTimezone(new Date(), timezone),
     };
 
     await this.gmail.send(appointment.businessId, {

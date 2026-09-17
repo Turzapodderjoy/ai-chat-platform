@@ -108,6 +108,8 @@ export class RepairController {
   private async sendBookingEmail(input: BookRepairInput, trackingToken: string): Promise<void> {
     if (!input.email) return;
 
+    const business = await this.tenants.getBusiness(input.businessId);
+    const timezone = business?.timezone ?? "America/New_York";
     const trackingLine = `<p>Use the code below to track your repair.</p>`;
 
     await this.emailClient.send(input.businessId, {
@@ -115,7 +117,7 @@ export class RepairController {
       subject: "Your repair appointment is booked",
       html: `
         <p>Hi ${input.customerName},</p>
-        <p>Your repair appointment for <strong>${input.deviceType}${input.deviceModel ? ` (${input.deviceModel})` : ""}</strong> is booked for ${new Date(input.appointmentDate).toLocaleString()}.</p>
+        <p>Your repair appointment for <strong>${input.deviceType}${input.deviceModel ? ` (${input.deviceModel})` : ""}</strong> is booked for ${new Date(input.appointmentDate).toLocaleString("en-US", { timeZone: timezone, dateStyle: "full", timeStyle: "short" })}.</p>
         ${trackingLine}
         <p style="font-size: 20px; font-weight: 700; letter-spacing: 2px;">${trackingToken}</p>
       `,
