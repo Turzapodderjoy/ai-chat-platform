@@ -38,7 +38,7 @@ function GmailSenderBox({ businessId, onMessage }: { businessId: string; onMessa
   const [emailDraft, setEmailDraft] = useState("");
   const [passwordDraft, setPasswordDraft] = useState("");
   const [saving, setSaving] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
   function refresh() {
     fetch(`/api/admin/gmail-sender-config?businessId=${encodeURIComponent(businessId)}`)
@@ -76,59 +76,19 @@ function GmailSenderBox({ businessId, onMessage }: { businessId: string; onMessa
     refresh();
   }
 
-  function openGooglePopup() {
-    setGoogleLoading(true);
-    const width = 500;
-    const height = 600;
-    const left = window.screenX + (window.outerWidth - width) / 2;
-    const top = window.screenY + (window.outerHeight - height) / 2;
-
-    const popup = window.open(
-      `/api/auth/google-email?businessId=${encodeURIComponent(businessId)}`,
-      "google-email",
-      `width=${width},height=${height},left=${left},top=${top}`
-    );
-
-    function onGoogleMessage(e: MessageEvent) {
-      if (e.data && typeof e.data === "object" && "success" in e.data) {
-        window.removeEventListener("message", onGoogleMessage);
-        setGoogleLoading(false);
-        if (e.data.success && e.data.email) {
-          onMessage(`Connected! Emails will be sent from ${e.data.email} via Google OAuth.`);
-          refresh();
-        } else if (e.data.error) {
-          onMessage(e.data.error);
-        }
-      }
-    }
-
-    window.addEventListener("message", onGoogleMessage);
-
-    const checkPopup = setInterval(() => {
-      if (!popup || popup.closed) {
-        clearInterval(checkPopup);
-        window.removeEventListener("message", onGoogleMessage);
-        setGoogleLoading(false);
-      }
-    }, 500);
-  }
-
   if (!sender) return null;
 
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 16, marginTop: 16 }}>
-      <h3 style={{ margin: "0 0 8px 0", fontSize: 16 }}>📧 Email (Gmail)</h3>
+      <h3 style={{ margin: "0 0 8px 0", fontSize: 16 }}>Email (Gmail)</h3>
       <p style={{ opacity: 0.6, fontSize: 13, marginBottom: 12 }}>
-        Send automated status emails through your Gmail account.{" "}
-        {sender.connected && !sender.oauthConnected
-          ? "Connected via App Password."
-          : "Sign in with Google to enable automatic email sending."}
+        Send automated status emails through your Gmail account.
       </p>
       
       {sender.connected && !editing ? (
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span style={{ fontSize: 13 }}>
-            🟢 Sending as <strong>{sender.gmailAddress}</strong>
+            Sending as <strong>{sender.gmailAddress}</strong>
             {sender.oauthConnected && <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.6 }}>(Google OAuth)</span>}
             {!sender.oauthConnected && <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.6 }}>(App Password)</span>}
           </span>
@@ -136,59 +96,66 @@ function GmailSenderBox({ businessId, onMessage }: { businessId: string; onMessa
           <button onClick={disconnect} style={{ fontSize: 12, padding: "6px 12px" }}>Disconnect</button>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <button
-            type="button"
-            onClick={openGooglePopup}
-            disabled={googleLoading}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 10,
-              padding: "12px 16px",
-              background: "#fff",
-              color: "#1f2937",
-              border: "1px solid #d1d5db",
-              borderRadius: 8,
-              cursor: "pointer",
-              fontSize: 14,
-              fontWeight: 500,
-              fontFamily: "inherit",
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
-              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-            </svg>
-            {googleLoading ? "Signing in..." : "Sign in with Google"}
-          </button>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "4px 0" }}>
-            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-            <span style={{ fontSize: 12, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.05em" }}>or enter manually</span>
-            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Step-by-step guide */}
+          <div style={{ background: "var(--surface)", borderRadius: 8, padding: 14, fontSize: 13 }}>
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>Quick Setup (2 minutes):</div>
+            <ol style={{ margin: 0, paddingLeft: 20, lineHeight: 1.8 }}>
+              <li>Go to <a href="https://myaccount.google.com/security" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>Google Account Security</a></li>
+              <li>Enable <strong>2-Step Verification</strong> (required for App Passwords)</li>
+              <li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>App Passwords</a></li>
+              <li>Select <strong>Mail</strong> and <strong>Other (Custom name)</strong></li>
+              <li>Type <strong>AIVA</strong> and click <strong>Generate</strong></li>
+              <li>Copy the 16-character password (looks like: <code>abcd efgh ijkl mnop</code>)</li>
+              <li>Paste it below with your Gmail address</li>
+            </ol>
+            <button
+              onClick={() => window.open("https://myaccount.google.com/apppasswords", "_blank")}
+              style={{
+                marginTop: 10,
+                padding: "8px 16px",
+                background: "var(--accent)",
+                color: "#fff",
+                border: "none",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 500,
+              }}
+            >
+              Open App Passwords Page
+            </button>
           </div>
 
+          {/* Input fields */}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
-            <input
-              type="email"
-              placeholder="Gmail address"
-              value={emailDraft}
-              onChange={(e) => setEmailDraft(e.target.value)}
-              style={{ ...inputStyle, width: 220 }}
-            />
-            <input
-              type="password"
-              placeholder="App password (16 characters)"
-              value={passwordDraft}
-              onChange={(e) => setPasswordDraft(e.target.value)}
-              style={{ ...inputStyle, width: 200 }}
-            />
-            <button onClick={save} disabled={saving || !emailDraft.trim()} className="primary" style={{ fontSize: 13, padding: "8px 16px" }}>
-              {saving ? "Saving…" : "Connect"}
+            <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+              <label style={{ fontSize: 12, opacity: 0.7, display: "block", marginBottom: 4 }}>Gmail Address</label>
+              <input
+                type="email"
+                placeholder="you@gmail.com"
+                value={emailDraft}
+                onChange={(e) => setEmailDraft(e.target.value)}
+                style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
+              />
+            </div>
+            <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+              <label style={{ fontSize: 12, opacity: 0.7, display: "block", marginBottom: 4 }}>App Password</label>
+              <input
+                type="password"
+                placeholder="16-character password"
+                value={passwordDraft}
+                onChange={(e) => setPasswordDraft(e.target.value)}
+                style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
+              />
+            </div>
+            <button
+              onClick={save}
+              disabled={saving || !emailDraft.trim() || !passwordDraft.trim()}
+              className="primary"
+              style={{ fontSize: 13, padding: "8px 20px", height: 38 }}
+            >
+              {saving ? "Saving..." : "Connect Gmail"}
             </button>
           </div>
         </div>

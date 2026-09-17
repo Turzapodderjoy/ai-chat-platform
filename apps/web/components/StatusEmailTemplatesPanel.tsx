@@ -97,30 +97,38 @@ function GmailSenderBox({ businessId }: { businessId: string }) {
       ) : (
         <>
           <p style={{ ...subtleTextStyle, fontSize: 12, marginBottom: 8 }}>
-            Not OAuth — an App Password from this business&apos;s own Google account. Turn on
-            2-Step Verification, then generate one at{" "}
-            <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer">
-              myaccount.google.com/apppasswords
-            </a>{" "}
-            and paste it below.
+            Connect using a Gmail App Password (no OAuth verification needed).
           </p>
+          <div style={{ background: "var(--surface)", borderRadius: 6, padding: 10, marginBottom: 10, fontSize: 12, lineHeight: 1.6 }}>
+            <strong>Quick steps:</strong> Go to{" "}
+            <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
+              Google App Passwords
+            </a>{" "}
+            → Enable 2-Step Verification if prompted → Select <strong>Mail</strong> + <strong>Other</strong> → Type <strong>AIVA</strong> → Generate → Copy the 16-character password.
+          </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
-            <input
-              type="email"
-              placeholder="Gmail address"
-              value={emailDraft}
-              onChange={(e) => setEmailDraft(e.target.value)}
-              style={{ ...inputStyle, width: 220 }}
-            />
-            <input
-              type="password"
-              placeholder="App password (16 characters)"
-              value={passwordDraft}
-              onChange={(e) => setPasswordDraft(e.target.value)}
-              style={{ ...inputStyle, width: 200 }}
-            />
+            <div style={{ flex: "1 1 180px", minWidth: 0 }}>
+              <label style={{ fontSize: 11, opacity: 0.7, display: "block", marginBottom: 3 }}>Gmail Address</label>
+              <input
+                type="email"
+                placeholder="you@gmail.com"
+                value={emailDraft}
+                onChange={(e) => setEmailDraft(e.target.value)}
+                style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
+              />
+            </div>
+            <div style={{ flex: "1 1 180px", minWidth: 0 }}>
+              <label style={{ fontSize: 11, opacity: 0.7, display: "block", marginBottom: 3 }}>App Password</label>
+              <input
+                type="password"
+                placeholder="16-character password"
+                value={passwordDraft}
+                onChange={(e) => setPasswordDraft(e.target.value)}
+                style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
+              />
+            </div>
             <button onClick={save} disabled={saving || !emailDraft.trim() || !passwordDraft.trim()} className="primary" style={{ fontSize: 13, padding: "8px 16px" }}>
-              {saving ? "Saving…" : "Save"}
+              {saving ? "Saving..." : "Connect"}
             </button>
             {editing && (
               <button onClick={() => setEditing(false)} className="ghost" style={{ fontSize: 12, padding: "6px 12px" }}>Cancel</button>
