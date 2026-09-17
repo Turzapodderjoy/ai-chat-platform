@@ -112,6 +112,7 @@ export class RevenueController {
       customerPhone: detail.customerPhone ?? undefined,
       customerEmail: detail.customerEmail,
       deviceLabel: detail.deviceLabel ?? undefined,
+      logoUrl: detail.logoUrl,
     });
 
     const result = await this.gmail.send(detail.invoice.businessId, {
