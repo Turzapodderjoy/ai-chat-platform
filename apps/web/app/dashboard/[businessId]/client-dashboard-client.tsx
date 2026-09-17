@@ -157,6 +157,13 @@ export default function ClientDashboardClient() {
   // null = unrestricted (admin, or a client account with no restriction
   // set) — every tab shows. A real array is the exact allow-list.
   const [allowedPanels, setAllowedPanels] = useState<string[] | null>(null);
+  // Distinguishes "haven't fetched /api/auth/me yet" from "fetched, and
+  // this account genuinely has no restriction" -- both look like
+  // allowedPanels === null, but treating them the same let a restricted
+  // client's sidebar render every panel unrestricted for one frame before
+  // the fetch resolved and narrowed it down. Confirmed live: a real
+  // visible flash of panels the client doesn't have access to.
+  const [allowedPanelsLoaded, setAllowedPanelsLoaded] = useState(false);
   // Admin-only "remove this box for this client" list — see
   // RemovableSection. A panel wrapped in it renders nothing at all for
   // a real (non-admin) client session once its id is in here.
@@ -281,6 +288,14 @@ export default function ClientDashboardClient() {
         if (typeof data.accountRole === "string") {
           setAccountRole(data.accountRole);
         }
+        // Only mark this "loaded" once we know the session isn't an
+        // admin about to switch into previewAsClient -- that path's own
+        // effect below fetches a DIFFERENT allowedPanels (the previewed
+        // account's, not the admin's own) and must be the one to flip
+        // this, or the admin-preview nav would flash unrestricted first.
+        if (!(data.role === "admin" && new URLSearchParams(window.location.search).get("view") === "client")) {
+          setAllowedPanelsLoaded(true);
+        }
       });
   }, []);
 
@@ -310,6 +325,7 @@ export default function ClientDashboardClient() {
           : d.accounts?.find((a) => a.businessId === businessId && !a.isAdmin);
         setAllowedPanels(account?.allowedPanels ?? null);
         setAccountRole(account?.role ?? null);
+        setAllowedPanelsLoaded(true);
       });
   }, [previewAsClient, isAdmin, businessId]);
 
@@ -343,7 +359,11 @@ export default function ClientDashboardClient() {
             // User Settings is an inherent owner capability, not a
             // toggleable panel -- exempt from allowedPanels so an owner
             // whose restriction list predates this feature still gets it.
-            (i.id === "settings" || i.id === "home" || allowedPanels === null || allowedPanels.includes(i.id)) &&
+            // Before allowedPanelsLoaded, allowedPanels === null means
+            // "haven't asked yet", not "unrestricted" -- only home/settings
+            // render until the real answer comes back, instead of every
+            // panel flashing on first paint.
+            (i.id === "settings" || i.id === "home" || (allowedPanelsLoaded && (allowedPanels === null || allowedPanels.includes(i.id)))) &&
             !hiddenWidgets.includes(`panel.${i.id}`)
         ),
       })).filter((g) => g.items.length > 0)
@@ -367,7 +387,7 @@ export default function ClientDashboardClient() {
       const firstAllowed = visibleGroups[0]?.items[0]?.id;
       if (firstAllowed) setTab(firstAllowed);
     }
-  }, [allowedPanels, hiddenWidgets, actsAsClient]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [allowedPanels, allowedPanelsLoaded, hiddenWidgets, actsAsClient]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Always renders "home" on the server/first paint to avoid a
   // hydration mismatch, then jumps to the OAuth callback's ?tab= param

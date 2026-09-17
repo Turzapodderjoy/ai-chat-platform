@@ -428,11 +428,17 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
     }
     const q = search.trim().toLowerCase();
     if (q) {
-      list = list.filter((a) =>
-        [a.id, a.trackingToken, a.customerName, a.phone, a.deviceType, a.deviceModel ?? "", a.issueDescription].some(
-          (f) => f.toLowerCase().includes(q)
-        )
-      );
+      // Every word in the query has to match SOMEWHERE across the fields
+      // (not all in the same field) -- "iphone crack" now finds a
+      // deviceType "iPhone" whose issueDescription is "Screen cracked",
+      // which a single-substring match against the whole query never did.
+      const words = q.split(/\s+/).filter(Boolean);
+      list = list.filter((a) => {
+        const fields = [a.id, a.trackingToken, a.customerName, a.phone, a.deviceType, a.deviceModel ?? "", a.issueDescription, a.serialNumber ?? ""].map((f) =>
+          f.toLowerCase()
+        );
+        return words.every((w) => fields.some((f) => f.includes(w)));
+      });
     }
     list = [...list].sort((a, b) => {
       const diff = new Date(a.appointmentDate).getTime() - new Date(b.appointmentDate).getTime();
@@ -654,12 +660,22 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
           type="search"
           name="aiva-search-repairs"
           autoComplete="off"
-          style={{ padding: 8, flex: 1, fontSize: 12 }}
-          placeholder="Search by name, phone, device, order ID…"
+          // minWidth: 0 overrides the flex item default of min-width: auto
+          // (an input's own min-content floor) -- without it, a sibling
+          // with no flex-basis of its own (the sort <select>) can end up
+          // claiming nearly all the row's width and squeezing this down
+          // to ~18px, confirmed live: the search box was rendering as a
+          // near-invisible sliver next to a huge dropdown.
+          style={{ padding: 8, flex: 1, minWidth: 0, fontSize: 12 }}
+          placeholder="Search by name, phone, device, issue, serial/order ID…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")} style={{ padding: 8, fontSize: 12 }}>
+        <select
+          value={sortOrder}
+          onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")}
+          style={{ padding: 8, fontSize: 12, flexShrink: 0, width: "auto" }}
+        >
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
         </select>
@@ -754,7 +770,12 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
           </div>
           <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, marginBottom: 20, flex: 1 }}>
           {KANBAN_STATUSES.map((s) => (
-            <div key={s} style={{ minWidth: isMobile ? 260 : 280, maxWidth: isMobile ? "none" : 320, flex: isMobile ? "0 0 260" : 1, display: "flex", flexDirection: "column" }}>
+            // No maxWidth here on purpose -- flex:1 with only a minWidth
+            // floor means the columns actually fill whatever width the
+            // screen has (confirmed live: the previous 320px cap left a
+            // dead gap on anything wider than 5*320px, with a pointless
+            // horizontal scrollbar to reach it).
+            <div key={s} style={{ minWidth: isMobile ? 260 : 280, flex: isMobile ? "0 0 260" : 1, display: "flex", flexDirection: "column" }}>
               {/* Column header */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, paddingBottom: 8, borderBottom: `2px solid ${KANBAN_COLORS[s]}` }}>
                 <span style={{ fontSize: 14 }}>{KANBAN_ICONS[s]}</span>
