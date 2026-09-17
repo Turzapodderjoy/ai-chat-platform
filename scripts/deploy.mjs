@@ -78,7 +78,19 @@ function releaseLock() {
   rmSync(LOCK_FILE, { force: true });
 }
 
-function run(cmd, cwd) {
+// Confirmed live (2026-09-16): a deploy hung right after logging
+// "$ pm2 restart ai-chat-web" -- no further line, ever, including the
+// "$ pm2 save" that should have followed within milliseconds. Nothing in
+// this script had a timeout, so the hung child kept execSync blocked
+// forever, which kept deploy() from ever returning, which kept
+// releaseLock()'s finally in main() from ever running -- every push for
+// the next 3.5 hours was silently skipped as "lock held" until the
+// separate LOCK_STALE_MS failsafe finally noticed. A timeout on every
+// subprocess call is the actual fix: the lock can now only ever be held
+// for DEFAULT_TIMEOUT_MS, not indefinitely.
+const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
+
+function run(cmd, cwd, timeoutMs = DEFAULT_TIMEOUT_MS) {
   log(`$ ${cmd}${cwd ? ` (in ${cwd})` : ""}`);
   // CI=true forces pnpm to skip its interactive "remove and reinstall
   // from scratch?" confirmation prompt, confirmed live: a second worktree
@@ -88,7 +100,7 @@ function run(cmd, cwd) {
   // stdio:"ignore") pnpm silently declined it and left node_modules
   // partially linked -- some @repo/* workspace symlinks missing, no
   // error surfaced at install time, only a downstream build failure.
-  execSync(cmd, { cwd, stdio: "inherit", shell: true, env: { ...process.env, CI: "true" } });
+  execSync(cmd, { cwd, stdio: "inherit", shell: true, timeout: timeoutMs, env: { ...process.env, CI: "true" } });
 }
 
 // Root cause investigation (2026-09-13, four separate deploys, each
@@ -201,13 +213,27 @@ function pruneOldReleases(keepSha) {
     if (toKeep.has(d.name)) continue;
     log(`Pruning old release ${d.name}`);
     try {
-      execFileSync("git", ["worktree", "remove", d.path, "--force"], { cwd: REPO_SOURCE, stdio: "inherit" });
+      execFileSync("git", ["worktree", "remove", d.path, "--force"], { cwd: REPO_SOURCE, stdio: "inherit", timeout: DEFAULT_TIMEOUT_MS });
     } catch (err) {
       log(`Warning: couldn't cleanly remove worktree ${d.name}: ${err.message}`);
       rmSync(d.path, { recursive: true, force: true });
     }
   }
-  execFileSync("git", ["worktree", "prune"], { cwd: REPO_SOURCE, stdio: "inherit" });
+  execFileSync("git", ["worktree", "prune"], { cwd: REPO_SOURCE, stdio: "inherit", timeout: DEFAULT_TIMEOUT_MS });
+}
+
+// A build failure's own release worktree is guaranteed garbage -- it will
+// never be swapped in and pruneOldReleases() never runs for a failed
+// deploy (it only runs after a successful one, keyed off the NEW live
+// sha). Confirmed live: 43 of these had piled up on disk (11GB) because
+// nothing ever cleaned up a failed attempt's own worktree.
+function removeReleaseWorktree(releaseDir) {
+  try {
+    execFileSync("git", ["worktree", "remove", releaseDir, "--force"], { cwd: REPO_SOURCE, stdio: "inherit", timeout: DEFAULT_TIMEOUT_MS });
+  } catch (err) {
+    log(`Warning: couldn't cleanly remove failed release worktree ${releaseDir}: ${err.message}`);
+    rmSync(releaseDir, { recursive: true, force: true });
+  }
 }
 
 function swapCurrent(releaseDir) {
@@ -262,7 +288,7 @@ async function deploy() {
   if (existsSync(releaseDir)) {
     log(`Release dir ${releaseDir} already exists (partial previous attempt?) -- removing and redoing.`);
     try {
-      execFileSync("git", ["worktree", "remove", releaseDir, "--force"], { cwd: REPO_SOURCE, stdio: "inherit" });
+      execFileSync("git", ["worktree", "remove", releaseDir, "--force"], { cwd: REPO_SOURCE, stdio: "inherit", timeout: DEFAULT_TIMEOUT_MS });
     } catch {
       // git may already have deregistered the worktree even though this
       // threw -- fall through to the unconditional rmSync below either way.
@@ -276,7 +302,7 @@ async function deploy() {
     if (existsSync(releaseDir)) {
       rmSync(releaseDir, { recursive: true, force: true });
     }
-    execFileSync("git", ["worktree", "prune"], { cwd: REPO_SOURCE, stdio: "inherit" });
+    execFileSync("git", ["worktree", "prune"], { cwd: REPO_SOURCE, stdio: "inherit", timeout: DEFAULT_TIMEOUT_MS });
   }
 
   mkdirSync(RELEASES_DIR, { recursive: true });
@@ -312,6 +338,7 @@ async function deploy() {
     }
   } catch (err) {
     log(`BUILD FAILED for ${shortSha} -- live site left untouched on the previous release. ${err.message}`);
+    removeReleaseWorktree(releaseDir);
     process.exitCode = 1;
     return;
   }
@@ -319,13 +346,18 @@ async function deploy() {
   writeFileSync(join(releaseDir, ".deployed-sha"), remoteSha);
   swapCurrent(releaseDir);
 
+  // pm2 restart/save should each complete in well under a second -- 60s
+  // is generous headroom, not a real expected duration, so a genuine hang
+  // here (see DEFAULT_TIMEOUT_MS's comment above) can never hold the lock
+  // for more than a minute past everything else in this run.
+  const PM2_TIMEOUT_MS = 60 * 1000;
   try {
-    run("pm2 restart ai-chat-web");
+    run("pm2 restart ai-chat-web", undefined, PM2_TIMEOUT_MS);
   } catch {
     log("pm2 restart failed (process not running yet?) -- trying pm2 start via the ops ecosystem file.");
-    run(`pm2 start "${join(OPS_DIR, "ecosystem.config.js")}" --only ai-chat-web`);
+    run(`pm2 start "${join(OPS_DIR, "ecosystem.config.js")}" --only ai-chat-web`, undefined, PM2_TIMEOUT_MS);
   }
-  run("pm2 save");
+  run("pm2 save", undefined, PM2_TIMEOUT_MS);
 
   pruneOldReleases(shortSha);
   log(`=== Deploy of ${shortSha} complete ===`);

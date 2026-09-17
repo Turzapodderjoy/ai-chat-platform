@@ -106,8 +106,9 @@ export interface LoginResult {
  * disabling or deleting an account kicks out an already-logged-in
  * session immediately instead of waiting for a token to expire. */
 export class ClientAuthService {
-  async list(): Promise<ClientAccountSummary[]> {
+  async list(businessId?: string): Promise<ClientAccountSummary[]> {
     const accounts = await prisma.clientAccount.findMany({
+      where: businessId ? { businessId } : undefined,
       orderBy: { createdAt: "desc" },
     });
 

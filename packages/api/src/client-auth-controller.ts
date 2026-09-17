@@ -3,8 +3,8 @@ import { ClientAuthService } from "@ai-chat-platform/client-auth";
 export class ClientAuthController {
   constructor(private readonly clientAuth: ClientAuthService) {}
 
-  listAccounts() {
-    return this.clientAuth.list();
+  listAccounts(businessId?: string) {
+    return this.clientAuth.list(businessId);
   }
 
   createAccount(businessId: string | null, username: string, password: string, isAdmin = false, isAgent = false, role: "owner" | "staff" | null = null) {

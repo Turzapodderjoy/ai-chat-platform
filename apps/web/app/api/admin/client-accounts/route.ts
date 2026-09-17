@@ -13,7 +13,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ password });
   }
 
-  const accounts = await app.container.router.clientAuth.listAccounts();
+  // businessId is optional -- the mother dashboard's own Clients/Accounts
+  // view calls this with no businessId and expects every account across
+  // every business; a per-client dashboard passes its own businessId and
+  // must only ever see its own accounts (confirmed live: this used to be
+  // read nowhere in this route, so any businessId query param was silently
+  // ignored and every client session's Staff view leaked every OTHER
+  // business's account list).
+  const businessId = req.nextUrl.searchParams.get("businessId") ?? undefined;
+  const accounts = await app.container.router.clientAuth.listAccounts(businessId);
   return NextResponse.json({ accounts });
 }
 
