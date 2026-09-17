@@ -95,14 +95,14 @@ const TIMEZONE_OPTIONS: string[] =
     ? (Intl as unknown as { supportedValuesOf: (key: string) => string[] }).supportedValuesOf("timeZone")
     : ["America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "UTC"];
 
-// Client asked for the offset up front (e.g. "GMT-05:00"), not the bare
-// zone name -- the name stays alongside it since several zones share an
-// offset and DST makes the offset itself change through the year.
+// GMT offset only, per request -- no zone/city name in the visible label
+// (the IANA id is still the option's value underneath, so selection and
+// the actual saved timezone are unaffected).
 function gmtOffsetLabel(tz: string): string {
   try {
     const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset" }).formatToParts(new Date());
     const offset = parts.find((p) => p.type === "timeZoneName")?.value ?? "GMT+0";
-    return `${offset.replace("GMT", "GMT ")} — ${tz.replace(/_/g, " ")}`;
+    return offset.replace("GMT", "GMT ");
   } catch {
     return tz.replace(/_/g, " ");
   }
@@ -120,12 +120,30 @@ function TimezoneSetting({ businessId }: { businessId: string }) {
   const [timezone, setTimezone] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [clock, setClock] = useState("");
 
   useEffect(() => {
     fetch(`/api/admin/clients/${businessId}`)
       .then((r) => r.json())
       .then((d: { timezone?: string }) => setTimezone(d.timezone ?? "America/New_York"));
   }, [businessId]);
+
+  // Live preview so switching the dropdown shows the new zone's clock
+  // immediately, instead of trusting the label alone.
+  useEffect(() => {
+    if (!timezone) return;
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+    const tick = () => setClock(formatter.format(new Date()));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [timezone]);
 
   async function save(next: string) {
     setTimezone(next);
@@ -163,6 +181,11 @@ function TimezoneSetting({ businessId }: { businessId: string }) {
           <option key={tz} value={tz}>{label}</option>
         ))}
       </select>
+      {clock && (
+        <p style={{ marginTop: 10, marginBottom: 0, fontSize: 20, fontWeight: 650, fontVariantNumeric: "tabular-nums" }}>
+          {clock}
+        </p>
+      )}
       {message && <p style={{ ...subtleTextStyle, marginTop: 8, marginBottom: 0 }}>{message}</p>}
     </div>
   );

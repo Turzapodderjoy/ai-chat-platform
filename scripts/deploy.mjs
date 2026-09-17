@@ -346,9 +346,20 @@ async function deploy() {
   writeFileSync(join(releaseDir, ".deployed-sha"), remoteSha);
   swapCurrent(releaseDir);
 
+  // The lock's only real job is serializing the git-worktree/pnpm-install
+  // steps above (concurrent installs racing the shared pnpm store is the
+  // actual failure mode it guards against) -- once swapCurrent() has run,
+  // the new release is live and safe, and everything left below is best-
+  // effort pm2 bookkeeping. Confirmed live: a deploy's node process can
+  // die outright during "pm2 restart" (SIGKILL bypasses try/finally, so
+  // no timeout catches it) with the lock still held -- releasing it here,
+  // before touching pm2 at all, means that can never wedge the NEXT
+  // deploy again the way it did for 3.5 hours on 2026-09-16.
+  releaseLock();
+
   // pm2 restart/save should each complete in well under a second -- 60s
   // is generous headroom, not a real expected duration, so a genuine hang
-  // here (see DEFAULT_TIMEOUT_MS's comment above) can never hold the lock
+  // here (see DEFAULT_TIMEOUT_MS's comment above) can never hold things up
   // for more than a minute past everything else in this run.
   const PM2_TIMEOUT_MS = 60 * 1000;
   try {

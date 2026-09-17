@@ -36,6 +36,23 @@ const TIMEZONE_OPTIONS: string[] =
     ? (Intl as unknown as { supportedValuesOf: (key: string) => string[] }).supportedValuesOf("timeZone")
     : ["America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "UTC"];
 
+// GMT offset only, per request -- no zone/city name in the visible label
+// (the IANA id is still the option's value underneath, so selection and
+// the actual saved timezone are unaffected).
+function gmtOffsetLabel(tz: string): string {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset" }).formatToParts(new Date());
+    const offset = parts.find((p) => p.type === "timeZoneName")?.value ?? "GMT+0";
+    return offset.replace("GMT", "GMT ");
+  } catch {
+    return tz.replace(/_/g, " ");
+  }
+}
+
+const TIMEZONE_LABELS: [string, string][] = TIMEZONE_OPTIONS
+  .map((tz): [string, string] => [tz, gmtOffsetLabel(tz)])
+  .sort((a, b) => a[1].localeCompare(b[1], undefined, { numeric: true }));
+
 type Tab = "overview" | "health" | "vpsHealth" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "access" | "adminUsers" | "knowledge" | "allchats" | "database" | "tags" | "contacts" | "invoices" | "subscription";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
@@ -610,8 +627,8 @@ function ClientsPanel() {
                     style={{ padding: "6px 8px", maxWidth: 220 }}
                     title="Timezone this client's AI-booked repair appointments are interpreted in"
                   >
-                    {TIMEZONE_OPTIONS.map((tz) => (
-                      <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>
+                    {TIMEZONE_LABELS.map(([tz, label]) => (
+                      <option key={tz} value={tz}>{label}</option>
                     ))}
                   </select>
                 </td>
