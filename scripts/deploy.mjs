@@ -34,6 +34,7 @@ const REPO_SOURCE = IS_WINDOWS ? "E:/Startup/ai-chat-platform" : "/opt/aiva/repo
 const RELEASES_DIR = IS_WINDOWS ? "E:/Startup/ai-chat-platform-releases" : "/opt/aiva/releases";
 const CURRENT_LINK = IS_WINDOWS ? "E:/Startup/ai-chat-platform-current" : "/opt/aiva/current";
 const SECRETS_DIR = IS_WINDOWS ? "E:/Startup/ai-chat-platform-secrets" : "/opt/aiva/secrets";
+const UPLOADS_DIR = IS_WINDOWS ? "E:/Startup/ai-chat-platform-uploads" : "/opt/aiva/uploads";
 const OPS_DIR = IS_WINDOWS ? "E:/Startup/ai-chat-platform-ops" : "/opt/aiva/ops";
 const LOG_FILE = join(OPS_DIR, "deploy.log");
 const LOCK_FILE = join(OPS_DIR, "deploy.lock");
@@ -315,6 +316,20 @@ async function deploy() {
   if (existsSync(join(SECRETS_DIR, "env.root"))) {
     copyFileSync(join(SECRETS_DIR, "env.root"), join(releaseDir, ".env"));
   }
+
+  // User-uploaded files (invoice logos, chat images) were being written
+  // to apps/web/public/uploads INSIDE this release's own worktree --
+  // confirmed live, a client's uploaded invoice-logo watermark silently
+  // vanished the moment the next deploy landed, because every release is
+  // a fresh git worktree checkout and that folder isn't tracked in git.
+  // apps/web/public/uploads is now a symlink into one persistent
+  // directory shared by every release (same idea as SECRETS_DIR), so an
+  // upload written by any release is visible from every release,
+  // including ones deployed before or after it existed.
+  mkdirSync(UPLOADS_DIR, { recursive: true });
+  const releaseUploadsPath = join(releaseDir, "apps", "web", "public", "uploads");
+  mkdirSync(join(releaseDir, "apps", "web", "public"), { recursive: true });
+  symlinkSync(UPLOADS_DIR, releaseUploadsPath, IS_WINDOWS ? "junction" : "dir");
 
   try {
     installWithRetry(releaseDir);
