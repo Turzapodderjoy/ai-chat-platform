@@ -3,6 +3,8 @@ import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
 
+import { PERSISTENT_UPLOADS_DIR } from "../../../../../../lib/paths";
+
 const MAX_BYTES = 4 * 1024 * 1024;
 const ALLOWED_TYPES: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -10,10 +12,10 @@ const ALLOWED_TYPES: Record<string, string> = {
   "image/webp": "webp",
 };
 
-// Same persistent-disk convention as /api/chat/upload-image (self-hosted
-// VPS, not Vercel's read-only filesystem) -- saved under public so it's
-// directly fetchable by URL from the invoice print page.
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "business-logos");
+// Persistent, out-of-release directory (see lib/paths.ts) -- fetched back
+// by the invoice print page through the dynamic /uploads/[...path] route,
+// not Next's static public/ file serving.
+const UPLOAD_DIR = path.join(PERSISTENT_UPLOADS_DIR, "business-logos");
 
 /** Uploads a business's invoice-watermark logo and saves the resulting
  * URL on Business.logoUrl in one step -- there's no separate "set logo

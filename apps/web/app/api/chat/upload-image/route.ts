@@ -3,6 +3,8 @@ import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
 
+import { PERSISTENT_UPLOADS_DIR } from "../../../../lib/paths";
+
 // Same CORS reasoning as /api/chat — the widget runs on the client's own
 // site, a different origin from this app.
 const CORS_HEADERS = {
@@ -19,14 +21,14 @@ const ALLOWED_TYPES: Record<string, string> = {
   "image/gif": "gif",
 };
 
-// Saved under apps/web/public (not the ephemeral os.tmpdir() UPLOAD_DIR
-// used for knowledge-base document ingestion, see lib/paths.ts's own
-// comment on why that one is transient) — a chat photo needs to stay
-// fetchable by URL for as long as the conversation/vision call needs
-// it, and this deployment is self-hosted (a real persistent disk, not
-// Vercel's read-only filesystem), so Next's own static /public serving
-// is the simplest correct place for it.
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "chat-images");
+// Not the ephemeral os.tmpdir() UPLOAD_DIR used for knowledge-base
+// document ingestion (see lib/paths.ts's own comment on why that one is
+// transient) — a chat photo needs to stay fetchable for as long as the
+// conversation/vision call needs it. Persistent, out-of-release
+// directory, served through the dynamic /uploads/[...path] route (not
+// Next's static public/ file serving -- see PERSISTENT_UPLOADS_DIR's own
+// comment for why a plain public/ symlink doesn't work here).
+const UPLOAD_DIR = path.join(PERSISTENT_UPLOADS_DIR, "chat-images");
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS });

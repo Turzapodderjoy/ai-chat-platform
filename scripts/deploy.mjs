@@ -317,19 +317,20 @@ async function deploy() {
     copyFileSync(join(SECRETS_DIR, "env.root"), join(releaseDir, ".env"));
   }
 
-  // User-uploaded files (invoice logos, chat images) were being written
+  // User-uploaded files (invoice logos, chat images) used to be written
   // to apps/web/public/uploads INSIDE this release's own worktree --
   // confirmed live, a client's uploaded invoice-logo watermark silently
   // vanished the moment the next deploy landed, because every release is
   // a fresh git worktree checkout and that folder isn't tracked in git.
-  // apps/web/public/uploads is now a symlink into one persistent
-  // directory shared by every release (same idea as SECRETS_DIR), so an
-  // upload written by any release is visible from every release,
-  // including ones deployed before or after it existed.
+  // A symlink from public/uploads to this persistent directory was tried
+  // and rejected by Turbopack at build time ("Symlink ... points out of
+  // the filesystem root") -- Next 16's bundler refuses to trace a public/
+  // asset that escapes the project root, full stop. The actual fix is on
+  // the application side instead: PERSISTENT_UPLOADS_DIR (see
+  // apps/web/lib/paths.ts) points every release at this same directory
+  // directly, with a dynamic /uploads/[...path] route serving it instead
+  // of relying on Next's static public/ file serving.
   mkdirSync(UPLOADS_DIR, { recursive: true });
-  const releaseUploadsPath = join(releaseDir, "apps", "web", "public", "uploads");
-  mkdirSync(join(releaseDir, "apps", "web", "public"), { recursive: true });
-  symlinkSync(UPLOADS_DIR, releaseUploadsPath, IS_WINDOWS ? "junction" : "dir");
 
   try {
     installWithRetry(releaseDir);
