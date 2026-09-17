@@ -4,6 +4,7 @@ import path from "path";
 import crypto from "crypto";
 
 import { PERSISTENT_UPLOADS_DIR } from "../../../../../../lib/paths";
+import { getPublicBaseUrl } from "../../../../../../lib/request-origin";
 
 const MAX_BYTES = 4 * 1024 * 1024;
 const ALLOWED_TYPES: Record<string, string> = {
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   await mkdir(UPLOAD_DIR, { recursive: true });
   await writeFile(path.join(UPLOAD_DIR, filename), buffer);
 
-  const logoUrl = `${req.nextUrl.origin}/uploads/business-logos/${filename}`;
+  const logoUrl = `${getPublicBaseUrl(req)}/uploads/business-logos/${filename}`;
   const { prisma } = await import("@ai-chat-platform/database");
   await prisma.business.update({ where: { id }, data: { logoUrl } });
 

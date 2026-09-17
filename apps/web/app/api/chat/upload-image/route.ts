@@ -4,6 +4,7 @@ import path from "path";
 import crypto from "crypto";
 
 import { PERSISTENT_UPLOADS_DIR } from "../../../../lib/paths";
+import { getPublicBaseUrl } from "../../../../lib/request-origin";
 
 // Same CORS reasoning as /api/chat — the widget runs on the client's own
 // site, a different origin from this app.
@@ -56,6 +57,6 @@ export async function POST(req: NextRequest) {
   await mkdir(UPLOAD_DIR, { recursive: true });
   await writeFile(path.join(UPLOAD_DIR, filename), buffer);
 
-  const url = `${req.nextUrl.origin}/uploads/chat-images/${filename}`;
+  const url = `${getPublicBaseUrl(req)}/uploads/chat-images/${filename}`;
   return NextResponse.json({ url }, { headers: CORS_HEADERS });
 }

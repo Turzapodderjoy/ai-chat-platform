@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getApp } from "../../../../../lib/app";
+import { getPublicBaseUrl } from "../../../../../lib/request-origin";
 
 /** Redirects to Meta's OAuth dialog for this channel. `businessId` is
  * carried through as the `state` param so the callback knows which
@@ -16,7 +17,13 @@ export async function GET(
     return NextResponse.json({ error: "businessId is required" }, { status: 400 });
   }
 
-  const redirectUri = `${req.nextUrl.origin}/api/oauth/${channel}/callback`;
+  // Must byte-for-byte match the callback route's own redirectUri below --
+  // Meta rejects a token exchange whose redirect_uri differs at all from
+  // the one used to start the OAuth dialog, so both need the same fix
+  // (see getPublicBaseUrl's own comment for why req.nextUrl.origin alone
+  // baked the VPS's internal localhost:3001 into this, which Meta never
+  // has whitelisted -- every channel connection attempt would fail).
+  const redirectUri = `${getPublicBaseUrl(req)}/api/oauth/${channel}/callback`;
 
   try {
     const app = await getApp();
