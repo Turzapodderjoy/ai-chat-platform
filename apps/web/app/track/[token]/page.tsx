@@ -84,16 +84,22 @@ export default function TrackRepairPage() {
     if (!reply.trim()) return;
     setSending(true);
     try {
-      await fetch("/api/repairs/track/message", {
+      const res = await fetch("/api/repairs/track/message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, message: reply }),
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setError(body?.error ?? "Failed to send message. Please try again.");
+        return;
+      }
       setReply("");
-      // Refetch messages
-      const res = await fetch(`/api/repairs/track?token=${encodeURIComponent(token)}`);
-      const data = await res.json();
+      const msgRes = await fetch(`/api/repairs/track?token=${encodeURIComponent(token)}`);
+      const data = await msgRes.json();
       setMessages(data.messages || []);
+    } catch {
+      setError("Network error — couldn't send message.");
     } finally {
       setSending(false);
     }
@@ -141,8 +147,28 @@ export default function TrackRepairPage() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
-        <p style={{ color: "var(--text-muted)", fontSize: 14 }}>Loading...</p>
+      <div style={{ minHeight: "100dvh", background: "var(--bg)", padding: "24px 16px" }}>
+        <div style={{ maxWidth: 600, margin: "0 auto" }}>
+          <div style={{ height: 16, width: 120, background: "var(--surface)", borderRadius: 6, marginBottom: 12 }} />
+          <div style={{ height: 24, width: 200, background: "var(--surface)", borderRadius: 6, marginBottom: 8 }} />
+          <div style={{ height: 14, width: 160, background: "var(--surface)", borderRadius: 6, marginBottom: 20 }} />
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 20, marginBottom: 16 }}>
+            <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: "50%", background: "var(--surface-hover)" }} />
+                  <div style={{ width: 40, height: 8, background: "var(--surface-hover)", borderRadius: 4 }} />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 20 }}>
+            <div style={{ height: 14, width: 80, background: "var(--surface-hover)", borderRadius: 4, marginBottom: 12 }} />
+            {[0, 1, 2].map((i) => (
+              <div key={i} style={{ height: 12, width: `${80 - i * 15}%`, background: "var(--surface-hover)", borderRadius: 4, marginBottom: 8 }} />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -240,7 +266,9 @@ export default function TrackRepairPage() {
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 20, marginBottom: 16 }}>
             <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: "var(--text)" }}>Request Changes</h3>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <label htmlFor="reschedule-date" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0,0,0,0)" }}>New date and time</label>
               <input
+                id="reschedule-date"
                 type="datetime-local"
                 value={rescheduleDate}
                 onChange={(e) => setRescheduleDate(e.target.value)}

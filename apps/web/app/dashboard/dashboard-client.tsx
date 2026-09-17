@@ -503,13 +503,18 @@ function ClientsPanel() {
         // One request per client, in parallel — fine for the handful of
         // clients an internal admin panel deals with; revisit if this
         // ever needs to scale to hundreds at once.
-        Promise.all(
+        Promise.allSettled(
           list.map((c) =>
             fetch(`/api/admin/storage?businessId=${encodeURIComponent(c.id)}`)
               .then((r) => r.json())
               .then((info) => [c.id, info.knowledgeBytesEstimate as number] as const)
           )
-        ).then((pairs) => setStorageByClient(Object.fromEntries(pairs)));
+        ).then((results) => {
+          const pairs = results
+            .filter((r): r is PromiseFulfilledResult<readonly [string, number]> => r.status === "fulfilled")
+            .map((r) => r.value);
+          setStorageByClient(Object.fromEntries(pairs));
+        });
       });
   }
 
@@ -520,14 +525,21 @@ function ClientsPanel() {
     setCreating(true);
 
     try {
-      await fetch("/api/admin/clients", {
+      const res = await fetch("/api/admin/clients", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, type }),
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        await showAlert(`Couldn't create "${name}": ${body?.error ?? res.statusText}`);
+        return;
+      }
       setName("");
       setType("regular");
       refresh();
+    } catch {
+      await showAlert("Network error — couldn't reach the server.");
     } finally {
       setCreating(false);
     }

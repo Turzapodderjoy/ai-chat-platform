@@ -341,24 +341,21 @@ export class AdminController {
     vectorStoreLocation: string;
     databaseLocation: string | null;
   }> {
-    const forBusiness = await this.vectorStore.listAllForBusiness(businessId);
-
-    const knowledgeBytesEstimate = forBusiness.reduce(
-      (sum, r) => sum + JSON.stringify(r).length,
-      0
-    );
-
-    const [conversations, messages, crawlTargets] = await Promise.all([
+    const [knowledgeChunks, knowledgeDocuments, conversations, messages, crawlTargets] = await Promise.all([
+      prisma.vectorRecord.count({ where: { businessId } }),
+      prisma.vectorRecord.findMany({ where: { businessId }, select: { documentId: true } }).then((rows) => new Set(rows.map((r) => r.documentId)).size),
       prisma.conversation.count({ where: { businessId } }),
       prisma.message.count({ where: { conversation: { businessId } } }),
       prisma.crawlTarget.count({ where: { businessId } }),
     ]);
 
+    const knowledgeBytesEstimate = knowledgeChunks * 500;
+
     const url = process.env.DATABASE_URL;
 
     return {
-      knowledgeChunks: forBusiness.length,
-      knowledgeDocuments: new Set(forBusiness.map((r) => r.documentId)).size,
+      knowledgeChunks,
+      knowledgeDocuments,
       knowledgeBytesEstimate,
       conversations,
       messages,

@@ -6,15 +6,38 @@ import { getApp } from "../../../../lib/app";
 const CLIENT_COOKIE = "client_session";
 const ADMIN_COOKIE = "admin_session";
 
-// Behind the cloudflared tunnel there's no raw socket to read from --
-// the real client IP only ever arrives as a forwarded header.
+// Simple in-memory rate limit: 10 login attempts per minute per IP.
+// ponytail: global in-memory Map, fine for single-process.
+const loginRateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const LOGIN_RATE_LIMIT = 10;
+const LOGIN_RATE_WINDOW_MS = 60_000;
+
+function checkLoginRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = loginRateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    loginRateLimitMap.set(ip, { count: 1, resetAt: now + LOGIN_RATE_WINDOW_MS });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= LOGIN_RATE_LIMIT;
+}
+
 function clientIp(req: NextRequest): string {
   const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0]!.trim();
+  if (forwarded) {
+    const first = forwarded.split(",")[0]?.trim();
+    if (first && /^\d{1,3}(\.\d{1,3}){3}$/.test(first)) return first;
+  }
   return req.headers.get("x-real-ip") ?? "unknown";
 }
 
 export async function POST(req: NextRequest) {
+  const ip = clientIp(req);
+  if (!checkLoginRateLimit(ip)) {
+    return NextResponse.json({ error: "Too many login attempts. Please try again later." }, { status: 429 });
+  }
+
   const body = await req.json().catch(() => null);
 
   if (!body || typeof body.username !== "string" || typeof body.password !== "string") {
@@ -23,9 +46,6 @@ export async function POST(req: NextRequest) {
 
   const remember = Boolean(body.remember);
 
-  // The single fixed admin identity — checked first since it's a cheap
-  // in-memory comparison, no DB round-trip needed before falling
-  // through to the real client-account lookup below.
   if (checkAdminCredentials(body.username, body.password)) {
     const { token, expiresAt } = createAdminToken(remember ? 30 : 1);
     const res = NextResponse.json({ admin: true });
@@ -56,11 +76,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Incorrect username or password, or this account has been disabled." }, { status: 401 });
   }
 
-  // A DB-backed isAdmin account reaches the mother dashboard through the
-  // same client_session cookie as any other client login (proxy.ts
-  // checks the account's isAdmin flag on every request) — only the
-  // response shape changes, to match home-client.tsx's existing
-  // `data.admin ? "/dashboard" : ...` redirect.
   const res = NextResponse.json(result.isAdmin ? { admin: true } : { businessId: result.businessId });
   res.cookies.delete(ADMIN_COOKIE);
   res.cookies.set(CLIENT_COOKIE, result.token, {

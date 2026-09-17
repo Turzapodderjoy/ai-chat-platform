@@ -31,12 +31,21 @@ export class TenantService {
     });
   }
 
-  /** Platform-wide (mother dashboard) — every client, not scoped to a user.
-   * No auth check here since there's no login wall yet; add one when
-   * the dashboard is gated behind auth. */
+  /** Platform-wide (mother dashboard) — every client, scoped to admin-only callers. */
   async listAll() {
     return prisma.business.findMany({
       orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        type: true,
+        aiEnabled: true,
+        timezone: true,
+        createdAt: true,
+        subscriptionActive: true,
+        subscriptionEndDate: true,
+      },
     });
   }
 
@@ -60,6 +69,12 @@ export class TenantService {
   }
 
   async setTimezone(id: string, timezone: string) {
+    // Validate IANA timezone identifier to prevent storing arbitrary strings.
+    try {
+      Intl.DateTimeFormat(undefined, { timeZone: timezone });
+    } catch {
+      throw new Error(`Invalid timezone: "${timezone}". Must be a valid IANA timezone identifier.`);
+    }
     return prisma.business.update({ where: { id }, data: { timezone } });
   }
 
@@ -67,6 +82,8 @@ export class TenantService {
    * knowledge chunks are cleaned up separately by the caller (they're
    * plain-string businessId references, not Prisma relations). */
   async deleteBusiness(id: string) {
+    const existing = await prisma.business.findUnique({ where: { id }, select: { id: true } });
+    if (!existing) throw new Error("Business not found.");
     return prisma.business.delete({ where: { id } });
   }
 }

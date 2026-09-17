@@ -245,6 +245,8 @@ model Message {
   messageTags    MessageTag[]
 
   createdAt      DateTime @default(now())
+
+  @@index([conversationId])
 }
 
 // Per-message QA verdict from whoever is running the Chat Demo tab as a

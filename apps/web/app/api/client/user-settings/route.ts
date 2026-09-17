@@ -81,7 +81,10 @@ export async function PATCH(req: NextRequest) {
       await clientAuth.changeUsername(body.id, body.username, session.username);
     }
     if (typeof body.password === "string") {
-      await clientAuth.changePassword(body.id, body.password, session.username);
+      if (!body.oldPassword || typeof body.oldPassword !== "string") {
+        return json({ error: "Current password is required to set a new password." }, 400);
+      }
+      await clientAuth.changePassword(body.id, body.password, session.username, body.oldPassword);
     }
     return json({ ok: true });
   } catch (err) {

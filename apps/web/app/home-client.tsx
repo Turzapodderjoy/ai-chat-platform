@@ -9,6 +9,7 @@ export default function HomeClient() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [forgotMessage, setForgotMessage] = useState("");
 
   async function enter(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -141,10 +142,15 @@ export default function HomeClient() {
                 <input className={styles.checkbox} type="checkbox" id="remember" name="remember" />
                 <label className={styles.checkboxLabel} htmlFor="remember">Remember me</label>
               </div>
-              <a href="#" className={styles.forgotLink} onClick={(e) => e.preventDefault()}>
+              <a href="#" className={styles.forgotLink} onClick={(e) => {
+                e.preventDefault();
+                setForgotMessage("Please contact your business owner or platform admin to reset your password.");
+              }}>
                 Forgot password?
               </a>
             </div>
+
+            {forgotMessage && <p style={{ fontSize: 13, color: "var(--accent)", margin: "8px 0 0" }}>{forgotMessage}</p>}
 
             <button type="submit" className={styles.submitBtn} disabled={submitting}>
               {submitting ? "Signing in..." : "Sign in"}

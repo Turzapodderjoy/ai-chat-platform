@@ -3,12 +3,6 @@ import { prisma } from "@ai-chat-platform/database";
 
 import { getApp } from "../../../lib/app";
 
-// The website embed widget (public/widget.js) runs on a CLIENT's own
-// site — a different origin from wherever this app is deployed — so
-// this route needs CORS enabled or every embedded widget would fail
-// silently on the first fetch. Wide open (`*`) is fine here: this
-// endpoint takes no cookies/credentials, and the businessId in the body
-// is public info already baked into the embed snippet itself.
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -19,7 +13,50 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
 }
 
+// Simple in-memory rate limit: 30 requests per minute per IP.
+// ponytail: global in-memory Map, fine for single-process; use Redis
+// if multi-instance rate limiting is ever needed.
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 30;
+const RATE_WINDOW_MS = 60_000;
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= RATE_LIMIT;
+}
+
+// Periodic cleanup to prevent memory leak from abandoned IPs.
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of rateLimitMap) {
+    if (now > entry.resetAt) rateLimitMap.delete(ip);
+  }
+}, 120_000).unref?.();
+
+function getClientIp(req: NextRequest): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) {
+    const first = forwarded.split(",")[0]?.trim();
+    if (first) return first;
+  }
+  return req.headers.get("x-real-ip") ?? "unknown";
+}
+
 export async function POST(req: NextRequest) {
+  const ip = getClientIp(req);
+  if (!checkRateLimit(ip)) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: CORS_HEADERS }
+    );
+  }
+
   const body = await req.json().catch(() => null);
 
   const imageUrl = typeof body?.imageUrl === "string" && body.imageUrl.trim() ? body.imageUrl.trim() : undefined;
@@ -28,7 +65,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "message or imageUrl is required" }, { status: 400, headers: CORS_HEADERS });
   }
 
-  const sessionId = typeof body.sessionId === "string" ? body.sessionId : "dev-session";
+  const sessionId = typeof body.sessionId === "string" && body.sessionId.trim() ? body.sessionId.trim() : `web-${Date.now().toString(36)}`;
   const businessId = typeof body.businessId === "string" ? body.businessId : undefined;
   const languageHint = typeof body.languageHint === "string" ? body.languageHint : undefined;
 
@@ -66,10 +103,9 @@ export async function POST(req: NextRequest) {
     const app = await getApp();
     const answer = await withTimeout(
       app.container.router.chat.post(sessionId, body.message, businessId, undefined, languageHint, imageUrl),
-      55_000
+      45_000
     );
 
-    // Track usage for billing (fire and forget - don't block response)
     if (businessId) {
       prisma.businessUsage.upsert({
         where: { businessId },
@@ -80,22 +116,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(answer, { headers: CORS_HEADERS });
   } catch (err) {
-    // 55s, not the old 12s: retrieval alone has taken up to ~12s under
-    // load, and rotation tries AI providers SEQUENTIALLY — real logs
-    // showed a single request legitimately needing 2 attempts (one slow-
-    // but-not-hung provider, then the one that answers), and even at
-    // ai-manager's PROVIDER_TIMEOUT_MS=15s per attempt that's up to 30s on
-    // generation alone before retrieval. 12s left almost no room and was
-    // firing on completely normal, slow-but-successful replies, returning
-    // this canned message to the customer while the real answer kept
-    // computing in the background and got saved with nobody left
-    // listening for it (the widget had already shown this error and moved
-    // on). Still bounded — a genuinely dead backend (DB down, every
-    // provider unreachable) must never hang the customer's widget
-    // forever. Log the real error for us to see,
-    // but the customer gets a normal-looking reply instead of a broken
-    // error state — same shape ChatResponse always returns, so the
-    // widget needs no special-case handling for this.
     console.error("Chat request failed or timed out:", err);
     return NextResponse.json(
       {

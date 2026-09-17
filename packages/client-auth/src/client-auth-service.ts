@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 
 const SESSION_DAYS_DEFAULT = 1;
 const SESSION_DAYS_REMEMBER = 30;
-const MIN_PASSWORD_LENGTH = 8;
+const MIN_PASSWORD_LENGTH = 12;
 
 function hashPassword(password: string): string {
   const salt = randomBytes(16).toString("hex");
@@ -183,7 +183,8 @@ export class ClientAuthService {
   }
 
   async setMaxAgents(businessId: string, max: number): Promise<void> {
-    await prisma.business.update({ where: { id: businessId }, data: { maxAgents: Math.max(0, Math.trunc(max)) } });
+    const capped = Math.max(0, Math.min(100, Math.trunc(max)));
+    await prisma.business.update({ where: { id: businessId }, data: { maxAgents: capped } });
   }
 
   // --- Teams (org/department/team hierarchy layer, Day 1 AM) ---
@@ -370,9 +371,16 @@ export class ClientAuthService {
    * change-and-log-it. Logs WHO did it and WHEN, never the password
    * value itself, and kicks out any session already using the old
    * password, same reasoning as setDisabled below. */
-  async changePassword(id: string, newPassword: string, changedBy: string): Promise<void> {
+  async changePassword(id: string, newPassword: string, changedBy: string, oldPassword?: string): Promise<void> {
     if (newPassword.length < MIN_PASSWORD_LENGTH) {
       throw new Error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+    }
+    if (!oldPassword) {
+      throw new Error("Current password is required.");
+    }
+    const account = await prisma.clientAccount.findUnique({ where: { id }, select: { passwordHash: true } });
+    if (!account || !verifyPassword(oldPassword, account.passwordHash)) {
+      throw new Error("Current password is incorrect.");
     }
     await prisma.$transaction([
       prisma.clientAccount.update({
@@ -535,6 +543,7 @@ export class ClientAuthService {
     const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
     await prisma.$transaction([
+      prisma.clientSession.deleteMany({ where: { clientAccountId: account.id } }),
       prisma.clientSession.create({ data: { token, clientAccountId: account.id, expiresAt } }),
       prisma.clientAccount.update({ where: { id: account.id }, data: { lastLoginAt: new Date() } }),
     ]);

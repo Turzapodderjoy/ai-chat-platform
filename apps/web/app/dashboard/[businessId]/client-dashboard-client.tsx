@@ -265,7 +265,9 @@ export default function ClientDashboardClient() {
       : fetch(`/api/admin/widget-visibility?businessId=${encodeURIComponent(businessId)}&widgetId=${encodeURIComponent(widgetId)}`, {
           method: "DELETE",
         });
-    req.then(refreshHiddenWidgets);
+    req.then((res) => {
+      if (res.ok) refreshHiddenWidgets();
+    }).catch(() => {});
   }
 
   // Only an admin session gets the "back to Command Center" link — a

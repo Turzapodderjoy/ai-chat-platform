@@ -35,8 +35,8 @@ export class ClientAuthController {
     return this.clientAuth.setDisabled(id, disabled, changedBy);
   }
 
-  changePassword(id: string, newPassword: string, changedBy: string) {
-    return this.clientAuth.changePassword(id, newPassword, changedBy);
+  changePassword(id: string, newPassword: string, changedBy: string, oldPassword?: string) {
+    return this.clientAuth.changePassword(id, newPassword, changedBy, oldPassword);
   }
 
   changeUsername(id: string, newUsername: string, changedBy: string) {

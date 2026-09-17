@@ -35,9 +35,17 @@ export async function GET(req: NextRequest) {
 
   // Not wrapped in after() — see admin/crawler/route.ts's comment for why
   // after() doesn't work self-hosted and isn't needed on a persistent host.
+  const results: { businessId: string; status: string; error?: string }[] = [];
   for (const businessId of due) {
-    app.container.router.knowledgeRefresh.runRefreshNow(businessId).catch(() => {});
+    try {
+      await app.container.router.knowledgeRefresh.runRefreshNow(businessId);
+      results.push({ businessId, status: "ok" });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[refresh-master-csv] Failed for ${businessId}:`, msg);
+      results.push({ businessId, status: "error", error: msg });
+    }
   }
 
-  return NextResponse.json({ hourBd: currentHourBd, triggered: due });
+  return NextResponse.json({ hourBd: currentHourBd, triggered: due, results });
 }

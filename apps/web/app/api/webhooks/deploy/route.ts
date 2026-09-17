@@ -36,8 +36,11 @@ export async function POST(req: NextRequest) {
   const child = spawn("node", [scriptPath], {
     cwd: repoSource,
     detached: true,
-    stdio: "ignore",
+    stdio: ["ignore", "ignore", "pipe"],
     windowsHide: true,
+  });
+  child.stderr?.on("data", (chunk: Buffer) => {
+    console.error("[deploy]", chunk.toString().trim());
   });
   child.unref();
 
