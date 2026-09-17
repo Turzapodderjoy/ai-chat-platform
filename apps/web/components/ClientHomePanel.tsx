@@ -124,6 +124,13 @@ export function ClientHomePanel({
       .then((d: { timezone?: string }) => { if (d.timezone) setTimezone(d.timezone); });
   }, [businessId]);
 
+  // Keeps the header clock live instead of freezing at whenever the page
+  // happened to load -- doesn't need second-level precision here.
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(id);
+  }, []);
+
   // "Today" has to be the SAME calendar day on both sides of every
   // comparison below -- comparing the viewer's local browser date against
   // a UTC-stored timestamp string (the previous approach) put appointments
@@ -175,13 +182,14 @@ export function ClientHomePanel({
       >
         <div>
           <h2 style={{ margin: 0, marginBottom: 4, fontSize: 22 }}>
-            {now ? greetingFor(now.getHours()) : "Welcome"}{username ? `, ${username}` : ""} 👋
+            {now ? greetingFor(Number(new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", hour12: false }).format(now))) : "Welcome"}{username ? `, ${username}` : ""} 👋
           </h2>
           <p style={{ ...subtleTextStyle, margin: 0 }}>{clientName}</p>
         </div>
         {now && (
           <div style={{ fontSize: 13, color: "var(--text-faint)" }}>
-            {now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })} · {now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+            {new Intl.DateTimeFormat("en-US", { timeZone: timezone, weekday: "long", month: "long", day: "numeric" }).format(now)} ·{" "}
+            {new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", minute: "2-digit" }).format(now)}
           </div>
         )}
       </div>

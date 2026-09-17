@@ -39,19 +39,38 @@ const TIMEZONE_OPTIONS: string[] =
 // GMT offset only, per request -- no zone/city name in the visible label
 // (the IANA id is still the option's value underneath, so selection and
 // the actual saved timezone are unaffected).
-function gmtOffsetLabel(tz: string): string {
-  try {
-    const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset" }).formatToParts(new Date());
-    const offset = parts.find((p) => p.type === "timeZoneName")?.value ?? "GMT+0";
-    return offset.replace("GMT", "GMT ");
-  } catch {
-    return tz.replace(/_/g, " ");
-  }
+function gmtOffsetMinutes(tz: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "longOffset" }).formatToParts(new Date());
+  const raw = parts.find((p) => p.type === "timeZoneName")?.value ?? "GMT+00:00";
+  const m = raw.match(/GMT([+-])(\d{2}):(\d{2})/);
+  if (!m) return 0;
+  const sign = m[1] === "-" ? -1 : 1;
+  return sign * (Number(m[2]) * 60 + Number(m[3]));
 }
 
-const TIMEZONE_LABELS: [string, string][] = TIMEZONE_OPTIONS
-  .map((tz): [string, string] => [tz, gmtOffsetLabel(tz)])
-  .sort((a, b) => a[1].localeCompare(b[1], undefined, { numeric: true }));
+function gmtOffsetLabel(minutes: number): string {
+  const sign = minutes < 0 ? "-" : "+";
+  const abs = Math.abs(minutes);
+  const h = Math.floor(abs / 60);
+  const m = abs % 60;
+  return `GMT ${sign}${h}${m ? `:${String(m).padStart(2, "0")}` : ""}`;
+}
+
+// Hundreds of IANA zones collapse onto only ~35 distinct current offsets --
+// dozens of "GMT -6" entries with nothing to tell them apart was worse than
+// the plain zone list it replaced. One dropdown entry per distinct offset,
+// each still saving a real IANA id (the first zone found at that offset)
+// so the underlying interpretation stays correct.
+const TIMEZONE_LABELS: [string, string][] = (() => {
+  const seen = new Map<number, string>();
+  for (const tz of TIMEZONE_OPTIONS) {
+    const minutes = gmtOffsetMinutes(tz);
+    if (!seen.has(minutes)) seen.set(minutes, tz);
+  }
+  return [...seen.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([minutes, tz]): [string, string] => [tz, gmtOffsetLabel(minutes)]);
+})();
 
 type Tab = "overview" | "health" | "vpsHealth" | "ai" | "embedding" | "brain" | "parameters" | "review" | "arena" | "channels" | "usage" | "clients" | "access" | "adminUsers" | "knowledge" | "allchats" | "database" | "tags" | "contacts" | "invoices" | "subscription";
 
@@ -627,6 +646,13 @@ function ClientsPanel() {
                     style={{ padding: "6px 8px", maxWidth: 220 }}
                     title="Timezone this client's AI-booked repair appointments are interpreted in"
                   >
+                    {/* The client's saved zone might not be the one
+                        TIMEZONE_LABELS kept as the representative for its
+                        offset -- inject it so this never silently shows
+                        the wrong selection for a zone actually in use. */}
+                    {!TIMEZONE_LABELS.some(([tz]) => tz === c.timezone) && (
+                      <option value={c.timezone}>{gmtOffsetLabel(gmtOffsetMinutes(c.timezone))}</option>
+                    )}
                     {TIMEZONE_LABELS.map(([tz, label]) => (
                       <option key={tz} value={tz}>{label}</option>
                     ))}
