@@ -182,7 +182,7 @@ export function ClientHomePanel({
       >
         <div>
           <h2 style={{ margin: 0, marginBottom: 4, fontSize: 22 }}>
-            {now ? greetingFor(Number(new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", hour12: false }).format(now))) : "Welcome"}{username ? `, ${username}` : ""} 👋
+            {now ? greetingFor(Number(new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", hourCycle: "h23" }).format(now))) : "Welcome"}{username ? `, ${username}` : ""} 👋
           </h2>
           <p style={{ ...subtleTextStyle, margin: 0 }}>{clientName}</p>
         </div>
