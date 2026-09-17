@@ -7,7 +7,7 @@ import { MarkdownMessage } from "./MarkdownMessage";
 import { OrderItemsEditor } from "./OrderManagementPanel";
 import { isNewAppointment, dismissNotification, onNotificationsChanged } from "../lib/appointment-notifications";
 import { showConfirm } from "../lib/app-dialog";
-import { useAuditTooltip } from "../lib/audit-log";
+import { AuditHistoryButton } from "./AuditHistoryButton";
 
 interface Appointment {
   id: string;
@@ -233,7 +233,6 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
   }, [businessId, active]);
 
   const selected = appointments?.find((a) => a.id === selectedId) ?? null;
-  const statusHistoryTooltip = useAuditTooltip("repair", selected?.id);
 
   function fetchMessages(token: string) {
     fetch(`/api/chat/messages?sessionId=${encodeURIComponent(token)}`)
@@ -835,13 +834,13 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
               <select
                 value={selected.status}
                 onChange={(e) => updateStatus(selected.id, e.target.value)}
-                title={statusHistoryTooltip || undefined}
                 style={{ padding: "6px 12px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontFamily: "inherit" }}
               >
                 {STATUS_OPTIONS.map((s) => (
                   <option key={s} value={s}>{STATUS_LABEL[s]}</option>
                 ))}
               </select>
+              <AuditHistoryButton entityType="repair" entityId={selected.id} />
               <select
                 value={selected.technicianId || ""}
                 onChange={(e) => assignTechnician(selected.id, e.target.value)}

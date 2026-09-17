@@ -6,7 +6,7 @@ import { cardStyle, cellStyle, subtleTextStyle, shortId, badgeStyle, primaryButt
 import { StatCard, StatCardRow } from "./StatCard";
 import { currencySymbol, useCurrencySymbol } from "../lib/currency";
 import { showAlert, showConfirm } from "../lib/app-dialog";
-import { useAuditTooltip } from "../lib/audit-log";
+import { AuditHistoryButton } from "./AuditHistoryButton";
 
 interface Invoice {
   id: string;
@@ -66,13 +66,13 @@ interface Product {
 const STATUS_TONE: Record<string, BadgeTone> = { draft: "neutral", issued: "info", partially_paid: "warn", paid: "ok", overdue: "error", void: "neutral" };
 const EMPTY_ITEM: DraftItem = { name: "", quantity: "1", unitPrice: "" };
 
-// A separate component (not inlined in the table's .map()) because the
-// activity-history hover tooltip needs its own useAuditTooltip() call
-// per row -- calling a hook inside a loop body directly would break
-// the rules of hooks.
 function InvoiceStatusBadge({ status, invoiceId }: { status: string; invoiceId: string }) {
-  const tooltip = useAuditTooltip("invoice", invoiceId);
-  return <span title={tooltip || undefined} style={badgeStyle(STATUS_TONE[status] ?? "neutral")}>{status}</span>;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+      <span style={badgeStyle(STATUS_TONE[status] ?? "neutral")}>{status}</span>
+      <AuditHistoryButton entityType="invoice" entityId={invoiceId} />
+    </span>
+  );
 }
 
 /** Invoices — generated automatically from a repair order (Order

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { subtleTextStyle, primaryButtonStyle, badgeStyle } from "./dashboard-styles";
 import { useCurrencySymbol } from "../lib/currency";
 import { showAlert } from "../lib/app-dialog";
-import { useAuditTooltip } from "../lib/audit-log";
+import { AuditHistoryButton } from "./AuditHistoryButton";
 
 interface OrderItem {
   id: string;
@@ -180,10 +180,6 @@ export function OrderItemsEditor({ order, products, onChanged }: { order: Repair
   );
 }
 
-// Separate component (not inlined in the .map() above) because the
-// activity-history hover tooltip needs its own useAuditTooltip() call
-// per row -- calling a hook inside a loop body directly breaks the
-// rules of hooks.
 function OrderItemRow({
   item,
   currency,
@@ -197,11 +193,11 @@ function OrderItemRow({
   onOverrideBlur: () => void;
   onRemove: () => void;
 }) {
-  const tooltip = useAuditTooltip("order-item", item.id);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontSize: 13 }}>
       <span style={badgeStyle(item.kind === "part" ? "info" : "neutral")}>{item.kind}</span>
-      <span style={{ flex: 1 }} title={tooltip || undefined}>{item.name} × {item.quantity}</span>
+      <span style={{ flex: 1 }}>{item.name} × {item.quantity}</span>
+      <AuditHistoryButton entityType="order-item" entityId={item.id} />
       <span style={{ color: "var(--text-faint)", textDecoration: item.overridePrice != null ? "line-through" : "none" }}>
         Initial: {currency}{item.defaultPrice * item.quantity}
       </span>
