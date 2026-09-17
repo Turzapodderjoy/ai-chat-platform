@@ -15,6 +15,7 @@ export interface InvoicePdfContext {
   // other). Fetched over HTTP rather than read from disk so this package
   // doesn't need to know apps/web's PERSISTENT_UPLOADS_DIR layout.
   logoUrl?: string | null;
+  timezone?: string;
 }
 
 const PAGE_LEFT = 50;
@@ -72,13 +73,14 @@ export async function generateInvoicePdf(invoice: Invoice, ctx: InvoicePdfContex
   if (ctx.deviceLabel) doc.text(ctx.deviceLabel, PAGE_LEFT);
   const billToBottom = doc.y;
 
+  const tz = ctx.timezone ?? "America/New_York";
   doc.fontSize(9).font("Helvetica-Bold").fillColor("#888").text("INVOICE NUMBER", infoColX, topY, { characterSpacing: 0.5 });
   doc.fontSize(11).font("Helvetica-Bold").fillColor("#111").text(invoice.invoiceNumber, infoColX, doc.y + 4);
   doc.fontSize(9).font("Helvetica-Bold").fillColor("#888").text("ISSUE DATE", infoColX, doc.y + 12, { characterSpacing: 0.5 });
-  doc.fontSize(10).font("Helvetica").fillColor("#444").text(new Date(invoice.issueDate).toLocaleDateString(), infoColX, doc.y + 4);
+  doc.fontSize(10).font("Helvetica").fillColor("#444").text(new Date(invoice.issueDate).toLocaleDateString("en-US", { timeZone: tz }), infoColX, doc.y + 4);
   if (invoice.dueDate) {
     doc.fontSize(9).font("Helvetica-Bold").fillColor("#888").text("DUE DATE", infoColX, doc.y + 10, { characterSpacing: 0.5 });
-    doc.fontSize(10).font("Helvetica").fillColor("#444").text(new Date(invoice.dueDate).toLocaleDateString(), infoColX, doc.y + 4);
+    doc.fontSize(10).font("Helvetica").fillColor("#444").text(new Date(invoice.dueDate).toLocaleDateString("en-US", { timeZone: tz }), infoColX, doc.y + 4);
   }
 
   const tableTop = Math.max(billToBottom, doc.y) + 24;

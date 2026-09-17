@@ -9,12 +9,13 @@ export async function GET(req: NextRequest) {
   }
 
   const app = await getApp();
-  const config = await app.container.router.gmailSenderConfig.get(businessId);
+  const config = await app.container.router.gmailSenderConfig.getWithTimezone(businessId);
   return NextResponse.json({
     businessId: config.businessId,
     gmailAddress: config.gmailAddress,
     connected: Boolean(config.gmailAddress && (config.appPassword || config.accessToken)),
     oauthConnected: Boolean(config.accessToken),
+    timezone: config.timezone,
   });
 }
 
@@ -29,6 +30,9 @@ export async function PUT(req: NextRequest) {
     gmailAddress: body.gmailAddress,
     appPassword: typeof body.appPassword === "string" ? body.appPassword : undefined,
   });
+  if (typeof body.timezone === "string" && body.timezone) {
+    await app.container.router.gmailSenderConfig.setTimezone(body.businessId, body.timezone);
+  }
   return NextResponse.json({ ok: true });
 }
 

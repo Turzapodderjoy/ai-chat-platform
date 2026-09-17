@@ -29,21 +29,59 @@ interface GmailSender {
   gmailAddress: string | null;
   connected: boolean;
   oauthConnected: boolean;
+  timezone: string;
 }
 
-/** Gmail sender connect box — "Sign in with Google" popup for OAuth, with App Password fallback. */
+const TIMEZONES = [
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "America/Anchorage",
+  "Pacific/Honolulu",
+  "America/Phoenix",
+  "America/Detroit",
+  "America/Indiana/Indianapolis",
+  "America/Toronto",
+  "America/Vancouver",
+  "Europe/London",
+  "Europe/Paris",
+  "Europe/Berlin",
+  "Europe/Moscow",
+  "Asia/Dubai",
+  "Asia/Kolkata",
+  "Asia/Dhaka",
+  "Asia/Bangkok",
+  "Asia/Shanghai",
+  "Asia/Tokyo",
+  "Asia/Seoul",
+  "Asia/Singapore",
+  "Australia/Sydney",
+  "Pacific/Auckland",
+  "Africa/Cairo",
+  "Africa/Lagos",
+  "Africa/Nairobi",
+  "America/Sao_Paulo",
+  "America/Mexico_City",
+  "America/Argentina/Buenos_Aires",
+];
+
+/** Gmail sender connect box — App Password setup with timezone selector. */
 function GmailSenderBox({ businessId, onMessage }: { businessId: string; onMessage: (msg: string) => void }) {
   const [sender, setSender] = useState<GmailSender | null>(null);
   const [editing, setEditing] = useState(false);
   const [emailDraft, setEmailDraft] = useState("");
   const [passwordDraft, setPasswordDraft] = useState("");
   const [saving, setSaving] = useState(false);
-  const [showGuide, setShowGuide] = useState(false);
+  const [timezoneDraft, setTimezoneDraft] = useState("America/New_York");
 
   function refresh() {
     fetch(`/api/admin/gmail-sender-config?businessId=${encodeURIComponent(businessId)}`)
       .then((r) => r.json())
-      .then((data: GmailSender) => setSender(data));
+      .then((data: GmailSender) => {
+        setSender(data);
+        setTimezoneDraft(data.timezone || "America/New_York");
+      });
   }
 
   useEffect(refresh, [businessId]);
@@ -54,7 +92,7 @@ function GmailSenderBox({ businessId, onMessage }: { businessId: string; onMessa
       const res = await fetch("/api/admin/gmail-sender-config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, gmailAddress: emailDraft, appPassword: passwordDraft || undefined }),
+        body: JSON.stringify({ businessId, gmailAddress: emailDraft, appPassword: passwordDraft || undefined, timezone: timezoneDraft }),
       });
       if (res.ok) {
         setEditing(false);
@@ -67,6 +105,19 @@ function GmailSenderBox({ businessId, onMessage }: { businessId: string; onMessa
       }
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveTimezone(tz: string) {
+    setTimezoneDraft(tz);
+    const res = await fetch("/api/admin/gmail-sender-config", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessId, gmailAddress: sender?.gmailAddress ?? "", timezone: tz }),
+    });
+    if (res.ok) {
+      onMessage(`Timezone updated to ${tz}`);
+      refresh();
     }
   }
 
@@ -86,14 +137,28 @@ function GmailSenderBox({ businessId, onMessage }: { businessId: string; onMessa
       </p>
       
       {sender.connected && !editing ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 13 }}>
-            Sending as <strong>{sender.gmailAddress}</strong>
-            {sender.oauthConnected && <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.6 }}>(Google OAuth)</span>}
-            {!sender.oauthConnected && <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.6 }}>(App Password)</span>}
-          </span>
-          {!sender.oauthConnected && <button onClick={() => setEditing(true)} style={{ fontSize: 12, padding: "6px 12px" }}>Change</button>}
-          <button onClick={disconnect} style={{ fontSize: 12, padding: "6px 12px" }}>Disconnect</button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13 }}>
+              Sending as <strong>{sender.gmailAddress}</strong>
+              {sender.oauthConnected && <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.6 }}>(Google OAuth)</span>}
+              {!sender.oauthConnected && <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.6 }}>(App Password)</span>}
+            </span>
+            {!sender.oauthConnected && <button onClick={() => setEditing(true)} style={{ fontSize: 12, padding: "6px 12px" }}>Change</button>}
+            <button onClick={disconnect} style={{ fontSize: 12, padding: "6px 12px" }}>Disconnect</button>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <label style={{ fontSize: 12, opacity: 0.7 }}>Email timezone:</label>
+            <select
+              value={timezoneDraft}
+              onChange={(e) => saveTimezone(e.target.value)}
+              style={{ ...inputStyle, width: "auto", minWidth: 200, fontSize: 12, padding: "5px 8px" }}
+            >
+              {TIMEZONES.map((tz) => (
+                <option key={tz} value={tz}>{tz.replace("_", " ")}</option>
+              ))}
+            </select>
+          </div>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -148,6 +213,18 @@ function GmailSenderBox({ businessId, onMessage }: { businessId: string; onMessa
                 onChange={(e) => setPasswordDraft(e.target.value)}
                 style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
               />
+            </div>
+            <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+              <label style={{ fontSize: 12, opacity: 0.7, display: "block", marginBottom: 4 }}>Timezone</label>
+              <select
+                value={timezoneDraft}
+                onChange={(e) => setTimezoneDraft(e.target.value)}
+                style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
+              >
+                {TIMEZONES.map((tz) => (
+                  <option key={tz} value={tz}>{tz.replace("_", " ")}</option>
+                ))}
+              </select>
             </div>
             <button
               onClick={save}

@@ -255,7 +255,7 @@ export class Container {
       new StatusEmailTemplateService();
 
     const statusEmails =
-      new StatusEmailService(statusEmailTemplates, gmailEmailClient);
+      new StatusEmailService(statusEmailTemplates, gmailEmailClient, tenants);
 
     const autoHeal =
       new AutoHealService(crawlerService, indexingService, embeddings, tenants, masterCsv, refreshSchedule);
@@ -285,7 +285,7 @@ export class Container {
       new StatusEmailTemplateController(statusEmailTemplates);
 
     const gmailSenderConfigController =
-      new GmailSenderConfigController(gmailSenderConfig);
+      new GmailSenderConfigController(gmailSenderConfig, tenants);
 
     const offers =
       new OfferService();

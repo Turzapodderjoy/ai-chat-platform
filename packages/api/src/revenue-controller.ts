@@ -57,6 +57,7 @@ export class RevenueController {
       // forever if the business switches currencies later (same drift
       // bug already fixed on the Invoices/Contacts panels).
       currencySymbol: currencySymbol(business?.subscriptionCurrency),
+      timezone: business?.timezone ?? "America/New_York",
       customerName: contact?.name ?? appointment?.customerName ?? null,
       customerPhone: contact?.phone ?? appointment?.phone ?? null,
       customerEmail: contact?.email ?? appointment?.email ?? null,
@@ -113,6 +114,7 @@ export class RevenueController {
       customerEmail: detail.customerEmail,
       deviceLabel: detail.deviceLabel ?? undefined,
       logoUrl: detail.logoUrl,
+      timezone: detail.timezone,
     });
 
     const result = await this.gmail.send(detail.invoice.businessId, {
