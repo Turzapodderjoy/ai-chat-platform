@@ -63,6 +63,16 @@ model Business {
   // Access panel); defaults to Eastern since this platform's clients
   // are US-based.
   timezone      String   @default("America/New_York")
+  // Last number handed out from this business's single shared sequence:
+  // every appointment gets one at creation, and that same number is what
+  // shows as the appointment #, the order # and the invoice # (see
+  // packages/database/src/document-number.ts). A counter -- not
+  // count()+1 -- so deleting a record never causes a number to be
+  // reused.
+  documentCounter Int    @default(0)
+  // Leading letters of every number in that sequence ("PRAZ" ->
+  // PRAZ00001). Set per business; null falls back to "INV-".
+  documentPrefix  String?
 
   // Which integrations this business can access in their Integrations panel.
   // JSON array of integration IDs (e.g. ["website","email","messenger"]).

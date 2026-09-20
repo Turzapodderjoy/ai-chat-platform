@@ -8,6 +8,7 @@ import { OrderItemsEditor } from "./OrderManagementPanel";
 import { isNewAppointment, dismissNotification, onNotificationsChanged } from "../lib/appointment-notifications";
 import { showConfirm } from "../lib/app-dialog";
 import { AuditHistoryButton } from "./AuditHistoryButton";
+import { WalkInDialog } from "./WalkInDialog";
 
 interface Appointment {
   id: string;
@@ -157,6 +158,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
   const [products, setProducts] = useState<{ id: string; name: string; price: string | null; stock: string | null }[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [timezone, setTimezone] = useState<string | undefined>(undefined);
+  const [walkInOpen, setWalkInOpen] = useState(false);
 
   useEffect(() => {
     if (!businessId) return;
@@ -511,6 +513,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
               {a.source === "website" ? "🌐 Website" : "📅 Scheduled"}
             </span>
           )}
+          {a.serialNumber && <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)" }}>{a.serialNumber}</span>}
           {isNew && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "var(--accent)", color: "#fff", fontSize: 10, fontWeight: 600 }}>New</span>}
           {a.rescheduleRequested && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "var(--warning)", color: "#fff", fontSize: 10, fontWeight: 600 }}>Reschedule</span>}
           {a.cancelRequested && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "var(--danger)", color: "#fff", fontSize: 10, fontWeight: 600 }}>Cancel</span>}
@@ -606,6 +609,14 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
             <p style={{ margin: 0, fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Track repairs from intake to completion</p>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {businessId && (
+              <button
+                onClick={() => setWalkInOpen(true)}
+                style={{ padding: "6px 12px", fontSize: 12, border: "1px solid #f97316", borderRadius: "var(--radius-sm)", background: "#f97316", color: "#fff", cursor: "pointer", fontWeight: 600, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5 }}
+              >
+                🚶 Walk-in
+              </button>
+            )}
             <button
               onClick={() => setViewMode("kanban")}
               style={{
@@ -904,6 +915,9 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
             {/* Quick info row */}
             <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
               <div style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 12 }}>
+                <span style={{ color: "var(--text-faint)" }}>Appt #:</span> <strong>{selected.serialNumber ?? "—"}</strong>
+              </div>
+              <div style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 12 }}>
                 <span style={{ color: "var(--text-faint)" }}>Device:</span> {selected.deviceType}{selected.deviceModel ? ` — ${selected.deviceModel}` : ""}
               </div>
               <div style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 12 }}>
@@ -1119,6 +1133,19 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
           </div>
         );
       })()}
+
+      {walkInOpen && businessId && (
+        <WalkInDialog
+          businessId={businessId}
+          staff={staff}
+          onClose={() => setWalkInOpen(false)}
+          onCreated={(created) => {
+            setWalkInOpen(false);
+            refresh();
+            setSelectedId(created.id);
+          }}
+        />
+      )}
     </section>
   );
 }

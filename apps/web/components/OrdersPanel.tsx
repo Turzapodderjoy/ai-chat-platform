@@ -245,8 +245,19 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
       return [r.id, serial, r.customerName, r.phone, r.detail, r.status]
         .some((f) => f?.toLowerCase().includes(q));
     });
+    // By order number (PRAZ00012 -> 12), highest first by default -- the
+    // number only ever counts up, so it's the creation order without
+    // depending on the date. Rows without one (AI-chat orders) fall back
+    // to the date.
+    const numOf = (r: (typeof rows)[number]): number | null => {
+      const serial = r.kind === "service" ? r.data.serialNumber : undefined;
+      const m = serial ? /(\d+)$/.exec(serial) : null;
+      return m ? Number(m[1]) : null;
+    };
     return result.sort((a, b) => {
-      const diff = new Date(a.date).getTime() - new Date(b.date).getTime();
+      const na = numOf(a);
+      const nb = numOf(b);
+      const diff = na !== null && nb !== null ? na - nb : new Date(a.date).getTime() - new Date(b.date).getTime();
       return sortOrder === "newest" ? -diff : diff;
     });
   }, [rows, search, dateFrom, dateTo, sortOrder]);
@@ -353,8 +364,8 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
           To <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ padding: 6 }} />
         </label>
         <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")} style={{ padding: 8, fontSize: 12 }}>
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
+          <option value="newest">Highest # first</option>
+          <option value="oldest">Lowest # first</option>
         </select>
         {(search || dateFrom || dateTo) && (
           <button onClick={() => { setSearch(""); setDateFrom(""); setDateTo(""); }} style={{ fontSize: 12, padding: "8px 12px" }}>

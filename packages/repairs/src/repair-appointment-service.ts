@@ -1,6 +1,6 @@
 import { randomInt } from "node:crypto";
 
-import { prisma, logAudit } from "@ai-chat-platform/database";
+import { prisma, logAudit, nextDocumentNumber } from "@ai-chat-platform/database";
 
 export interface RepairAppointmentInput {
   businessId: string;
@@ -191,6 +191,10 @@ export class RepairAppointmentService {
         deviceType: input.deviceType,
         deviceModel: input.deviceModel ?? null,
         issueDescription: input.issueDescription,
+        // Every appointment -- website form, walk-in, dashboard order, AI
+        // chat -- gets its number here, once, from the business's shared
+        // sequence; the order # and invoice # are this same value.
+        serialNumber: await nextDocumentNumber(input.businessId),
         appointmentDate: input.appointmentDate,
         isWalkIn: input.isWalkIn ?? false,
         wantsFreeDiagnosis: input.wantsFreeDiagnosis ?? false,
@@ -328,17 +332,6 @@ export class RepairAppointmentService {
     }
   }
 
-  /** Per-business global sequence ("001", "002", "003"...) -- simple
-   * sequential numbering across all time, not reset daily. */
-  async nextSerialNumber(businessId: string): Promise<string> {
-    const count = await prisma.repairAppointment.count({ where: { businessId } });
-    return String(count + 1).padStart(3, "0");
-  }
-
-  async setSerialNumber(id: string, serialNumber: string): Promise<RepairAppointment> {
-    const row = await prisma.repairAppointment.update({ where: { id }, data: { serialNumber }, include: { items: true } });
-    return toAppointment(row);
-  }
 
   /** Mirrors the linked Invoice's "Paid" override -- so the order's own
    * total (see OrderManagementPanel's orderTotal()) matches what was
@@ -361,17 +354,14 @@ export class RepairAppointmentService {
    * parses as a plain number; a non-numeric stock value is left alone
    * rather than silently corrupted. */
   async addItem(repairAppointmentId: string, input: AddOrderItemInput, actorUsername: string): Promise<RepairOrderItem> {
-    // Lazily assigns a serial number on the FIRST item added -- covers
-    // both entry points: an order created via createOrderEntry (already
-    // has one) and the "Manage Order" button on a normal booking (never
-    // had one until now), with no separate "assign serial" step either
-    // one needs to remember to call.
+    // book() numbers every new appointment, so this only ever fires for a
+    // legacy row created before that -- same shared sequence either way.
     const appointment = await prisma.repairAppointment.findUnique({
       where: { id: repairAppointmentId },
       select: { businessId: true, serialNumber: true },
     });
     if (appointment && !appointment.serialNumber) {
-      const serialNumber = await this.nextSerialNumber(appointment.businessId);
+      const serialNumber = await nextDocumentNumber(appointment.businessId);
       await prisma.repairAppointment.update({ where: { id: repairAppointmentId }, data: { serialNumber } });
     }
 

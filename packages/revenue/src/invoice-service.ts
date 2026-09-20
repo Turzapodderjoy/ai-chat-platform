@@ -1,4 +1,4 @@
-import { prisma, logAudit, archiveDeleted } from "@ai-chat-platform/database";
+import { prisma, logAudit, archiveDeleted, nextDocumentNumber } from "@ai-chat-platform/database";
 
 import { calcTotals, type LineItemInput } from "./money";
 
@@ -131,13 +131,30 @@ async function adjustProductStock(productId: string, delta: number): Promise<voi
 }
 
 export class InvoiceService {
-  private async nextInvoiceNumber(businessId: string): Promise<string> {
-    const count = await prisma.invoice.count({ where: { businessId } });
-    return `INV-${String(count + 1).padStart(4, "0")}`;
+  /** An invoice generated from an appointment carries THAT appointment's
+   * number (the appointment #, order # and invoice # are one value); a
+   * hand-made invoice with no appointment behind it draws its own from
+   * the same shared sequence, so the two can never collide. */
+  private async invoiceNumberFor(businessId: string, repairAppointmentId?: string): Promise<string> {
+    if (repairAppointmentId) {
+      const appt = await prisma.repairAppointment.findUnique({ where: { id: repairAppointmentId }, select: { serialNumber: true } });
+      const existing = await prisma.invoice.findFirst({ where: { repairAppointmentId }, select: { invoiceNumber: true } });
+      if (existing) {
+        throw new Error(`This order already has an invoice (#${existing.invoiceNumber}) -- edit or delete that one instead.`);
+      }
+      let serial = appt?.serialNumber;
+      if (!serial) {
+        // Legacy appointment from before every booking was numbered.
+        serial = await nextDocumentNumber(businessId);
+        await prisma.repairAppointment.update({ where: { id: repairAppointmentId }, data: { serialNumber: serial } });
+      }
+      return serial;
+    }
+    return nextDocumentNumber(businessId);
   }
 
   async create(input: CreateInvoiceInput, actorUsername: string): Promise<Invoice> {
-    const invoiceNumber = await this.nextInvoiceNumber(input.businessId);
+    const invoiceNumber = await this.invoiceNumberFor(input.businessId, input.repairAppointmentId);
     const business = await prisma.business.findUnique({ where: { id: input.businessId }, select: { subscriptionCurrency: true } });
     const row = await prisma.invoice.create({
       data: {

@@ -105,6 +105,36 @@ export class RepairController {
     return { trackingToken };
   }
 
+  /** A customer standing in the shop: the same booking as the website
+   * form (tracking code, Customer Database contact, Inbox thread, booking
+   * email, order number), just entered by staff and booked for right now
+   * -- plus the optional technician/priority the form doesn't have, and a
+   * "booked" activity entry naming who entered it. */
+  async bookWalkIn(
+    input: Omit<BookRepairInput, "appointmentDate" | "isWalkIn" | "source"> & { technicianId?: string; priority?: string },
+    actorUsername: string
+  ) {
+    const { trackingToken } = await this.book({
+      businessId: input.businessId,
+      customerName: input.customerName,
+      phone: input.phone,
+      email: input.email,
+      deviceType: input.deviceType,
+      deviceModel: input.deviceModel,
+      issueDescription: input.issueDescription,
+      wantsFreeDiagnosis: input.wantsFreeDiagnosis,
+      appointmentDate: new Date().toISOString(),
+      isWalkIn: true,
+      source: "walk-in",
+    });
+    const appointment = await this.repairs.findByToken(trackingToken);
+    if (!appointment) throw new Error("Walk-in was created but couldn't be reloaded.");
+    if (input.priority) await this.repairs.updatePriority(appointment.id, input.priority);
+    if (input.technicianId) await this.repairs.assignTechnician(appointment.id, input.technicianId);
+    await logAudit({ businessId: input.businessId, entityType: "repair", entityId: appointment.id, action: "booked", detail: input.customerName, actorUsername });
+    return this.repairs.findByToken(trackingToken);
+  }
+
   private async sendBookingEmail(input: BookRepairInput, trackingToken: string): Promise<void> {
     if (!input.email) return;
 
@@ -265,9 +295,6 @@ export class RepairController {
     // so every later addMessage() (status change, cancel, invoice) threw a
     // FK error and 500'd even though its own DB write had already committed.
     await this.conversations.getOrCreate(trackingToken, input.businessId, "customer", false, "repair-tracking", null);
-
-    const serialNumber = await this.repairs.nextSerialNumber(input.businessId);
-    await this.repairs.setSerialNumber(appointment.id, serialNumber);
 
     // Same auto-Contact pattern as book() above, but linked via the real
     // contactId FK this time (rather than left phone-matched) so
