@@ -22,7 +22,11 @@ export async function resolveAdminActor(req: NextRequest): Promise<string> {
   if (clientToken) {
     const app = await getApp();
     const session = await app.container.router.clientAuth.getSession(clientToken);
-    if (session?.isAdmin) return session.username;
+    // Any valid client session gets its own username, admin or not --
+    // this used to require session.isAdmin, so a shop owner/staff login
+    // (e.g. "Fardin") fell through to the "admin" default below and every
+    // change they made was recorded as "admin", a login nobody uses.
+    if (session) return session.username;
   }
 
   return "admin";
