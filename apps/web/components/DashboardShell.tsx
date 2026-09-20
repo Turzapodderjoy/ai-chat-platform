@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { NavIcon } from "./nav-icons";
 import { AppDialogHost } from "../lib/app-dialog";
+import { useNoSearchAutofill } from "../lib/no-search-autofill";
 
 type ThemeMode = "dark" | "light";
 
@@ -61,6 +62,7 @@ export function DashboardShell<T extends string>({
   fillHeight?: boolean;
   children: ReactNode;
 }) {
+  useNoSearchAutofill();
   const [collapsed, setCollapsed] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<number, boolean>>({});
   const [isMobile, setIsMobile] = useState(false);
