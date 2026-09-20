@@ -238,6 +238,23 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
 
   const selected = appointments?.find((a) => a.id === selectedId) ?? null;
 
+  // Who created a staff-entered appointment: the "booked" audit entry's
+  // actor. A website-form booking has no such entry (its own source says
+  // "website"), so this stays null for those.
+  const [bookedBy, setBookedBy] = useState<string | null>(null);
+  useEffect(() => {
+    setBookedBy(null);
+    if (!selected?.id) return;
+    let cancelled = false;
+    fetch(`/api/admin/audit-log?entityType=repair&entityId=${encodeURIComponent(selected.id)}`)
+      .then((r) => r.json())
+      .then((d: { entries?: { action: string; actorUsername: string }[] }) => {
+        if (!cancelled) setBookedBy(d.entries?.find((e) => e.action === "booked")?.actorUsername ?? null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [selected?.id]);
+
   function fetchMessages(token: string) {
     fetch(`/api/chat/messages?sessionId=${encodeURIComponent(token)}`)
       .then((r) => r.json())
@@ -491,7 +508,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
           )}
           {!a.isWalkIn && a.source !== "walkin" && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "#6366f1", color: "#fff", fontSize: 10, fontWeight: 600 }}>
-              📅 Scheduled
+              {a.source === "website" ? "🌐 Website" : "📅 Scheduled"}
             </span>
           )}
           {isNew && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "var(--accent)", color: "#fff", fontSize: 10, fontWeight: 600 }}>New</span>}
@@ -906,7 +923,13 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
                 {new Date(selected.createdAt).toLocaleString("en-US", { timeZone: timezone, dateStyle: "medium", timeStyle: "short" })}
               </div>
               <div style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 12 }}>
-                <span style={{ color: "var(--text-faint)" }}>Source:</span> {selected.isWalkIn ? "🚶 Walk-in" : "📅 Scheduled"}
+                <span style={{ color: "var(--text-faint)" }}>Source:</span> {selected.source === "website"
+                  ? "🌐 Website"
+                  : selected.isWalkIn
+                    ? `🚶 Walk-in${bookedBy ? ` · ${bookedBy}` : ""}`
+                    : bookedBy
+                      ? `🖥 ${bookedBy}`
+                      : "—"}
               </div>
               <button
                 onClick={() => { navigator.clipboard.writeText(selected.trackingToken); }}
