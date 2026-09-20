@@ -537,6 +537,11 @@ export class ClientAuthService {
     await this.logActivity(accountId, "max_devices", max === null ? "default" : String(max), changedBy);
   }
 
+  /** Whether a ClientAccount with this exact username exists (any state). */
+  async usernameExists(username: string): Promise<boolean> {
+    return (await prisma.clientAccount.count({ where: { username: username.trim() } })) > 0;
+  }
+
   async login(username: string, password: string, remember: boolean, ip?: string): Promise<LoginResult | null> {
     const account = await prisma.clientAccount.findUnique({ where: { username: username.trim() } });
     if (!account || account.disabled) return null;

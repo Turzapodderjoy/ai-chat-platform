@@ -110,7 +110,7 @@ export default function HomeClient() {
             <p className={styles.formSubtitle}>Sign in to your account to continue</p>
           </div>
 
-          <form className={styles.form} onSubmit={enter} noValidate>
+          <form className={styles.form} onSubmit={enter} noValidate data-allow-autofill>
             {error && <div className={styles.errorMessage}>{error}</div>}
 
             <div className={styles.field}>

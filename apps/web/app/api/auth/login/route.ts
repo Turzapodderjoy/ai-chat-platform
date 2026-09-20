@@ -46,7 +46,14 @@ export async function POST(req: NextRequest) {
 
   const remember = Boolean(body.remember);
 
-  if (checkAdminCredentials(body.username, body.password)) {
+  const app = await getApp();
+
+  // The fixed env-var admin login is only the fallback. Once the same
+  // username exists in the Admin Users panel, that account governs it
+  // (password change, disable, delete all take effect) -- otherwise the
+  // env password would keep working no matter what was set there.
+  const managedInPanel = await app.container.router.clientAuth.usernameExists(body.username);
+  if (!managedInPanel && checkAdminCredentials(body.username, body.password)) {
     const { token, expiresAt } = createAdminToken(remember ? 30 : 1);
     const res = NextResponse.json({ admin: true });
     res.cookies.delete(CLIENT_COOKIE);
@@ -59,8 +66,6 @@ export async function POST(req: NextRequest) {
     });
     return res;
   }
-
-  const app = await getApp();
 
   let result;
   try {

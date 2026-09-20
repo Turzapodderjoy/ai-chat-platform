@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { NoAutofill } from "../components/NoAutofill";
 
 export const metadata: Metadata = {
   title: "AIVA",
@@ -22,6 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif', WebkitFontSmoothing: "antialiased", MozOsxFontSmoothing: "grayscale" }}>
+        <NoAutofill />
         {children}
       </body>
     </html>

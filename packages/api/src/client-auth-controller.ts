@@ -79,6 +79,10 @@ export class ClientAuthController {
     return this.clientAuth.remove(id);
   }
 
+  usernameExists(username: string) {
+    return this.clientAuth.usernameExists(username);
+  }
+
   login(username: string, password: string, remember: boolean, ip?: string) {
     return this.clientAuth.login(username, password, remember, ip);
   }
