@@ -1,4 +1,4 @@
-import { logAudit } from "@ai-chat-platform/database";
+import { logAudit, archiveDeleted } from "@ai-chat-platform/database";
 import { ConversationService } from "@ai-chat-platform/conversation";
 import { RepairAppointmentService, StaffService, type AddOrderItemInput } from "@ai-chat-platform/repairs";
 import { GmailEmailClient, StatusEmailService } from "@ai-chat-platform/email";
@@ -335,6 +335,18 @@ export class RepairController {
   async deleteAppointment(id: string, actorUsername: string): Promise<{ ok: true }> {
     const appointment = await this.repairs.findById(id);
     if (appointment) {
+      // Keep a full copy (order items + the chat thread that's about to
+      // cascade away with the conversation) before anything is removed --
+      // see DeletedRecord / the admin-only Deleted Data panel.
+      const messages = await this.conversations.history(appointment.trackingToken, 1000);
+      await archiveDeleted({
+        businessId: appointment.businessId,
+        entityType: "repair",
+        entityId: id,
+        label: appointment.customerName,
+        data: { appointment, messages },
+        deletedBy: actorUsername,
+      });
       // trackingToken doubles as the linked Conversation's id — remove
       // that too (messages cascade), not just the appointment row,
       // otherwise the tracking page's message thread outlives the

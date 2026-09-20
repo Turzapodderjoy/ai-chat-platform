@@ -1,4 +1,4 @@
-import { prisma, logAudit } from "@ai-chat-platform/database";
+import { prisma, logAudit, archiveDeleted } from "@ai-chat-platform/database";
 
 import { calcTotals, type LineItemInput } from "./money";
 
@@ -191,8 +191,11 @@ export class InvoiceService {
   }
 
   async delete(id: string, actorUsername: string): Promise<void> {
-    const invoice = await prisma.invoice.findUnique({ where: { id }, select: { businessId: true, invoiceNumber: true } });
+    const invoice = await prisma.invoice.findUnique({ where: { id }, include: INCLUDE });
     const existing = await prisma.invoiceItem.findMany({ where: { invoiceId: id }, select: { productId: true, quantity: true } });
+    if (invoice) {
+      await archiveDeleted({ businessId: invoice.businessId, entityType: "invoice", entityId: id, label: invoice.invoiceNumber, data: invoice, deletedBy: actorUsername });
+    }
     await prisma.invoice.delete({ where: { id } });
     for (const item of existing) {
       if (item.productId) await adjustProductStock(item.productId, item.quantity);

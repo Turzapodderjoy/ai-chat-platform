@@ -31,10 +31,11 @@ import { DashboardShell, type NavGroup } from "../../../components/DashboardShel
 import { RemovableSection } from "../../../components/RemovableSection";
 import { AgentConsole } from "../../../components/AgentConsole";
 import { UserSettingsPanel } from "../../../components/UserSettingsPanel";
+import { DeletedDataPanel } from "../../../components/DeletedDataPanel";
 import { ClientHomePanel } from "../../../components/ClientHomePanel";
 import { AppointmentNotificationBell } from "../../../components/AppointmentNotificationBell";
 
-type Tab = "home" | "overview" | "tagdashboard" | "knowledge" | "products" | "inventory" | "orders" | "delivery" | "repairs" | "offers" | "staff" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "invoices" | "reports" | "notifications" | "settings";
+type Tab = "home" | "overview" | "tagdashboard" | "knowledge" | "products" | "inventory" | "orders" | "delivery" | "repairs" | "offers" | "staff" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "invoices" | "reports" | "notifications" | "settings" | "deleted";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "home", label: "Home" }, { id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }, { id: "reports", label: "Reports" }] },
@@ -371,7 +372,14 @@ export default function ClientDashboardClient() {
       })).filter((g) => g.items.length > 0)
     : baseGroups;
 
-  const badgedGroups: NavGroup<Tab>[] = visibleGroups.map((g) => ({
+  // Deleted Data is platform-admin-only: never added for a real client
+  // session or an admin previewing as one (actsAsClient), and the API
+  // behind it refuses non-admins on its own regardless of this.
+  const groupsWithAdminTools: NavGroup<Tab>[] = actsAsClient
+    ? visibleGroups
+    : [...visibleGroups, { label: "Admin", items: [{ id: "deleted", label: "Deleted Data" }] }];
+
+  const badgedGroups: NavGroup<Tab>[] = groupsWithAdminTools.map((g) => ({
     ...g,
     items: g.items.map((i) =>
       i.id === "repairs" ? { ...i, badge: repairsBadge } : i.id === "allchats" ? { ...i, badge: inboxBadge } : i
@@ -527,8 +535,10 @@ export default function ClientDashboardClient() {
         ["review", <ChatLearningPanel key="review" businessId={businessId} />],
         ["channels", <ChannelsPanel key="channels" businessId={businessId} />],
         ["settings", <UserSettingsPanel key="settings" active={tab === "settings"} businessId={businessId} />],
+        ["deleted", <DeletedDataPanel key="deleted" businessId={businessId} active={tab === "deleted"} />],
       ] as [Tab, ReactNode][])
         .filter(([id]) => id !== "settings" || accountRole === "owner")
+        .filter(([id]) => id !== "deleted" || !actsAsClient)
         .map(([id, panel]) => (
         <div
           key={id}

@@ -935,6 +935,30 @@ model AuditLog {
   @@index([businessId, createdAt])
 }
 
+// A full copy of a record at the moment it was deleted through the app
+// (repair/order, invoice, contact, inventory product) -- the source rows
+// are hard-deleted, so without this a mistaken or unexplained delete is
+// unrecoverable and unexplainable. Same plain-string, no-FK style as
+// AuditLog/AccountActivityLog: it has to outlive the row (and the
+// business) it describes. Admin-only surface, see DeletedDataPanel.
+model DeletedRecord {
+  id            String   @id @default(cuid())
+  businessId    String
+  // "repair" | "invoice" | "contact" | "product"
+  entityType    String
+  entityId      String
+  // Short human summary for the table's first column (customer name,
+  // invoice number, product name...).
+  label         String
+  // The complete deleted row plus anything that cascaded with it
+  // (order items, invoice items/payments, chat messages).
+  data          Json
+  deletedBy     String
+  deletedAt     DateTime @default(now())
+
+  @@index([businessId, entityType, deletedAt])
+}
+
 // Disabling or deleting the owning ClientAccount deletes these too
 // (cascade), which is what makes "restrict" kick out an already-logged-in
 // session immediately rather than waiting for it to expire.

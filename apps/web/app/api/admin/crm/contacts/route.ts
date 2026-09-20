@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getApp } from "../../../../../lib/app";
+import { resolveAdminActor } from "../../../../../lib/admin-actor";
 
 export async function GET(req: NextRequest) {
   const app = await getApp();
@@ -59,6 +60,6 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
   const app = await getApp();
-  await app.container.router.crm.deleteContact(id);
+  await app.container.router.crm.deleteContact(id, await resolveAdminActor(req));
   return NextResponse.json({ ok: true });
 }

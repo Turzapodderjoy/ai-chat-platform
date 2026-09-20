@@ -25,8 +25,8 @@ export class ProductController {
     return this.products.update(id, input);
   }
 
-  deleteProduct(id: string) {
-    return this.products.delete(id);
+  deleteProduct(id: string, actorUsername: string) {
+    return this.products.delete(id, actorUsername);
   }
 
   importProducts(businessId: string, fileBuffer: Buffer) {

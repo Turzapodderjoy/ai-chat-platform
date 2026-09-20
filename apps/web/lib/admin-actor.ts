@@ -31,3 +31,20 @@ export async function resolveAdminActor(req: NextRequest): Promise<string> {
 
   return "admin";
 }
+
+/** True only for a real platform admin (the fixed admin login, or a
+ * ClientAccount flagged isAdmin) -- NOT for any valid session. The open
+ * /api/admin/* surface accepts a shop owner's or staff member's session
+ * too (see CLAUDE.md's known gap), so a route that must never reach a
+ * client (e.g. the Deleted Data panel) has to check this itself. */
+export async function isPlatformAdmin(req: NextRequest): Promise<boolean> {
+  if (verifyAdminToken(req.cookies.get(ADMIN_COOKIE)?.value)) return true;
+
+  const clientToken = req.cookies.get(CLIENT_COOKIE)?.value;
+  if (clientToken) {
+    const app = await getApp();
+    const session = await app.container.router.clientAuth.getSession(clientToken);
+    return Boolean(session?.isAdmin);
+  }
+  return false;
+}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getApp } from "../../../../lib/app";
+import { resolveAdminActor } from "../../../../lib/admin-actor";
 
 /** Product Catalog panel's data source — search + offset pagination. */
 export async function GET(req: NextRequest) {
@@ -68,7 +69,7 @@ export async function DELETE(req: NextRequest) {
 
   try {
     const app = await getApp();
-    await app.container.router.products.deleteProduct(id);
+    await app.container.router.products.deleteProduct(id, await resolveAdminActor(req));
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 400 });

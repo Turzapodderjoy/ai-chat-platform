@@ -15,8 +15,8 @@ export class CrmController {
     return this.contacts.setCompany(id, companyName, companyDomain);
   }
 
-  deleteContact(id: string) {
-    return this.contacts.delete(id);
+  deleteContact(id: string, actorUsername: string) {
+    return this.contacts.delete(id, actorUsername);
   }
 
   getContactRecord(id: string) {
