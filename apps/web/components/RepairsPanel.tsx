@@ -156,9 +156,13 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
   const [completedPromptId, setCompletedPromptId] = useState<string | null>(null);
   const [products, setProducts] = useState<{ id: string; name: string; price: string | null; stock: string | null }[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [timezone, setTimezone] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (!businessId) return;
+    fetch(`/api/admin/clients/${businessId}`)
+      .then((r) => r.json())
+      .then((d: { timezone?: string }) => { if (d.timezone) setTimezone(d.timezone); });
     fetch(`/api/admin/products?businessId=${encodeURIComponent(businessId)}&limit=200`)
       .then((r) => r.json())
       .then((d: { products: { id: string; name: string; price: string | null; stock: string | null }[] }) => setProducts(d.products));
@@ -886,7 +890,20 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
                 <span style={{ color: "var(--text-faint)" }}>Device:</span> {selected.deviceType}{selected.deviceModel ? ` — ${selected.deviceModel}` : ""}
               </div>
               <div style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 12 }}>
-                <span style={{ color: "var(--text-faint)" }}>Date:</span> {new Date(selected.appointmentDate).toLocaleString()}
+                <span style={{ color: "var(--text-faint)" }}>Slot booked:</span>{" "}
+                {(() => {
+                  const fmt = (iso: string) => new Date(iso).toLocaleString("en-US", { timeZone: timezone, dateStyle: "medium", timeStyle: "short" });
+                  if (selected.isWalkIn) return "Walk-in";
+                  // An order made from the dashboard (no customer-picked slot)
+                  // stamps appointmentDate = "now", i.e. within moments of
+                  // createdAt -- a real booked slot is never that close.
+                  const noSlot = Math.abs(new Date(selected.appointmentDate).getTime() - new Date(selected.createdAt).getTime()) < 60_000;
+                  return noSlot ? "No slot chosen" : fmt(selected.appointmentDate);
+                })()}
+              </div>
+              <div style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 12 }}>
+                <span style={{ color: "var(--text-faint)" }}>Created:</span>{" "}
+                {new Date(selected.createdAt).toLocaleString("en-US", { timeZone: timezone, dateStyle: "medium", timeStyle: "short" })}
               </div>
               <div style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 12 }}>
                 <span style={{ color: "var(--text-faint)" }}>Source:</span> {selected.isWalkIn ? "🚶 Walk-in" : "📅 Scheduled"}
