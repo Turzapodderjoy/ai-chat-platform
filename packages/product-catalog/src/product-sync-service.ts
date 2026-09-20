@@ -1,4 +1,4 @@
-import { prisma } from "@ai-chat-platform/database";
+import { prisma, reconcileLotsToStock } from "@ai-chat-platform/database";
 import * as XLSX from "xlsx";
 import type { VectorStoreManager } from "@ai-chat-platform/vector-store";
 import type { VisionService } from "@ai-chat-platform/vision";
@@ -393,6 +393,7 @@ export class ProductSyncService {
           where: { id: existing.id },
           data: { name: product.name, price: product.price, stock: product.stock, description: product.description },
         });
+        await reconcileLotsToStock(existing.id);
         updated++;
       } else {
         await prisma.product.create({

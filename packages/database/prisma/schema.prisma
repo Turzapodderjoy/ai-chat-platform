@@ -969,6 +969,29 @@ model DeletedRecord {
   @@index([businessId, entityType, deletedAt])
 }
 
+// One received batch of an Inventory product: how many, at what cost and
+// sell price, when and by whom. Stock is consumed oldest-lot-first (FIFO),
+// and each sale records the lot cost it actually used -- so a restock at a
+// new price never changes what an earlier sale cost. Product.stock stays
+// the sum of remaining across lots; Product.costPrice/price are the
+// CURRENT (newest lot's) values. Plain string ids like AuditLog: the
+// history has to outlive the product.
+model ProductLot {
+  id         String   @id @default(cuid())
+  businessId String
+  productId  String
+  quantity   Float
+  remaining  Float
+  costPrice  Float?
+  sellPrice  Float?
+  receivedBy String
+  note       String?
+  receivedAt DateTime @default(now())
+
+  @@index([productId, receivedAt])
+  @@index([businessId])
+}
+
 // Disabling or deleting the owning ClientAccount deletes these too
 // (cascade), which is what makes "restrict" kick out an already-logged-in
 // session immediately rather than waiting for it to expire.
@@ -1274,6 +1297,12 @@ model RepairOrderItem {
   // ever shown/editable, when productId is null. Keeps profit accurate
   // for a part/service that was never added to Inventory.
   costPrice           Float?
+  // Which stock lots (ProductLot) this line's quantity was taken from,
+  // [{ lotId, quantity, unitCost }] -- lets a removal/delete put units back
+  // into the exact lots they came from. For an inventory-linked line,
+  // costPrice above is the weighted unit cost of THOSE lots at the time,
+  // so a later restock at a new cost never rewrites this sale's cost.
+  lotAllocations      Json?
 
   repairAppointment RepairAppointment @relation(fields: [repairAppointmentId], references: [id], onDelete: Cascade)
 
@@ -1486,6 +1515,9 @@ model InvoiceItem {
   // cost basis at all. Never sent to the customer -- only unitPrice
   // (the sell price) appears on the printed/emailed invoice.
   costPrice Float?
+  // Same as RepairOrderItem.lotAllocations, for a hand-made invoice line
+  // that picked an Inventory product.
+  lotAllocations Json?
   name      String
   quantity  Float   @default(1)
   unitPrice Float

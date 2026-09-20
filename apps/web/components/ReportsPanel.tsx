@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { cardStyle, subtleTextStyle, badgeStyle, type BadgeTone } from "./dashboard-styles";
+import { cardStyle, cellStyle, subtleTextStyle, badgeStyle, type BadgeTone } from "./dashboard-styles";
 import { StatCard, StatCardRow } from "./StatCard";
 import { RemovableSection } from "./RemovableSection";
 import { useCurrencySymbol } from "../lib/currency";
@@ -97,6 +97,113 @@ function BreakdownBar({ label, count, total, tone }: { label: string; count: num
       </div>
       <span style={{ minWidth: 28, width: "auto", textAlign: "right", flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>{count}</span>
     </div>
+  );
+}
+
+interface InventoryUsageRow {
+  date: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  orderNumber: string | null;
+  invoiceNumber: string | null;
+  usedBy: string;
+  costPrice: number | null;
+  sellPrice: number;
+  discount: number;
+}
+
+/** Which inventory products were used, in what quantity, on which
+ * order/invoice, by whom -- with the cost each unit carried (from the
+ * stock lot it came out of) against the price billed, and any discount. */
+function InventoryUsageSection({ businessId, from, to, active, money }: { businessId: string; from: string; to: string; active: boolean; money: (n: number) => string }) {
+  const [rows, setRows] = useState<InventoryUsageRow[] | null>(null);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    if (!active) return;
+    function load() {
+      const params = new URLSearchParams({ businessId, from, to });
+      fetch(`/api/admin/reports/inventory?${params.toString()}`)
+        .then((r) => r.json())
+        .then((d: { rows?: InventoryUsageRow[] }) => setRows(d.rows ?? []))
+        .catch(() => setRows((prev) => prev ?? []));
+    }
+    load();
+    const interval = setInterval(load, 10000);
+    return () => clearInterval(interval);
+  }, [businessId, from, to, active]);
+
+  const visible = useMemo(() => {
+    const words = search.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return rows ?? [];
+    return (rows ?? []).filter((r) => {
+      const hay = `${r.productName} ${r.orderNumber ?? ""} ${r.invoiceNumber ?? ""} ${r.usedBy}`.toLowerCase();
+      return words.every((w) => hay.includes(w));
+    });
+  }, [rows, search]);
+
+  const money2 = (n: number) => `${money(0).replace(/0$/, "")}${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  const totals = visible.reduce(
+    (t, r) => ({ qty: t.qty + r.quantity, cost: t.cost + (r.costPrice ?? 0) * r.quantity, sales: t.sales + r.sellPrice * r.quantity, discount: t.discount + r.discount }),
+    { qty: 0, cost: 0, sales: 0, discount: 0 }
+  );
+
+  return (
+    <section style={cardStyle}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 4 }}>
+        <h2 style={{ margin: 0 }}>Inventory Usage</h2>
+        <input
+          name="aiva-search-inventory-usage"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search product, order/invoice #, user…"
+          autoComplete="off"
+          style={{ padding: "6px 8px", fontSize: 12.5, minWidth: 220 }}
+        />
+      </div>
+      <p style={subtleTextStyle}>Every inventory product used in the selected period. Cost is what those units cost when bought (each restock lot keeps its own cost); price is what the invoice billed.</p>
+      {!rows ? (
+        <p style={subtleTextStyle}>Loading…</p>
+      ) : visible.length === 0 ? (
+        <p style={subtleTextStyle}>No inventory used in this period.</p>
+      ) : (
+        <>
+          <StatCardRow>
+            <StatCard label="Units Used" value={totals.qty.toLocaleString()} tone="info" />
+            <StatCard label="Cost" value={money2(totals.cost)} tone="warning" />
+            <StatCard label="Billed" value={money2(totals.sales)} tone="info" />
+            <StatCard label="Discounts" value={money2(totals.discount)} tone={totals.discount > 0 ? "warning" : "info"} />
+            <StatCard label="Profit" value={money2(totals.sales - totals.discount - totals.cost)} tone={totals.sales - totals.discount - totals.cost >= 0 ? "success" : "warning"} />
+          </StatCardRow>
+          <div className="table-scroll">
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+              <thead>
+                <tr>
+                  {["Date", "Order / Invoice #", "Product", "Qty", "Used by", "Cost (each)", "Price (each)", "Discount"].map((h) => (
+                    <th key={h} style={{ ...cellStyle, fontSize: 11, color: "var(--text-faint)", textAlign: "left" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((r, i) => (
+                  <tr key={`${r.date}-${r.productId}-${i}`}>
+                    <td style={cellStyle}>{new Date(r.date).toLocaleDateString()}</td>
+                    <td style={cellStyle}>{r.invoiceNumber ?? r.orderNumber ?? "—"}</td>
+                    <td style={cellStyle}>{r.productName}</td>
+                    <td style={cellStyle}>{r.quantity}</td>
+                    <td style={cellStyle}>{r.usedBy}</td>
+                    <td style={cellStyle}>{r.costPrice === null ? "—" : money2(r.costPrice)}</td>
+                    <td style={cellStyle}>{money2(r.sellPrice)}</td>
+                    <td style={cellStyle}>{r.discount > 0 ? `-${money2(r.discount)}` : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -284,6 +391,10 @@ export function ReportsPanel({
           <StatCard label="New This Month" value={String(crm.newContactsThisMonth)} tone="success" />
         </StatCardRow>
       </section></RemovableSection>}
+
+      {businessId && has("inventory") && <RemovableSection id="reports.inventory" hidden={isHidden("reports.inventory")} editable={editable} onToggle={toggle}>
+        <InventoryUsageSection businessId={businessId} from={from} to={to} active={active} money={money} />
+      </RemovableSection>}
     </>
   );
 }

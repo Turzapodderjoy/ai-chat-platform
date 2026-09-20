@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 
 import { cardStyle, cellStyle, subtleTextStyle } from "./dashboard-styles";
 
@@ -14,44 +14,52 @@ interface DeletedRecord {
   deletedAt: string;
 }
 
-const str = (v: unknown): string => (v === null || v === undefined || v === "" ? "—" : String(v));
+type Col = { head: string; get: (d: Record<string, unknown>) => string };
 
-// data is whatever the row looked like when it was deleted (see each
-// service's archiveDeleted call), so every accessor tolerates a missing
-// field instead of assuming the shape of a row from an older schema.
+const str = (v: unknown): string => (v === null || v === undefined || v === "" ? "—" : String(v).trim() || "—");
+const len = (v: unknown): string => String(Array.isArray(v) ? v.length : 0);
+
+// data is whatever the row looked like when it was deleted (or when a
+// backup last saw it), so every accessor tolerates a missing field
+// instead of assuming the shape of a row from an older schema.
 const appt = (d: Record<string, unknown>) => (d.appointment ?? {}) as Record<string, unknown>;
 const invoiceTotal = (d: Record<string, unknown>): number => {
   if (typeof d.totalOverride === "number") return d.totalOverride;
   const items = (d.items as { quantity: number; unitPrice: number }[] | undefined) ?? [];
-  const subtotal = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const subtotal = items.reduce((s, i) => s + Number(i.quantity) * Number(i.unitPrice), 0);
   return subtotal - Number(d.discount ?? 0) + Number(d.tax ?? 0);
 };
+const lastMessage = (d: Record<string, unknown>): string => {
+  const msgs = (d.messages as { content?: string }[] | undefined) ?? [];
+  const m = msgs[msgs.length - 1]?.content;
+  return m ? (m.length > 70 ? `${m.slice(0, 70)}…` : m) : "—";
+};
 
-const TYPES: { id: string; label: string; columns: { head: string; get: (d: Record<string, unknown>, tz?: string) => string }[] }[] = [
+const TYPES: { id: string; label: string; columns: Col[] }[] = [
   {
     id: "repair",
     label: "Repairs / Orders",
     columns: [
+      { head: "Order #", get: (d) => str(appt(d).serialNumber) },
       { head: "Customer", get: (d) => str(appt(d).customerName) },
       { head: "Phone", get: (d) => str(appt(d).phone) },
       { head: "Device", get: (d) => [appt(d).deviceType, appt(d).deviceModel].filter(Boolean).join(" ") || "—" },
       { head: "Issue", get: (d) => str(appt(d).issueDescription) },
       { head: "Status", get: (d) => str(appt(d).status) },
-      { head: "Tracking", get: (d) => str(appt(d).trackingToken) },
-      { head: "Items", get: (d) => String(((appt(d).items as unknown[]) ?? []).length) },
-      { head: "Messages", get: (d) => String(((d.messages as unknown[]) ?? []).length) },
+      { head: "Items", get: (d) => len(appt(d).items) },
+      { head: "Messages", get: (d) => len(d.messages) },
     ],
   },
   {
     id: "invoice",
     label: "Invoices",
     columns: [
-      { head: "Invoice", get: (d) => str(d.invoiceNumber) },
+      { head: "Invoice #", get: (d) => str(d.invoiceNumber) },
       { head: "Status", get: (d) => str(d.status) },
       { head: "Total", get: (d) => `${str(d.currency)} ${invoiceTotal(d).toFixed(2)}` },
       { head: "Paid", get: (d) => Number(d.amountPaid ?? 0).toFixed(2) },
-      { head: "Items", get: (d) => String(((d.items as unknown[]) ?? []).length) },
-      { head: "Payments", get: (d) => String(((d.payments as unknown[]) ?? []).length) },
+      { head: "Items", get: (d) => len(d.items) },
+      { head: "Payments", get: (d) => len(d.payments) },
     ],
   },
   {
@@ -75,16 +83,46 @@ const TYPES: { id: string; label: string; columns: { head: string; get: (d: Reco
       { head: "Category", get: (d) => str(d.category) },
     ],
   },
+  {
+    id: "conversation",
+    label: "Inbox",
+    columns: [
+      { head: "Chat", get: (d) => str(d.id) },
+      { head: "Channel", get: (d) => str(d.channel) },
+      { head: "Messages", get: (d) => len(d.messages) },
+      { head: "Last message", get: lastMessage },
+    ],
+  },
+  { id: "staff", label: "Staff", columns: [{ head: "Name", get: (d) => str(d.name) }, { head: "Role", get: (d) => str(d.role) }, { head: "Email", get: (d) => str(d.email) }, { head: "Phone", get: (d) => str(d.phone) }] },
+  { id: "offer", label: "Offers", columns: [{ head: "Title", get: (d) => str(d.title) }, { head: "Code", get: (d) => str(d.code) }] },
+  { id: "tag", label: "Tags", columns: [{ head: "Label", get: (d) => str(d.label) }] },
+  { id: "team", label: "Teams", columns: [{ head: "Name", get: (d) => str(d.name) }] },
+  { id: "email-template", label: "Email templates", columns: [{ head: "Subject", get: (d) => str(d.subject) }, { head: "Status", get: (d) => str(d.status) }] },
+  { id: "note", label: "Notes", columns: [{ head: "Note", get: (d) => str(d.body ?? d.text ?? d.content) }] },
+  { id: "login", label: "Logins", columns: [{ head: "Username", get: (d) => str(d.username) }, { head: "Role", get: (d) => str(d.role) }] },
 ];
 
-/** Admin-only: every record deleted through the app for this business,
- * one table per data type, with the full saved copy one click away.
- * Never rendered for a client session (see client-dashboard-client.tsx),
- * and the API behind it refuses non-admins independently. */
+const ALL = "all";
+
+// Every word typed has to appear somewhere in the row (label, every field
+// of the saved copy, who deleted it) -- not all in one field, in any order.
+function matches(r: DeletedRecord, words: string[]): boolean {
+  if (words.length === 0) return true;
+  const hay = `${r.entityType} ${r.label} ${r.deletedBy} ${JSON.stringify(r.data)}`.toLowerCase();
+  return words.every((w) => hay.includes(w));
+}
+
+/** Admin-only: every record deleted for this business -- deleted through
+ * the app (with who/when) or recovered from database backups (marked
+ * "unknown (recovered ...)") -- one table per data type, with the full
+ * saved copy one click away and a fuzzy search across all of it. Never
+ * rendered for a client session (see client-dashboard-client.tsx), and
+ * the API behind it refuses non-admins independently. */
 export function DeletedDataPanel({ businessId, active = true }: { businessId: string; active?: boolean }) {
   const [records, setRecords] = useState<DeletedRecord[] | null>(null);
   const [error, setError] = useState("");
-  const [type, setType] = useState(TYPES[0]!.id);
+  const [type, setType] = useState(ALL);
+  const [search, setSearch] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [timezone, setTimezone] = useState<string | undefined>(undefined);
 
@@ -103,21 +141,36 @@ export function DeletedDataPanel({ businessId, active = true }: { businessId: st
       .then((d: { timezone?: string }) => setTimezone(d.timezone));
   }, [businessId, active]);
 
-  const current = TYPES.find((t) => t.id === type)!;
-  const rows = (records ?? []).filter((r) => r.entityType === type);
+  const words = useMemo(() => search.trim().toLowerCase().split(/\s+/).filter(Boolean), [search]);
+  const searched = useMemo(() => (records ?? []).filter((r) => matches(r, words)), [records, words]);
+  const countFor = (id: string) => (id === ALL ? searched.length : searched.filter((r) => r.entityType === id).length);
+  const tabs = [{ id: ALL, label: "All" }, ...TYPES].filter((t) => t.id === ALL || countFor(t.id) > 0 || t.id === type);
+  const known = new Set(TYPES.map((t) => t.id));
+  const rows = searched.filter((r) => (type === ALL ? true : r.entityType === type));
+  const current = TYPES.find((t) => t.id === type);
   const fmt = (iso: string) => new Date(iso).toLocaleString("en-US", { timeZone: timezone, dateStyle: "medium", timeStyle: "short" });
+  const typeLabel = (id: string) => TYPES.find((t) => t.id === id)?.label ?? id;
 
   return (
     <section style={cardStyle}>
       <h2 style={{ marginTop: 0 }}>Deleted Data</h2>
       <p style={subtleTextStyle}>
-        A saved copy of everything deleted from this client&apos;s dashboard, with who deleted it and when. Only platform admins can see this.
-        Anything deleted directly in the database, or before this panel existed, isn&apos;t listed.
+        Everything deleted from this client&apos;s dashboard, in one place: records deleted since tracking began (with who and when), plus older ones
+        recovered from database backups, marked &quot;unknown (recovered …)&quot; with the last date a backup still had them. Only platform admins can see this.
       </p>
 
+      <input
+        type="search"
+        name="aiva-search-deleted"
+        autoComplete="off"
+        placeholder="Search everything deleted — any word, any field…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        style={{ padding: 8, fontSize: 12, width: "100%", maxWidth: 420, boxSizing: "border-box", marginTop: 8 }}
+      />
+
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "12px 0" }}>
-        {TYPES.map((t) => {
-          const count = (records ?? []).filter((r) => r.entityType === t.id).length;
+        {tabs.map((t) => {
           const on = t.id === type;
           return (
             <button
@@ -134,7 +187,7 @@ export function DeletedDataPanel({ businessId, active = true }: { businessId: st
                 cursor: "pointer",
               }}
             >
-              {t.label} ({count})
+              {t.label} ({countFor(t.id)})
             </button>
           );
         })}
@@ -142,43 +195,60 @@ export function DeletedDataPanel({ businessId, active = true }: { businessId: st
 
       {error && <p style={{ ...subtleTextStyle, color: "var(--danger, #e5484d)" }}>{error}</p>}
       {!records && !error && <p style={subtleTextStyle}>Loading…</p>}
-      {records && rows.length === 0 && <p style={subtleTextStyle}>Nothing deleted here yet.</p>}
+      {records && rows.length === 0 && <p style={subtleTextStyle}>{words.length ? "Nothing deleted matches that search." : "Nothing deleted here yet."}</p>}
 
       {rows.length > 0 && (
         <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                {current.columns.map((c) => <th key={c.head} style={cellStyle}>{c.head}</th>)}
+                {type === ALL || !current || !known.has(type) ? (
+                  <>
+                    <th style={cellStyle}>Type</th>
+                    <th style={cellStyle}>Record</th>
+                  </>
+                ) : (
+                  current.columns.map((c) => <th key={c.head} style={cellStyle}>{c.head}</th>)
+                )}
                 <th style={cellStyle}>Deleted by</th>
-                <th style={cellStyle}>Deleted at</th>
+                <th style={cellStyle}>Deleted / last seen</th>
                 <th style={cellStyle}></th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <Fragment key={r.id}>
-                  <tr>
-                    {current.columns.map((c) => <td key={c.head} style={cellStyle}>{c.get(r.data, timezone)}</td>)}
-                    <td style={cellStyle}>{r.deletedBy}</td>
-                    <td style={cellStyle}>{fmt(r.deletedAt)}</td>
-                    <td style={cellStyle}>
-                      <button onClick={() => setOpenId(openId === r.id ? null : r.id)} style={{ fontSize: 12 }}>
-                        {openId === r.id ? "Hide" : "Full record"}
-                      </button>
-                    </td>
-                  </tr>
-                  {openId === r.id && (
+              {rows.map((r) => {
+                const cols = type !== ALL && current && known.has(type) ? current.columns : null;
+                return (
+                  <Fragment key={r.id}>
                     <tr>
-                      <td colSpan={current.columns.length + 3} style={cellStyle}>
-                        <pre style={{ margin: 0, fontSize: 11, whiteSpace: "pre-wrap", maxHeight: 320, overflow: "auto" }}>
-                          {JSON.stringify(r.data, null, 2)}
-                        </pre>
+                      {cols ? (
+                        cols.map((c) => <td key={c.head} style={cellStyle}>{c.get(r.data)}</td>)
+                      ) : (
+                        <>
+                          <td style={cellStyle}>{typeLabel(r.entityType)}</td>
+                          <td style={cellStyle}>{r.label}</td>
+                        </>
+                      )}
+                      <td style={cellStyle}>{r.deletedBy}</td>
+                      <td style={cellStyle}>{fmt(r.deletedAt)}</td>
+                      <td style={cellStyle}>
+                        <button onClick={() => setOpenId(openId === r.id ? null : r.id)} style={{ fontSize: 12 }}>
+                          {openId === r.id ? "Hide" : "Full record"}
+                        </button>
                       </td>
                     </tr>
-                  )}
-                </Fragment>
-              ))}
+                    {openId === r.id && (
+                      <tr>
+                        <td colSpan={(cols ? cols.length : 2) + 3} style={cellStyle}>
+                          <pre style={{ margin: 0, fontSize: 11, whiteSpace: "pre-wrap", maxHeight: 320, overflow: "auto" }}>
+                            {JSON.stringify(r.data, null, 2)}
+                          </pre>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

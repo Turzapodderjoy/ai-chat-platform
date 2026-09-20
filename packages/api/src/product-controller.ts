@@ -1,3 +1,4 @@
+import { refillProduct, listProductLots } from "@ai-chat-platform/database";
 import { ProductService, ProductSyncService, type CreateProductInput, type UpdateProductInput } from "@ai-chat-platform/product-catalog";
 
 /** The Product Catalog panel's data source — search + offset pagination
@@ -23,6 +24,17 @@ export class ProductController {
 
   updateProduct(id: string, input: UpdateProductInput) {
     return this.products.update(id, input);
+  }
+
+  /** Restock: adds a lot (quantity + its own cost/sell price). */
+  refillProduct(input: { productId: string; quantity: number; costPrice?: number | null; sellPrice?: number | null; note?: string }, actorUsername: string) {
+    return refillProduct({ ...input, receivedBy: actorUsername });
+  }
+
+  /** Every lot ever received for a product, newest first -- the cost/price
+   * history behind its current cost. */
+  listLots(productId: string) {
+    return listProductLots(productId);
   }
 
   deleteProduct(id: string, actorUsername: string) {

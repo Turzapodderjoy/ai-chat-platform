@@ -1,6 +1,6 @@
 import { randomInt } from "node:crypto";
 
-import { prisma, logAudit, nextDocumentNumber } from "@ai-chat-platform/database";
+import { prisma, logAudit, nextDocumentNumber, consumeStock, restoreStock, type LotAllocation } from "@ai-chat-platform/database";
 
 export interface RepairAppointmentInput {
   businessId: string;
@@ -313,7 +313,7 @@ export class RepairAppointmentService {
   async delete(id: string, actorUsername: string): Promise<void> {
     const row = await prisma.repairAppointment.findUnique({
       where: { id },
-      select: { businessId: true, customerName: true, items: { select: { kind: true, productId: true, quantity: true } } },
+      select: { businessId: true, customerName: true, items: { select: { kind: true, productId: true, quantity: true, lotAllocations: true } } },
     });
     // Deleting the appointment cascades its RepairOrderItem rows, but that
     // cascade never ran the same stock-restoration removeItem() does --
@@ -322,7 +322,7 @@ export class RepairAppointmentService {
     if (row) {
       for (const item of row.items) {
         if (item.kind === "part" && item.productId) {
-          await adjustProductStock(item.productId, item.quantity);
+          await restoreStock(item.productId, item.lotAllocations as LotAllocation[] | null, item.quantity);
         }
       }
     }
@@ -365,6 +365,11 @@ export class RepairAppointmentService {
       await prisma.repairAppointment.update({ where: { id: repairAppointmentId }, data: { serialNumber } });
     }
 
+    // An Inventory part draws from its stock lots oldest-first; the line
+    // keeps the weighted unit cost of exactly those lots (and which lots),
+    // so a later restock at a new cost never changes what this sale cost.
+    const usedStock = input.kind === "part" && input.productId ? await consumeStock(input.productId, input.quantity) : null;
+
     const row = await prisma.repairOrderItem.create({
       data: {
         repairAppointmentId,
@@ -373,13 +378,10 @@ export class RepairAppointmentService {
         name: input.name,
         quantity: input.quantity,
         defaultPrice: input.defaultPrice,
-        costPrice: input.productId ? null : (input.costPrice ?? null),
+        costPrice: input.productId ? (usedStock?.unitCost ?? null) : (input.costPrice ?? null),
+        lotAllocations: usedStock && usedStock.allocations.length > 0 ? (usedStock.allocations as unknown as object) : undefined,
       },
     });
-
-    if (input.kind === "part" && input.productId) {
-      await adjustProductStock(input.productId, -input.quantity);
-    }
 
     if (appointment) {
       await logAudit({ businessId: appointment.businessId, entityType: "order-item", entityId: row.id, action: "item_added", detail: input.name, actorUsername });
@@ -399,7 +401,7 @@ export class RepairAppointmentService {
     if (!item) return;
 
     if (item.kind === "part" && item.productId) {
-      await adjustProductStock(item.productId, item.quantity);
+      await restoreStock(item.productId, item.lotAllocations as LotAllocation[] | null, item.quantity);
     }
 
     await prisma.repairOrderItem.delete({ where: { id: itemId } });
@@ -409,18 +411,4 @@ export class RepairAppointmentService {
   totalForAppointment(appointment: RepairAppointment): number {
     return appointment.items.reduce((sum, item) => sum + item.finalPrice, 0);
   }
-}
-
-/** delta is negative to consume stock, positive to restore it. Silently
- * no-ops when stock isn't a plain parseable number -- Product.stock is
- * free text by design (see Product's own schema comment), and this
- * feature shouldn't corrupt a value like "12 (backordered)". */
-async function adjustProductStock(productId: string, delta: number): Promise<void> {
-  const product = await prisma.product.findUnique({ where: { id: productId }, select: { stock: true } });
-  if (!product?.stock) return;
-
-  const current = Number(product.stock);
-  if (!Number.isFinite(current)) return;
-
-  await prisma.product.update({ where: { id: productId }, data: { stock: String(current + delta) } });
 }

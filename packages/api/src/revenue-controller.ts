@@ -77,6 +77,10 @@ export class RevenueController {
     return this.invoices.updateStatus(id, status, actorUsername);
   }
 
+  finalizeInvoice(id: string, actorUsername: string) {
+    return this.invoices.finalizeWithDiscount(id, actorUsername);
+  }
+
   deleteInvoice(id: string, actorUsername: string) {
     return this.invoices.delete(id, actorUsername);
   }

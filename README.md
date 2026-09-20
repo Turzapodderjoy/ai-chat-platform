@@ -20,6 +20,14 @@ Root commands: `pnpm dev` / `pnpm build` / `pnpm lint` / `pnpm check-types` (all
 
 See `CLAUDE.md` for the full architecture, working conventions, and known gaps.
 
+## Key features beyond the chatbot
+
+- **Repairs & orders** — appointments (website form or staff **Walk-in**), one shared number per appointment (`PRAZ00001` style: appointment # = order # = invoice #), order items from Inventory or custom.
+- **Invoices** — PDF/print/email, payments, one-click **Finalize** (turns an unpaid gap into a discount), "Powered by AIVA" footer.
+- **Inventory** — stock lots with FIFO costing: **Refill** adds a lot with its own cost/sell price; past sales and reports keep the cost they were sold at.
+- **Reports** — revenue, delivery, repairs, CRM, and an **Inventory Usage** report (what was used, on which order/invoice, by whom, cost vs price, discount).
+- **Audit trail & Deleted Data** — every change records the real username; every delete keeps a full copy in an admin-only Deleted Data panel.
+
 ## Local development (self-contained, no Docker)
 
 There is a self-contained setup in the working folder (PostgreSQL + pgvector compiled locally, pnpm bundled) — see `../README-local.md` (next to this repo) or the `scripts/` in that folder. In short:

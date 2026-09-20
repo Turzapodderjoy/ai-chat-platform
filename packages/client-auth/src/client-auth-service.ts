@@ -1,5 +1,5 @@
 import { randomBytes, scryptSync, timingSafeEqual, createCipheriv, createDecipheriv } from "node:crypto";
-import { prisma } from "@ai-chat-platform/database";
+import { prisma, archiveDeleted } from "@ai-chat-platform/database";
 import { Prisma } from "@prisma/client";
 
 const SESSION_DAYS_DEFAULT = 1;
@@ -236,6 +236,10 @@ export class ClientAuthService {
     // Members keep their login exactly as-is -- just lose the team's
     // default fallback, same as if they'd never been assigned one.
     await prisma.clientAccount.updateMany({ where: { teamId }, data: { teamId: null } });
+    const row = await prisma.team.findUnique({ where: { id: teamId } });
+    if (row) {
+      await archiveDeleted({ businessId: row.businessId, entityType: "team", entityId: teamId, label: row.name, data: row, deletedBy: "not recorded" });
+    }
     await prisma.team.delete({ where: { id: teamId } });
   }
 
@@ -442,6 +446,10 @@ export class ClientAuthService {
   }
 
   async remove(id: string) {
+    const row = await prisma.clientAccount.findUnique({ where: { id: id } });
+    if (row) {
+      await archiveDeleted({ businessId: row.businessId ?? "__platform__", entityType: "login", entityId: id, label: row.username, data: { ...row, passwordHash: undefined, passwordEncrypted: undefined }, deletedBy: "not recorded" });
+    }
     await prisma.clientAccount.delete({ where: { id } });
   }
 

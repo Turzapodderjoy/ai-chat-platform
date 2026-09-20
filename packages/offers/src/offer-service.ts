@@ -1,4 +1,4 @@
-import { prisma } from "@ai-chat-platform/database";
+import { prisma, archiveDeleted } from "@ai-chat-platform/database";
 
 export interface CreateOfferInput {
   businessId: string;
@@ -86,6 +86,10 @@ export class OfferService {
   }
 
   async delete(id: string): Promise<void> {
+    const row = await prisma.offer.findUnique({ where: { id: id } });
+    if (row) {
+      await archiveDeleted({ businessId: row.businessId, entityType: "offer", entityId: id, label: row.title, data: row, deletedBy: "not recorded" });
+    }
     await prisma.offer.delete({ where: { id } });
   }
 

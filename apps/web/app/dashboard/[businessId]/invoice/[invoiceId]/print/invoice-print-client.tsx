@@ -20,6 +20,7 @@ interface InvoiceDetail {
   businessName: string;
   logoUrl: string | null;
   currencySymbol: string;
+  timezone?: string;
   customerName: string | null;
   customerPhone: string | null;
   customerEmail: string | null;
@@ -52,7 +53,7 @@ export default function InvoicePrintClient() {
   const statusStyle = STATUS_STYLE[invoice.status] ?? DEFAULT_STATUS_STYLE;
 
   return (
-    <div style={{ background: "#f4f5f7", minHeight: "100vh" }}>
+    <div className="invoice-root" style={{ background: "#f4f5f7", minHeight: "100vh" }}>
       <style>{`
         /* This page renders inside the dashboard's dark theme by default
            (no scoped stylesheet of its own) -- an invoice printout must
@@ -60,10 +61,19 @@ export default function InvoicePrintClient() {
            paper, so this forces it unconditionally rather than only
            inside @media print. */
         html, body { background: #f4f5f7 !important; }
+        /* margin: 0 is what stops the browser printing its own header/footer
+           (the page URL and date along the bottom edge) -- it only draws
+           those inside the page margin. The sheet's own padding supplies
+           the visual margin instead. */
+        @page { size: auto; margin: 0; }
         @media print {
           .no-print { display: none !important; }
-          .invoice-sheet { box-shadow: none !important; }
-          body { background: #fff !important; }
+          html, body { height: auto !important; margin: 0 !important; background: #fff !important; }
+          /* The wrapper's min-height: 100vh plus the sheet's outer margin
+             pushed the content past one page -- the second page printed
+             blank. Nothing here may add height beyond the content. */
+          .invoice-root { min-height: 0 !important; background: #fff !important; }
+          .invoice-sheet { box-shadow: none !important; border-radius: 0 !important; margin: 0 !important; max-width: none !important; width: 100% !important; box-sizing: border-box; break-inside: avoid; page-break-inside: avoid; }
         }
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 10px 6px; text-align: left; }
@@ -115,8 +125,8 @@ export default function InvoicePrintClient() {
         </div>
         <div style={{ textAlign: "right", fontSize: 13 }}>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{invoice.invoiceNumber}</div>
-          <div style={{ color: "#666" }}>Issued {new Date(invoice.issueDate).toLocaleDateString()}</div>
-          {invoice.dueDate && <div style={{ color: "#666" }}>Due {new Date(invoice.dueDate).toLocaleDateString()}</div>}
+          <div style={{ color: "#666" }}>Issued {new Date(invoice.issueDate).toLocaleDateString("en-US", { timeZone: detail.timezone })}</div>
+          {invoice.dueDate && <div style={{ color: "#666" }}>Due {new Date(invoice.dueDate).toLocaleDateString("en-US", { timeZone: detail.timezone })}</div>}
           <span style={{
             display: "inline-block",
             marginTop: 8,
@@ -173,6 +183,10 @@ export default function InvoicePrintClient() {
             <span style={{ color: invoice.balanceDue > 0 ? "#b45309" : "#15803d" }}>{money(invoice.balanceDue)}</span>
           </div>
         </div>
+      </div>
+
+      <div style={{ marginTop: 48, paddingTop: 14, borderTop: "1px solid #eee", textAlign: "center", fontSize: 11, letterSpacing: "0.06em", color: "#aaa" }}>
+        Powered by AIVA
       </div>
       </div>
       </div>

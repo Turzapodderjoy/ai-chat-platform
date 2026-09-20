@@ -17,6 +17,7 @@ interface Invoice {
   status: string;
   currency: string;
   amountPaid: number;
+  discount: number;
   subtotal: number;
   total: number;
   balanceDue: number;
@@ -182,6 +183,8 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
   const contactById = useMemo(() => new Map((contacts ?? []).map((c) => [c.id, c])), [contacts]);
   const repairById = useMemo(() => new Map(repairs.map((r) => [r.id, r])), [repairs]);
 
+  const [search, setSearch] = useState("");
+
   const sortedInvoices = useMemo(() => {
     if (!invoices) return null;
     return [...invoices].sort((a, b) => {
@@ -189,6 +192,23 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
       return sortOrder === "newest" ? -diff : diff;
     });
   }, [invoices, sortOrder]);
+
+  // Every word typed must appear somewhere in the row (number, contact,
+  // device/issue, status, amounts) -- any order, not one phrase.
+  const visibleInvoices = useMemo(() => {
+    if (!sortedInvoices) return null;
+    const words = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return sortedInvoices;
+    return sortedInvoices.filter((inv) => {
+      const c = inv.contactId ? contactById.get(inv.contactId) : undefined;
+      const r = inv.repairAppointmentId ? repairById.get(inv.repairAppointmentId) : undefined;
+      const hay = [inv.invoiceNumber, inv.status.replace(/_/g, " "), c?.name, c?.phone, c?.email, r?.deviceType, r?.deviceModel, r?.issueDescription, inv.total, inv.amountPaid, inv.balanceDue, inv.discount]
+        .filter((v) => v !== undefined && v !== null)
+        .join(" ")
+        .toLowerCase();
+      return words.every((w) => hay.includes(w));
+    });
+  }, [sortedInvoices, search, contactById, repairById]);
 
   const stats = useMemo(() => {
     if (!invoices) return null;
@@ -347,6 +367,31 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
     setEditingCellValue(String(current));
   }
 
+  // The customer paid less than the total: record the shortfall as a
+  // discount and close the invoice, rather than hand-overriding the price.
+  async function finalizeInvoice(inv: Invoice) {
+    const ok = await showConfirm(
+      `${currency}${inv.amountPaid.toLocaleString()} of ${currency}${inv.total.toLocaleString()} was paid. Finalize ${inv.invoiceNumber} with a ${currency}${inv.balanceDue.toLocaleString()} discount?`
+    );
+    if (!ok) return;
+    setBusyId(inv.id);
+    try {
+      const res = await fetch("/api/admin/revenue/invoices/finalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: inv.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Unknown error" }));
+        await showAlert(err.error ?? "Couldn't finalize the invoice");
+        return;
+      }
+      refresh();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   function printInvoice(inv: Invoice) {
     window.open(`/dashboard/${inv.businessId}/invoice/${inv.id}/print`, "_blank");
   }
@@ -479,8 +524,17 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
       {invoices && invoices.length === 0 && <p style={subtleTextStyle}>No invoices yet — generate one from a repair order, or add one by hand above.</p>}
 
       {invoices && invoices.length > 0 && (
-        <div style={{ display: "flex", justifyContent: "flex-end", margin: "8px 0" }}>
-          <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")} style={{ padding: 8, fontSize: 12 }}>
+        <div style={{ display: "flex", gap: 8, margin: "8px 0" }}>
+          <input
+            type="search"
+            name="aiva-search-invoices"
+            autoComplete="off"
+            placeholder="Search by number, customer, device, status, amount…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ padding: 8, fontSize: 12, flex: 1, minWidth: 0, maxWidth: 420 }}
+          />
+          <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")} style={{ padding: 8, fontSize: 12, flexShrink: 0, width: "auto" }}>
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
           </select>
@@ -496,6 +550,7 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
                 <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Contact</th>
                 <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Device / Issue</th>
                 <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Total Amount</th>
+                <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Discount</th>
                 <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Paid Amount</th>
                 <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Due Amount</th>
                 <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Status</th>
@@ -503,7 +558,7 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
               </tr>
             </thead>
             <tbody>
-              {invoices.map((inv) => (
+              {(visibleInvoices ?? []).map((inv) => (
                 <Fragment key={inv.id}>
                   <tr>
                     <td style={{ padding: "6px 8px", fontWeight: 600 }}>{inv.invoiceNumber}</td>
@@ -530,7 +585,13 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
                       const value = field === "total" ? inv.total : field === "paid" ? inv.amountPaid : inv.balanceDue;
                       const isEditing = editingCell?.id === inv.id && editingCell.field === field;
                       return (
-                        <td key={field} style={{ padding: "6px 8px", color: field === "due" && value > 0 ? "var(--danger)" : field === "due" ? "var(--success)" : undefined }}>
+                        <Fragment key={field}>
+                        {field === "paid" && (
+                          <td style={{ padding: "6px 8px", color: inv.discount > 0 ? "var(--warning, #b45309)" : "var(--text-faint)" }}>
+                            {inv.discount > 0 ? `-${currency}${inv.discount.toLocaleString()}` : "—"}
+                          </td>
+                        )}
+                        <td style={{ padding: "6px 8px", color: field === "due" && value > 0 ? "var(--danger)" : field === "due" ? "var(--success)" : undefined }}>
                           {isEditing ? (
                             <input
                               type="number"
@@ -546,12 +607,23 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
                             <span onClick={() => startCellEdit(inv, field)} style={{ cursor: "pointer" }} title="Click to edit">{currency}{value.toLocaleString()}</span>
                           )}
                         </td>
+                        </Fragment>
                       );
                     })}
                     <td style={{ padding: "6px 8px" }}>
                       <InvoiceStatusBadge status={inv.status} invoiceId={inv.id} />
                     </td>
                     <td style={{ padding: "6px 8px", display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {inv.amountPaid > 0 && inv.balanceDue > 0 && (
+                        <button
+                          onClick={() => finalizeInvoice(inv)}
+                          disabled={busyId === inv.id}
+                          title="The customer paid less than the total -- record the difference as a discount and close this invoice"
+                          style={{ fontSize: 11, padding: "6px 12px", fontWeight: 600 }}
+                        >
+                          Finalize
+                        </button>
+                      )}
                       <button onClick={() => printInvoice(inv)} style={{ fontSize: 11, padding: "6px 12px" }}>Print</button>
                       <button onClick={() => sendInvoice(inv)} disabled={busyId === inv.id} style={{ fontSize: 11, padding: "6px 12px" }}>Send</button>
                       <button onClick={() => editingId === inv.id ? cancelEdit() : startEdit(inv)} style={{ fontSize: 11, padding: "6px 12px" }}>{editingId === inv.id ? "Cancel" : "Edit"}</button>
@@ -560,7 +632,7 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
                   </tr>
                   {editingId === inv.id && (
                     <tr>
-                      <td colSpan={8} style={{ ...cellStyle, background: "var(--surface)", padding: 16 }}>
+                      <td colSpan={9} style={{ ...cellStyle, background: "var(--surface)", padding: 16 }}>
                         <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 16, background: "var(--bg-elevated)" }}>
                           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
                             <select value={editContactId} onChange={(e) => setEditContactId(e.target.value)} style={{ padding: 8, minWidth: 200 }}>

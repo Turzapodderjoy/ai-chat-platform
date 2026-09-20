@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { cardStyle, cellStyle, subtleTextStyle, badgeStyle, primaryButtonStyle } from "./dashboard-styles";
 import { useCurrencySymbol } from "../lib/currency";
 import { showConfirm } from "../lib/app-dialog";
+import { RefillDialog, LotsDialog } from "./RefillDialog";
 
 interface Product {
   id: string;
@@ -47,6 +48,8 @@ export function InventoryPanel({ businessId, active = true }: { businessId: stri
   const [editId, setEditId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState(EMPTY_DRAFT);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [refillFor, setRefillFor] = useState<Product | null>(null);
+  const [lotsFor, setLotsFor] = useState<Product | null>(null);
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -314,7 +317,25 @@ export function InventoryPanel({ businessId, active = true }: { businessId: stri
                       })()}
                     </td>
                     <td style={cellStyle}>
-                      <div style={{ display: "flex", gap: 6 }}>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {(() => {
+                          // Exhausted: nothing left (or "out of stock") -- the Refill button is the primary action.
+                          const qty = p.stock !== null ? Number(p.stock) : NaN;
+                          const exhausted = (Number.isFinite(qty) && qty <= 0) || (p.stock !== null && /out/i.test(p.stock));
+                          return (
+                            <button
+                              onClick={() => setRefillFor(p)}
+                              disabled={busyId === p.id}
+                              title="Add a new lot: quantity, cost price and sell price"
+                              style={{ fontSize: 11, padding: "6px 12px", fontWeight: 600, ...(exhausted ? { background: "var(--accent, #635bff)", color: "#fff", border: "1px solid var(--accent, #635bff)", borderRadius: 6 } : {}) }}
+                            >
+                              Refill
+                            </button>
+                          );
+                        })()}
+                        <button onClick={() => setLotsFor(p)} style={{ fontSize: 11, padding: "6px 12px" }} title="Every restock with its cost and sell price">
+                          Lots
+                        </button>
                         <button onClick={() => startEdit(p)} disabled={busyId === p.id} style={{ fontSize: 11, padding: "6px 12px" }}>
                           Edit
                         </button>
@@ -344,6 +365,16 @@ export function InventoryPanel({ businessId, active = true }: { businessId: stri
           </button>
         </div>
       )}
+    
+      {refillFor && (
+        <RefillDialog
+          product={refillFor}
+          currency={currency}
+          onClose={() => setRefillFor(null)}
+          onDone={() => { setRefillFor(null); refresh(); }}
+        />
+      )}
+      {lotsFor && <LotsDialog product={lotsFor} currency={currency} onClose={() => setLotsFor(null)} />}
     </section>
   );
 }

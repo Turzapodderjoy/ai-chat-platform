@@ -133,7 +133,8 @@ export async function generateInvoicePdf(invoice: Invoice, ctx: InvoicePdfContex
   const STATUS_COLOR: Record<string, string> = { paid: "#0a7c3f", partially_paid: "#a15c00", issued: "#1a56db", overdue: "#c0242c", void: "#666", draft: "#666" };
   doc.fontSize(11).font("Helvetica-Bold").fillColor(STATUS_COLOR[invoice.status] ?? "#111").text(`Status: ${invoice.status.replace(/_/g, " ").toUpperCase()}`, PAGE_LEFT, y + 14);
 
-  doc.fontSize(9).font("Helvetica").fillColor("#999").text("Thank you for your business.", PAGE_LEFT, doc.page.height - 70, { width: PAGE_WIDTH, align: "center" });
+  // lineBreak: false so the footer can never spill onto a second page.
+  doc.fontSize(9).font("Helvetica").fillColor("#aaa").text("Powered by AIVA", PAGE_LEFT, doc.page.height - 66, { width: PAGE_WIDTH, align: "center", lineBreak: false, characterSpacing: 0.5 });
 
   doc.end();
   return done;

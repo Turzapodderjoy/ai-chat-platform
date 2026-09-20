@@ -1,4 +1,4 @@
-import { prisma, logAudit, archiveDeleted, nextDocumentNumber } from "@ai-chat-platform/database";
+import { prisma, logAudit, archiveDeleted, nextDocumentNumber, consumeStock, restoreStock, type LotAllocation } from "@ai-chat-platform/database";
 
 import { calcTotals, type LineItemInput } from "./money";
 
@@ -113,21 +113,24 @@ function toInvoice(row: InvoiceRow): Invoice {
 
 const INCLUDE = { items: true, payments: true } as const;
 
-/** delta is negative to consume stock, positive to restore it. Silently
- * no-ops when stock isn't a plain parseable number -- Product.stock is
- * free text by design (see Product's own schema comment), and this
- * shouldn't corrupt a value like "12 (backordered)". Same convention as
- * RepairAppointmentService's own adjustProductStock -- kept as a
- * separate copy here rather than a shared package for ~10 lines, and
- * because the two callers' item shapes (RepairOrderItem vs
- * InvoiceItem) are different enough that a shared signature would just
- * add an adapter layer. */
-async function adjustProductStock(productId: string, delta: number): Promise<void> {
-  const product = await prisma.product.findUnique({ where: { id: productId }, select: { stock: true } });
-  if (!product?.stock) return;
-  const current = Number(product.stock);
-  if (!Number.isFinite(current)) return;
-  await prisma.product.update({ where: { id: productId }, data: { stock: String(current + delta) } });
+/** Line items ready to store: an Inventory product's quantity is taken
+ * out of stock lots (oldest first) and the line keeps the weighted unit
+ * cost of exactly those lots plus which lots -- so a later restock at a
+ * different cost never changes what this invoice cost. */
+async function prepareItems(items: LineItemInput[]) {
+  const out = [];
+  for (const i of items) {
+    const used = i.productId ? await consumeStock(i.productId, i.quantity) : null;
+    out.push({
+      name: i.name,
+      quantity: i.quantity,
+      unitPrice: i.unitPrice,
+      productId: i.productId,
+      costPrice: used ? (used.unitCost ?? i.costPrice) : i.costPrice,
+      lotAllocations: used && used.allocations.length > 0 ? (used.allocations as unknown as object) : undefined,
+    });
+  }
+  return out;
 }
 
 export class InvoiceService {
@@ -156,6 +159,7 @@ export class InvoiceService {
   async create(input: CreateInvoiceInput, actorUsername: string): Promise<Invoice> {
     const invoiceNumber = await this.invoiceNumberFor(input.businessId, input.repairAppointmentId);
     const business = await prisma.business.findUnique({ where: { id: input.businessId }, select: { subscriptionCurrency: true } });
+    const preparedItems = await prepareItems(input.items);
     const row = await prisma.invoice.create({
       data: {
         businessId: input.businessId,
@@ -167,13 +171,10 @@ export class InvoiceService {
         discount: input.discount ?? 0,
         tax: input.tax ?? 0,
         dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
-        items: { create: input.items.map((i) => ({ name: i.name, quantity: i.quantity, unitPrice: i.unitPrice, productId: i.productId, costPrice: i.costPrice })) },
+        items: { create: preparedItems },
       },
       include: INCLUDE,
     });
-    for (const item of input.items) {
-      if (item.productId) await adjustProductStock(item.productId, -item.quantity);
-    }
     await logAudit({ businessId: input.businessId, entityType: "invoice", entityId: row.id, action: "generated", detail: row.invoiceNumber, actorUsername });
     return toInvoice(row);
   }
@@ -209,17 +210,45 @@ export class InvoiceService {
 
   async delete(id: string, actorUsername: string): Promise<void> {
     const invoice = await prisma.invoice.findUnique({ where: { id }, include: INCLUDE });
-    const existing = await prisma.invoiceItem.findMany({ where: { invoiceId: id }, select: { productId: true, quantity: true } });
+    const existing = await prisma.invoiceItem.findMany({ where: { invoiceId: id }, select: { productId: true, quantity: true, lotAllocations: true } });
     if (invoice) {
       await archiveDeleted({ businessId: invoice.businessId, entityType: "invoice", entityId: id, label: invoice.invoiceNumber, data: invoice, deletedBy: actorUsername });
     }
     await prisma.invoice.delete({ where: { id } });
     for (const item of existing) {
-      if (item.productId) await adjustProductStock(item.productId, item.quantity);
+      if (item.productId) await restoreStock(item.productId, item.lotAllocations as LotAllocation[] | null, item.quantity);
     }
     if (invoice) {
       await logAudit({ businessId: invoice.businessId, entityType: "invoice", entityId: id, action: "deleted", detail: invoice.invoiceNumber, actorUsername });
     }
+  }
+
+  /** The customer paid less than the invoice total (say $40 of $50): turn
+   * the shortfall into a recorded discount and close the invoice, instead
+   * of hand-overriding the price. Total becomes what was actually paid,
+   * the discount is kept as its own number (shown in the Invoices table,
+   * on the print page and in the emailed PDF), and the invoice is paid. */
+  async finalizeWithDiscount(id: string, actorUsername: string): Promise<Invoice> {
+    const row = await prisma.invoice.findUnique({ where: { id }, include: INCLUDE });
+    if (!row) throw new Error("Invoice not found.");
+    const view = toInvoice(row);
+    if (view.amountPaid <= 0) throw new Error("Record the amount the customer actually paid first, then finalize.");
+    const gap = view.balanceDue;
+    if (gap <= 0) throw new Error("Nothing to discount -- this invoice is already fully paid.");
+
+    const updated = await prisma.invoice.update({
+      where: { id },
+      data: {
+        discount: row.discount + gap,
+        // An override REPLACES the computed total, so the shortfall has to
+        // come off it too or the discount would be recorded but ignored.
+        ...(row.totalOverride !== null ? { totalOverride: row.totalOverride - gap } : {}),
+        status: "paid",
+      },
+      include: INCLUDE,
+    });
+    await logAudit({ businessId: row.businessId, entityType: "invoice", entityId: id, action: "finalized", detail: `discount ${gap}`, actorUsername });
+    return toInvoice(updated);
   }
 
   async update(id: string, input: UpdateInvoiceInput, actorUsername: string): Promise<Invoice> {
@@ -229,25 +258,20 @@ export class InvoiceService {
     if (input.tax !== undefined) data.tax = input.tax;
     if (input.dueDate !== undefined) data.dueDate = input.dueDate ? new Date(input.dueDate) : null;
 
-    let restoreStock: { productId: string; quantity: number }[] = [];
     if (input.items) {
-      // Delete existing items and create new ones -- restore stock for
-      // whatever the old items consumed first, then decrement for the
-      // new set below, so editing a line item's quantity (or swapping
-      // which product it uses) doesn't leak or double-count stock.
-      const existing = await prisma.invoiceItem.findMany({ where: { invoiceId: id }, select: { productId: true, quantity: true } });
-      restoreStock = existing.filter((i): i is { productId: string; quantity: number } => !!i.productId);
+      // Delete existing items and create new ones -- put back whatever the
+      // old items took from stock first, then take for the new set, so
+      // editing a line item's quantity (or swapping which product it uses)
+      // doesn't leak or double-count stock.
+      const existing = await prisma.invoiceItem.findMany({ where: { invoiceId: id }, select: { productId: true, quantity: true, lotAllocations: true } });
+      for (const old of existing) {
+        if (old.productId) await restoreStock(old.productId, old.lotAllocations as LotAllocation[] | null, old.quantity);
+      }
       await prisma.invoiceItem.deleteMany({ where: { invoiceId: id } });
-      data.items = { create: input.items.map((i) => ({ name: i.name, quantity: i.quantity, unitPrice: i.unitPrice, productId: i.productId, costPrice: i.costPrice })) };
+      data.items = { create: await prepareItems(input.items) };
     }
 
     const row = await prisma.invoice.update({ where: { id }, data, include: INCLUDE });
-    for (const item of restoreStock) await adjustProductStock(item.productId, item.quantity);
-    if (input.items) {
-      for (const item of input.items) {
-        if (item.productId) await adjustProductStock(item.productId, -item.quantity);
-      }
-    }
     await logAudit({ businessId: row.businessId, entityType: "invoice", entityId: id, action: "updated", detail: row.invoiceNumber, actorUsername });
     return toInvoice(row);
   }

@@ -37,6 +37,27 @@ export interface SummaryReport {
   totalProfit: number;
 }
 
+
+export interface InventoryUsageRow {
+  date: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  // Order # and invoice # are the same number now; kept separate for
+  // older records where an order and its invoice differ.
+  orderNumber: string | null;
+  invoiceNumber: string | null;
+  usedBy: string;
+  costPrice: number | null;
+  sellPrice: number;
+  // The invoice's discount, shown on the first inventory line of that invoice.
+  discount: number;
+}
+
+export interface InventoryUsageReport {
+  rows: InventoryUsageRow[];
+}
+
 export interface OverviewReport {
   summary: SummaryReport;
   revenue: RevenueReport;
@@ -127,7 +148,9 @@ export class ReportingService {
     let totalCost = 0;
     for (const appt of paidAppointments) {
       for (const item of appt.items) {
-        const cost = item.productId ? (costById.get(item.productId) ?? 0) : (item.costPrice ?? 0);
+        // The cost saved on the line when it was sold (its stock lot's cost) wins;
+        // only a line from before that existed falls back to the product's CURRENT cost.
+        const cost = item.costPrice ?? (item.productId ? (costById.get(item.productId) ?? 0) : 0);
         totalCost += cost * item.quantity;
       }
     }
@@ -136,7 +159,9 @@ export class ReportingService {
     for (const inv of invoices) {
       if (inv.repairAppointmentId) continue;
       for (const item of inv.items) {
-        const cost = item.productId ? (costById.get(item.productId) ?? 0) : (item.costPrice ?? 0);
+        // The cost saved on the line when it was sold (its stock lot's cost) wins;
+        // only a line from before that existed falls back to the product's CURRENT cost.
+        const cost = item.costPrice ?? (item.productId ? (costById.get(item.productId) ?? 0) : 0);
         totalCost += cost * item.quantity;
       }
     }
@@ -244,5 +269,92 @@ export class ReportingService {
       },
       generatedAt: new Date().toISOString(),
     };
+  }
+
+  /** Every inventory product used in the range: which order/invoice, how
+   * many, who added it, its cost (snapshotted from the stock lots it came
+   * from) and the price it was billed at, plus the invoice's discount. */
+  async getInventoryUsage(businessId: string, from?: Date, to?: Date): Promise<InventoryUsageReport> {
+    const createdAt = from || to ? { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } : undefined;
+
+    const [orderItems, invoiceItems] = await Promise.all([
+      prisma.repairOrderItem.findMany({
+        where: { productId: { not: null }, repairAppointment: { businessId }, ...(createdAt ? { createdAt } : {}) },
+        include: { repairAppointment: { select: { id: true, serialNumber: true } } },
+      }),
+      prisma.invoiceItem.findMany({
+        where: { productId: { not: null }, invoice: { businessId, repairAppointmentId: null, ...(createdAt ? { createdAt } : {}) } },
+        include: { invoice: { select: { id: true, invoiceNumber: true, discount: true, createdAt: true } } },
+      }),
+    ]);
+
+    const appointmentIds = [...new Set(orderItems.map((i) => i.repairAppointment.id))];
+    const invoices = appointmentIds.length
+      ? await prisma.invoice.findMany({ where: { repairAppointmentId: { in: appointmentIds } }, include: { items: true } })
+      : [];
+    const invoiceByAppointment = new Map(invoices.map((inv) => [inv.repairAppointmentId as string, inv]));
+
+    const productIds = [...new Set([...orderItems, ...invoiceItems].map((i) => i.productId as string))];
+    const products = await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, name: true, costPrice: true } });
+    const productById = new Map(products.map((p) => [p.id, p]));
+    const liveCost = (id: string) => {
+      const n = parseFloat(productById.get(id)?.costPrice ?? "");
+      return isNaN(n) ? null : n;
+    };
+
+    const orderAudit = orderItems.length
+      ? await prisma.auditLog.findMany({ where: { entityType: "order-item", action: "item_added", entityId: { in: orderItems.map((i) => i.id) } } })
+      : [];
+    const invoiceAudit = invoiceItems.length
+      ? await prisma.auditLog.findMany({ where: { entityType: "invoice", action: "generated", entityId: { in: [...new Set(invoiceItems.map((i) => i.invoice.id))] } } })
+      : [];
+    const whoOrder = new Map(orderAudit.map((a) => [a.entityId, a.actorUsername]));
+    const whoInvoice = new Map(invoiceAudit.map((a) => [a.entityId, a.actorUsername]));
+
+    const rows: InventoryUsageRow[] = [];
+    const discountShown = new Set<string>();
+
+    for (const item of orderItems) {
+      const invoice = invoiceByAppointment.get(item.repairAppointment.id);
+      // The invoice line is what the customer was actually billed; fall
+      // back to the order line's own price when no invoice exists yet.
+      const billed = invoice?.items.find((l) => l.name === item.name);
+      const key = invoice?.id ?? item.repairAppointment.id;
+      const discount = discountShown.has(key) ? 0 : invoice?.discount ?? 0;
+      discountShown.add(key);
+      rows.push({
+        date: item.createdAt.toISOString(),
+        productId: item.productId as string,
+        productName: productById.get(item.productId as string)?.name ?? item.name,
+        quantity: item.quantity,
+        orderNumber: item.repairAppointment.serialNumber,
+        invoiceNumber: invoice?.invoiceNumber ?? null,
+        usedBy: whoOrder.get(item.id) ?? "unknown",
+        costPrice: item.costPrice ?? liveCost(item.productId as string),
+        sellPrice: billed?.unitPrice ?? item.overridePrice ?? item.defaultPrice,
+        discount,
+      });
+    }
+
+    for (const item of invoiceItems) {
+      const key = item.invoice.id;
+      const discount = discountShown.has(key) ? 0 : item.invoice.discount;
+      discountShown.add(key);
+      rows.push({
+        date: item.invoice.createdAt.toISOString(),
+        productId: item.productId as string,
+        productName: productById.get(item.productId as string)?.name ?? item.name,
+        quantity: item.quantity,
+        orderNumber: null,
+        invoiceNumber: item.invoice.invoiceNumber,
+        usedBy: whoInvoice.get(item.invoice.id) ?? "unknown",
+        costPrice: item.costPrice ?? liveCost(item.productId as string),
+        sellPrice: item.unitPrice,
+        discount,
+      });
+    }
+
+    rows.sort((a, b) => b.date.localeCompare(a.date));
+    return { rows };
   }
 }

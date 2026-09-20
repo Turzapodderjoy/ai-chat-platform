@@ -1,4 +1,4 @@
-import { prisma } from "@ai-chat-platform/database";
+import { prisma, archiveDeleted } from "@ai-chat-platform/database";
 
 export interface StaffMember {
   id: string;
@@ -69,6 +69,10 @@ export class StaffService {
   }
 
   async delete(id: string): Promise<void> {
+    const row = await prisma.staff.findUnique({ where: { id: id } });
+    if (row) {
+      await archiveDeleted({ businessId: row.businessId, entityType: "staff", entityId: id, label: row.name, data: row, deletedBy: "not recorded" });
+    }
     await prisma.staff.delete({ where: { id } });
   }
 }

@@ -1,4 +1,4 @@
-import { prisma, archiveDeleted } from "@ai-chat-platform/database";
+import { prisma, archiveDeleted, reconcileLotsToStock } from "@ai-chat-platform/database";
 
 export interface ProductRecord {
   id: string;
@@ -95,14 +95,21 @@ export class ProductService {
       where: { id },
       data: { ...input, minStock: toMinStock(input.minStock) },
     });
+    // Stock typed straight into the Inventory table: keep the lots (which
+    // cost/price each remaining unit carries) in line with it.
+    if (input.stock !== undefined) await reconcileLotsToStock(id);
     return this.toRecord(row);
   }
 
   async delete(id: string, actorUsername: string): Promise<void> {
     const row = await prisma.product.findUnique({ where: { id } });
     if (row) {
-      await archiveDeleted({ businessId: row.businessId, entityType: "product", entityId: id, label: row.name, data: row, deletedBy: actorUsername });
+      const lots = await prisma.productLot.findMany({ where: { productId: id } });
+      await archiveDeleted({ businessId: row.businessId, entityType: "product", entityId: id, label: row.name, data: { ...row, lots }, deletedBy: actorUsername });
     }
+    // Lots have no FK to Product, so they'd be orphaned (and skew nothing,
+    // but pile up) if left behind.
+    await prisma.productLot.deleteMany({ where: { productId: id } });
     await prisma.product.delete({ where: { id } });
   }
 

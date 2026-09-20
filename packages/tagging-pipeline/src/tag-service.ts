@@ -1,4 +1,4 @@
-import { prisma } from "@ai-chat-platform/database";
+import { prisma, archiveDeleted } from "@ai-chat-platform/database";
 import { PLATFORM_CONFIG_ID } from "@ai-chat-platform/ai-config";
 
 export { PLATFORM_CONFIG_ID };
@@ -91,6 +91,10 @@ export class TagService {
   }
 
   async deleteTag(id: string): Promise<void> {
+    const row = await prisma.tag.findUnique({ where: { id: id } });
+    if (row) {
+      await archiveDeleted({ businessId: row.businessId, entityType: "tag", entityId: id, label: row.label, data: row, deletedBy: "not recorded" });
+    }
     await prisma.tag.delete({ where: { id } });
   }
 

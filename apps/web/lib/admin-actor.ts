@@ -6,16 +6,16 @@ import { getApp } from "./app";
 const CLIENT_COOKIE = "client_session";
 const ADMIN_COOKIE = "admin_session";
 
-/** Who's actually making this admin-surface request -- "admin" for the
- * single fixed identity, or a named isAdmin ClientAccount's own
- * username. Used only for attribution (audit logs like password-change
- * history), never for access control -- these routes are already the
- * open /api/admin/* surface. Falls back to "admin" if neither cookie
- * resolves (matches the fixed identity's own default), so a log entry
- * is never blank. */
+/** Who's actually making this admin-surface request -- the fixed platform
+ * admin login's real username (ADMIN_USERNAME), or a ClientAccount's own
+ * username. Never the literal "admin": no login is named that, so
+ * recording it told nobody who acted. Used only for attribution (audit
+ * logs, Deleted Data), never for access control -- these routes are
+ * already the open /api/admin/* surface. "unknown" only if neither
+ * cookie resolves to anyone. */
 export async function resolveAdminActor(req: NextRequest): Promise<string> {
   if (verifyAdminToken(req.cookies.get(ADMIN_COOKIE)?.value)) {
-    return "admin";
+    return process.env.ADMIN_USERNAME || "unknown";
   }
 
   const clientToken = req.cookies.get(CLIENT_COOKIE)?.value;
@@ -29,7 +29,7 @@ export async function resolveAdminActor(req: NextRequest): Promise<string> {
     if (session) return session.username;
   }
 
-  return "admin";
+  return "unknown";
 }
 
 /** True only for a real platform admin (the fixed admin login, or a

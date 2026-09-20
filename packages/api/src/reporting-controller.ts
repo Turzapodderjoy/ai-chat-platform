@@ -6,4 +6,8 @@ export class ReportingController {
   getOverview(businessId?: string, from?: Date, to?: Date) {
     return this.reporting.getOverview(businessId, from, to);
   }
+
+  getInventoryUsage(businessId: string, from?: Date, to?: Date) {
+    return this.reporting.getInventoryUsage(businessId, from, to);
+  }
 }

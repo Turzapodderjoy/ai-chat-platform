@@ -2,7 +2,10 @@ import type { Prisma } from "@prisma/client";
 
 import { prisma } from "./client";
 
-export type DeletedEntityType = "repair" | "invoice" | "contact" | "product";
+// repair | invoice | contact | product | conversation | staff | offer | tag |
+// team | email-template | note | login -- a free string so a new kind of
+// record can be archived without touching this type.
+export type DeletedEntityType = string;
 
 export interface DeletedRecordRow {
   id: string;

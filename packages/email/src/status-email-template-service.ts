@@ -1,4 +1,4 @@
-import { prisma } from "@ai-chat-platform/database";
+import { prisma, archiveDeleted } from "@ai-chat-platform/database";
 
 export type StatusEmailKind = "order_status" | "repair_status";
 
@@ -51,6 +51,10 @@ export class StatusEmailTemplateService {
   }
 
   async delete(id: string): Promise<void> {
+    const row = await prisma.statusEmailTemplate.findUnique({ where: { id: id } });
+    if (row) {
+      await archiveDeleted({ businessId: row.businessId, entityType: "email-template", entityId: id, label: row.subject, data: row, deletedBy: "not recorded" });
+    }
     await prisma.statusEmailTemplate.delete({ where: { id } });
   }
 }
