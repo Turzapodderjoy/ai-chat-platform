@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { cardStyle, cellStyle, subtleTextStyle, badgeStyle, type BadgeTone } from "./dashboard-styles";
 import { StatCard, StatCardRow } from "./StatCard";
 import { useCurrencySymbol } from "../lib/currency";
+import { showConfirm } from "./ConfirmDialog";
 
 interface PartsUsageItem {
   id: string;
@@ -66,7 +67,7 @@ function rangeFor(id: RangeId, customFrom: string, customTo: string): { from?: s
 
 const PAGE_SIZE = 25;
 
-export function PartsUsageReportPanel({ businessId, active = true }: { businessId: string; active?: boolean }) {
+export function PartsUsageReportPanel({ businessId, accountRole, active = true }: { businessId: string; accountRole?: string | null; active?: boolean }) {
   const currency = useCurrencySymbol(businessId);
   const [report, setReport] = useState<PartsUsageReport | null>(null);
   const [range, setRange] = useState<RangeId>("all");
@@ -74,6 +75,20 @@ export function PartsUsageReportPanel({ businessId, active = true }: { businessI
   const [customTo, setCustomTo] = useState("");
   const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const canDelete = accountRole === "owner" || accountRole === "admin";
+
+  async function deleteItem(item: PartsUsageItem) {
+    if (!(await showConfirm(`Delete "${item.name}" from this repair order? It will move to Deleted Data.`))) return;
+    setBusyId(item.id);
+    try {
+      const res = await fetch(`/api/admin/repairs/order-items?id=${encodeURIComponent(item.id)}`, { method: "DELETE" });
+      if (res.ok) refresh();
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   function refresh() {
     const params = new URLSearchParams({ businessId });
@@ -177,12 +192,13 @@ export function PartsUsageReportPanel({ businessId, active = true }: { businessI
                 <th style={{ ...cellStyle, padding: "10px 12px", fontWeight: 600, color: "var(--text-muted)", fontSize: 11, textTransform: "uppercase" }}>Selling</th>
                 <th style={{ ...cellStyle, padding: "10px 12px", fontWeight: 600, color: "var(--text-muted)", fontSize: 11, textTransform: "uppercase" }}>Date</th>
                 <th style={{ ...cellStyle, padding: "10px 12px", fontWeight: 600, color: "var(--text-muted)", fontSize: 11, textTransform: "uppercase" }}>Used By</th>
+                {canDelete && <th style={{ ...cellStyle, padding: "10px 12px", fontWeight: 600, color: "var(--text-muted)", fontSize: 11, textTransform: "uppercase" }}></th>}
               </tr>
             </thead>
             <tbody>
               {paged.length === 0 && (
                 <tr>
-                  <td colSpan={8} style={{ padding: 24, textAlign: "center", color: "var(--text-muted)" }}>
+                  <td colSpan={canDelete ? 9 : 8} style={{ padding: 24, textAlign: "center", color: "var(--text-muted)" }}>
                     {report.items.length === 0 ? "No parts or services used yet." : "No results match your search."}
                   </td>
                 </tr>
@@ -210,6 +226,18 @@ export function PartsUsageReportPanel({ businessId, active = true }: { businessI
                   <td style={{ ...cellStyle, padding: "8px 12px", color: "var(--text-muted)", fontSize: 12 }}>
                     {item.usedBy ?? "—"}
                   </td>
+                  {canDelete && (
+                    <td style={{ ...cellStyle, padding: "8px 12px" }}>
+                      <button
+                        onClick={() => deleteItem(item)}
+                        disabled={busyId === item.id}
+                        style={{ background: "none", border: "none", cursor: busyId === item.id ? "default" : "pointer", color: "var(--danger, #ef4444)", fontSize: 14, padding: "2px 6px", opacity: busyId === item.id ? 0.4 : 0.7, fontFamily: "inherit" }}
+                        title="Delete this item"
+                      >
+                        ✕
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

@@ -1,6 +1,6 @@
 import { randomInt } from "node:crypto";
 
-import { prisma, logAudit, nextDocumentNumber, consumeStock, restoreStock, type LotAllocation } from "@ai-chat-platform/database";
+import { prisma, logAudit, archiveDeleted, nextDocumentNumber, consumeStock, restoreStock, type LotAllocation } from "@ai-chat-platform/database";
 
 export interface RepairAppointmentInput {
   businessId: string;
@@ -397,8 +397,17 @@ export class RepairAppointmentService {
   }
 
   async removeItem(itemId: string, actorUsername: string): Promise<void> {
-    const item = await prisma.repairOrderItem.findUnique({ where: { id: itemId }, include: { repairAppointment: { select: { businessId: true } } } });
+    const item = await prisma.repairOrderItem.findUnique({ where: { id: itemId }, include: { repairAppointment: { select: { businessId: true, trackingToken: true, customerName: true } } } });
     if (!item) return;
+
+    await archiveDeleted({
+      businessId: item.repairAppointment.businessId,
+      entityType: "order-item",
+      entityId: itemId,
+      label: item.name,
+      data: { ...item, repairAppointmentId: undefined },
+      deletedBy: actorUsername,
+    });
 
     if (item.kind === "part" && item.productId) {
       await restoreStock(item.productId, item.lotAllocations as LotAllocation[] | null, item.quantity);
