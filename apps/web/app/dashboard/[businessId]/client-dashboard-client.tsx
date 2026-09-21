@@ -537,7 +537,7 @@ export default function ClientDashboardClient() {
         ["channels", <ChannelsPanel key="channels" businessId={businessId} />],
         ["settings", <UserSettingsPanel key="settings" active={tab === "settings"} businessId={businessId} />],
         ["deleted", <DeletedDataPanel key="deleted" businessId={businessId} active={tab === "deleted"} />],
-        ["partsusage", <PartsUsageReportPanel key="partsusage" businessId={businessId} accountRole={accountRole} active={tab === "partsusage"} />],
+        ["partsusage", <PartsUsageReportPanel key="partsusage" businessId={businessId} accountRole={isAdmin ? "admin" : accountRole} active={tab === "partsusage"} />],
       ] as [Tab, ReactNode][])
         .filter(([id]) => id !== "settings" || accountRole === "owner")
         .filter(([id]) => id !== "deleted" || !actsAsClient)
