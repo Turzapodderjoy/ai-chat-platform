@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { cardStyle, cellStyle, subtleTextStyle, badgeStyle, type BadgeTone } from "./dashboard-styles";
 import { StatCard, StatCardRow } from "./StatCard";
 import { useCurrencySymbol } from "../lib/currency";
-import { showConfirm } from "./ConfirmDialog";
+import { showConfirm } from "../lib/app-dialog";
 
 interface PartsUsageItem {
   id: string;
