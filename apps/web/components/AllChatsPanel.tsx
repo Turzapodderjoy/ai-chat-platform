@@ -100,6 +100,7 @@ interface RepairAppointment {
   status: string;
   serialNumber?: string;
   isWalkIn?: boolean;
+  source?: string;
 }
 
 const REPAIR_STATUS_OPTIONS = ["booked", "received", "in_repair", "ready", "completed", "cancelled"] as const;
@@ -1124,7 +1125,7 @@ export function AllChatsPanel({ businessId, active = true, businessType }: { bus
                           <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Email</span><span style={{ color: "var(--text)" }}>{repairForSelected.email}</span></div>
                         )}
                         <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Device</span><span style={{ color: "var(--text)" }}>{repairForSelected.deviceType}{repairForSelected.deviceModel ? ` — ${repairForSelected.deviceModel}` : ""}</span></div>
-                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>{repairForSelected.isWalkIn ? "Source" : "Appointment"}</span><span style={{ color: "var(--text)" }}>{repairForSelected.isWalkIn ? "🚶 Walk-in" : new Date(repairForSelected.appointmentDate).toLocaleString()}</span></div>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Source</span><span style={{ color: "var(--text)" }}>{repairForSelected.source === "website" ? "🌐 Website" : repairForSelected.source?.startsWith("walk-in") ? `🚶 ${repairForSelected.source}` : repairForSelected.source ? `👤 ${repairForSelected.source}` : repairForSelected.isWalkIn ? "🚶 Walk-in" : new Date(repairForSelected.appointmentDate).toLocaleString()}</span></div>
                         <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Tracking code</span><button onClick={() => navigator.clipboard.writeText(repairForSelected.trackingToken)} title="Click to copy" style={{ background: "none", border: "none", padding: 0, color: "var(--accent)", fontFamily: "inherit", fontSize: 12, cursor: "pointer" }}>{repairForSelected.trackingToken}</button></div>
                         <div style={{ color: "var(--text-secondary)", marginTop: 4 }}>{repairForSelected.issueDescription}</div>
                         <select value={repairForSelected.status} onChange={(e) => updateRepairStatus(e.target.value)} disabled={savingRepairStatus} style={{ padding: "7px 10px", fontSize: 12, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)", fontFamily: "inherit" }}>

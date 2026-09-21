@@ -23,6 +23,7 @@ import { StaffPanel } from "../../../components/StaffPanel";
 import { ContactsPanel } from "../../../components/ContactsPanel";
 import { InvoicesPanel } from "../../../components/InvoicesPanel";
 import { ReportsPanel } from "../../../components/ReportsPanel";
+import { PartsUsageReportPanel } from "../../../components/PartsUsageReportPanel";
 import { ClientOverviewPanel } from "../../../components/ClientOverviewPanel";
 import { ClientTagDashboardPanel } from "../../../components/ClientTagDashboardPanel";
 import { TrainingArenaPanel } from "../../../components/TrainingArenaPanel";
@@ -35,10 +36,10 @@ import { DeletedDataPanel } from "../../../components/DeletedDataPanel";
 import { ClientHomePanel } from "../../../components/ClientHomePanel";
 import { AppointmentNotificationBell } from "../../../components/AppointmentNotificationBell";
 
-type Tab = "home" | "overview" | "tagdashboard" | "knowledge" | "products" | "inventory" | "orders" | "delivery" | "repairs" | "offers" | "staff" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "invoices" | "reports" | "notifications" | "settings" | "deleted";
+type Tab = "home" | "overview" | "tagdashboard" | "knowledge" | "products" | "inventory" | "orders" | "delivery" | "repairs" | "offers" | "staff" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "invoices" | "reports" | "partsusage" | "notifications" | "settings" | "deleted";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
-  { items: [{ id: "home", label: "Home" }, { id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }, { id: "reports", label: "Reports" }] },
+  { items: [{ id: "home", label: "Home" }, { id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }, { id: "reports", label: "Reports" }, { id: "partsusage", label: "Parts Usage" }] },
   {
     label: "Conversations",
     items: [
@@ -97,7 +98,7 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
 // Knowledge Hub, Storage, and Integrations are hidden (power-user
 // features that clutter a repair shop's daily workflow).
 const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
-  { items: [{ id: "home", label: "Home" }, { id: "repairs", label: "Repairs" }, { id: "overview", label: "Overview" }, { id: "reports", label: "Reports" }] },
+  { items: [{ id: "home", label: "Home" }, { id: "repairs", label: "Repairs" }, { id: "overview", label: "Overview" }, { id: "reports", label: "Reports" }, { id: "partsusage", label: "Parts Usage" }] },
   {
     label: "Conversations",
     items: [
@@ -536,6 +537,7 @@ export default function ClientDashboardClient() {
         ["channels", <ChannelsPanel key="channels" businessId={businessId} />],
         ["settings", <UserSettingsPanel key="settings" active={tab === "settings"} businessId={businessId} />],
         ["deleted", <DeletedDataPanel key="deleted" businessId={businessId} active={tab === "deleted"} />],
+        ["partsusage", <PartsUsageReportPanel key="partsusage" businessId={businessId} active={tab === "partsusage"} />],
       ] as [Tab, ReactNode][])
         .filter(([id]) => id !== "settings" || accountRole === "owner")
         .filter(([id]) => id !== "deleted" || !actsAsClient)

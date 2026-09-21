@@ -10,4 +10,8 @@ export class ReportingController {
   getInventoryUsage(businessId: string, from?: Date, to?: Date) {
     return this.reporting.getInventoryUsage(businessId, from, to);
   }
+
+  getPartsUsage(businessId?: string, from?: Date, to?: Date) {
+    return this.reporting.getPartsUsage(businessId, from, to);
+  }
 }

@@ -153,8 +153,8 @@ export function ClientHomePanel({
     const needsAttention = appointments.filter((a) => a.rescheduleRequested || a.cancelRequested);
     const completedToday = appointments.filter((a) => a.status === "completed" && dateKeyInZone(a.appointmentDate) === todayKey);
     // Sub-breakdown for today's items
-    const bookedToday = today.filter((a) => !a.isWalkIn && a.source !== "walkin");
-    const walkinsToday = today.filter((a) => a.isWalkIn || a.source === "walkin");
+    const bookedToday = today.filter((a) => !a.isWalkIn && !a.source?.startsWith("walk-in"));
+    const walkinsToday = today.filter((a) => a.isWalkIn || a.source?.startsWith("walk-in"));
     return {
       todayCount: today.length,
       activeCount: active.length,

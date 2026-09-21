@@ -505,12 +505,17 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
         <div style={{ display: "flex", gap: 4, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
           {a.isWalkIn && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "#f97316", color: "#fff", fontSize: 10, fontWeight: 600 }}>
-              🚶 Walk-in
+              🚶 Walk-in{a.source?.startsWith("walk-in (") ? ` — ${a.source.slice(9, -1)}` : ""}
             </span>
           )}
-          {!a.isWalkIn && a.source !== "walkin" && (
+           {!a.isWalkIn && a.source === "website" && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "#6366f1", color: "#fff", fontSize: 10, fontWeight: 600 }}>
-              {a.source === "website" ? "🌐 Website" : "📅 Scheduled"}
+              🌐 Website
+            </span>
+          )}
+          {!a.isWalkIn && a.source && a.source !== "website" && !a.source.startsWith("walk-in") && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "#6366f1", color: "#fff", fontSize: 10, fontWeight: 600 }}>
+              👤 {a.source}
             </span>
           )}
           {a.serialNumber && <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)" }}>{a.serialNumber}</span>}
@@ -937,13 +942,7 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
                 {new Date(selected.createdAt).toLocaleString("en-US", { timeZone: timezone, dateStyle: "medium", timeStyle: "short" })}
               </div>
               <div style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 12 }}>
-                <span style={{ color: "var(--text-faint)" }}>Source:</span> {selected.source === "website"
-                  ? "🌐 Website"
-                  : selected.isWalkIn
-                    ? `🚶 Walk-in${bookedBy ? ` · ${bookedBy}` : ""}`
-                    : bookedBy
-                      ? `🖥 ${bookedBy}`
-                      : "—"}
+                <span style={{ color: "var(--text-faint)" }}>Source:</span> {selected.source === "website" ? "🌐 Website" : selected.source?.startsWith("walk-in") ? `🚶 ${selected.source}` : selected.source ? `👤 ${selected.source}` : selected.isWalkIn ? "🚶 Walk-in" : "📅 Scheduled"}
               </div>
               <button
                 onClick={() => { navigator.clipboard.writeText(selected.trackingToken); }}

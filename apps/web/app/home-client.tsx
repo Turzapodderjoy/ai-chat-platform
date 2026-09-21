@@ -1,12 +1,25 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import styles from "./page.module.css";
 
 export default function HomeClient() {
   const router = useRouter();
+
+  // Strip credentials from URL if they leak into query params (e.g. shared
+  // links with ?username=...&password=...). Never let them sit in the
+  // address bar, browser history, or server logs.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const hasSensitiveParams = ["username", "password", "passwd", "pass"].some(
+      (k) => url.searchParams.has(k)
+    );
+    if (hasSensitiveParams) {
+      window.history.replaceState({}, "", url.pathname);
+    }
+  }, []);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [forgotMessage, setForgotMessage] = useState("");

@@ -288,6 +288,7 @@ export class RepairController {
       issueDescription: input.issueDescription,
       appointmentDate: new Date(),
       isWalkIn: input.isWalkIn,
+      source: input.isWalkIn ? `walk-in (${actorUsername})` : actorUsername,
     });
 
     // book() above only creates the RepairAppointment row -- unlike the

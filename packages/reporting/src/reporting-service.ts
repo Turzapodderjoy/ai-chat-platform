@@ -26,6 +26,27 @@ export interface CrmReport {
   newContactsThisMonth: number;
 }
 
+export interface PartsUsageItem {
+  id: string;
+  name: string;
+  kind: string;
+  quantity: number;
+  orderId: string;
+  trackingToken: string;
+  customerName: string;
+  costPrice: number | null;
+  sellingPrice: number;
+  date: string;
+  usedBy: string | null;
+}
+
+export interface PartsUsageReport {
+  items: PartsUsageItem[];
+  totalCost: number;
+  totalSelling: number;
+  generatedAt: string;
+}
+
 // The date-ranged summary row -- separate from the sections below (which
 // stay all-time/this-month) since this is specifically what the date
 // filter dropdown on the Reports page controls.
@@ -356,5 +377,71 @@ export class ReportingService {
 
     rows.sort((a, b) => b.date.localeCompare(a.date));
     return { rows };
+  }
+
+  /** Parts/services usage report: every RepairOrderItem (kind=part or
+   * service) joined with its parent RepairAppointment, Product (if
+   * inventory-linked), and AuditLog entry (who added it). Date range
+   * filters by RepairOrderItem.createdAt. */
+  async getPartsUsage(businessId: string | undefined, from?: Date, to?: Date): Promise<PartsUsageReport> {
+    const where: Record<string, unknown> = {};
+    if (businessId) where.businessId = businessId;
+    if (from || to) {
+      where.createdAt = {};
+      if (from) (where.createdAt as Record<string, Date>).gte = from;
+      if (to) (where.createdAt as Record<string, Date>).lte = to;
+    }
+
+    const rows = await prisma.repairOrderItem.findMany({
+      where: { repairAppointment: where },
+      include: {
+        repairAppointment: { select: { id: true, trackingToken: true, customerName: true, businessId: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Batch-fetch products for inventory-linked items
+    const productIds = [...new Set(rows.map((r) => r.productId).filter((id): id is string => !!id))];
+    const products = productIds.length
+      ? await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, costPrice: true } })
+      : [];
+    const costByProduct = new Map(products.map((p) => [p.id, parseFloat(p.costPrice ?? "") || 0]));
+
+    // Batch-fetch audit logs for "item_added" actions on these items
+    const itemIds = rows.map((r) => r.id);
+    const auditLogs = itemIds.length
+      ? await prisma.auditLog.findMany({
+          where: { entityType: "order-item", entityId: { in: itemIds }, action: "item_added" },
+          select: { entityId: true, actorUsername: true },
+        })
+      : [];
+    const actorByItemId = new Map(auditLogs.map((a) => [a.entityId, a.actorUsername]));
+
+    let totalCost = 0;
+    let totalSelling = 0;
+
+    const items: PartsUsageItem[] = rows.map((row) => {
+      const costPrice = row.productId ? (costByProduct.get(row.productId) ?? null) : (row.costPrice ?? null);
+      const sellingPrice = row.overridePrice ?? row.defaultPrice * row.quantity;
+      const effectiveCost = costPrice != null ? costPrice * row.quantity : 0;
+      totalCost += effectiveCost;
+      totalSelling += sellingPrice;
+
+      return {
+        id: row.id,
+        name: row.name,
+        kind: row.kind,
+        quantity: row.quantity,
+        orderId: row.repairAppointmentId,
+        trackingToken: row.repairAppointment.trackingToken,
+        customerName: row.repairAppointment.customerName,
+        costPrice,
+        sellingPrice,
+        date: row.createdAt.toISOString(),
+        usedBy: actorByItemId.get(row.id) ?? null,
+      };
+    });
+
+    return { items, totalCost, totalSelling, generatedAt: new Date().toISOString() };
   }
 }
