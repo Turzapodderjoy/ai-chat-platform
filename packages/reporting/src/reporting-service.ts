@@ -393,7 +393,7 @@ export class ReportingService {
     }
 
     const rows = await prisma.repairOrderItem.findMany({
-      where: { repairAppointment: where },
+      where: { kind: "part", repairAppointment: where },
       include: {
         repairAppointment: { select: { id: true, trackingToken: true, customerName: true, businessId: true } },
       },
