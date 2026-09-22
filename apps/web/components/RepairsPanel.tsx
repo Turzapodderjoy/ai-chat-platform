@@ -13,7 +13,7 @@ import { RepairReceiptPopup } from "./RepairReceiptPopup";
 
 // ponytail: feature-gate so the print popup can be hidden / restored for a
 // client contract without touching the feature code. Flip to true to re-enable.
-const RECEIPT_POPUP_ENABLED = false;
+const RECEIPT_POPUP_ENABLED = true;
 
 interface Appointment {
   id: string;
