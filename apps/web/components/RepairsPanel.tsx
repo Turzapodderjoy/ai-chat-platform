@@ -11,6 +11,10 @@ import { AuditHistoryButton } from "./AuditHistoryButton";
 import { WalkInDialog } from "./WalkInDialog";
 import { RepairReceiptPopup } from "./RepairReceiptPopup";
 
+// ponytail: feature-gate so the print popup can be hidden / restored for a
+// client contract without touching the feature code. Flip to true to re-enable.
+const RECEIPT_POPUP_ENABLED = false;
+
 interface Appointment {
   id: string;
   businessId: string;
@@ -314,7 +318,8 @@ export function RepairsPanel({ businessId, active = true, accountRole }: { busin
   async function updateStatus(id: string, status: string) {
     // "Mark Received" opens the print/sticker popup first; the status only
     // changes once the staff confirms (Print / No need Print) or cancels.
-    if (status === "received") {
+    // Flag flips off/on to temporarily remove the popup from production.
+    if (status === "received" && RECEIPT_POPUP_ENABLED) {
       setReceiptPopupId(id);
       return;
     }
