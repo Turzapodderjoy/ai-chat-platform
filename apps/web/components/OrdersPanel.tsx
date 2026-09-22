@@ -6,6 +6,7 @@ import { cardStyle, cellStyle, subtleTextStyle, shortId, primaryButtonStyle, bad
 import { useCurrencySymbol } from "../lib/currency";
 import { MessageTagControl } from "./MessageTagControl";
 import { OrderItemsEditor, orderTotal, type RepairOrder, type Product } from "./OrderManagementPanel";
+import { showConfirm } from "../lib/app-dialog";
 
 interface AiOrder {
   id: string;
@@ -42,7 +43,8 @@ type Row =
  * two separate panels or a tab toggle. The two are genuinely different
  * records (Order vs RepairAppointment) under the hood, but they belong
  * in one place from a staff member's point of view — "all our orders". */
-export function OrdersPanel({ businessId, businessType }: { businessId: string; businessType?: string }) {
+export function OrdersPanel({ businessId, businessType, accountRole }: { businessId: string; businessType?: string; accountRole?: string | null }) {
+  const canDelete = accountRole === "owner" || accountRole === "admin";
   const currency = useCurrencySymbol(businessId);
   const [aiOrders, setAiOrders] = useState<AiOrder[] | null>(null);
   const [serviceOrders, setServiceOrders] = useState<RepairOrder[] | null>(null);
@@ -132,6 +134,23 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
       .then((r) => r.json())
       .then((d: { products: Product[] }) => { if (mounted) setProducts(d.products); });
     return () => { mounted = false; };
+  }
+
+  async function deleteRow(r: Row) {
+    const confirmed = await showConfirm(
+      r.kind === "ai"
+        ? `Delete the AI order for "${r.customerName}" (${shortId(r.id)})? Cannot be undone.`
+        : `Delete the service order for "${r.customerName}" (${r.data.serialNumber ?? shortId(r.id)})? This also removes its message thread — cannot be undone.`
+    );
+    if (!confirmed) return;
+    await fetch(
+      r.kind === "ai"
+        ? `/api/admin/orders?id=${encodeURIComponent(r.id)}`
+        : `/api/admin/repairs?id=${encodeURIComponent(r.id)}`,
+      { method: "DELETE" }
+    );
+    if (openId === r.id) setOpenId(null);
+    refresh();
   }
 
   useEffect(() => {
@@ -417,6 +436,17 @@ export function OrdersPanel({ businessId, businessType }: { businessId: string; 
                       ) : (
                         <button onClick={() => setOpenId(openId === r.id ? null : r.id)} style={{ fontSize: 12, padding: "6px 12px" }}>
                           {openId === r.id ? "Close" : "Open"}
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={() => deleteRow(r)}
+                          title="Delete order"
+                          style={{ marginLeft: 8, width: 26, height: 26, display: "inline-flex", alignItems: "center", justifyContent: "center", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--bg)", cursor: "pointer", color: "var(--text-faint)", fontFamily: "inherit" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--danger, #e5484d)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-faint)")}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
                         </button>
                       )}
                     </td>

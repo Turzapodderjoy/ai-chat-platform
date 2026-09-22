@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@ai-chat-platform/database";
-import { verifyAdminToken } from "@ai-chat-platform/client-auth";
+
+import { isAdminOrOwner } from "../../../../../lib/admin-actor";
 
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const adminSession = req.cookies.get("admin_session")?.value;
-  if (!adminSession || !verifyAdminToken(adminSession)) {
+  if (!(await isAdminOrOwner(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

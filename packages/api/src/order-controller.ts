@@ -27,4 +27,8 @@ export class OrderController {
 
     return order;
   }
+
+  delete(id: string, actorUsername: string) {
+    return this.orders.delete(id, actorUsername);
+  }
 }

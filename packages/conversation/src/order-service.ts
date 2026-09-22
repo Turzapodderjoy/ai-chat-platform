@@ -1,4 +1,4 @@
-import { prisma } from "@ai-chat-platform/database";
+import { prisma, archiveDeleted } from "@ai-chat-platform/database";
 
 export interface OrderInput {
   businessId: string;
@@ -83,5 +83,23 @@ export class OrderService {
   async updateDelivery(id: string, input: UpdateDeliveryInput): Promise<Order> {
     const row = await prisma.order.update({ where: { id }, data: input });
     return toOrder(row);
+  }
+
+  /** Keep a copy on the way out (Deleted Data panel) before removing the
+   * row -- same rule as every other record delete in this codebase. */
+  async delete(id: string, actorUsername: string): Promise<{ ok: true }> {
+    const row = await prisma.order.findUnique({ where: { id } });
+    if (row) {
+      await archiveDeleted({
+        businessId: row.businessId,
+        entityType: "order",
+        entityId: id,
+        label: row.customerName,
+        data: row,
+        deletedBy: actorUsername,
+      });
+    }
+    await prisma.order.delete({ where: { id } });
+    return { ok: true };
   }
 }

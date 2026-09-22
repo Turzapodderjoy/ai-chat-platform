@@ -6,6 +6,7 @@ import { cardStyle, subtleTextStyle, primaryButtonStyle, shortId } from "./dashb
 import { MessageTagControl } from "./MessageTagControl";
 import { MarkdownMessage } from "./MarkdownMessage";
 import { ReasoningInfo } from "./ReasoningInfo";
+import { showConfirm } from "../lib/app-dialog";
 
 interface MessageSource {
   label: string;
@@ -171,7 +172,8 @@ const STATUS_TABS: { id: StatusTab; label: string }[] = [
  * handoffs, orders) rather than inventing new ones. */
 const MOBILE_BREAKPOINT = 860;
 
-export function AllChatsPanel({ businessId, active = true, businessType }: { businessId?: string; active?: boolean; businessType?: string }) {
+export function AllChatsPanel({ businessId, active = true, businessType, accountRole }: { businessId?: string; active?: boolean; businessType?: string; accountRole?: string | null }) {
+  const canDelete = accountRole === "owner" || accountRole === "admin";
   const [conversations, setConversations] = useState<ConversationSummary[] | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -470,6 +472,18 @@ export function AllChatsPanel({ businessId, active = true, businessType }: { bus
     }
 
     setContactForSelected(undefined);
+  }
+
+  async function deleteConversation(c: ConversationSummary) {
+    const confirmed = await showConfirm(
+      `Delete the conversation with "${displayName(c)}"? The whole message thread is removed and this cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    const res = await fetch(`/api/admin/conversations/${encodeURIComponent(c.id)}`, { method: "DELETE" });
+    if (!res.ok) return;
+    if (selectedId === c.id) setSelectedId(null);
+    setConversations((prev) => prev?.filter((x) => x.id !== c.id) ?? prev);
   }
 
   // Contact record is resolved once we know the customer's phone — from
@@ -906,6 +920,17 @@ export function AllChatsPanel({ businessId, active = true, businessType }: { bus
                     ))}
                   </div>
                 </div>
+                {canDelete && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deleteConversation(c); }}
+                    title="Delete conversation"
+                    style={{ alignSelf: "center", width: 26, height: 26, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--bg)", cursor: "pointer", color: "var(--text-faint)", fontFamily: "inherit", opacity: 0.6 }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--danger, #e5484d)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-faint)")}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                  </button>
+                )}
               </div>
             );
           })}

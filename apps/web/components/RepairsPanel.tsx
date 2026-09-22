@@ -143,7 +143,7 @@ function timeAgo(iso: string): string {
  * appointment's own details shown above it. Same optional-businessId
  * convention as AllChatsPanel/ClientOverviewPanel — works unscoped on
  * the mother dashboard too. */
-export function RepairsPanel({ businessId, active = true }: { businessId?: string; active?: boolean }) {
+export function RepairsPanel({ businessId, active = true, accountRole }: { businessId?: string; active?: boolean; accountRole?: string | null }) {
   const [appointments, setAppointments] = useState<Appointment[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [calendarDay, setCalendarDay] = useState<string | null>(null);
@@ -163,6 +163,8 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
   const [walkInOpen, setWalkInOpen] = useState(false);
   const [businessName, setBusinessName] = useState("");
   const [receiptPopupId, setReceiptPopupId] = useState<string | null>(null);
+
+  const canDelete = accountRole === "owner" || accountRole === "admin";
 
   useEffect(() => {
     if (!businessId) return;
@@ -949,6 +951,15 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
               <button onClick={() => setOrderOpen((o) => !o)} style={{ padding: "6px 12px", fontSize: 12, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: orderOpen ? "var(--accent-subtle)" : "var(--bg)", cursor: "pointer", color: "var(--text)", fontFamily: "inherit" }}>
                 {orderOpen ? "Close Order" : "Create Order"}
               </button>
+              {canDelete && (
+                <button
+                  onClick={() => deleteAppointment(selected)}
+                  title="Delete appointment"
+                  style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--bg)", cursor: "pointer", color: "var(--danger, #e5484d)", fontFamily: "inherit" }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                </button>
+              )}
             </div>
           </div>
 

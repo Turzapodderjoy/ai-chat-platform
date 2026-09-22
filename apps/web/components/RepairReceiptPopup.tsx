@@ -115,7 +115,7 @@ export function RepairReceiptPopup({
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius-md, 12px)", boxShadow: "var(--shadow-lg)", width: "min(760px, 100%)", maxHeight: "92vh", display: "flex", flexDirection: "column" }}>
+      <div style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius-md, 12px)", boxShadow: "var(--shadow-lg)", width: "min(1080px, 100%)", maxHeight: "92vh", display: "flex", flexDirection: "column" }}>
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>
@@ -136,9 +136,35 @@ export function RepairReceiptPopup({
         </div>
 
         {/* Body */}
-        <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* Live print preview */}
-          <div style={{ background: "var(--surface-hover)", border: "1px dashed var(--border)", borderRadius: "var(--radius-sm)", padding: 16, display: "flex", justifyContent: "center", overflowX: "auto" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", gap: 20, alignItems: "flex-start" }}>
+          {/* Left: editable fields + order items */}
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Editable details */}
+          <div>
+            <div style={subtleTextStyle}>{`Edits override this repair's details when you print or confirm.`}</div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
+              {editableRow("Customer name", customerName, setCustomerName)}
+              {editableRow("Phone", phone, setPhone)}
+              {editableRow("Email", email, setEmail)}
+              {editableRow("Device type", deviceType, setDeviceType)}
+              {editableRow("Device model", deviceModel, setDeviceModel)}
+              {editableRow("Issue", issueDescription, setIssueDescription)}
+              {editableRow("Override total", totalOverride, setTotalOverride)}
+            </div>
+          </div>
+
+          {/* Order items (reuses the shared order editor) */}
+          <div style={{ borderTop: "1px solid var(--border)", paddingTop: 4 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
+              <span style={badgeStyle("info")}>Order</span>
+              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Add parts/services with pricing — they appear on the receipt.</span>
+            </div>
+            <OrderItemsEditor order={order} products={products} onChanged={onItemsChanged} />
+          </div>
+          </div>
+
+          {/* Right: live print preview, pinned while the left scrolls */}
+          <div style={{ flex: "0 0 auto", background: "var(--surface-hover)", border: "1px dashed var(--border)", borderRadius: "var(--radius-sm)", padding: 16, display: "flex", justifyContent: "center", overflowX: "auto", position: "sticky", top: 0, maxHeight: "80vh", overflowY: "auto" }}>
             <div className="no-print chrome" style={{ display: "none" }} />
             <div className="print-sheet" style={{ width, background: "#fff", color: "#111", fontFamily: "'Courier New', monospace", fontSize: 12, lineHeight: 1.45, padding: width === "58mm" ? "6mm" : "8mm", boxSizing: "border-box", boxShadow: "0 1px 4px rgba(0,0,0,0.2)" }}>
               {/* Sticker (top, short) */}
@@ -195,29 +221,6 @@ export function RepairReceiptPopup({
                 <div style={{ textAlign: "center", marginTop: 4 }}>Thank you!</div>
               </div>
             </div>
-          </div>
-
-          {/* Editable details */}
-          <div>
-            <div style={subtleTextStyle}>{`Edits override this repair's details when you print or confirm.`}</div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
-              {editableRow("Customer name", customerName, setCustomerName)}
-              {editableRow("Phone", phone, setPhone)}
-              {editableRow("Email", email, setEmail)}
-              {editableRow("Device type", deviceType, setDeviceType)}
-              {editableRow("Device model", deviceModel, setDeviceModel)}
-              {editableRow("Issue", issueDescription, setIssueDescription)}
-              {editableRow("Override total", totalOverride, setTotalOverride)}
-            </div>
-          </div>
-
-          {/* Order items (reuses the shared order editor) */}
-          <div style={{ borderTop: "1px solid var(--border)", paddingTop: 4 }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
-              <span style={badgeStyle("info")}>Order</span>
-              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Add parts/services with pricing — they appear on the receipt.</span>
-            </div>
-            <OrderItemsEditor order={order} products={products} onChanged={onItemsChanged} />
           </div>
         </div>
       </div>

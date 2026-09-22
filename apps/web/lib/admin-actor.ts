@@ -48,3 +48,18 @@ export async function isPlatformAdmin(req: NextRequest): Promise<boolean> {
   }
   return false;
 }
+
+/** The fixed admin login, a ClientAccount flagged isAdmin, OR a client
+ * account whose role is "owner" -- the people allowed to delete records
+ * (repairs, chats, orders). Staff sessions are not. */
+export async function isAdminOrOwner(req: NextRequest): Promise<boolean> {
+  if (verifyAdminToken(req.cookies.get(ADMIN_COOKIE)?.value)) return true;
+
+  const clientToken = req.cookies.get(CLIENT_COOKIE)?.value;
+  if (clientToken) {
+    const app = await getApp();
+    const session = await app.container.router.clientAuth.getSession(clientToken);
+    return Boolean(session && (session.isAdmin || session.role === "owner"));
+  }
+  return false;
+}
