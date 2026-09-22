@@ -352,7 +352,12 @@ export class RepairAppointmentService {
    * own design notes). Product.stock is a free-text string field (same
    * convention as its `price` field), so this only adjusts it when it
    * parses as a plain number; a non-numeric stock value is left alone
-   * rather than silently corrupted. */
+   * rather than silently corrupted.
+   *
+   * For a manual part (no productId), looks up an existing inventory
+   * Product with the same name for this business. If found, links it.
+   * If not, creates a new Product with stock "0" (the quantity is
+   * already in-use on the order) so the client can restock later. */
   async addItem(repairAppointmentId: string, input: AddOrderItemInput, actorUsername: string): Promise<RepairOrderItem> {
     // book() numbers every new appointment, so this only ever fires for a
     // legacy row created before that -- same shared sequence either way.
@@ -365,6 +370,30 @@ export class RepairAppointmentService {
       await prisma.repairAppointment.update({ where: { id: repairAppointmentId }, data: { serialNumber } });
     }
 
+    // Resolve productId for manual parts: reuse existing inventory item
+    // by name, or create a new one with stock "0" so the client can
+    // restock later. No stock is consumed either way.
+    let productId = input.productId ?? null;
+    if (input.kind === "part" && !productId && appointment) {
+      const existing = await prisma.product.findFirst({
+        where: { businessId: appointment.businessId, name: input.name },
+      });
+      if (existing) {
+        productId = existing.id;
+      } else {
+        const product = await prisma.product.create({
+          data: {
+            businessId: appointment.businessId,
+            name: input.name,
+            costPrice: input.costPrice != null ? String(input.costPrice) : null,
+            price: String(input.defaultPrice),
+            stock: "0",
+          },
+        });
+        productId = product.id;
+      }
+    }
+
     // An Inventory part draws from its stock lots oldest-first; the line
     // keeps the weighted unit cost of exactly those lots (and which lots),
     // so a later restock at a new cost never changes what this sale cost.
@@ -373,7 +402,7 @@ export class RepairAppointmentService {
     const row = await prisma.repairOrderItem.create({
       data: {
         repairAppointmentId,
-        productId: input.productId ?? null,
+        productId,
         kind: input.kind,
         name: input.name,
         quantity: input.quantity,
