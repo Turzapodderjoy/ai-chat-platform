@@ -60,6 +60,7 @@ export function OrderItemsEditor({ order, products, onChanged }: { order: Repair
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [price, setPrice] = useState("");
+  const [costPrice, setCostPrice] = useState("");
   const [saving, setSaving] = useState(false);
   const [overrideDrafts, setOverrideDrafts] = useState<Record<string, string>>({});
 
@@ -92,6 +93,7 @@ export function OrderItemsEditor({ order, products, onChanged }: { order: Repair
           name,
           quantity: Number(quantity) || 1,
           defaultPrice: Number(price) || 0,
+          costPrice: costPrice.trim() ? Number(costPrice) : undefined,
         }),
       });
       setProductId("");
@@ -165,6 +167,7 @@ export function OrderItemsEditor({ order, products, onChanged }: { order: Repair
         )}
         <input placeholder="Qty" type="number" min={1} value={quantity} onChange={(e) => setQuantity(e.target.value)} style={{ padding: 6, width: 60 }} />
         <input placeholder="Price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} style={{ padding: 6, width: 90 }} />
+        {kind === "part" && !productId && <input placeholder="Cost" type="number" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} style={{ padding: 6, width: 80 }} />}
         <button onClick={addItem} disabled={saving || !name.trim() || !price.trim()} style={{ fontSize: 12, padding: "6px 10px" }}>
           + Add
         </button>
