@@ -21,7 +21,7 @@ function json(body: unknown) {
  * username so the dashboard can show who's logged in. */
 export async function GET(req: NextRequest) {
   if (verifyAdminToken(req.cookies.get(ADMIN_COOKIE)?.value)) {
-    return json({ role: "admin", username: "admin" });
+    return json({ role: "admin", username: process.env.ADMIN_USERNAME || "admin" });
   }
 
   const clientToken = req.cookies.get(CLIENT_COOKIE)?.value;
