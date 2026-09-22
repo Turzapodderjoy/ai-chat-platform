@@ -341,6 +341,31 @@ export class RepairAppointmentService {
     return toAppointment(row);
   }
 
+  /** Persists the live-edited receipt fields from the "Mark Received"
+   *  print popup -- customer/device/issue details and the total override
+   *  all apply back to the repair appointment itself. */
+  async updateDetails(
+    id: string,
+    data: { customerName?: string; phone?: string; email?: string; deviceType?: string; deviceModel?: string; issueDescription?: string; totalOverride?: number | null },
+    actorUsername: string
+  ): Promise<RepairAppointment> {
+    const row = await prisma.repairAppointment.update({
+      where: { id },
+      data: {
+        customerName: data.customerName,
+        phone: data.phone,
+        email: data.email,
+        deviceType: data.deviceType,
+        deviceModel: data.deviceModel,
+        issueDescription: data.issueDescription,
+        totalOverride: data.totalOverride === undefined ? undefined : data.totalOverride,
+      },
+      include: { items: true },
+    });
+    await logAudit({ businessId: row.businessId, entityType: "repair", entityId: id, action: "details_updated", detail: "Receipt/sticker edits applied", actorUsername });
+    return toAppointment(row);
+  }
+
   async setContact(id: string, contactId: string): Promise<RepairAppointment> {
     const row = await prisma.repairAppointment.update({ where: { id }, data: { contactId }, include: { items: true } });
     return toAppointment(row);

@@ -25,6 +25,19 @@ export async function POST(req: NextRequest) {
 
   // Handle status update
   if (body.status && typeof body.status === "string") {
+    // Popup edits ride along with the status change ("Mark Received").
+    if (typeof body.details === "object" && body.details !== null) {
+      const d = body.details as Record<string, unknown>;
+      await app.container.router.repairs.updateRepairDetails(body.id, {
+        customerName: typeof d.customerName === "string" ? d.customerName : undefined,
+        phone: typeof d.phone === "string" ? d.phone : undefined,
+        email: typeof d.email === "string" ? d.email : undefined,
+        deviceType: typeof d.deviceType === "string" ? d.deviceType : undefined,
+        deviceModel: typeof d.deviceModel === "string" ? d.deviceModel : undefined,
+        issueDescription: typeof d.issueDescription === "string" ? d.issueDescription : undefined,
+        totalOverride: typeof d.totalOverride === "number" ? d.totalOverride : undefined,
+      }, actorUsername);
+    }
     const result = await app.container.router.repairs.updateStatus(body.id, body.status, actorUsername);
     return NextResponse.json(result);
   }

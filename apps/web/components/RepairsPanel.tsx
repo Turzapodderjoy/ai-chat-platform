@@ -9,6 +9,7 @@ import { isNewAppointment, dismissNotification, onNotificationsChanged } from ".
 import { showConfirm } from "../lib/app-dialog";
 import { AuditHistoryButton } from "./AuditHistoryButton";
 import { WalkInDialog } from "./WalkInDialog";
+import { RepairReceiptPopup } from "./RepairReceiptPopup";
 
 interface Appointment {
   id: string;
@@ -31,6 +32,7 @@ interface Appointment {
   cancelReason?: string;
   serialNumber?: string;
   contactId?: string;
+  totalOverride?: number;
   isWalkIn?: boolean;
   source?: string;
   items: { id: string; repairAppointmentId: string; productId?: string; kind: "part" | "service"; name: string; quantity: number; defaultPrice: number; overridePrice?: number; finalPrice: number }[];
@@ -159,12 +161,14 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [timezone, setTimezone] = useState<string | undefined>(undefined);
   const [walkInOpen, setWalkInOpen] = useState(false);
+  const [businessName, setBusinessName] = useState("");
+  const [receiptPopupId, setReceiptPopupId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!businessId) return;
     fetch(`/api/admin/clients/${businessId}`)
       .then((r) => r.json())
-      .then((d: { timezone?: string }) => { if (d.timezone) setTimezone(d.timezone); });
+      .then((d: { timezone?: string; name?: string }) => { if (d.timezone) setTimezone(d.timezone); if (d.name) setBusinessName(d.name); });
     fetch(`/api/admin/products?businessId=${encodeURIComponent(businessId)}&limit=200`)
       .then((r) => r.json())
       .then((d: { products: { id: string; name: string; price: string | null; stock: string | null }[] }) => setProducts(d.products));
@@ -306,10 +310,20 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
   }, [selectedId]);
 
   async function updateStatus(id: string, status: string) {
+    // "Mark Received" opens the print/sticker popup first; the status only
+    // changes once the staff confirms (Print / No need Print) or cancels.
+    if (status === "received") {
+      setReceiptPopupId(id);
+      return;
+    }
+    await updateStatusNow(id, status);
+  }
+
+  async function updateStatusNow(id: string, status: string, details?: Record<string, unknown>) {
     await fetch("/api/admin/repairs/status", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status }),
+      body: JSON.stringify(details ? { id, status, details } : { id, status }),
     });
     refresh();
     if (selected?.id === id) fetchMessages(selected.trackingToken);
@@ -317,6 +331,29 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
     // Repairs panel instead of a native browser dialog -- a completed
     // repair is exactly the moment staff need to bill it.
     if (status === "completed") setCompletedPromptId(id);
+  }
+
+  const receiptAppointment = receiptPopupId
+    ? (appointments?.find((a) => a.id === receiptPopupId) ?? null)
+    : null;
+
+  function confirmReceived(print: boolean, edits: { customerName: string; phone: string; email: string; deviceType: string; deviceModel: string; issueDescription: string; totalOverride: number | null }) {
+    const appt = receiptAppointment;
+    if (!appt) return;
+    // Live-edited receipt fields ride along with the status change so they
+    // override the repair's stored details.
+    const details = {
+      customerName: edits.customerName,
+      phone: edits.phone,
+      email: edits.email,
+      deviceType: edits.deviceType,
+      deviceModel: edits.deviceModel,
+      issueDescription: edits.issueDescription,
+      totalOverride: edits.totalOverride,
+    };
+    if (print) window.print();
+    setReceiptPopupId(null);
+    updateStatusNow(appt.id, "received", details);
   }
 
   function openOrderForCompleted() {
@@ -1142,6 +1179,21 @@ export function RepairsPanel({ businessId, active = true }: { businessId?: strin
             setWalkInOpen(false);
             refresh();
             setSelectedId(created.id);
+          }}
+        />
+      )}
+
+      {receiptAppointment && (
+        <RepairReceiptPopup
+          appointment={receiptAppointment}
+          products={products}
+          businessName={businessName}
+          onPrint={(edits) => confirmReceived(true, edits)}
+          onNoNeedPrint={(edits) => confirmReceived(false, edits)}
+          onClose={() => setReceiptPopupId(null)}
+          onItemsChanged={() => {
+            refresh();
+            setSelectedId(receiptAppointment.id);
           }}
         />
       )}

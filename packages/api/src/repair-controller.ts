@@ -334,6 +334,14 @@ export class RepairController {
     return this.repairs.setTotalOverride(repairAppointmentId, totalOverride);
   }
 
+  updateRepairDetails(
+    id: string,
+    data: { customerName?: string; phone?: string; email?: string; deviceType?: string; deviceModel?: string; issueDescription?: string; totalOverride?: number | null },
+    actorUsername: string
+  ) {
+    return this.repairs.updateDetails(id, data, actorUsername);
+  }
+
   async generateInvoice(repairAppointmentId: string, actorUsername: string) {
     const appointment = await this.repairs.findById(repairAppointmentId);
     if (!appointment) {
