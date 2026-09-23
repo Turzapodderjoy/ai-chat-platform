@@ -74,7 +74,7 @@ export default function HomeClient() {
               <path d="M8 12L11 15L16 9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <h1 className={styles.brandTitle}>HERMES</h1>
+          <h1 className={styles.brandTitle}>AIVA</h1>
           <p className={styles.brandSubtitle}>
             An agent on your brand&apos;s side — answering customers on your
             website, Messenger, Instagram, and WhatsApp, remembering every

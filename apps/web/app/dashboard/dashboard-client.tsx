@@ -331,7 +331,7 @@ export default function DashboardClient() {
     <DashboardShell
       sidebarLabel={
         <div>
-          <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Hermes</div>
+          <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>AIVA</div>
           <div style={{ fontSize: 10.5, color: "var(--text-faint)", fontWeight: 400, marginTop: 2 }}>
             Agent Platform
           </div>

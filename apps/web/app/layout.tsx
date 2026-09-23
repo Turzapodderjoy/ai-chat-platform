@@ -3,7 +3,7 @@ import "./globals.css";
 import { NoAutofill } from "../components/NoAutofill";
 
 export const metadata: Metadata = {
-  title: "Hermes",
+  title: "AIVA",
   description: "AI-powered customer support platform.",
 };
 
