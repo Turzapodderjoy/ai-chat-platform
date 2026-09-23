@@ -4,6 +4,7 @@ import { Retriever, RetrievedChunk } from "@ai-chat-platform/retriever";
 import { ConversationService, ConversationMessage, OrderService } from "@ai-chat-platform/conversation";
 import { EmbeddingManager } from "@ai-chat-platform/embedding-manager";
 import { AiConfigService } from "@ai-chat-platform/ai-config";
+import { hermesChat } from "@ai-chat-platform/hermes";
 import type { VectorStoreManager } from "@ai-chat-platform/vector-store";
 import type { MasterCsvService } from "@ai-chat-platform/knowledge-refresh";
 import type { ContactService } from "@ai-chat-platform/crm";
@@ -667,6 +668,74 @@ export class ChatService {
     return run;
   }
 
+  /** The Hermes-agent half of the cutover decision in chatSequential.
+   * Full circle per message: send to the business's Hermes profile (its
+   * own SOUL + durable per-conversation memory via X-Hermes-Session-Key),
+   * persist the reply to the transcript, and bridge the agent's handoff
+   * signal ([[NEEDS_HUMAN]], same marker the legacy LLM path uses) into a
+   * real ConversationService handoff so the ever-present human queue
+   * picks it up exactly like a legacy-branded handoff. */
+  private async runHermesConversation(
+    request: ChatRequest,
+    message: string,
+    businessName: string | null,
+    profileSlug: string
+  ): Promise<ChatResponse> {
+    const systemPrompt = [
+      businessName ? `You are the customer-facing chat agent for ${businessName}.` : "",
+      "Reply conversationally and truthfully. When the customer needs a real person — out-of-scope questions, refunds, warranty claims, disputes, or you genuinely cannot help — end your reply with a final line containing exactly: [[NEEDS_HUMAN]]",
+      request.languageHint
+        ? `The customer picked "${request.languageHint}" as their language in the chat's language picker — reply in that language unless their own message is clearly written in another one.`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    const result = await hermesChat({
+      tenant: profileSlug,
+      message,
+      sessionKey: `${request.businessId}:${request.sessionId}`,
+      systemPrompt,
+    });
+
+    const wantsHuman = result.answer.includes("[[NEEDS_HUMAN]]");
+    const clean = result.answer.replaceAll("[[NEEDS_HUMAN]]", "").trim();
+
+    const saved = await this.conversations.addMessage(
+      request.sessionId,
+      "assistant",
+      clean,
+      "hermes",
+      undefined,
+      wantsHuman ? 0 : 1
+    );
+
+    if (wantsHuman) {
+      await this.conversations.requestHandoff(
+        request.sessionId,
+        "Customer asked for a human",
+        clean.slice(0, 200)
+      );
+    }
+
+    this.usageLog.record({
+      chatId: request.sessionId,
+      provider: "hermes",
+      tokens: result.tokens,
+      confidence: wantsHuman ? 0 : 1,
+      createdAt: new Date().toISOString(),
+    });
+
+    return {
+      answer: clean,
+      provider: "hermes",
+      tokens: result.tokens,
+      confidence: wantsHuman ? 0 : 1,
+      handoff: wantsHuman,
+      messageId: saved.id,
+    };
+  }
+
   // 200K chars (~50K tokens) — conservative, safely under the smallest
   // context window among every currently-rotated provider (Groq/Mistral/
   // Cerebras are ~128K tokens), leaving headroom for system prompt,
@@ -782,6 +851,73 @@ export class ChatService {
       "user",
       effectiveMessage
     );
+
+    // ── Hermes agent cutover (Wave 3/4) ──────────────────────────────
+    // Single decision point for EVERY entry (website widget, Messenger,
+    // Instagram, WhatsApp): when this business is provisioned + enabled,
+    // the reply comes from its Hermes profile instead of the legacy
+    // RAG pipeline. The branch below is deliberately placed AFTER the
+    // user message is persisted (so the transcript stays complete for the
+    // inbox/handoff view) and BEFORE every legacy concern that doesn't
+    // apply here (ordering markers, repair markers, canned greetings,
+    // retrieval, provider LLM call). Exclusions kept honest:
+    //   - imageUrl: the Hermes gateway is text-only today — photos keep
+    //     the legacy vision pipeline (only reached when hermes handled a
+    //     TEXT message; images never enter this branch).
+    //   - isTraining: the Training Arena trains the LEGACY model, not
+    //     the Hermes agent (whose "self-training" is its own skills/sooul
+    //     system) — so arena runs never cross over.
+    //   - businessId === "default": the mother/platform agent has no
+    //     profile to route to.
+    if (!request.imageUrl && !request.isTraining && businessId !== "default") {
+      const hermesBiz = await prisma.business.findUnique({
+        where: { id: businessId },
+        select: { hermesProfile: true, hermesEnabled: true, name: true, aiEnabled: true },
+      });
+
+      if (hermesBiz?.hermesEnabled && hermesBiz.hermesProfile) {
+        // Same human/off gates as the legacy path below (checked there as
+        // "already being handled by a human" + the business-wide AI kill
+        // switch): a conversation already PENDING/in-a-human, or a business
+        // with AI switched off, must not keep getting bot replies — whether
+        // the bot is Hermes or the legacy LLM.
+        if (hermesBiz.aiEnabled === false || conversation.handoffStatus !== "bot") {
+          const waitLang = cannedMessageLanguage(config.languageMode, request.message);
+          const waitIdx = greetingIndex(request.sessionId + request.message);
+          const variants =
+            waitLang === "bangla" ? ALREADY_WAITING_MESSAGES_BN : waitLang === "banglish" ? ALREADY_WAITING_MESSAGES_BANGLISH : ALREADY_WAITING_MESSAGES_EN;
+          return {
+            answer: variants[waitIdx % variants.length]!,
+            provider: "human",
+            tokens: 0,
+            confidence: 0,
+            handoff: true,
+          };
+        }
+
+        try {
+          const hermesAnswer = await this.runHermesConversation(
+            request,
+            effectiveMessage,
+            hermesBiz.name ?? null,
+            hermesBiz.hermesProfile
+          );
+          return hermesAnswer;
+        } catch (hermesErr) {
+          // Fail closed but never crash the customer: log, and fall back
+          // to a canned "someone will pick this up" line WITHOUT re-
+          // persisting the user message (it's already stored above).
+          console.error(`[hermes] cutover failed for business ${businessId}:`, hermesErr);
+          return {
+            answer: "We're having trouble connecting right now — a team member will follow up with you shortly.",
+            provider: "system",
+            tokens: 0,
+            confidence: 0,
+            handoff: true,
+          };
+        }
+      }
+    }
 
     // A pending order (all 5 fields collected, waiting on the customer's
     // confirmation — see ORDER_PENDING_PATTERN's comment) finalizes right

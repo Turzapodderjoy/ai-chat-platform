@@ -21,13 +21,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     (typeof body.maxAgents !== "number" &&
       typeof body.type !== "string" &&
       typeof body.aiEnabled !== "boolean" &&
+      typeof body.hermesEnabled !== "boolean" &&
       !Array.isArray(body.enabledIntegrations) &&
       body.enabledIntegrations !== null &&
       typeof body.logoUrl !== "string" &&
       body.logoUrl !== null &&
       typeof body.timezone !== "string")
   ) {
-    return NextResponse.json({ error: "maxAgents, type, aiEnabled, enabledIntegrations, logoUrl, or timezone is required" }, { status: 400 });
+    return NextResponse.json({ error: "maxAgents, type, aiEnabled, hermesEnabled, enabledIntegrations, logoUrl, or timezone is required" }, { status: 400 });
   }
 
   try {
@@ -51,6 +52,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (typeof body.logoUrl === "string" || body.logoUrl === null) {
       const { prisma } = await import("@ai-chat-platform/database");
       await prisma.business.update({ where: { id }, data: { logoUrl: body.logoUrl } });
+    }
+    if (typeof body.hermesEnabled === "boolean") {
+      const { prisma } = await import("@ai-chat-platform/database");
+      await prisma.business.update({ where: { id }, data: { hermesEnabled: body.hermesEnabled } });
     }
     if (typeof body.timezone === "string") {
       const { prisma } = await import("@ai-chat-platform/database");

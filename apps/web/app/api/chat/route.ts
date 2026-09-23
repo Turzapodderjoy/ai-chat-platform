@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@ai-chat-platform/database";
-import { hermesChat, HermesError } from "@ai-chat-platform/hermes";
 
 import { getApp } from "../../../lib/app";
 
@@ -71,16 +70,12 @@ export async function POST(req: NextRequest) {
   const languageHint = typeof body.languageHint === "string" ? body.languageHint : undefined;
 
   // Check subscription status for the business (2-day grace period)
-  // plus Hermes profile/flags for the Wave 3 cutover path.
   if (businessId) {
     const business = await prisma.business.findUnique({
       where: { id: businessId },
       select: {
         subscriptionActive: true,
         subscriptionEndDate: true,
-        slug: true,
-        hermesProfile: true,
-        hermesEnabled: true,
       },
     });
 
@@ -100,46 +95,6 @@ export async function POST(req: NextRequest) {
           },
           { headers: CORS_HEADERS }
         );
-      }
-
-      // Hermes cutover: when the business is provisioned + enabled AND this is
-      // a text message (hermes gateway is text-only; images keep the legacy path),
-      // chat through the business's Hermes profile. The last reply seen by the
-      // grep of the DB flag stays authoritative; failures fail closed to the
-      // legacy router below.
-      if (business.hermesEnabled && business.hermesProfile && !imageUrl) {
-        try {
-          const hermes = await hermesChat({
-            tenant: business.hermesProfile,
-            message: body.message,
-            // Fresh per page-load in the widget, which is the product's intent
-            // (fresh conversation every visit). Namespaced per business.
-            sessionKey: `${businessId}:${sessionId}`,
-          });
-          if (businessId) {
-            prisma.businessUsage.upsert({
-              where: { businessId },
-              update: { chatCount: { increment: 1 } },
-              create: { businessId, chatCount: 1 },
-            }).catch((err) => console.error("[Usage] Failed to track chat:", err));
-          }
-          return NextResponse.json(
-            {
-              answer: hermes.answer,
-              provider: hermes.provider,
-              tokens: hermes.tokens,
-              confidence: 1,
-              handoff: false,
-              model: hermes.model,
-            },
-            { headers: CORS_HEADERS }
-          );
-        } catch (hermesErr) {
-          console.error("Hermes chat failed, falling back to legacy router:", hermesErr);
-          if (hermesErr instanceof HermesError && hermesErr.status === 401) {
-            console.error("   profile not provisioned/keys mismatched for", business.hermesProfile);
-          }
-        }
       }
     }
   }

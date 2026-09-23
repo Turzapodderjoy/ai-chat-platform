@@ -41,6 +41,8 @@ export class TenantService {
         slug: true,
         type: true,
         aiEnabled: true,
+        hermesEnabled: true,
+        hermesProfile: true,
         timezone: true,
         createdAt: true,
         subscriptionActive: true,

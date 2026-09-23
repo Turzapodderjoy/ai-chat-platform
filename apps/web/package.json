@@ -20,7 +20,6 @@
     "@ai-chat-platform/embedding-manager": "workspace:*",
     "@ai-chat-platform/indexing": "workspace:*",
     "@ai-chat-platform/ingestion": "workspace:*",
-    "@ai-chat-platform/hermes": "workspace:*",
     "@ai-chat-platform/vector-store": "workspace:*",
     "@google/genai": "^2.12.0",
     "@repo/ui": "workspace:*",

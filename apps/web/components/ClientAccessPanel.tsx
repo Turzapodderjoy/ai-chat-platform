@@ -10,6 +10,7 @@ interface Client {
   id: string;
   name: string;
   aiEnabled: boolean;
+  hermesEnabled: boolean;
 }
 
 interface ClientAccount {
@@ -373,6 +374,7 @@ export function ClientAccessPanel() {
   }
 
   const [togglingAi, setTogglingAi] = useState(false);
+  const [togglingHermes, setTogglingHermes] = useState(false);
 
   // Takes effect on the very next customer message -- ChatService reads
   // Business.aiEnabled fresh on every chat() call, nothing cached. Off
@@ -391,6 +393,24 @@ export function ClientAccessPanel() {
       refresh();
     } finally {
       setTogglingAi(false);
+    }
+  }
+
+  // Hermes Engine: chat() cuts the customer's conversations over to the
+  // client's Hermes agent profile (the AIVA AI engine). Requires a
+  // provisioned profile; the engine falls back to the legacy pipeline if
+  // the gateway/agent is unreachable. Read fresh on every message.
+  async function toggleHermes(client: Client) {
+    setTogglingHermes(true);
+    try {
+      await fetch(`/api/admin/clients/${client.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hermesEnabled: !client.hermesEnabled }),
+      });
+      refresh();
+    } finally {
+      setTogglingHermes(false);
     }
   }
 
@@ -687,6 +707,35 @@ export function ClientAccessPanel() {
             }}
           >
             {clients?.find((c) => c.id === businessId)?.aiEnabled ? "AI: ON" : "AI: OFF"}
+          </button>
+        </div>
+      )}
+
+      {!isAdmin && businessId && clients?.find((c) => c.id === businessId) && (
+        <div style={{ marginTop: 12, border: "1px solid var(--border)", borderRadius: 8, padding: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 4 }}>
+              Hermes Engine — {clients?.find((c) => c.id === businessId)?.name}
+            </div>
+            <p style={{ fontSize: 12, color: "var(--text-faint)", margin: 0 }}>
+              Runs this client&apos;s AI on the Hermes agent engine instead of the legacy pipeline (website, Messenger, Instagram, WhatsApp). Requires a provisioned agent profile; takes effect on the very next message. Needs its client&apos;s AI Replies (above) to be on.
+            </p>
+          </div>
+          <button
+            onClick={() => toggleHermes(clients!.find((c) => c.id === businessId)!)}
+            disabled={togglingHermes}
+            style={{
+              padding: "8px 16px",
+              fontSize: 13,
+              fontWeight: 600,
+              borderRadius: "var(--radius-sm)",
+              border: "1px solid var(--border)",
+              cursor: "pointer",
+              background: clients?.find((c) => c.id === businessId)?.hermesEnabled ? "var(--success-subtle)" : "var(--danger-subtle)",
+              color: clients?.find((c) => c.id === businessId)?.hermesEnabled ? "var(--success)" : "var(--danger)",
+            }}
+          >
+            {clients?.find((c) => c.id === businessId)?.hermesEnabled ? "HERMES: ON" : "HERMES: OFF"}
           </button>
         </div>
       )}

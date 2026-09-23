@@ -48,9 +48,6 @@ importers:
       '@ai-chat-platform/embedding-manager':
         specifier: workspace:*
         version: link:../../packages/embedding-manager
-      '@ai-chat-platform/hermes':
-        specifier: workspace:*
-        version: link:../../packages/hermes
       '@ai-chat-platform/indexing':
         specifier: workspace:*
         version: link:../../packages/indexing
@@ -432,6 +429,9 @@ importers:
       '@ai-chat-platform/embedding-manager':
         specifier: workspace:*
         version: link:../embedding-manager
+      '@ai-chat-platform/hermes':
+        specifier: workspace:*
+        version: link:../hermes
       '@ai-chat-platform/knowledge-refresh':
         specifier: workspace:*
         version: link:../knowledge-refresh
