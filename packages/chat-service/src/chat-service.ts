@@ -79,10 +79,14 @@ function parseDateTimeInZone(input: string, timeZone: string): Date {
 }
 
 // Sums every ৳ amount found in the products text (code-computed, not
-// left to the agent's own arithmetic). Returns null rather than a
-// misleading "Total: ৳0" when no prices are present at all.
+// left to the agent's own arithmetic). The agent often appends its own
+// "(Total: ৳X)" inside that text — strip every total phrasing first so
+// only per-item prices are summed, otherwise the invoice double-counts.
+// Returns null rather than a misleading "Total: ৳0" when no prices are
+// present at all.
 function computeOrderTotal(productsText: string): number | null {
-  const matches = [...productsText.matchAll(/৳\s?([\d,]+)/g)];
+  const cleaned = productsText.replace(/\(?\btotal:?\s*৳\s?[\d,]+\)?/gi, "");
+  const matches = [...cleaned.matchAll(/৳\s?([\d,]+)/g)];
   if (matches.length === 0) return null;
   return matches.reduce((sum, m) => sum + Number(m[1]!.replace(/,/g, "")), 0);
 }
@@ -300,7 +304,7 @@ const NEVER_GR = JSON.stringify({
   customerName: "John Doe",
   phone: "+1 555 000 0000",
   deliveryAddress: "123 Main St, Springfield",
-  products: "Screwdriver — ৳250, Drill — ৳3,200 (Total: ৳3,450)",
+  products: "Screwdriver — ৳250, Drill — ৳3,200",
   paymentMethod: "Cash on delivery",
 });
 
@@ -323,9 +327,9 @@ function bookingsInstruction(biz: BusinessChatInfo): string {
 - Replace every value and use English keys. Empty string for unknown optional fields. The marker must be the last line of your reply, used only after explicit confirmation, and never visible to a customer who hasn't confirmed yet.`;
   }
   return `\n\nTAKING AN ORDER:
-- When the customer wants to buy products, collect these fields conversationally: customerName, phone, deliveryAddress, products (name each item with its ৳ price), paymentMethod.
-- Once the customer has confirmed the full set in a clear summary YOU present back to them, end your reply with a single final line containing exactly: [[BOOKED:${NEVER_GR}]]
-- Replace every value and use English keys. The marker must be the last line of your reply, used only after explicit confirmation, and never visible to a customer who hasn't confirmed yet.`;
+- To take an order, collect these fields conversationally: customerName, phone, deliveryAddress, products (name each item with its ৳ price), paymentMethod.
+- Show the customer a clear summary. Only AFTER they explicitly confirm it, close your reply with a final line containing exactly the marker: [[BOOKED:${NEVER_GR}]]
+- Fill EVERY value in the marker with the real collected data, English keys, empty string for any missing field. The marker is the only signal that books the order — never confirm in prose alone, and never show the marker to a customer who hasn't confirmed.`;
 }
 
 function buildHermesSystemPrompt(request: ChatRequest, biz: BusinessChatInfo, languageMode: string): string {
@@ -548,7 +552,7 @@ export class ChatService {
 
       if (bookedMatch) {
         try {
-          const parsed = JSON.parse(bookedMatch[1]!) as BookedPayload;
+          const parsed = JSON.parse(bookedMatch[1]!.trim()) as BookedPayload;
           if (parsed.kind === "order" && this.orders) {
             const fields: OrderFields = {
               customerName: paris(parsed.customerName),

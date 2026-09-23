@@ -81,6 +81,8 @@ export function ChatWidget({
   const [loading, setLoading] = useState(false);
   const [waitingForAgent, setWaitingForAgent] = useState(false);
   const seenCount = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attaching, setAttaching] = useState(false);
 
   const isGenericDemo = businessId === "default";
   const effectiveName = businessName ?? (isGenericDemo ? "General Demo" : "");
@@ -118,11 +120,15 @@ export function ChatWidget({
     return () => clearInterval(interval);
   }, [waitingForAgent, sessionId]);
 
-  async function send() {
-    const message = input.trim();
-    if (!message || loading) return;
+  async function send(overrides?: { message?: string; imageUrl?: string }) {
+    const imageUrl = overrides?.imageUrl;
+    const message = (overrides?.message ?? input).trim();
+    if ((!message && !imageUrl) || loading || attaching) return;
 
-    setMessages((prev) => [...prev, { role: "user", content: message }]);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: message || (imageUrl ? "Attached an image." : "") },
+    ]);
     setInput("");
     setLoading(true);
 
@@ -194,6 +200,46 @@ export function ChatWidget({
       ]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function attachPhoto(file: File) {
+    const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!ALLOWED.includes(file.type)) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Sorry — only JPEG, PNG, WebP, or GIF images are supported." },
+      ]);
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Sorry — that image is over 8MB. Please try a smaller one." },
+      ]);
+      return;
+    }
+
+    setAttaching(true);
+    try {
+      const res = await fetch("/api/chat/upload-image", {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: await file.arrayBuffer(),
+      });
+      if (!res.ok) throw new Error("upload failed");
+      const data = await res.json();
+      await send({ message: input.trim(), imageUrl: data.url as string });
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "Sorry — that image didn't upload. A team member will follow up with you shortly.",
+        },
+      ]);
+    } finally {
+      setAttaching(false);
     }
   }
 
@@ -288,6 +334,20 @@ export function ChatWidget({
 
       <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
         <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) attachPhoto(file);
+            e.target.value = "";
+          }}
+        />
+        <button onClick={() => fileInputRef.current?.click()} disabled={loading || attaching}>
+          {attaching ? "Uploading…" : "Photo"}
+        </button>
+        <input
           style={{ flex: 1, padding: 8 }}
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -296,7 +356,7 @@ export function ChatWidget({
           }}
           placeholder="Ask something…"
         />
-        <button onClick={send} disabled={loading}>
+        <button onClick={() => send()} disabled={loading}>
           Send
         </button>
       </div>
