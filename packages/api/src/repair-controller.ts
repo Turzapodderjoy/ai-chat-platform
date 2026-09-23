@@ -392,6 +392,23 @@ export class RepairController {
     await this.repairs.delete(id, actorUsername);
     return { ok: true };
   }
+
+  // Time clock
+  async clockIn(businessId: string, staffId: string, note?: string) {
+    return this.staff.clockIn(businessId, staffId, note);
+  }
+
+  async clockOut(businessId: string, staffId: string, note?: string) {
+    return this.staff.clockOut(businessId, staffId, note);
+  }
+
+  async getCurrentShift(businessId: string, staffId: string) {
+    return this.staff.getCurrentShift(businessId, staffId);
+  }
+
+  async listTimeEntries(businessId: string, staffId?: string, from?: string, to?: string) {
+    return this.staff.listTimeEntries(businessId, staffId, from ? new Date(from) : undefined, to ? new Date(to) : undefined);
+  }
 }
 
 const REPAIR_STATUS_LABEL: Record<string, string> = {

@@ -1322,7 +1322,25 @@ model Staff {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  timeEntries TimeEntry[]
+
   @@index([businessId])
+}
+
+model TimeEntry {
+  id        String   @id @default(cuid())
+  businessId String
+  staffId   String
+  clockIn   DateTime
+  clockOut  DateTime?
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, staffId])
+  @@index([businessId, clockIn])
 }
 
 // Per-business outbound-email sender identity — same "single mutable

@@ -176,4 +176,23 @@ export class ProductService {
       total,
     };
   }
+
+  /** Count of products at or below minStock for the given business —
+   * mirrors the InventoryPanel row predicate exactly (stock is free-text,
+   * so we count in memory). Used by the low-stock nav badge. */
+  async countLowStock(businessId: string): Promise<number> {
+    const rows = await prisma.product.findMany({
+      where: { businessId },
+      select: { stock: true, minStock: true },
+    });
+    let count = 0;
+    for (const r of rows) {
+      if (!r.stock) continue;
+      if (!r.minStock || r.minStock <= 0) continue;
+      if (/out/i.test(r.stock)) continue;
+      const qty = parseInt(r.stock, 10);
+      if (!isNaN(qty) && qty <= r.minStock) count++;
+    }
+    return count;
+  }
 }

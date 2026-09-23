@@ -195,6 +195,7 @@ export default function ClientDashboardClient() {
   // row-highlighting (localStorage key "allChatsSeen:<businessId>").
   const [repairsBadge, setRepairsBadge] = useState(0);
   const [inboxBadge, setInboxBadge] = useState(0);
+  const [inventoryBadge, setInventoryBadge] = useState(0);
 
   useEffect(() => {
     // A live count of appointments still at the "booked" (brand new,
@@ -240,6 +241,19 @@ export default function ClientDashboardClient() {
       window.removeEventListener("aiva-inbox-seen-updated", refreshInboxBadge);
       window.removeEventListener("storage", refreshInboxBadge);
     };
+  }, [businessId]);
+  useEffect(() => {
+    function refreshInventoryBadge() {
+      fetch(`/api/admin/products/low-stock?businessId=${encodeURIComponent(businessId)}`)
+        .then((r) => r.json())
+        .then((d: { count?: number }) => {
+          setInventoryBadge(d.count ?? 0);
+        })
+        .catch(() => {});
+    }
+    refreshInventoryBadge();
+    const interval = setInterval(refreshInventoryBadge, 5000);
+    return () => clearInterval(interval);
   }, [businessId]);
 
   function logout() {
@@ -383,7 +397,10 @@ export default function ClientDashboardClient() {
   const badgedGroups: NavGroup<Tab>[] = groupsWithAdminTools.map((g) => ({
     ...g,
     items: g.items.map((i) =>
-      i.id === "repairs" ? { ...i, badge: repairsBadge } : i.id === "allchats" ? { ...i, badge: inboxBadge } : i
+      i.id === "repairs" ? { ...i, badge: repairsBadge }
+        : i.id === "allchats" ? { ...i, badge: inboxBadge }
+        : i.id === "inventory" ? { ...i, badge: inventoryBadge }
+        : i
     ),
   }));
 

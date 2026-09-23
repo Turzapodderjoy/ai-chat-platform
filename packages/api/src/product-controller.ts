@@ -51,4 +51,8 @@ export class ProductController {
   captionMissingImages(businessId: string) {
     return this.productSync.captionMissingImages(businessId);
   }
+
+  countLowStock(businessId: string) {
+    return this.products.countLowStock(businessId);
+  }
 }
