@@ -16,6 +16,7 @@ Root commands: `pnpm dev` / `pnpm build` / `pnpm lint` / `pnpm check-types` (all
 - **Two dashboards, shared components.** `/dashboard` (mother) and `/dashboard/[businessId]` (per-client) render the same `apps/web/components/*` panels, switched by a `businessId` prop.
 - **Versioned config, never mutated.** `AiConfigVersion` (the "AI Brain") appends a new immutable row per save; latest row per business is current; businesses with no row inherit the `"__platform__"` default.
 - **One chat pipeline for every channel.** Website widget, Messenger, Instagram, and WhatsApp all call `ChatService.chat()` — same retrieval, prompt, handoff logic.
+- **Per-business agent engine (Hermes, branded AIVA).** A provisioned client's conversations run on the Hermes agent engine (per-tenant SOUL + persistent memory + handoff, `packages/hermes`) via that same single `ChatService.chat()` cutover — everything else falls back to the legacy pipeline transparently.
 - **Multi-stream AI.** Provider adapters (`groq`, `gemini`, `openrouter`, `cerebras`, `mistral`, custom OpenAI-compatible) → `ai-manager` (rotation/failover/health) → `chat-service`; embeddings and channels follow the same adapter+catalog+manager layering.
 
 See `CLAUDE.md` for the full architecture, working conventions, and known gaps.
@@ -50,4 +51,4 @@ Required core env vars: `DATABASE_URL`, `DIRECT_URL`. AI provider keys are optio
 
 ## Deployment
 
-Production runs on a VPS (`app.aiva-ai.net`) under `pm2`, not Vercel — push to `main` triggers a webhook-driven deploy (`scripts/deploy.mjs`) that builds a new release and restarts `pm2`. See `CLAUDE.md`'s Deployment section for the full pipeline and known gotchas. The auto-heal cadence is driven by an external scheduler (`.github/workflows/auto-heal.yml`) hitting `/api/cron/auto-heal` with a `CRON_SECRET` bearer token.
+Production runs on a VPS (`app.aiva-ai.net`) under `pm2`, not Vercel. Deploys are **manual**: `.github/workflows/deploy.yml` runs only via `workflow_dispatch` (pick the `ref`) — pushing to `main` deliberately does *not* deploy. The dispatched run POSTs to the VPS webhook (`/api/webhooks/deploy`, `DEPLOY_SECRET` bearer) which runs `scripts/deploy.mjs` to build a new release and restart `pm2`. See `CLAUDE.md`'s Deployment section for the full pipeline and known gotchas. The auto-heal cadence is driven by an external scheduler (`.github/workflows/auto-heal.yml`) hitting `/api/cron/auto-heal` with a `CRON_SECRET` bearer token.

@@ -31,4 +31,4 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 ## Deployment
 
-This app is not deployed on Vercel — production runs on a VPS under `pm2`, deployed via `scripts/deploy.mjs` on push to `main`. See the repo root's `CLAUDE.md` (Deployment section) for the real pipeline.
+This app is not deployed on Vercel — production runs on a VPS under `pm2`, deployed via `scripts/deploy.mjs` when a maintainer runs the `Deploy` workflow (`workflow_dispatch`) in `.github/workflows/deploy.yml`. See the repo root's `CLAUDE.md` (Deployment section) for the real pipeline.
