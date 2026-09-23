@@ -146,7 +146,7 @@ export async function hermesChat(args: HermesChatArgs): Promise<HermesChatResult
       messages,
       stream: false,
     }),
-    signal: AbortSignal.timeout(45_000),
+    signal: AbortSignal.timeout(90_000),
   });
 
   if (res.status === 401 || res.status === 403) {

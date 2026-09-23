@@ -25,10 +25,10 @@ const ALLOWED_TYPES: Record<string, string> = {
 // Not the ephemeral os.tmpdir() UPLOAD_DIR used for knowledge-base
 // document ingestion (see lib/paths.ts's own comment on why that one is
 // transient) — a chat photo needs to stay fetchable for as long as the
-// conversation/vision call needs it. Persistent, out-of-release
-// directory, served through the dynamic /uploads/[...path] route (not
-// Next's static public/ file serving -- see PERSISTENT_UPLOADS_DIR's own
-// comment for why a plain public/ symlink doesn't work here).
+// conversation needs it. Persistent, out-of-release directory, served
+// through the dynamic /uploads/[...path] route (not Next's static
+// public/ file serving -- see PERSISTENT_UPLOADS_DIR's own comment for
+// why a plain public/ symlink doesn't work here).
 const UPLOAD_DIR = path.join(PERSISTENT_UPLOADS_DIR, "chat-images");
 
 export async function OPTIONS() {

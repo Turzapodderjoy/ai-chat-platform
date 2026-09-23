@@ -1,7 +1,9 @@
 import { prisma, archiveDeleted } from "@ai-chat-platform/database";
-import { PLATFORM_CONFIG_ID } from "@ai-chat-platform/ai-config";
 
-export { PLATFORM_CONFIG_ID };
+// Platform-wide tag catalog row's businessId sentinel (see TagService's
+// own comment below). Inline here — the old ai-config package only ever
+// existed to hold this one constant.
+export const PLATFORM_CONFIG_ID = "__platform__";
 
 export interface TagRecord {
   id: string;

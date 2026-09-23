@@ -17,14 +17,6 @@ interface Message {
   messageId?: string;
 }
 
-interface QaState {
-  /** Locally selected, not yet sent — Submit is what actually saves it. */
-  verdict: "pass" | "fail" | null;
-  note: string;
-  submitting: boolean;
-  saved: boolean;
-}
-
 function sessionKey(businessId: string): string {
   return `chatSessionId:${businessId}`;
 }
@@ -88,7 +80,6 @@ export function ChatWidget({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [waitingForAgent, setWaitingForAgent] = useState(false);
-  const [qa, setQa] = useState<Record<string, QaState>>({});
   const seenCount = useRef(0);
 
   const isGenericDemo = businessId === "default";
@@ -230,44 +221,7 @@ export function ChatWidget({
     setSessionId(getSessionId(businessId, effectiveName));
     setMessages([]);
     setWaitingForAgent(false);
-    setQa({});
     seenCount.current = 0;
-  }
-
-  function selectQaVerdict(messageId: string, verdict: "pass" | "fail") {
-    setQa((prev) => ({
-      ...prev,
-      [messageId]: { verdict, note: prev[messageId]?.note ?? "", submitting: false, saved: false },
-    }));
-  }
-
-  function setQaNote(messageId: string, note: string) {
-    setQa((prev) => ({
-      ...prev,
-      [messageId]: { ...(prev[messageId] ?? { verdict: null, submitting: false, saved: false }), note },
-    }));
-  }
-
-  async function submitQa(messageId: string) {
-    const state = qa[messageId];
-    if (!state?.verdict) return;
-
-    setQa((prev) => ({ ...prev, [messageId]: { ...state, submitting: true, saved: false } }));
-
-    try {
-      const res = await fetch("/api/chat/feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageId, businessId, verdict: state.verdict, note: state.note }),
-      });
-
-      setQa((prev) => ({
-        ...prev,
-        [messageId]: { ...state, submitting: false, saved: res.ok },
-      }));
-    } catch {
-      setQa((prev) => ({ ...prev, [messageId]: { ...state, submitting: false, saved: false } }));
-    }
   }
 
   return (
@@ -302,17 +256,13 @@ export function ChatWidget({
           gap: 8,
         }}
       >
-        {messages.length === 0 && (
+{messages.length === 0 && (
           <p style={{ opacity: 0.6 }}>
-            Upload a document, then ask a question about it here. Every
-            answer gets a QA pass/fail button below it — use it to flag
-            good and bad answers for the training pipeline.
+            Upload an image, then chat with the assistant about it here.
           </p>
         )}
 
         {messages.map((m, i) => {
-          const state = m.messageId ? qa[m.messageId] : undefined;
-
           return (
             <div key={i}>
               <div>
@@ -327,62 +277,6 @@ export function ChatWidget({
                   {m.cached && " (cached, 0 tokens)"} ·{" "}
                   {Math.round((m.confidence ?? 0) * 100)}% confidence ·{" "}
                   {m.tokens} tokens
-                </div>
-              )}
-
-              {m.role === "assistant" && m.messageId && (
-                <div style={{ marginTop: 4, display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                  <button
-                    onClick={() => selectQaVerdict(m.messageId!, "pass")}
-                    style={{
-                      fontSize: 11,
-                      padding: "2px 8px",
-                      background: state?.verdict === "pass" ? "#1a5" : "transparent",
-                      color: state?.verdict === "pass" ? "#fff" : "inherit",
-                      border: "1px solid #1a5",
-                      borderRadius: 4,
-                      cursor: "pointer",
-                    }}
-                  >
-                    ✓ Pass
-                  </button>
-                  <button
-                    onClick={() => selectQaVerdict(m.messageId!, "fail")}
-                    style={{
-                      fontSize: 11,
-                      padding: "2px 8px",
-                      background: state?.verdict === "fail" ? "#c33" : "transparent",
-                      color: state?.verdict === "fail" ? "#fff" : "inherit",
-                      border: "1px solid #c33",
-                      borderRadius: 4,
-                      cursor: "pointer",
-                    }}
-                  >
-                    ✗ Fail
-                  </button>
-                  {state?.verdict && (
-                    <>
-                      <input
-                        placeholder="Why? (optional — feeds the training pipeline)"
-                        value={state.note}
-                        onChange={(e) => setQaNote(m.messageId!, e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") submitQa(m.messageId!);
-                        }}
-                        style={{ fontSize: 11, padding: "3px 6px", flex: 1, minWidth: 160 }}
-                      />
-                      <button
-                        onClick={() => submitQa(m.messageId!)}
-                        disabled={state.submitting}
-                        style={{ fontSize: 11, padding: "2px 10px", cursor: "pointer" }}
-                      >
-                        {state.submitting ? "Submitting…" : "Submit"}
-                      </button>
-                    </>
-                  )}
-                  {state?.saved && !state.submitting && (
-                    <span style={{ fontSize: 11, opacity: 0.5 }}>Saved ✓</span>
-                  )}
                 </div>
               )}
             </div>

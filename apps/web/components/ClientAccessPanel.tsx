@@ -58,7 +58,6 @@ interface Team {
 const ALL_PANELS: { id: string; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "tagdashboard", label: "Dashboard" },
-  { id: "knowledge", label: "Knowledge Hub" },
   { id: "products", label: "Product Catalog" },
   { id: "inventory", label: "Inventory" },
   { id: "notifications", label: "Notifications" },
@@ -66,11 +65,6 @@ const ALL_PANELS: { id: string; label: string }[] = [
   { id: "delivery", label: "Delivery" },
   { id: "repairs", label: "Repairs" },
   { id: "allchats", label: "All Chats" },
-  { id: "storage", label: "Storage" },
-  { id: "brain", label: "AI Brain" },
-  { id: "parameters", label: "Parameters" },
-  { id: "arena", label: "Training Arena" },
-  { id: "review", label: "Chat Learning" },
   { id: "channels", label: "Integrations" },
   { id: "contacts", label: "Customer Database" },
   { id: "invoices", label: "Invoices" },
@@ -689,7 +683,7 @@ export function ClientAccessPanel() {
               AI Replies — {clients?.find((c) => c.id === businessId)?.name}
             </div>
             <p style={{ fontSize: 12, color: "var(--text-faint)", margin: 0 }}>
-              Off stops the AI from answering this client's customers everywhere (website, Messenger, Instagram, WhatsApp) — takes effect on the very next message, no restart. Also hides the per-conversation Stop/Resume AI control for every login of this client, since it'd be a no-op while this is off.
+              Off stops the AI from answering this client&apos;s customers everywhere (website, Messenger, Instagram, WhatsApp) — takes effect on the very next message, no restart. Also hides the per-conversation Stop/Resume AI control for every login of this client, since it&apos;d be a no-op while this is off.
             </p>
           </div>
           <button

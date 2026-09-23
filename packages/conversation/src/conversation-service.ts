@@ -328,39 +328,6 @@ export class ConversationService {
     await prisma.conversation.deleteMany({ where: { id } });
   }
 
-  /** Past Training Arena sessions for the Intercom-style sidebar — most
-   * recent first, with a preview of the last message and whether a human
-   * has touched this session yet in Chat Learning (any ConversationReview
-   * row at all, decided or not). */
-  async listTrainingSessions(businessId: string): Promise<
-    Array<{
-      id: string;
-      updatedAt: Date;
-      messageCount: number;
-      lastMessage: string | null;
-      reviewed: boolean;
-    }>
-  > {
-    const rows = await prisma.conversation.findMany({
-      where: { businessId, isTraining: true },
-      orderBy: { updatedAt: "desc" },
-      take: 100,
-      include: {
-        messages: { orderBy: { createdAt: "desc" }, take: 1 },
-        conversationReview: { select: { id: true } },
-        _count: { select: { messages: true } },
-      },
-    });
-
-    return rows.map((row) => ({
-      id: row.id,
-      updatedAt: row.updatedAt,
-      messageCount: row._count.messages,
-      lastMessage: row.messages[0]?.content ?? null,
-      reviewed: row.conversationReview !== null,
-    }));
-  }
-
   /** Every real conversation (bot-handled and handed-off alike) for the
    * unified All Chats inbox — unlike listHandoffs, this is not filtered
    * to only conversations needing a human. Excludes Training Arena

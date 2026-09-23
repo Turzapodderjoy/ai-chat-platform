@@ -45,13 +45,6 @@ export class ProductController {
     return this.productSync.importRows(businessId, fileBuffer);
   }
 
-  /** Manual backfill button for products that existed before image
-   * captioning shipped — see ProductSyncService.captionMissingImages's
-   * own comment. */
-  captionMissingImages(businessId: string) {
-    return this.productSync.captionMissingImages(businessId);
-  }
-
   countLowStock(businessId: string) {
     return this.products.countLowStock(businessId);
   }

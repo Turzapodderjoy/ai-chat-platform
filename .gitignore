@@ -3,6 +3,7 @@ apps/web/storage/
 
 # Uploaded files
 storage/uploads/
+public-uploads/
 
 # Environment
 .env

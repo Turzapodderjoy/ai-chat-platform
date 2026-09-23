@@ -7,25 +7,14 @@ import { createApp, type Application } from "@ai-chat-platform/bootstrap";
 // this, /api/chat and /api/admin/handoffs/messages could each build their
 // own Container with their own empty ConversationService.
 const globalForApp = globalThis as unknown as {
-  appPromise?: Promise<Application>;
+  app?: Application;
 };
 
-export function getApp(): Promise<Application> {
-  if (!globalForApp.appPromise) {
-    // createApp() does an up-front DB read (persisted provider keys/state).
-    // If the database is briefly unreachable, that promise rejects — and if
-    // we cached the rejection, every later request would 500 until the
-    // process restarted for no reason other than a transient outage. Clear
-    // the cache on failure so the next call builds a fresh instance instead.
-    const attempt = createApp().then((app) => {
-      app.start();
-      return app;
-    });
-    globalForApp.appPromise = attempt.catch((err) => {
-      globalForApp.appPromise = undefined;
-      throw err;
-    });
+export function getApp(): Application {
+  if (!globalForApp.app) {
+    globalForApp.app = createApp();
+    globalForApp.app.start();
   }
 
-  return globalForApp.appPromise;
+  return globalForApp.app;
 }

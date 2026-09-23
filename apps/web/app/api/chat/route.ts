@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     const app = await getApp();
     const answer = await withTimeout(
       app.container.router.chat.post(sessionId, body.message, businessId, undefined, languageHint, imageUrl),
-      45_000
+      90_000
     );
 
     if (businessId) {

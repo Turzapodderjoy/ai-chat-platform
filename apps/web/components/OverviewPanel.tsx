@@ -1,138 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 import { StatCard, StatCardRow } from "./StatCard";
-import { cardStyle, labelTextStyle } from "./dashboard-styles";
-
-interface BusinessKnowledgeStatus {
-  businessId: string;
-  businessName: string;
-  crawlTargets: { total: number; done: number; stuck: number };
-  documentCount: number;
-  masterCsv: { updatedAt: string | null; sourceCount: number };
-  lastRunAt: string | null;
-}
-
-interface ProviderStatus {
-  label?: string;
-  name: string;
-  healthy: boolean;
-  hasUsableKey: boolean;
-  maskedKey: string;
-  enabled: boolean;
-}
+import { subtleTextStyle } from "./dashboard-styles";
 
 interface Counts {
   clients: number | null;
   openHandoffs: number | null;
   totalHandoffs: number | null;
-  qaUnprocessed: number | null;
-  qaTotal: number | null;
-  aiHealthy: number | null;
-  aiTotal: number | null;
-  embeddingHealthy: number | null;
-  embeddingTotal: number | null;
 }
 
-const CHART_COLORS = {
-  accent: "#2dd4bf",
-  success: "#10b981",
-  warning: "#f59e0b",
-  danger: "#ef4444",
-  muted: "#475569",
-};
-
-function ProviderList({ providers }: { providers: ProviderStatus[] }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
-      {providers.map((p) => (
-        <div key={p.name} style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "8px 10px",
-          background: "var(--surface-hover)",
-          borderRadius: "var(--radius-xs, 6px)",
-          fontSize: 12,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              background: p.enabled && p.healthy ? "var(--success)" : p.enabled ? "var(--danger)" : "var(--text-faint)",
-            }} />
-            <span style={{ color: "var(--text)", fontWeight: 500 }}>{p.label || p.name || "Custom Provider"}</span>
-          </div>
-          <span style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-            fontSize: 11,
-            color: p.hasUsableKey ? "var(--success)" : "var(--text-muted)",
-          }}>
-            <span style={{
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              background: p.hasUsableKey ? "var(--success)" : "var(--text-faint)",
-            }} />
-            {p.hasUsableKey ? "Configured" : "No key"}
-          </span>
-        </div>
-      ))}
-      {providers.length === 0 && (
-        <div style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "center", padding: 12 }}>
-          No providers configured
-        </div>
-      )}
-    </div>
-  );
-}
-
+/**
+ * Mother dashboard's landing tab — high-level pulse across all clients.
+ * Knowledge/provider charts and QA cards used to live here; they died
+ * with the legacy AI pipeline.
+ */
 export function OverviewPanel({ active = true }: { active?: boolean }) {
   const [counts, setCounts] = useState<Counts>({
     clients: null,
     openHandoffs: null,
     totalHandoffs: null,
-    qaUnprocessed: null,
-    qaTotal: null,
-    aiHealthy: null,
-    aiTotal: null,
-    embeddingHealthy: null,
-    embeddingTotal: null,
   });
-  const [knowledgeStatus, setKnowledgeStatus] = useState<BusinessKnowledgeStatus[] | null>(null);
-  const [aiProviders, setAiProviders] = useState<ProviderStatus[]>([]);
-  const [embeddingProviders, setEmbeddingProviders] = useState<ProviderStatus[]>([]);
-  const [refreshingAll, setRefreshingAll] = useState(false);
-  const [refreshAllMessage, setRefreshAllMessage] = useState("");
-
-  function refreshKnowledgeStatus() {
-    fetch("/api/admin/knowledge/status-all")
-      .then((r) => r.json())
-      .then((d: { status: BusinessKnowledgeStatus[] }) => setKnowledgeStatus(d.status));
-  }
-
-  async function runRefreshAll() {
-    setRefreshingAll(true);
-    setRefreshAllMessage("Recrawling and rebuilding knowledge base for all clients...");
-    try {
-      await fetch("/api/admin/knowledge/refresh-all", { method: "POST" });
-      const poll = setInterval(refreshKnowledgeStatus, 8000);
-      setTimeout(() => {
-        clearInterval(poll);
-        setRefreshingAll(false);
-        setRefreshAllMessage("");
-        refreshKnowledgeStatus();
-      }, 60000);
-    } catch {
-      setRefreshingAll(false);
-      setRefreshAllMessage("Failed to start refresh.");
-    }
-  }
 
   useEffect(() => {
     if (!active) return;
@@ -150,232 +39,22 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
           openHandoffs: d.handoffs.filter((h) => h.status === "pending").length,
         }))
       );
-
-    fetch("/api/admin/qa-feedback")
-      .then((r) => r.json())
-      .then((d: { feedback: { processed: boolean }[] }) =>
-        setCounts((c) => ({
-          ...c,
-          qaTotal: d.feedback.length,
-          qaUnprocessed: d.feedback.filter((f) => !f.processed).length,
-        }))
-      );
-
-    fetch("/api/admin/providers")
-      .then((r) => r.json())
-      .then((d: { status: ProviderStatus[] }) => {
-        setAiProviders(d.status);
-        setCounts((c) => ({
-          ...c,
-          aiTotal: d.status.length,
-          aiHealthy: d.status.filter((p) => p.enabled && p.healthy).length,
-        }));
-      });
-
-    fetch("/api/admin/embedding-providers")
-      .then((r) => r.json())
-      .then((d: { status: ProviderStatus[] }) => {
-        setEmbeddingProviders(d.status);
-        setCounts((c) => ({
-          ...c,
-          embeddingTotal: d.status.length,
-          embeddingHealthy: d.status.filter((p) => p.enabled && p.healthy).length,
-        }));
-      });
-
-    refreshKnowledgeStatus();
   }, [active]);
 
   const val = (n: number | null) => (n === null ? "—" : String(n));
-
-  const knowledgeChartData = knowledgeStatus?.slice(0, 6).map((s) => ({
-    name: s.businessName.length > 16 ? s.businessName.slice(0, 16) + "…" : s.businessName,
-    documents: s.documentCount,
-    crawlTargets: s.crawlTargets.total,
-  })) ?? [];
-
-  const aiPieData = [
-    { name: "Healthy", value: counts.aiHealthy ?? 0, color: CHART_COLORS.success },
-    { name: "Unhealthy", value: (counts.aiTotal ?? 0) - (counts.aiHealthy ?? 0), color: CHART_COLORS.danger },
-  ].filter((d) => d.value > 0);
-
-  const embeddingPieData = [
-    { name: "Healthy", value: counts.embeddingHealthy ?? 0, color: CHART_COLORS.success },
-    { name: "Unhealthy", value: (counts.embeddingTotal ?? 0) - (counts.embeddingHealthy ?? 0), color: CHART_COLORS.danger },
-  ].filter((d) => d.value > 0);
 
   return (
     <section>
       <StatCardRow>
         <StatCard label="Total Clients" value={val(counts.clients)} tone="accent" />
-        <StatCard label="Open Handoffs" value={val(counts.openHandoffs)} hint={counts.totalHandoffs !== null ? `${counts.totalHandoffs} total` : undefined} tone={counts.openHandoffs !== null && counts.openHandoffs > 0 ? "warning" : "success"} />
-        <StatCard label="QA Pending" value={val(counts.qaUnprocessed)} hint={counts.qaTotal !== null ? `${counts.qaTotal} total` : undefined} tone={counts.qaUnprocessed !== null && counts.qaUnprocessed > 0 ? "warning" : "success"} />
+        <StatCard
+          label="Open Handoffs"
+          value={val(counts.openHandoffs)}
+          hint={counts.totalHandoffs !== null ? `${counts.totalHandoffs} total` : undefined}
+          tone={counts.openHandoffs !== null && counts.openHandoffs > 0 ? "warning" : "success"}
+        />
       </StatCardRow>
-
-      {/* Knowledge Base Chart */}
-      <div style={{ ...cardStyle, marginBottom: 16 }}>
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 16 }}>
-          <div style={labelTextStyle}>Knowledge Base Overview</div>
-          <button onClick={runRefreshAll} disabled={refreshingAll} className="primary" style={{ fontSize: 12, padding: "6px 12px" }}>
-            {refreshingAll ? "Refreshing..." : "Refresh All"}
-          </button>
-        </div>
-        {refreshAllMessage && (
-          <div style={{ padding: "10px 12px", background: "var(--accent-subtle)", borderRadius: "var(--radius-sm)", marginBottom: 12, fontSize: 12, color: "var(--accent)" }}>
-            {refreshAllMessage}
-          </div>
-        )}
-        {knowledgeChartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={knowledgeChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "var(--text-muted)" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "var(--text-muted)" }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} labelStyle={{ color: "var(--text)", fontWeight: 500 }} />
-              <Bar dataKey="documents" fill={CHART_COLORS.accent} radius={[4, 4, 0, 0]} name="Documents" />
-              <Bar dataKey="crawlTargets" fill={CHART_COLORS.muted} radius={[4, 4, 0, 0]} opacity={0.5} name="Crawl Targets" />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="empty-state" style={{ height: 220 }}>
-            <svg className="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M4 7V4h16v3M9 20h6M12 4v16" />
-            </svg>
-            <div className="empty-state-title">No knowledge base data</div>
-            <div className="empty-state-description">Add clients and upload documents to see analytics here.</div>
-          </div>
-        )}
-      </div>
-
-      {/* Provider Health Row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: 16, marginBottom: 16 }}>
-        {/* AI Providers */}
-        <div style={cardStyle}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <div style={labelTextStyle}>AI Providers</div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-              {counts.aiHealthy ?? 0}/{counts.aiTotal ?? 0} healthy
-            </div>
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center" }}>
-            <div style={{ flex: "0 0 100%", display: "flex", justifyContent: "center" }}>
-              {aiPieData.length > 0 ? (
-                <ResponsiveContainer width={120} height={120}>
-                  <PieChart>
-                    <Pie data={aiPieData} cx="50%" cy="50%" innerRadius={35} outerRadius={50} paddingAngle={4} dataKey="value">
-                      {aiPieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div style={{ width: 120, height: 120, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" strokeWidth="1.5" opacity={0.5}>
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M12 6v6l4 2" />
-                  </svg>
-                </div>
-              )}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <ProviderList providers={aiProviders} />
-            </div>
-          </div>
-        </div>
-
-        {/* Embedding Providers */}
-        <div style={cardStyle}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <div style={labelTextStyle}>Embedding Providers</div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-              {counts.embeddingHealthy ?? 0}/{counts.embeddingTotal ?? 0} healthy
-            </div>
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center" }}>
-            <div style={{ flex: "0 0 100%", display: "flex", justifyContent: "center" }}>
-              {embeddingPieData.length > 0 ? (
-                <ResponsiveContainer width={120} height={120}>
-                  <PieChart>
-                    <Pie data={embeddingPieData} cx="50%" cy="50%" innerRadius={35} outerRadius={50} paddingAngle={4} dataKey="value">
-                      {embeddingPieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div style={{ width: 120, height: 120, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" strokeWidth="1.5" opacity={0.5}>
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M12 6v6l4 2" />
-                  </svg>
-                </div>
-              )}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <ProviderList providers={embeddingProviders} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Client Knowledge Status Table */}
-      <div style={cardStyle}>
-        <div style={labelTextStyle}>Client Knowledge Status</div>
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Client</th>
-                <th>Documents</th>
-                <th>Crawl Targets</th>
-                <th>Master CSV</th>
-                <th>Last Refresh</th>
-              </tr>
-            </thead>
-            <tbody>
-              {knowledgeStatus?.map((s) => {
-                const csvOk = s.masterCsv.updatedAt !== null && s.masterCsv.sourceCount >= s.documentCount;
-                const targetsOk = s.crawlTargets.total === 0 || (s.crawlTargets.done === s.crawlTargets.total && s.crawlTargets.stuck === 0);
-                return (
-                  <tr key={s.businessId}>
-                    <td style={{ fontWeight: 500, color: "var(--text)" }}>{s.businessName}</td>
-                    <td>{s.documentCount}</td>
-                    <td>
-                      {s.crawlTargets.total === 0 ? (
-                        <span style={{ color: "var(--text-muted)" }}>—</span>
-                      ) : (
-                        <span style={{ color: targetsOk ? "var(--success)" : "var(--warning)" }}>
-                          {s.crawlTargets.done}/{s.crawlTargets.total} done
-                          {s.crawlTargets.stuck > 0 ? ` (${s.crawlTargets.stuck} stuck)` : ""}
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      {s.masterCsv.updatedAt ? (
-                        <span style={{ color: csvOk ? "var(--success)" : "var(--warning)" }}>
-                          {s.masterCsv.sourceCount}/{s.documentCount} sources
-                        </span>
-                      ) : (
-                        <span style={{ color: "var(--text-muted)" }}>Not generated</span>
-                      )}
-                    </td>
-                    <td style={{ color: "var(--text-muted)" }}>
-                      {s.lastRunAt ? new Date(s.lastRunAt).toLocaleDateString() : "Never"}
-                    </td>
-                  </tr>
-                );
-              })}
-              {knowledgeStatus && knowledgeStatus.length === 0 && (
-                <tr><td colSpan={5} style={{ color: "var(--text-muted)", textAlign: "center", padding: "24px" }}>No clients configured yet</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <p style={subtleTextStyle}>Use the sidebar to drill into any section.</p>
     </section>
   );
 }

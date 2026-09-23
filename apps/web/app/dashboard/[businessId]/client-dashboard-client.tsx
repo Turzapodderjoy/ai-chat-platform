@@ -5,12 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 
 import { cardStyle, subtleTextStyle } from "../../../components/dashboard-styles";
 
-import { KnowledgeHubPanel } from "../../../components/KnowledgeHubPanel";
 import { AllChatsPanel } from "../../../components/AllChatsPanel";
-import { StoragePanel } from "../../../components/StoragePanel";
-import { AiBrainPanel } from "../../../components/AiBrainPanel";
-import { AiParametersPanel } from "../../../components/AiParametersPanel";
-import { ChatLearningPanel } from "../../../components/ChatLearningPanel";
 import { ChannelsPanel } from "../../../components/ChannelsPanel";
 import { ProductCatalogPanel } from "../../../components/ProductCatalogPanel";
 import { InventoryPanel } from "../../../components/InventoryPanel";
@@ -26,7 +21,6 @@ import { ReportsPanel } from "../../../components/ReportsPanel";
 import { PartsUsageReportPanel } from "../../../components/PartsUsageReportPanel";
 import { ClientOverviewPanel } from "../../../components/ClientOverviewPanel";
 import { ClientTagDashboardPanel } from "../../../components/ClientTagDashboardPanel";
-import { TrainingArenaPanel } from "../../../components/TrainingArenaPanel";
 import { SubscriptionStatus } from "../../../components/SubscriptionStatus";
 import { DashboardShell, type NavGroup } from "../../../components/DashboardShell";
 import { RemovableSection } from "../../../components/RemovableSection";
@@ -36,7 +30,7 @@ import { DeletedDataPanel } from "../../../components/DeletedDataPanel";
 import { ClientHomePanel } from "../../../components/ClientHomePanel";
 import { AppointmentNotificationBell } from "../../../components/AppointmentNotificationBell";
 
-type Tab = "home" | "overview" | "tagdashboard" | "knowledge" | "products" | "inventory" | "orders" | "delivery" | "repairs" | "offers" | "staff" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "invoices" | "reports" | "partsusage" | "notifications" | "settings" | "deleted";
+type Tab = "home" | "overview" | "tagdashboard" | "products" | "inventory" | "orders" | "delivery" | "repairs" | "offers" | "staff" | "allchats" | "channels" | "contacts" | "invoices" | "reports" | "partsusage" | "notifications" | "settings" | "deleted";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "home", label: "Home" }, { id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }, { id: "reports", label: "Reports" }, { id: "partsusage", label: "Parts Usage" }] },
@@ -68,22 +62,6 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
     label: "Revenue",
     items: [
       { id: "invoices", label: "Invoices" },
-    ],
-  },
-  {
-    label: "AI Brain",
-    items: [
-      { id: "brain", label: "AI Brain" },
-      { id: "parameters", label: "Parameters" },
-      { id: "arena", label: "Training Arena" },
-      { id: "review", label: "Chat Learning" },
-    ],
-  },
-  {
-    label: "Content",
-    items: [
-      { id: "knowledge", label: "Knowledge Hub" },
-      { id: "storage", label: "Storage" },
     ],
   },
   { items: [{ id: "channels", label: "Integrations" }] },
@@ -497,7 +475,7 @@ export default function ClientDashboardClient() {
             fontWeight: 600,
           }}
         >
-          <span>Previewing exactly what this client's own login sees — nothing here is editable.</span>
+          <span>Previewing exactly what this client&apos;s own login sees — nothing here is editable.</span>
           <button onClick={exitPreview} className="plain" style={{ color: "var(--accent)", textDecoration: "underline" }}>
             Exit preview
           </button>
@@ -512,7 +490,6 @@ export default function ClientDashboardClient() {
           </div>
         )],
         ["tagdashboard", <ClientTagDashboardPanel key="tagdashboard" businessId={businessId} />],
-        ["knowledge", <KnowledgeHubPanel key="knowledge" businessId={businessId} active={tab === "knowledge"} />],
         ["products", <ProductCatalogPanel key="products" businessId={businessId} />],
         ["inventory", <InventoryPanel key="inventory" businessId={businessId} active={tab === "inventory"} />],
         ["notifications", <StatusEmailTemplatesPanel key="notifications" businessId={businessId} />],
@@ -546,11 +523,6 @@ export default function ClientDashboardClient() {
           ),
         ],
         ["allchats", <AllChatsPanel key="allchats" businessId={businessId} active={tab === "allchats"} businessType={clientType} accountRole={isAdmin ? "admin" : accountRole} />],
-        ["storage", <StoragePanel key="storage" businessId={businessId} />],
-        ["brain", <AiBrainPanel key="brain" businessId={businessId} />],
-        ["parameters", <AiParametersPanel key="parameters" businessId={businessId} />],
-        ["arena", <TrainingArenaPanel key="arena" businessId={businessId} />],
-        ["review", <ChatLearningPanel key="review" businessId={businessId} />],
         ["channels", <ChannelsPanel key="channels" businessId={businessId} />],
         ["settings", <UserSettingsPanel key="settings" active={tab === "settings"} businessId={businessId} />],
         ["deleted", <DeletedDataPanel key="deleted" businessId={businessId} active={tab === "deleted"} />],

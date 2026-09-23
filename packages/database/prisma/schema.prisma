@@ -83,6 +83,12 @@ model Business {
   // are disabled for this client's dashboard. Default true for backward compat.
   aiEnabled           Boolean  @default(true)
 
+  // Chat reply language: "auto" (match the customer's latest message) |
+  // "english" | "bangla" | "banglish". Moved here from the deleted
+  // AiConfigVersion table (Hermes era). Read fresh on every message by
+  // chat-service.ts so a dashboard change applies on the next turn.
+  languageMode      String    @default("auto")
+
   // ===== Hermes agent embedding (Wave 3+) ===============================
   // Slug of this business's Hermes profile under HERMES_HOME/profiles/<slug>
   // (multiplexed at /p/<slug>/v1/chat/completions). Set when the agent is
@@ -224,7 +230,6 @@ model Conversation {
   userFeedbackRating   Int?
 
   messages           Message[]
-  conversationReview ConversationReview?
   conversationTags   ConversationTag[]
   notes              ConversationNote[]
 
@@ -317,295 +322,6 @@ model ConversationNote {
   @@index([conversationId, createdAt])
 }
 
-model CrawlTarget {
-  id             String    @id @default(cuid())
-  businessId     String
-  url            String
-
-  status         String    @default("idle")
-  pagesEstimated Int?
-  pagesDone      Int       @default(0)
-  // Phase-2 (embedding) progress, separate from pagesDone (phase-1
-  // crawling progress) — status distinguishes which phase pagesDone vs
-  // pagesIndexed is currently meaningful for: "crawling" -> pagesDone is
-  // live, "embedding" -> pagesIndexed is live, "done" -> both final.
-  pagesIndexed   Int       @default(0)
-
-  lastCrawledAt  DateTime?
-  lastPageCount  Int?
-  lastChunkCount Int?
-  lastError      String?
-
-  // Auto-heal retry/backoff state. lastCrawledAt only updates on a
-  // *successful* crawl, so it can't tell auto-heal "how long has this
-  // target been sitting broken" — updatedAt does. nextRetryAt gates when
-  // auto-heal is allowed to retry a status:"error" target again;
-  // retryCount drives the backoff (min(1h * 2^retryCount, 24h)), reset
-  // to 0 on the next successful crawl.
-  retryCount     Int       @default(0)
-  nextRetryAt    DateTime?
-
-  // Resumable BFS crawl state (queue/visited/path-variant-counts, JSON
-  // serialized) — a large site can't finish crawling inside one
-  // serverless invocation's execution-time cap no matter how that cap is
-  // tuned, so runCrawl() processes one bounded batch per call and
-  // persists the rest here to pick back up next time. Null when no
-  // crawl is currently mid-flight (either never started, or genuinely
-  // finished this round).
-  frontierJson   String?
-
-  // A one-time-derived, per-site regex extraction pattern (see
-  // TabularExtractionClient.deriveTemplate) -- lets the bulk of a crawl's
-  // product pages be extracted with plain regex instead of one Groq call
-  // per page, while staying generic across every client's own site
-  // layout (the pattern itself is derived from THIS site's real sample
-  // pages, not hardcoded). Null until enough product-page samples have
-  // been seen to derive one, or if derivation was tried and failed
-  // (falls back to per-page LLM extraction unconditionally in that case
-  // -- see CrawlerService.indexPhase).
-  extractionTemplate Json?
-  // Running tally of individual product pages that have gone through a
-  // REAL per-page LLM extraction so far this crawl -- gates when the
-  // template above is allowed to be derived (owner's explicit call: at
-  // least 15% of this site's pages need to have been genuinely
-  // extracted first, so the derived pattern is backed by real breadth,
-  // not a token handful). templateSampleTexts holds up to
-  // MAX_TEMPLATE_SAMPLES of those pages' raw text (the actual input to
-  // the one derivation call) -- capped independently of the running
-  // count, which can keep growing past that cap while waiting for the
-  // 15% threshold.
-  templateSampleCount Int   @default(0)
-  templateSampleTexts Json?
-
-  updatedAt      DateTime  @default(now()) @updatedAt
-
-  createdAt      DateTime  @default(now())
-
-  @@unique([businessId, url])
-}
-
-// Raw fetched page text, written during the crawl phase and consumed
-// (then deleted) during the indexing phase — the durable handoff between
-// the two so "crawl everything, THEN embed everything, THEN build the
-// CSV" survives a process restart between phases. Without this, indexing
-// held only in memory between phases would silently lose every crawled-
-// but-not-yet-indexed page if the process died before reaching phase 2,
-// even though the crawl itself had already marked those URLs visited.
-model CrawledPage {
-  id            String   @id @default(cuid())
-  crawlTargetId String
-  url           String
-  text          String
-  imageUrl      String?
-  contentHash   String
-  fetchedAt     DateTime @default(now())
-
-  @@unique([crawlTargetId, url])
-  @@index([crawlTargetId])
-}
-
-// One row per invocation of the auto-heal job (cron every 30min, or the
-// dashboard's manual "Run now" button) — mirrors PipelineRun's shape but
-// fixes its gap: PipelineRun has no status/error columns, so a crash
-// mid-run leaves finishedAt null forever with nothing recorded about
-// what happened. This table always writes a terminal status.
-model AutoHealRun {
-  id                  String    @id @default(cuid())
-
-  // "cron" | "manual"
-  triggeredBy         String
-
-  startedAt           DateTime  @default(now())
-  finishedAt          DateTime?
-
-  // "running" | "succeeded" | "failed"
-  status              String    @default("running")
-  error               String?
-
-  businessesChecked   Int       @default(0)
-  providersBackfilled Int       @default(0)
-  crawlTargetsRetried Int       @default(0)
-
-  @@index([startedAt])
-}
-
-// Per (business, embedding provider) retry/backoff state for auto-heal's
-// coverage-gap backfill attempts. Needed once checks run every 30 minutes
-// instead of once/day — without this, a provider that's still broken
-// after one attempt would get re-attempted on every single 30-minute
-// check instead of backing off. Same formula as CrawlTarget's retry
-// fields: min(1h * 2^retryCount, 24h).
-model EmbeddingBackfillCooldown {
-  businessId  String
-  provider    String
-  retryCount  Int       @default(0)
-  nextRetryAt DateTime?
-  updatedAt   DateTime  @default(now()) @updatedAt
-
-  @@id([businessId, provider])
-}
-
-// Replaces storage/embeddings/knowledge.json, which corrupted under
-// concurrent writes (read-whole-file/mutate/write-whole-file with no
-// row-level atomicity). One row per (document chunk x embedding
-// provider) vector. businessId/embeddingProvider are the only two fields
-// ever filtered on directly (search/coverageStatus/backfill), so they're
-// dedicated columns; everything else (contentHash, pageStatus, url,
-// filename, chunkIndex, etc.) lives in metadata.
-//
-// embeddingVec mirrors `embedding` in pgvector's native type (both
-// providers currently embed at 1024 dims — see
-// packages/database/sql/pgvector-setup.sql for the one-time setup this
-// needs: CREATE EXTENSION, an HNSW index, and a trigger that keeps this
-// column in sync with `embedding` automatically on every write, so no
-// app code has to touch it). Declared Unsupported so `prisma db push`
-// leaves it alone instead of trying to manage a type it can't represent
-// natively — see that same SQL file when setting this up on a new
-// Postgres (VPS move, dev machine, etc.): run it once after `db push`.
-model VectorRecord {
-  id                String                      @id
-  documentId        String
-  chunkId           String
-  text              String
-  embedding         Float[]
-  embeddingVec      Unsupported("vector(1024)")?
-
-  businessId        String?
-  embeddingProvider String?
-  metadata          Json?
-
-  createdAt         DateTime @default(now())
-
-  @@index([businessId, embeddingProvider])
-  @@index([documentId])
-}
-
-// Every save (full update or incremental append) inserts a new row —
-// never mutates an old one. That makes the table both "current config"
-// (latest row per businessId) and "full history" (every row) at the
-// same time, with no separate audit-log table to keep in sync.
-//
-// businessId "__platform__" is the mother dashboard's default. A client
-// with no rows of their own inherits whatever the latest "__platform__"
-// row says; the moment they save their own change, they get their own
-// row and are independent of the platform default from then on.
-model AiConfigVersion {
-  id           String   @id @default(cuid())
-
-  businessId   String   @default("__platform__")
-
-  systemPrompt String
-  handoffFloor Float
-  historyTurns Int
-  temperature  Float    @default(0.1)
-
-  // "auto" (match whatever register the customer's latest message used —
-  // the original, still-default behavior) | "english" | "bangla" |
-  // "banglish" — when locked, the AI always replies in this language
-  // regardless of what language the customer writes in.
-  languageMode String   @default("auto")
-
-  // Vision mode for customer-sent photos: "current" uses Gemini to
-  // describe the image as text before sending to any provider (AI sees
-  // a text description), "mimo" sends the raw image to MiMo-V2.5 via
-  // OpenRouter so the AI sees the actual pixels.
-  visionMode   String   @default("current")
-
-  // Provider-tuning parameters, overriding all AI providers uniformly for
-  // this business. maxTokens replaces the old hardcoded ANSWER_MAX_TOKENS
-  // constant — every business now controls its own answer length. The
-  // rest are nullable: null means "let the provider use its own default"
-  // rather than forcing every provider to the same numeric default.
-  maxTokens        Int     @default(1024)
-  topP             Float?
-  frequencyPenalty Float?
-  presencePenalty  Float?
-  // Comma-separated — Postgres text array would need a migration-visible
-  // type change for a field this rarely used; a plain string parsed at
-  // the call site is the smaller diff.
-  stopSequences    String?
-  seed             Int?
-
-  changeType   String   // "seed" | "update" | "append" | "language" | "parameters"
-  note         String?
-
-  createdAt    DateTime @default(now())
-
-  @@index([businessId, createdAt])
-}
-
-// Dashboard "activate provider" keys, persisted so they survive a
-// restart — the whole point of a dashboard toggle is that it's durable,
-// not just a live in-memory patch that silently reverts to whatever's
-// in .env the next time the process restarts. One row per (kind,
-// providerId); activating again just overwrites it (upsert), no history
-// needed here unlike AiConfigVersion.
-//
-// "kind" separates AI chat providers from embedding providers — both
-// systems can have a provider literally named "gemini" or "mistral" at
-// the same time (same company, different endpoint/API key), and they
-// must never collide or overwrite each other.
-model ProviderApiKey {
-  id         String   @id @default(cuid())
-  kind       String   @default("ai")
-  providerId String
-  apiKey     String
-
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@unique([kind, providerId])
-}
-
-// Groq key pool for tabular extraction (crawl/upload table extraction —
-// see TabularExtractionClient/TemplateExtractor), separate from
-// ProviderApiKey above: that model is one key PER provider id, but
-// extraction genuinely needs several Groq keys rotating together (a
-// single key's real limit turned out to be Groq's 100,000-tokens/DAY free
-// tier, not per-minute -- KeyRotator hops to the next key the moment one's
-// daily quota is hit). No uniqueness beyond id -- just a flat list an
-// operator can add to or remove from via the dashboard instead of hand-
-// editing GROQ_EXTRACTION_API_KEY_N env vars and asking for a code change
-// every time. Read once at process boot (container.ts) -- adding/removing
-// a key here takes effect on the next restart, not instantly.
-model ExtractionApiKey {
-  id        String   @id @default(cuid())
-  apiKey    String
-  label     String?
-
-  createdAt DateTime @default(now())
-}
-
-// Dashboard's provider on/off toggle, persisted so it survives a
-// restart — same reasoning as ProviderApiKey above (activating a key
-// only ever patched the running AIManager/EmbeddingManager in memory).
-// Only rows for EXPLICITLY DISABLED providers need to exist — a provider
-// with no row here is enabled by default, matching AIManager's own
-// in-memory default.
-model ProviderState {
-  kind       String
-  providerId String
-  enabled    Boolean  @default(true)
-  updatedAt  DateTime @default(now()) @updatedAt
-
-  @@id([kind, providerId])
-}
-
-// A user-added AI chat provider not in the hardcoded catalog — any
-// OpenAI-compatible /chat/completions API (which covers the overwhelming
-// majority of newly-released providers, same shape already used by
-// OpenRouter/Cerebras/Mistral) can be added this way without writing a
-// new adapter package for every new vendor. id doubles as the provider
-// name AIManager registers it under.
-model CustomProvider {
-  id        String   @id @default(cuid())
-  label     String
-  baseUrl   String
-  model     String
-  apiKey    String
-  createdAt DateTime @default(now())
-}
-
 // One shared light/dark preference for the whole dashboard shell —
 // deliberately a single row, not per-user/per-browser: the owner wants
 // the toggle to be "universal for all users", not a personal localStorage
@@ -614,53 +330,6 @@ model DashboardTheme {
   id        String   @id @default("singleton")
   mode      String   @default("dark")
   updatedAt DateTime @updatedAt
-}
-
-// A human's manual decision on one conversation for the "Chat Learning"
-// workflow — is this chat worth training on at all ("add"/"drop"), and
-// did the AI actually handle it well ("pass"/"fail" + free-text note).
-// Nothing here is ever written by an LLM — replaces the old automatic
-// ChatAnalysis verdict entirely. analyzedAt is stamped once this chat
-// has been included in a completed TrainingAnalysisRun, so the UI can
-// show "already analyzed" without forcing a re-run.
-model ConversationReview {
-  id             String    @id @default(cuid())
-
-  conversationId String    @unique
-  businessId     String
-
-  decision       String?   // "add" | "drop" | null = undecided
-  qaVerdict      String?   // "pass" | "fail" | null
-  qaNote         String?
-  analyzedAt     DateTime?
-
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  @@index([businessId, decision])
-}
-
-// One row per "Run AI Analysis" click in Chat Learning — a human curates
-// a batch of chats (ConversationReview.decision = "add") plus their QA
-// feedback, then this sends the whole batch to Gemini in one call and
-// stores the resulting findings report. Read-only: nothing here ever
-// writes to AiConfigVersion — the human reads this and edits the AI
-// Brain prompt themselves.
-model TrainingAnalysisRun {
-  id              String   @id @default(cuid())
-
-  businessId      String
-  // Comma-separated conversation ids included in this run — same
-  // convention as AiConfigVersion.stopSequences (small scale, avoids a
-  // migration-visible array type change for a rarely-queried field).
-  conversationIds String
-  report          String
-
-  createdAt       DateTime @default(now())
-
-  @@index([businessId, createdAt])
 }
 
 // Per-client channel connections (website/messenger/instagram/whatsapp) —
@@ -1041,59 +710,6 @@ model WidgetConfig {
   updatedAt     DateTime @updatedAt
 }
 
-// Original ingested text for an uploaded file, persisted separately from
-// its (post-chunking, fragmented) VectorRecord rows — without this, the
-// scheduled knowledge-refresh job would have nothing to re-run
-// extraction against, since UPLOAD_DIR is an ephemeral tmp path (see
-// apps/web/lib/paths.ts) that doesn't survive past the upload request on
-// Vercel. tabularHeaders/tabularRows are set only for a real CSV/XLSX
-// upload — deterministic source, re-serialize directly on refresh
-// instead of paying for another LLM extraction call.
-model UploadedDocument {
-  id               String    @id @default(cuid())
-  businessId       String
-  originalFilename String
-  rawText          String
-  tabularHeaders   Json?
-  tabularRows      Json?
-
-  updatedAt        DateTime  @updatedAt
-  createdAt        DateTime  @default(now())
-
-  @@unique([businessId, originalFilename])
-}
-
-// One consolidated CSV per business — a sectioned concatenation of every
-// tabular chunk's own table (own headers per source; a single forced
-// rectangular schema across heterogeneous sources was considered and
-// rejected, see MasterCsvService). Rebuilt by the scheduled knowledge
-// refresh job, not on every chat message — live chat keeps reading
-// current chunks in real time regardless; this is a human-viewable/
-// downloadable snapshot, not a retrieval data path.
-model MasterCsv {
-  businessId String   @id
-  content    String
-  updatedAt  DateTime @updatedAt
-}
-
-// Per-business "run the knowledge refresh at this Dhaka-time hour"
-// setting — same single-mutable-row-per-business shape as WidgetConfig,
-// not versioned like AiConfigVersion (a schedule time has no need for a
-// change history).
-model KnowledgeRefreshSchedule {
-  businessId String    @id
-  hourBd     Int
-  lastRunAt  DateTime?
-  // True for the span between "every crawl target is done/embedded" and
-  // "the master CSV row has been rebuilt" — the one refresh phase that
-  // has no CrawlTarget row of its own to report status from.
-  buildingCsv Boolean  @default(false)
-  // Lets auto-heal tell "still actively building" from "died mid-build and
-  // will stay true forever" (same STUCK_CRAWLING_MS reasoning as
-  // CrawlTarget's stuck "crawling"/"embedding" detection).
-  updatedAt   DateTime @default(now()) @updatedAt
-}
-
 // One row per real product, per business — the structured browse-catalog
 // counterpart to the chat-retrieval chunks (VectorRecord) and the
 // human-readable export (MasterCsv). Same underlying crawl/extraction
@@ -1127,15 +743,6 @@ model Product {
   imageUrl    String?
   sourceUrl   String?
   sku         String?
-  // Vision-model-generated visual description + any legible text read
-  // from imageUrl (see VisionService) — indexed as its own searchable
-  // chunk (documentId "product-image:{id}") so a customer's own photo
-  // can match this product via the same text-retrieval pipeline, no
-  // separate image-similarity index needed. Null until captioned
-  // (ProductSyncService fires this automatically when imageUrl is set
-  // on create/update; re-crawls with an unchanged imageUrl don't
-  // recaption).
-  imageCaption String?
 
   updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())

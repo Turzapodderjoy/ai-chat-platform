@@ -6,14 +6,14 @@ import {
   registerWebhook,
 } from "@ai-chat-platform/channel-catalog";
 import { ChannelAppCredentialService, ChannelConnectionService } from "@ai-chat-platform/channel-connections";
-import { RagService } from "@ai-chat-platform/rag";
+import { ChatService } from "@ai-chat-platform/chat-service";
 
 /**
  * Per-client channel connections (website/Messenger/Instagram/WhatsApp)
  * plus the one-time platform-wide Meta App setup — same catalog-driven
  * shape as EmbeddingController. Also owns the OAuth start/callback and
  * webhook verify/inbound flows, which orchestrate the catalog adapter +
- * the connection store + the existing RagService (no new chat logic —
+ * the connection store + the existing ChatService (no new chat logic —
  * an inbound channel message is answered exactly the way the website
  * widget's /api/chat call is).
  */
@@ -21,7 +21,7 @@ export class ChannelController {
   constructor(
     private readonly channelConnections: ChannelConnectionService,
     private readonly appCredentials: ChannelAppCredentialService,
-    private readonly rag: RagService
+    private readonly chat: ChatService
   ) {}
 
   catalog() {
@@ -214,7 +214,7 @@ export class ChannelController {
           ? (await entry.resolveImageUrl(connection, msg.imageMediaId)) ?? undefined
           : undefined);
 
-      const response = await this.rag.ask({
+      const response = await this.chat.chat({
         sessionId: `${channel}:${connection.businessId}:${msg.senderId}`,
         message: msg.text,
         businessId: connection.businessId,

@@ -1,11 +1,11 @@
-import { RagService } from "@ai-chat-platform/rag";
+import { ChatService } from "@ai-chat-platform/chat-service";
 
 export class ChatController {
   constructor(
-    private readonly rag: RagService
+    private readonly chat: ChatService
   ) {}
 
-  async post(
+  post(
     sessionId: string,
     message: string,
     businessId?: string,
@@ -13,7 +13,7 @@ export class ChatController {
     languageHint?: string,
     imageUrl?: string
   ) {
-    return this.rag.ask({
+    return this.chat.chat({
       sessionId,
       message,
       businessId,
