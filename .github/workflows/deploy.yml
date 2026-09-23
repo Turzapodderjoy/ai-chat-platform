@@ -1,8 +1,16 @@
-name: Deploy on push to main
+name: Deploy to VPS (manual)
 
+# Deliberately NOT on `push` — while the Hermes embedding (Waves 3-5) is
+# developed and verified locally, pushing to main must never touch the VPS.
+# Re-enable the push trigger (or trigger manually) only when the final
+# rollout is approved.
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Commit SHA/branch to deploy"
+        required: true
+        default: "main"
 
 jobs:
   trigger-deploy:
@@ -11,4 +19,5 @@ jobs:
       - name: Trigger deploy webhook
         run: |
           curl -sf -X POST https://app.aiva-ai.net/api/webhooks/deploy \
-            -H "Authorization: Bearer ${{ secrets.DEPLOY_SECRET }}"
+            -H "Authorization: Bearer ${{ secrets.DEPLOY_SECRET }}" \
+            --data-urlencode "ref=${{ github.event.inputs.ref }}"
