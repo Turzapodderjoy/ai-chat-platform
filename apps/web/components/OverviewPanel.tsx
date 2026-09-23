@@ -37,7 +37,7 @@ interface Counts {
 }
 
 const CHART_COLORS = {
-  accent: "#6366f1",
+  accent: "#2dd4bf",
   success: "#10b981",
   warning: "#f59e0b",
   danger: "#ef4444",

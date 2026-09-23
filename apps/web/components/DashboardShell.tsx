@@ -204,7 +204,7 @@ export function DashboardShell<T extends string>({
                   width: 36,
                   height: 36,
                   borderRadius: "var(--radius-sm)",
-                  background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                  background: "linear-gradient(135deg, #0d9488, #2dd4bf)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -229,7 +229,7 @@ export function DashboardShell<T extends string>({
                 width: 36,
                 height: 36,
                 borderRadius: "var(--radius-sm)",
-                background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                background: "linear-gradient(135deg, #0d9488, #2dd4bf)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -294,7 +294,7 @@ export function DashboardShell<T extends string>({
                       fontSize: 11,
                       fontWeight: 600,
                       textTransform: "uppercase",
-                      letterSpacing: "0.06em",
+                      letterSpacing: "0.08em",
                       color: "var(--text-muted)",
                       padding: "8px 12px",
                       marginBottom: 2,
@@ -399,7 +399,7 @@ export function DashboardShell<T extends string>({
             )}
             <div style={{ minWidth: 0, overflow: "hidden" }}>
               {activeGroup?.label && (
-                <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", marginBottom: 2 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)", marginBottom: 2 }}>
                   {activeGroup.label}
                 </div>
               )}

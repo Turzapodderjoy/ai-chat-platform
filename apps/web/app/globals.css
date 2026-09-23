@@ -1,6 +1,6 @@
 :root {
-  --background: #0f1117;
-  --foreground: #e2e8f0;
+  --background: #0b100e;
+  --foreground: #e9efec;
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-mono: "SF Mono", SFMono-Regular, ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
@@ -30,101 +30,104 @@ a {
 }
 
 /* ===================================================================
-   Dashboard Design System - Modern Minimal
+   Dashboard Design System - Hermes Teal
+   Nous Research "Hermes" design language: deep teal canvas, teal
+   midground accent, cream foreground. 0.5rem radii. Uppercase brand
+   display type on chrome only (see .text-display).
    =================================================================== */
 .app-shell,
 .app-shell[data-theme="dark"] {
-  /* Core palette */
-  --bg: #0f1117;
-  --bg-elevated: #161822;
-  --surface: #1c1f2e;
-  --surface-hover: #232738;
-  --surface-active: #2a2e42;
-  --border: #2a2e42;
-  --border-subtle: #1e2235;
-  --border-strong: #3d4260;
-  
-  /* Text hierarchy */
-  --text: #e2e8f0;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --text-faint: #64748b;
-  
-  /* Accent - Indigo */
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
-  --accent-muted: #4f46e5;
-  --accent-subtle: rgba(99, 102, 241, 0.12);
-  --accent-glow: rgba(99, 102, 241, 0.25);
-  
+  /* Core palette - teal-black canvas */
+  --bg: #0b100e;
+  --bg-elevated: #101613;
+  --surface: #151d19;
+  --surface-hover: #1c2622;
+  --surface-active: #24312b;
+  --border: #23312b;
+  --border-subtle: #17221c;
+  --border-strong: #37524a;
+
+  /* Text hierarchy - cream foreground */
+  --text: #e9efec;
+  --text-secondary: #a4b4ac;
+  --text-muted: #6f8178;
+  --text-faint: #5b6c63;
+
+  /* Accent - Hermes teal */
+  --accent: #2dd4bf;
+  --accent-hover: #5eead4;
+  --accent-muted: #14b8a6;
+  --accent-subtle: rgba(45, 212, 191, 0.14);
+  --accent-glow: rgba(45, 212, 191, 0.28);
+
   /* Semantic colors */
-  --success: #10b981;
-  --success-subtle: rgba(16, 185, 129, 0.12);
-  --warning: #f59e0b;
-  --warning-subtle: rgba(245, 158, 11, 0.12);
-  --danger: #ef4444;
-  --danger-subtle: rgba(239, 68, 68, 0.12);
-  --info: #3b82f6;
-  --info-subtle: rgba(59, 130, 246, 0.12);
-  
-  /* Shape */
-  --radius-xs: 6px;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
+  --success: #34d399;
+  --success-subtle: rgba(52, 211, 153, 0.13);
+  --warning: #fbbf24;
+  --warning-subtle: rgba(251, 191, 36, 0.13);
+  --danger: #f87171;
+  --danger-subtle: rgba(248, 113, 113, 0.13);
+  --info: #38bdf8;
+  --info-subtle: rgba(56, 189, 248, 0.13);
+
+  /* Shape - 0.5rem base radius */
+  --radius-xs: 5px;
+  --radius-sm: 7px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
   --radius-full: 9999px;
-  
+
   /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 12px 40px -8px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 40px -8px rgba(0, 0, 0, 0.55);
   --shadow-glow: 0 0 20px var(--accent-glow);
-  
+
   /* Motion */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --duration-fast: 120ms;
   --duration-normal: 200ms;
   --duration-slow: 350ms;
-  
+
   color-scheme: dark;
 }
 
 .app-shell[data-theme="light"] {
-  --bg: #f8fafc;
+  --bg: #f2f4f1;
   --bg-elevated: #ffffff;
   --surface: #ffffff;
-  --surface-hover: #f1f5f9;
-  --surface-active: #e2e8f0;
-  --border: #e2e8f0;
-  --border-subtle: #f1f5f9;
-  --border-strong: #cbd5e1;
-  
-  --text: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-  --text-faint: #64748b;
-  
-  --accent: #6366f1;
-  --accent-hover: #4f46e5;
-  --accent-muted: #818cf8;
-  --accent-subtle: rgba(99, 102, 241, 0.08);
-  --accent-glow: rgba(99, 102, 241, 0.15);
-  
+  --surface-hover: #edf1ee;
+  --surface-active: #dfe7e1;
+  --border: #d9e2dc;
+  --border-subtle: #e8eeea;
+  --border-strong: #b9c8c0;
+
+  --text: #12201a;
+  --text-secondary: #45564d;
+  --text-muted: #687a71;
+  --text-faint: #687a71;
+
+  --accent: #0d9488;
+  --accent-hover: #0f766e;
+  --accent-muted: #14b8a6;
+  --accent-subtle: rgba(13, 148, 136, 0.1);
+  --accent-glow: rgba(13, 148, 136, 0.18);
+
   --success: #059669;
-  --success-subtle: rgba(5, 150, 105, 0.08);
+  --success-subtle: rgba(5, 150, 105, 0.09);
   --warning: #d97706;
-  --warning-subtle: rgba(217, 119, 6, 0.08);
+  --warning-subtle: rgba(217, 119, 6, 0.09);
   --danger: #dc2626;
-  --danger-subtle: rgba(220, 38, 38, 0.08);
-  --info: #2563eb;
-  --info-subtle: rgba(37, 99, 235, 0.08);
-  
+  --danger-subtle: rgba(220, 38, 38, 0.09);
+  --info: #0284c7;
+  --info-subtle: rgba(2, 132, 199, 0.09);
+
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 12px 40px -8px rgba(0, 0, 0, 0.12);
-  
+
   color-scheme: light;
 }
 
@@ -150,6 +153,14 @@ a {
   color: var(--text);
   font-weight: 600;
   letter-spacing: -0.02em;
+}
+
+/* Nous brand display type - uppercase brand chrome only (wordmark,
+   nav section labels, page titles, badges). Not for body text. */
+.app-shell .text-display {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
 }
 
 .app-shell h1 { font-size: 24px; }
@@ -332,7 +343,7 @@ a {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   color: var(--text-muted);
   padding: 12px 16px;
   background: var(--bg-elevated);

@@ -1,21 +1,21 @@
 /* Completely new login - split-screen modern design */
 .page {
-  --bg: #0f1117;
-  --bg-alt: #161822;
-  --surface: #1c1f2e;
-  --surface-hover: #232738;
-  --border: #2a2e42;
-  --text: #e2e8f0;
-  --text-muted: #94a3b8;
-  --text-faint: #64748b;
-  --accent: #6366f1;
-  --accent-light: #818cf8;
-  --accent-dark: #4f46e5;
-  --accent-glow: rgba(99, 102, 241, 0.4);
-  --success: #10b981;
-  --danger: #ef4444;
-  --gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --gradient-2: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+  --bg: #0b100e;
+  --bg-alt: #101613;
+  --surface: #151d19;
+  --surface-hover: #1c2622;
+  --border: #23312b;
+  --text: #e9efec;
+  --text-muted: #a4b4ac;
+  --text-faint: #6f8178;
+  --accent: #2dd4bf;
+  --accent-light: #5eead4;
+  --accent-dark: #0d9488;
+  --accent-glow: rgba(45, 212, 191, 0.35);
+  --success: #34d399;
+  --danger: #f87171;
+  --gradient-1: linear-gradient(135deg, #0d9488 0%, #134e4a 100%);
+  --gradient-2: linear-gradient(135deg, #0f766e 0%, #14b8a6 45%, #2dd4bf 100%);
 
   font-family: var(--font-geist-sans, -apple-system), BlinkMacSystemFont, sans-serif;
   background: var(--bg);

@@ -16,16 +16,16 @@ export default function SubscriptionExpiredPage() {
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      background: "#0f1117",
+      background: "#0b100e",
       fontFamily: "var(--font-geist-sans, -apple-system), BlinkMacSystemFont, sans-serif",
     }}>
       <div style={{
         maxWidth: 420,
         width: "100%",
         padding: 40,
-        background: "#1c1f2e",
-        borderRadius: 16,
-        border: "1px solid #2a2e42",
+        background: "#151d19",
+        borderRadius: 12,
+        border: "1px solid #23312b",
         boxShadow: "0 20px 60px -12px rgba(0, 0, 0, 0.5)",
         textAlign: "center",
       }}>
@@ -45,11 +45,11 @@ export default function SubscriptionExpiredPage() {
           </svg>
         </div>
 
-        <h1 style={{ fontSize: 22, fontWeight: 600, color: "#e2e8f0", marginBottom: 8, letterSpacing: "-0.02em" }}>
+        <h1 style={{ fontSize: 22, fontWeight: 600, color: "#e9efec", marginBottom: 8, letterSpacing: "-0.02em" }}>
           Subscription Expired
         </h1>
 
-        <p style={{ fontSize: 14, color: "#94a3b8", marginBottom: 28, lineHeight: 1.6 }}>
+        <p style={{ fontSize: 14, color: "#a4b4ac", marginBottom: 28, lineHeight: 1.6 }}>
           Your subscription has expired. Please contact support to renew and regain access to your dashboard.
         </p>
 
@@ -58,21 +58,21 @@ export default function SubscriptionExpiredPage() {
           style={{
             width: "100%",
             padding: "12px 24px",
-            background: "#6366f1",
+            background: "#0d9488",
             color: "white",
             border: "none",
-            borderRadius: 10,
+            borderRadius: 8,
             fontSize: 14,
             fontWeight: 600,
             cursor: "pointer",
             transition: "all 0.2s ease",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = "#818cf8";
+            e.currentTarget.style.background = "#0f766e";
             e.currentTarget.style.transform = "translateY(-1px)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = "#6366f1";
+            e.currentTarget.style.background = "#0d9488";
             e.currentTarget.style.transform = "none";
           }}
         >

@@ -85,7 +85,7 @@ export default function InvoicePrintClient() {
       <div className="no-print" style={{ maxWidth: 720, margin: "0 auto", padding: "24px 40px 0" }}>
         <button
           onClick={() => window.print()}
-          style={{ padding: "10px 20px", fontSize: 14, fontWeight: 600, background: "#4f46e5", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}
+          style={{ padding: "10px 20px", fontSize: 14, fontWeight: 600, background: "#0d9488", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}
         >
           Print / Save as PDF
         </button>

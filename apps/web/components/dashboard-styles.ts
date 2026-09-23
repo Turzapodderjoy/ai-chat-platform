@@ -40,7 +40,7 @@ export const labelTextStyle: CSSProperties = {
   fontSize: 11,
   fontWeight: 600,
   textTransform: "uppercase",
-  letterSpacing: "0.05em",
+  letterSpacing: "0.08em",
   color: "var(--text-muted)",
   marginBottom: 8,
 };

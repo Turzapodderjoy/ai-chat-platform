@@ -95,7 +95,7 @@ export default function OffersPanel({ businessId }: Props) {
           onClick={() => setShowForm(!showForm)}
           style={{
             padding: "8px 16px",
-            background: "var(--accent, #6366f1)",
+            background: "var(--accent, #2dd4bf)",
             color: "#fff",
             border: "none",
             borderRadius: "var(--radius-sm, 6px)",
@@ -165,7 +165,7 @@ export default function OffersPanel({ businessId }: Props) {
               disabled={!form.title || !form.discountValue}
               style={{
                 padding: "8px 20px",
-                background: "var(--accent, #6366f1)",
+                background: "var(--accent, #2dd4bf)",
                 color: "#fff",
                 border: "none",
                 borderRadius: "var(--radius-sm, 6px)",

@@ -81,7 +81,7 @@ const STATUS_TONE: Record<string, BadgeTone> = {
 const KANBAN_STATUSES = ["booked", "received", "in_repair", "ready", "completed"] as const;
 
 const KANBAN_COLORS: Record<string, string> = {
-  booked: "#6366f1",
+  booked: "#2dd4bf",
   received: "#0ea5e9",
   in_repair: "#f59e0b",
   ready: "#10b981",
@@ -114,14 +114,14 @@ const PRIORITY_TONE: Record<string, BadgeTone> = {
 
 const PRIORITY_BORDER: Record<string, string> = {
   low: "#6b7280",
-  normal: "#6366f1",
+  normal: "#2dd4bf",
   high: "#f59e0b",
   urgent: "#ef4444",
 };
 
 const PRIORITY_DOT: Record<string, string> = {
   low: "#6b7280",
-  normal: "#6366f1",
+  normal: "#2dd4bf",
   high: "#f59e0b",
   urgent: "#ef4444",
 };
@@ -538,7 +538,7 @@ export function RepairsPanel({ businessId, active = true, accountRole }: { busin
           marginBottom: 8,
           borderRadius: "var(--radius-sm)",
           border: `1px solid ${selectedId === a.id ? "var(--accent)" : "var(--border)"}`,
-          borderLeft: `3px solid ${PRIORITY_BORDER[a.priority] ?? "#6366f1"}`,
+          borderLeft: `3px solid ${PRIORITY_BORDER[a.priority] ?? "#2dd4bf"}`,
           cursor: "pointer",
           background: selectedId === a.id ? "var(--surface-hover)" : isNew ? "rgba(99,102,241,0.05)" : "var(--surface)",
           transition: "all 0.15s",
@@ -553,12 +553,12 @@ export function RepairsPanel({ businessId, active = true, accountRole }: { busin
             </span>
           )}
            {!a.isWalkIn && a.source === "website" && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "#6366f1", color: "#fff", fontSize: 10, fontWeight: 600 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "#0d9488", color: "#fff", fontSize: 10, fontWeight: 600 }}>
               🌐 Website
             </span>
           )}
           {!a.isWalkIn && a.source && a.source !== "website" && !a.source.startsWith("walk-in") && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "#6366f1", color: "#fff", fontSize: 10, fontWeight: 600 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "#0d9488", color: "#fff", fontSize: 10, fontWeight: 600 }}>
               👤 {a.source}
             </span>
           )}
