@@ -92,6 +92,33 @@ export async function readProfileApiKey(tenantFilter?: string): Promise<string |
   }
 }
 
+export interface HermesProfileEnv {
+  apiKey?: string;
+  /** Admin-set model override (AIVA_MODEL). Absent = gateway default. */
+  aivaModel?: string;
+  /** Admin-set provider override (AIVA_PROVIDER). Absent = gateway default. */
+  aivaProvider?: string;
+}
+
+/**
+ * Read the full .env of a Hermes profile (AIVA_MODEL/AIVA_PROVIDER
+ * overrides + API_SERVER_KEY). Missing profile → all fields absent.
+ */
+export async function readProfileEnv(tenantFilter?: string): Promise<HermesProfileEnv> {
+  const envPath = profileEnvPath(tenantFilter && tenantFilter !== "default" ? tenantFilter : "");
+  try {
+    const raw = await fs.readFile(envPath, "utf8");
+    const val = (key: string): string | undefined => {
+      const m = raw.match(new RegExp(`^${key}\\s*=\\s*(.+)$`, "m"));
+      const v = m ? m[1]!.trim() : undefined;
+      return v ? v : undefined;
+    };
+    return { apiKey: val("API_SERVER_KEY"), aivaModel: val("AIVA_MODEL"), aivaProvider: val("AIVA_PROVIDER") };
+  } catch {
+    return {};
+  }
+}
+
 function baseUrl(): string {
   const host = process.env.HERMES_HOST || DEFAULT_HOST;
   const port = process.env.HERMES_PORT || String(DEFAULT_PORT);
@@ -119,7 +146,8 @@ interface HermesCompletionResponse {
  * missing/fail-closed.
  */
 export async function hermesChat(args: HermesChatArgs): Promise<HermesChatResult> {
-  const apiKey = args.apiKey ?? (await readProfileApiKey(args.tenant));
+  const env = args.apiKey ? {} : await readProfileEnv(args.tenant);
+  const apiKey = args.apiKey ?? env.apiKey ?? null;
   if (!apiKey) {
     throw new HermesError(
       `Hermes profile '${args.tenant || "default"}' is not provisioned (missing API_SERVER_KEY).`,
@@ -134,20 +162,48 @@ export async function hermesChat(args: HermesChatArgs): Promise<HermesChatResult
     { role: "user", content: args.message },
   ];
 
-  const res = await fetch(endpointFor(args.tenant), {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "X-Hermes-Session-Key": args.sessionKey,
-    },
-    body: JSON.stringify({
-      model: args.model ?? DEFAULT_MODEL,
-      messages,
-      stream: false,
-    }),
-    signal: AbortSignal.timeout(90_000),
+  // Admin-set model/provider override (AIVA_MODEL/AIVA_PROVIDER in the
+  // profile's .env) wins over the caller default; explicit `args.model`
+  // wins over everything. The gateway honors per-request model/provider.
+  const effectiveModel = args.model ?? env.aivaModel ?? DEFAULT_MODEL;
+  const effectiveProvider = env.aivaProvider;
+  const overrideInPlay = effectiveModel !== DEFAULT_MODEL || Boolean(effectiveProvider);
+
+  const post = (body: { model: string; provider?: string }): Promise<Response> =>
+    fetch(endpointFor(args.tenant), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "X-Hermes-Session-Key": args.sessionKey,
+      },
+      body: JSON.stringify({ ...body, messages, stream: false }),
+      signal: AbortSignal.timeout(90_000),
+    });
+
+  // A bad admin-set override (unknown model/provider, or a gateway that
+  // resolves it to a warning completion instead of an answer) must not
+  // wedge a customer conversation — fall back to the gateway's safe
+  // default once. The gateway sometimes returns 200 with the error as the
+  // answer text, so a degraded-looking answer counts as "failed" too.
+  const isDegraded = (answer: string, res: Response): boolean =>
+    !res.ok ||
+    /^⚠️|Provider authentication failed|Unknown provider|Unknown model/i.test(answer);
+
+  let res = await post({
+    model: effectiveModel,
+    ...(effectiveProvider ? { provider: effectiveProvider } : {}),
   });
+  let answer = "";
+  let data: HermesCompletionResponse | null = null;
+  if (res.ok) data = (await res.json().catch(() => null)) as HermesCompletionResponse | null;
+  answer = data?.choices?.[0]?.message?.content ?? "";
+
+  if (overrideInPlay && isDegraded(answer, res)) {
+    res = await post({ model: DEFAULT_MODEL });
+    data = res.ok ? ((await res.json().catch(() => null)) as HermesCompletionResponse | null) : null;
+    answer = data?.choices?.[0]?.message?.content ?? "";
+  }
 
   if (res.status === 401 || res.status === 403) {
     const text = await res.text().catch(() => "");
@@ -167,15 +223,12 @@ export async function hermesChat(args: HermesChatArgs): Promise<HermesChatResult
     );
   }
 
-  const data = (await res.json()) as HermesCompletionResponse;
-  const answer = data.choices?.[0]?.message?.content ?? "";
-
   return {
     answer,
-    sessionId: data.id ?? args.sessionKey,
+    sessionId: data?.id ?? args.sessionKey,
     provider: "hermes",
-    tokens: data.usage?.total_tokens ?? 0,
-    model: data.model ?? args.model ?? DEFAULT_MODEL,
+    tokens: data?.usage?.total_tokens ?? 0,
+    model: data?.model ?? effectiveModel,
   };
 }
 

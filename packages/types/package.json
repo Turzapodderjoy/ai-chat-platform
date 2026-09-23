@@ -1,9 +1,0 @@
-{
-  "name": "@ai-chat-platform/types",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "exports": {
-    ".": "./src/index.ts"
-  }
-}

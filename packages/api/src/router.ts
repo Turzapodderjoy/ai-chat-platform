@@ -21,6 +21,7 @@ import { StatusEmailTemplateController } from "./status-email-template-controlle
 import { GmailSenderConfigController } from "./gmail-sender-config-controller";
 import { OfferController } from "./offer-controller";
 import { GoogleSignInController } from "./google-sign-in-controller";
+import { HermesAdminController } from "./hermes-admin-controller";
 
 export class ApiRouter {
   constructor(
@@ -46,6 +47,7 @@ export class ApiRouter {
     readonly statusEmailTemplates: StatusEmailTemplateController,
     readonly gmailSenderConfig: GmailSenderConfigController,
     readonly offers: OfferController,
-    readonly googleSignIn: GoogleSignInController
+    readonly googleSignIn: GoogleSignInController,
+    readonly hermes: HermesAdminController
   ) {}
 }

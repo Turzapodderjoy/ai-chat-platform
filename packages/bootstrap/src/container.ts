@@ -41,6 +41,7 @@ import {
   GmailSenderConfigController,
   OfferController,
   GoogleSignInController,
+  HermesAdminController,
 } from "@ai-chat-platform/api";
 
 // The one true composition root. Every service here is stateless —
@@ -118,7 +119,8 @@ export class Container {
       statusEmailTemplateController,
       gmailSenderConfigController,
       offerController,
-      googleSignInController
+      googleSignInController,
+      new HermesAdminController()
     );  }
 
   readonly router: ApiRouter;

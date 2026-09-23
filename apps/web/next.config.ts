@@ -10,7 +10,6 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["pdfkit", "fontkit"],
   transpilePackages: [
     "@ai-chat-platform/database",
-    "@ai-chat-platform/types",
     "@ai-chat-platform/bootstrap",
     "@ai-chat-platform/api",
     "@ai-chat-platform/chat-service",

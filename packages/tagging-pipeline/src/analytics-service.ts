@@ -138,8 +138,7 @@ export class AnalyticsService {
   /** Custom pivot table — group by any combination of the fixed dimension
    * set, count distinct conversations (or messages) per group. Fetches
    * the filtered rows with their joined fields, then aggregates in JS —
-   * mirrors the same brute-force-in-application-code precedent already
-   * used by VectorRecord search, since Prisma's groupBy can't group
+   * brute force in application code, since Prisma's groupBy can't group
    * across a joined relation (tag -> conversation's channel) in one call. */
   async getPivot(params: {
     businessId: string;

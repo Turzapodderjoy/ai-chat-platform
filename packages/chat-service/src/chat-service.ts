@@ -130,13 +130,13 @@ function repairConfirmedMessage(fields: RepairFields, trackingToken: string): st
 
 // ── Canned messages & language helpers (no LLM involved) ─────────────
 const HANDOFF_MESSAGE_EN =
-  "I don't have any information about that in our knowledge base. Let me connect you with a team member who can help — they'll pick up right where this conversation left off.";
+  "I can't help with that right now. Let me connect you with a team member who can — they'll pick up right where this conversation left off.";
 
 const HANDOFF_MESSAGE_BN =
-  "এই বিষয়ে আমাদের কাছে কোনো তথ্য নেই। আমি আপনাকে একজন টিম মেম্বারের সাথে সংযুক্ত করছি — তিনি এই কথোপকথন যেখানে শেষ হয়েছে সেখান থেকেই শুরু করবেন।";
+  "এই বিষয়ে আমি এখন সাহায্য করতে পারছি না। আমি আপনাকে একজন টিম মেম্বারের সাথে সংযুক্ত করছি — তিনি এই কথোপকথন যেখানে শেষ হয়েছে সেখান থেকেই শুরু করবেন।";
 
 const HANDOFF_MESSAGE_BANGLISH =
-  "Dukkhito, e bishoye kono tothyo nei. Ami apnake ekjon team member-er sathe connect kore dicchi — uni ei conversation ja jekhane sesh hoyeche sekhan theke shuru korben.";
+  "E bishoye ami ekhon sahajjo korte parchi na. Ami apnake ekjon team member-er sathe connect kore dicchi — uni ei conversation ja jekhane sesh hoyeche sekhan theke shuru korben.";
 
 const ALREADY_WAITING_MESSAGES_EN = [
   "Thanks for reaching out! Our team already has your message and will reply here shortly — feel free to share any more details in the meantime.",

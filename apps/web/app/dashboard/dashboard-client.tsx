@@ -16,6 +16,7 @@ import { DashboardShell, type NavGroup } from "../../components/DashboardShell";
 import { cardStyle, cellStyle, subtleTextStyle, primaryButtonStyle, inputStyle } from "../../components/dashboard-styles";
 import { showAlert, showConfirm } from "../../lib/app-dialog";
 import { StatCard, StatCardRow } from "../../components/StatCard";
+import { HermesAgentsPanel } from "../../components/HermesAgentsPanel";
 
 // The full IANA zone list, straight from the runtime -- every browser
 // and Node 18+ ships this, so there's no reason to hand-curate a
@@ -61,7 +62,7 @@ const TIMEZONE_LABELS: [string, string][] = (() => {
     .map(([minutes, tz]): [string, string] => [tz, gmtOffsetLabel(minutes)]);
 })();
 
-type Tab = "overview" | "vpsHealth" | "channels" | "usage" | "clients" | "access" | "adminUsers" | "allchats" | "database" | "tags" | "contacts" | "invoices" | "subscription";
+type Tab = "overview" | "vpsHealth" | "channels" | "usage" | "clients" | "access" | "adminUsers" | "allchats" | "database" | "tags" | "contacts" | "invoices" | "subscription" | "hermesAgents";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }] },
@@ -91,6 +92,7 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
       { id: "channels", label: "Integrations" },
       { id: "usage", label: "Usage" },
       { id: "database", label: "Database" },
+      { id: "hermesAgents", label: "Hermes Agents" },
       { id: "vpsHealth", label: "VPS Health" },
     ],
   },
@@ -214,6 +216,9 @@ export default function DashboardClient() {
       </div>
       <div style={{ display: tab === "vpsHealth" ? "block" : "none" }}>
         <VpsHealthPanel active={tab === "vpsHealth"} />
+      </div>
+      <div style={{ display: tab === "hermesAgents" ? "block" : "none" }}>
+        <HermesAgentsPanel />
       </div>
     </DashboardShell>
   );

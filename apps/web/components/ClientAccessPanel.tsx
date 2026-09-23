@@ -392,8 +392,8 @@ export function ClientAccessPanel() {
 
   // Hermes Engine: chat() cuts the customer's conversations over to the
   // client's Hermes agent profile (the AIVA AI engine). Requires a
-  // provisioned profile; the engine falls back to the legacy pipeline if
-  // the gateway/agent is unreachable. Read fresh on every message.
+  // provisioned profile; without one the chat fails closed to the
+  // canned handoff message. Read fresh on every message.
   async function toggleHermes(client: Client) {
     setTogglingHermes(true);
     try {

@@ -5,10 +5,8 @@ export interface ChatRequest {
 
   businessId?: string;
 
-  /** Training Arena sessions only — set once, on the first message of a
-   * new sessionId. Skips the "already connected to a human agent" block
-   * after a handoff, since the whole point is to keep talking to the AI
-   * to correct exactly that behavior. Never set by real customer chat. */
+  /** Legacy training-session marker persisted on the conversation row.
+   * Never set by customer chat today; real conversations leave it unset. */
   isTraining?: boolean;
 
   /** "website" (default) | "messenger" | "instagram" | "whatsapp" — only
@@ -27,17 +25,10 @@ export interface ChatRequest {
   languageHint?: string;
 
   /** A photo the customer sent this turn (product photo, price tag,
-   * screenshot) — a publicly fetchable URL. See VisionService: turned
-   * into a text description + any legible text before retrieval, so the
-   * rest of the pipeline (retrieval, prompt, markers) never has to know
-   * an image was involved at all. */
+   * screenshot) — a publicly fetchable URL. The chat service appends a
+   * photo-note to the message so the agent knows a photo exists (it
+   * can't see it) and knows to ask the customer to describe it. */
   imageUrl?: string;
-}
-
-export interface ChatSource {
-  label: string;
-  score: number;
-  embeddingProvider?: string;
 }
 
 export interface ChatResponse {
@@ -47,14 +38,8 @@ export interface ChatResponse {
   confidence: number;
   cached?: boolean;
   handoff?: boolean;
-  /** The persisted assistant Message's id — lets the caller (Chat Demo's
-   * QA buttons) attach pass/fail feedback to this exact answer. Absent
-   * for the "already waiting on a human agent" path, which records no
-   * new message. */
+  /** The persisted assistant Message's id — lets the caller attach
+   * feedback to this exact answer. Absent for the "already waiting on a
+   * human agent" path, which records no new message. */
   messageId?: string;
-  /** Which knowledge-base source(s) this answer was actually retrieved
-   * from — admin/backend visibility only (Training Arena, backend admin
-   * chat view), for tracing a wrong/missing answer back to what the AI
-   * actually read. Never rendered by the customer-facing widget. */
-  sources?: ChatSource[];
 }
