@@ -83,6 +83,17 @@ model Business {
   // are disabled for this client's dashboard. Default true for backward compat.
   aiEnabled           Boolean  @default(true)
 
+  // ===== Hermes agent embedding (Wave 3+) ===============================
+  // Slug of this business's Hermes profile under HERMES_HOME/profiles/<slug>
+  // (multiplexed at /p/<slug>/v1/chat/completions). Set when the agent is
+  // provisioned; per-tenant API key lives in that profile's .env, never in
+  // Postgres. Null = not provisioned yet.
+  hermesProfile     String?
+  // Cutover flag: when true, chat routes through the Hermes agent profile
+  // instead of the legacy embedded chat service. The profile must exist
+  // (hermesProfile set + provisioned) or chat fails closed.
+  hermesEnabled     Boolean  @default(false)
+
   // How many agent (handoff-team) logins this business is allowed to
   // create for itself under Client Access -- 0 means the feature isn't
   // enabled for them yet. Set by platform admin only; the client's own

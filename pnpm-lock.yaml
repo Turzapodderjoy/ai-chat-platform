@@ -48,6 +48,9 @@ importers:
       '@ai-chat-platform/embedding-manager':
         specifier: workspace:*
         version: link:../../packages/embedding-manager
+      '@ai-chat-platform/hermes':
+        specifier: workspace:*
+        version: link:../../packages/hermes
       '@ai-chat-platform/indexing':
         specifier: workspace:*
         version: link:../../packages/indexing
@@ -608,6 +611,8 @@ importers:
       groq-sdk:
         specifier: ^0.31.0
         version: 0.31.0
+
+  packages/hermes: {}
 
   packages/indexing:
     dependencies:

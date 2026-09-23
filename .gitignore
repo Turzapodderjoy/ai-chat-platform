@@ -24,3 +24,6 @@ dist/
 # Turborepo local cache / logs (machine-local, never commit)
 .turbo/
 local/
+
+# Hermes agent runtime state (HERMES_HOME)
+data/hermes/
