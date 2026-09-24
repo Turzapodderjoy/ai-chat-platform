@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   try {
     const app = await getApp();
     const lot = await app.container.router.products.refillProduct(
-      { productId: body.productId, quantity, costPrice, sellPrice, note: typeof body.note === "string" ? body.note : undefined },
+      { productId: body.productId, quantity, costPrice, sellPrice, note: typeof body.note === "string" ? body.note : undefined, locationId: typeof body.locationId === "string" ? body.locationId : undefined },
       await resolveAdminActor(req)
     );
     return NextResponse.json(lot);

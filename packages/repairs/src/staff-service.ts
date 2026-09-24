@@ -7,6 +7,7 @@ export interface StaffMember {
   email?: string;
   phone?: string;
   role: string;
+  skills?: string[];
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -19,6 +20,7 @@ function toStaff(row: {
   email: string | null;
   phone: string | null;
   role: string;
+  skills: string[];
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -30,6 +32,7 @@ function toStaff(row: {
     email: row.email ?? undefined,
     phone: row.phone ?? undefined,
     role: row.role,
+    skills: row.skills,
     active: row.active,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -37,7 +40,7 @@ function toStaff(row: {
 }
 
 export class StaffService {
-  async create(input: { businessId: string; name: string; email?: string; phone?: string; role?: string }): Promise<StaffMember> {
+  async create(input: { businessId: string; name: string; email?: string; phone?: string; role?: string; skills?: string[] }): Promise<StaffMember> {
     const row = await prisma.staff.create({
       data: {
         businessId: input.businessId,
@@ -45,6 +48,7 @@ export class StaffService {
         email: input.email ?? null,
         phone: input.phone ?? null,
         role: input.role ?? "technician",
+        skills: input.skills ?? [],
       },
     });
     return toStaff(row);
@@ -63,7 +67,7 @@ export class StaffService {
     return row ? toStaff(row) : null;
   }
 
-  async update(id: string, data: { name?: string; email?: string; phone?: string; role?: string; active?: boolean }): Promise<StaffMember> {
+  async update(id: string, data: { name?: string; email?: string; phone?: string; role?: string; skills?: string[]; active?: boolean }): Promise<StaffMember> {
     const row = await prisma.staff.update({ where: { id }, data });
     return toStaff(row);
   }

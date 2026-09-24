@@ -121,6 +121,7 @@ export async function refillProduct(input: {
   sellPrice?: number | null;
   note?: string;
   receivedBy: string;
+  locationId?: string;
 }) {
   if (!(input.quantity > 0)) throw new Error("Quantity must be more than 0.");
   return prisma.$transaction(async (tx) => {
@@ -140,6 +141,7 @@ export async function refillProduct(input: {
         sellPrice: sell,
         receivedBy: input.receivedBy,
         note: input.note?.trim() || null,
+        locationId: input.locationId ?? null,
       },
     });
     const stock = toNum(product.stock) ?? 0;

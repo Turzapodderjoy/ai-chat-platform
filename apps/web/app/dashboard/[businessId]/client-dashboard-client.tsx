@@ -14,12 +14,22 @@ import { ChatLearningPanel } from "../../../components/ChatLearningPanel";
 import { ChannelsPanel } from "../../../components/ChannelsPanel";
 import { ProductCatalogPanel } from "../../../components/ProductCatalogPanel";
 import { InventoryPanel } from "../../../components/InventoryPanel";
+import { LocationsPanel } from "../../../components/LocationsPanel";
+import { ShiftsPanel } from "../../../components/ShiftsPanel";
+import { TeamChatPanel } from "../../../components/TeamChatPanel";
+import { KpiCardsPanel } from "../../../components/KpiCardsPanel";
+import { LmsPanel } from "../../../components/LmsPanel";
+import { MultiLocationReportPanel } from "../../../components/MultiLocationReportPanel";
 import { StatusEmailTemplatesPanel } from "../../../components/StatusEmailTemplatesPanel";
 import { OrdersPanel } from "../../../components/OrdersPanel";
+import { PurchaseOrdersPanel } from "../../../components/PurchaseOrdersPanel";
 import { DeliveryPanel } from "../../../components/DeliveryPanel";
 import { RepairsPanel } from "../../../components/RepairsPanel";
 import OffersPanel from "../../../components/OffersPanel";
 import { StaffPanel } from "../../../components/StaffPanel";
+import { EmployeeMetricsPanel } from "../../../components/EmployeeMetricsPanel";
+import { ClosingChecklistPanel } from "../../../components/ClosingChecklistPanel";
+import { WhatsAppTemplatesPanel } from "../../../components/WhatsAppTemplatesPanel";
 import { ContactsPanel } from "../../../components/ContactsPanel";
 import { InvoicesPanel } from "../../../components/InvoicesPanel";
 import { ReportsPanel } from "../../../components/ReportsPanel";
@@ -36,7 +46,7 @@ import { DeletedDataPanel } from "../../../components/DeletedDataPanel";
 import { ClientHomePanel } from "../../../components/ClientHomePanel";
 import { AppointmentNotificationBell } from "../../../components/AppointmentNotificationBell";
 
-type Tab = "home" | "overview" | "tagdashboard" | "knowledge" | "products" | "inventory" | "orders" | "delivery" | "repairs" | "offers" | "staff" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "invoices" | "reports" | "partsusage" | "notifications" | "settings" | "deleted";
+type Tab = "home" | "overview" | "tagdashboard" | "knowledge" | "products" | "inventory" | "orders" | "purchaseorders" | "locations" | "shifts" | "teamchat" | "delivery" | "repairs" | "offers" | "staff" | "metrics" | "kpi" | "checklist" | "whatsapp" | "lms" | "multiloc" | "allchats" | "storage" | "brain" | "parameters" | "arena" | "review" | "channels" | "contacts" | "invoices" | "reports" | "partsusage" | "notifications" | "settings" | "deleted";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "home", label: "Home" }, { id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }, { id: "reports", label: "Reports" }, { id: "partsusage", label: "Parts Usage" }] },
@@ -56,9 +66,19 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
     label: "Sales",
     items: [
       { id: "orders", label: "Orders" },
+      { id: "purchaseorders", label: "Purchase Orders" },
+      { id: "locations", label: "Locations" },
+      { id: "shifts", label: "Shifts" },
+      { id: "teamchat", label: "Team Chat" },
       { id: "delivery", label: "Delivery" },
       { id: "offers", label: "Offers" },
       { id: "staff", label: "Staff" },
+      { id: "metrics", label: "Metrics" },
+      { id: "kpi", label: "KPI Dashboard" },
+      { id: "lms", label: "Training & Onboarding" },
+      { id: "multiloc", label: "Multi-Location Report" },
+      { id: "checklist", label: "Closing Checklist" },
+      { id: "whatsapp", label: "WhatsApp Templates" },
       { id: "products", label: "Product Catalog" },
       { id: "inventory", label: "Inventory" },
       { id: "notifications", label: "Notifications" },
@@ -117,6 +137,12 @@ const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
       { id: "orders", label: "Orders" },
       { id: "offers", label: "Offers" },
       { id: "staff", label: "Staff" },
+      { id: "metrics", label: "Metrics" },
+      { id: "kpi", label: "KPI Dashboard" },
+      { id: "lms", label: "Training & Onboarding" },
+      { id: "multiloc", label: "Multi-Location Report" },
+      { id: "checklist", label: "Closing Checklist" },
+      { id: "whatsapp", label: "WhatsApp Templates" },
       { id: "inventory", label: "Inventory" },
     ],
   },
@@ -464,6 +490,7 @@ export default function ClientDashboardClient() {
       backHref={isAdmin ? "/dashboard" : undefined}
       topbarExtra={<AppointmentNotificationBell businessId={businessId} />}
       fillHeight={tab === "allchats"}
+      businessId={businessId}
     >
       {previewAsClient && isAdmin && (
         <div
@@ -500,10 +527,20 @@ export default function ClientDashboardClient() {
         ["inventory", <InventoryPanel key="inventory" businessId={businessId} active={tab === "inventory"} />],
         ["notifications", <StatusEmailTemplatesPanel key="notifications" businessId={businessId} />],
         ["orders", <OrdersPanel key="orders" businessId={businessId} businessType={clientType} accountRole={isAdmin ? "admin" : accountRole} />],
+        ["purchaseorders", <PurchaseOrdersPanel key="purchaseorders" businessId={businessId} />],
+        ["locations", <LocationsPanel key="locations" businessId={businessId} />],
+        ["shifts", <ShiftsPanel key="shifts" businessId={businessId} />],
+        ["teamchat", <TeamChatPanel key="teamchat" businessId={businessId} active={tab === "teamchat"} />],
         ["delivery", <DeliveryPanel key="delivery" businessId={businessId} />],
         ["repairs", <RepairsPanel key="repairs" businessId={businessId} active={tab === "repairs"} accountRole={isAdmin ? "admin" : accountRole} />],
         ["offers", <OffersPanel key="offers" businessId={businessId} />],
         ["staff", <StaffPanel key="staff" businessId={businessId} />],
+        ["metrics", <EmployeeMetricsPanel key="metrics" businessId={businessId} />],
+        ["kpi", <KpiCardsPanel key="kpi" businessId={businessId} />],
+        ["lms", <LmsPanel key="lms" businessId={businessId} />],
+        ["multiloc", <MultiLocationReportPanel key="multiloc" businessId={businessId} />],
+        ["checklist", <ClosingChecklistPanel key="checklist" businessId={businessId} />],
+        ["whatsapp", <WhatsAppTemplatesPanel key="whatsapp" businessId={businessId} />],
         ["contacts", <ContactsPanel key="contacts" businessId={businessId} active={tab === "contacts"} />],
         ["invoices", <InvoicesPanel key="invoices" businessId={businessId} active={tab === "invoices"} />],
         [

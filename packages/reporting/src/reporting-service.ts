@@ -138,8 +138,10 @@ export class ReportingService {
    * still counts if a cost was typed in by hand for it
    * (RepairOrderItem.costPrice / InvoiceItem.costPrice) -- only a
    * custom item with NEITHER contributes $0 cost. */
-  async getSummary(businessId: string | undefined, from: Date, to: Date): Promise<SummaryReport> {
+  async getSummary(businessId: string | undefined, from: Date, to: Date, locationId?: string): Promise<SummaryReport> {
     const paymentWhere = { ...(businessId ? { businessId } : {}), paidAt: { gte: from, lte: to } };
+    const apptWhere = { ...(businessId ? { businessId } : {}), ...(locationId ? { locationId } : {}), createdAt: { gte: from, lte: to } };
+    const orderWhere = { ...(businessId ? { businessId } : {}), ...(locationId ? { locationId } : {}), createdAt: { gte: from, lte: to } };
     const payments = await prisma.payment.findMany({ where: paymentWhere, select: { amount: true, invoiceId: true } });
     const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
 
@@ -152,7 +154,7 @@ export class ReportingService {
       : [];
     const apptIds = [...new Set(invoices.map((i) => i.repairAppointmentId).filter((id): id is string => !!id))];
     const paidAppointments = apptIds.length
-      ? await prisma.repairAppointment.findMany({ where: { id: { in: apptIds } }, select: { items: { select: { productId: true, quantity: true, costPrice: true } } } })
+      ? await prisma.repairAppointment.findMany({ where: { id: { in: apptIds }, ...(locationId ? { locationId } : {}) }, select: { items: { select: { productId: true, quantity: true, costPrice: true } } } })
       : [];
 
     const productIds = [
@@ -188,7 +190,7 @@ export class ReportingService {
     }
 
     const appointments = await prisma.repairAppointment.findMany({
-      where: { ...(businessId ? { businessId } : {}), createdAt: { gte: from, lte: to } },
+      where: apptWhere,
       select: { status: true },
     });
 
@@ -201,8 +203,10 @@ export class ReportingService {
     };
   }
 
-  async getOverview(businessId?: string, from?: Date, to?: Date): Promise<OverviewReport> {
+  async getOverview(businessId?: string, from?: Date, to?: Date, locationId?: string): Promise<OverviewReport> {
     const where = businessId ? { businessId } : {};
+    const apptWhere = { ...where, ...(locationId ? { locationId } : {}) };
+    const orderWhere = { ...where, ...(locationId ? { locationId } : {}) };
     const thisMonth = startOfMonth(0);
     const lastMonth = startOfMonth(-1);
     const week = startOfWeek();
@@ -218,11 +222,11 @@ export class ReportingService {
       newContactsThisWeek,
       newContactsThisMonth,
     ] = await Promise.all([
-      this.getSummary(businessId, summaryRange[0]!, summaryRange[1]!),
+      this.getSummary(businessId, summaryRange[0]!, summaryRange[1]!, locationId),
       prisma.invoice.findMany({ where, select: { status: true, discount: true, tax: true, amountPaid: true, totalOverride: true, items: { select: { quantity: true, unitPrice: true } } } }),
       prisma.payment.findMany({ where, select: { amount: true, paidAt: true } }),
-      prisma.order.findMany({ where, select: { deliveryStatus: true } }),
-      prisma.repairAppointment.findMany({ where, select: { status: true } }),
+      prisma.order.findMany({ where: orderWhere, select: { deliveryStatus: true } }),
+      prisma.repairAppointment.findMany({ where: apptWhere, select: { status: true } }),
       prisma.contact.count({ where }),
       prisma.contact.count({ where: { ...where, createdAt: { gte: week } } }),
       prisma.contact.count({ where: { ...where, createdAt: { gte: thisMonth } } }),

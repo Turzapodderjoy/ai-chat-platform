@@ -667,6 +667,15 @@ export class ChatService {
     return run;
   }
 
+  private async getDefaultLocationId(businessId: string): Promise<string | undefined> {
+    const loc = await prisma.location.findFirst({
+      where: { businessId, isActive: true },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    return loc?.id;
+  }
+
   // 200K chars (~50K tokens) — conservative, safely under the smallest
   // context window among every currently-rotated provider (Groq/Mistral/
   // Cerebras are ~128K tokens), leaving headroom for system prompt,
@@ -792,6 +801,7 @@ export class ChatService {
     // message does confirm it.
     if (isOrderComplete(conversation.pendingOrder) && isAffirmative(request.message)) {
       const pending = conversation.pendingOrder;
+      const locationId = await this.getDefaultLocationId(businessId);
       const createdOrder = await this.orders.create({
         businessId,
         conversationId: request.sessionId,
@@ -800,6 +810,7 @@ export class ChatService {
         deliveryAddress: pending.deliveryAddress,
         products: pending.products,
         paymentMethod: pending.paymentMethod,
+        locationId,
       });
       await this.conversations.setPendingOrder(request.sessionId, null);
       // Non-blocking — never delay the customer's confirmation waiting
@@ -834,6 +845,7 @@ export class ChatService {
       const pending = conversation.pendingRepair;
       const trackingToken = await this.repairs.generateTrackingToken();
       const biz = await prisma.business.findUnique({ where: { id: businessId }, select: { timezone: true } });
+      const locationId = await this.getDefaultLocationId(businessId);
       await this.repairs.book({
         businessId,
         trackingToken,
@@ -844,6 +856,7 @@ export class ChatService {
         deviceModel: pending.deviceModel || undefined,
         issueDescription: pending.issueDescription,
         appointmentDate: parseDateTimeInZone(pending.appointmentDate, biz?.timezone ?? "America/New_York"),
+        locationId,
       });
       await this.conversations.setPendingRepair(request.sessionId, null);
 
@@ -1388,10 +1401,12 @@ export class ChatService {
 
         if (customerName && phone && deliveryAddress && products && paymentMethod) {
           const fields = { customerName, phone, deliveryAddress, products, paymentMethod };
+          const locationId = await this.getDefaultLocationId(businessId);
           const createdOrder = await this.orders.create({
             businessId,
             conversationId: request.sessionId,
             ...fields,
+            locationId,
           });
           sameTurnOrder = { id: createdOrder.id, fields };
           this.contacts?.upsert({ businessId, name: customerName, phone }).catch(() => {});

@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
     email: body.email,
     phone: body.phone,
     role: body.role,
+    skills: body.skills,
   });
   return NextResponse.json(member);
 }

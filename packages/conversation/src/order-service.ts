@@ -8,6 +8,7 @@ export interface OrderInput {
   deliveryAddress: string;
   products: string;
   paymentMethod: string;
+  locationId?: string;
 }
 
 export interface Order extends OrderInput {
@@ -17,6 +18,7 @@ export interface Order extends OrderInput {
   trackingId: string | null;
   deliveryStatus: string;
   createdAt: string;
+  locationId?: string;
 }
 
 export const DELIVERY_STATUSES = ["pending", "picked_up", "in_transit", "delivered", "returned"] as const;
@@ -41,9 +43,10 @@ function toOrder(row: {
   courier: string | null;
   trackingId: string | null;
   deliveryStatus: string;
+  locationId: string | null;
   createdAt: Date;
 }): Order {
-  return { ...row, createdAt: row.createdAt.toISOString() };
+  return { ...row, createdAt: row.createdAt.toISOString(), locationId: row.locationId ?? undefined };
 }
 
 /** Orders the AI takes directly inside a chat conversation — see Order's

@@ -980,6 +980,7 @@ model ProductLot {
   id         String   @id @default(cuid())
   businessId String
   productId  String
+  locationId String?
   quantity   Float
   remaining  Float
   costPrice  Float?
@@ -988,8 +989,100 @@ model ProductLot {
   note       String?
   receivedAt DateTime @default(now())
 
+  location Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
   @@index([productId, receivedAt])
   @@index([businessId])
+  @@index([locationId])
+}
+
+// ---------------------------------------------------------------------------
+// Wave B #8 - Purchase Orders (buy-side restock), built on the same
+// free-text conventions as the rest of the catalog: money fields are String
+// (never parsed as numbers -- a real PO takes a supplier quote exactly as
+// typed, e.g. "1,250.00" or "USD 950"), quantities are Float (matching
+// ProductLot.quantity/receivedBy), and every row is business-scoped with an
+// explicit @@index([businessId]).
+// ---------------------------------------------------------------------------
+
+model Supplier {
+  id          String  @id @default(cuid())
+  businessId  String
+  name        String
+  contactName String?
+  phone       String?
+  email       String?
+  address     String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+
+  @@index([businessId])
+  @@unique([businessId, name])
+}
+
+model PurchaseOrder {
+  id               String   @id @default(cuid())
+  businessId       String
+  supplierId       String
+  orderNumber      String   @default(cuid())
+  status           String   @default("draft") // draft | sent | partially_received | received | cancelled
+  orderDate        DateTime @default(now())
+  expectedDelivery DateTime?
+  subtotal         String   @default("0")
+  tax              String   @default("0")
+  total            String   @default("0")
+  notes            String?
+  createdBy        String?
+  receivedAt       DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  supplier Supplier            @relation(fields: [supplierId], references: [id])
+  items    PurchaseOrderItem[]
+
+  @@index([businessId])
+  @@index([supplierId])
+  @@index([status])
+}
+
+model PurchaseOrderItem {
+  id              String  @id @default(cuid())
+  purchaseOrderId String
+  productId       String?
+  productName     String
+  quantity        Float
+  receivedQty     Float   @default(0)
+  unitCost        String  @default("0")
+  lineTotal       String  @default("0")
+  createdAt       DateTime @default(now())
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseOrderId])
+  @@index([productId])
+}
+
+model Location {
+  id         String  @id @default(cuid())
+  businessId String
+  name       String
+  address    String?
+  city       String?
+  phone      String?
+  email      String?
+  isActive   Boolean @default(true)
+  createdAt  DateTime @default(now())
+
+  shifts Shift[]
+  productLots ProductLot[]
+  orders Order[]
+  repairAppointments RepairAppointment[]
+
+  @@index([businessId])
+  @@unique([businessId, name])
 }
 
 // Disabling or deleting the owning ClientAccount deletes these too
@@ -1147,6 +1240,7 @@ model Order {
   id              String   @id @default(cuid())
   businessId      String
   conversationId  String
+  locationId      String?
 
   customerName    String
   phone           String
@@ -1158,7 +1252,7 @@ model Order {
   products        String
   paymentMethod   String
 
-  // Manual delivery tracking — no live courier API wired yet (needs a
+  // Manual delivery tracking -- no live courier API wired yet (needs a
   // merchant account/credentials from a provider like Pathao/Steadfast
   // first, see OrderService.updateDelivery's own comment for the
   // adapter seam left for that). courier/trackingId are free text a
@@ -1171,9 +1265,12 @@ model Order {
 
   orderTags       OrderTag[]
 
+  location Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
   createdAt       DateTime @default(now())
 
   @@index([businessId, createdAt])
+  @@index([locationId])
 }
 
 // Order-level tagging — same shape as ConversationTag/MessageTag
@@ -1206,6 +1303,7 @@ model OrderTag {
 model RepairAppointment {
   id               String   @id @default(cuid())
   businessId       String
+  locationId       String?
   trackingToken    String   @unique
 
   customerName     String
@@ -1222,7 +1320,7 @@ model RepairAppointment {
   wantsFreeDiagnosis Boolean @default(false)
   source           String?  // "website" | "chat" | "phone" | "walk-in"
 
-  // booked | received | in_repair | ready | completed | cancelled — a
+  // booked | received | in_repair | ready | completed | cancelled -- a
   // plain string, not a Prisma enum, so the workflow can be tweaked
   // later without a migration (same convention as Conversation.channel).
   status           String   @default("booked")
@@ -1268,11 +1366,14 @@ model RepairAppointment {
   items            RepairOrderItem[]
   invoices         Invoice[]
 
+  location Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   @@index([businessId, appointmentDate])
   @@index([businessId, status])
+  @@index([locationId])
 }
 
 // A part or service line on a RepairAppointment's Order Management
@@ -1319,10 +1420,49 @@ model Staff {
   phone       String?
   role        String   @default("technician") // technician | manager
   active      Boolean  @default(true)
+  skills      String[] @default([])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  shifts   Shift[]
+  messages TeamMessage[]
+  lmsEnrollments CourseEnrollment[]
+
   @@index([businessId])
+}
+
+model Shift {
+  id         String   @id @default(cuid())
+  businessId String
+  staffId    String?
+  locationId String?
+  title      String
+  startAt    DateTime
+  endAt      DateTime
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  staff    Staff?   @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  location Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  @@index([businessId])
+  @@index([staffId])
+  @@index([locationId])
+}
+
+model TeamMessage {
+  id         String   @id @default(cuid())
+  businessId String
+  staffId    String?
+  body       String
+  createdAt  DateTime @default(now())
+
+  staff Staff? @relation(fields: [staffId], references: [id], onDelete: SetNull)
+
+  @@index([businessId])
+  @@index([staffId])
+  @@index([createdAt])
 }
 
 // Per-business outbound-email sender identity — same "single mutable
@@ -1379,6 +1519,38 @@ model StatusEmailTemplate {
   statusValue String
   subject     String
   bodyHtml    String
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([businessId, kind, statusValue])
+  @@index([businessId])
+}
+
+// WhatsApp Business API sender config per business — phone_number_id + access_token
+// from Meta Developer Portal. App Password style, no OAuth.
+model WhatsAppSenderConfig {
+  id            String   @id @default(cuid())
+  businessId    String   @unique
+  phoneNumberId String
+  accessToken   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// WhatsApp template messages for automated status updates — Meta template format
+// with {{1}}, {{2}}... placeholders, header/footer/buttons, language, category.
+model WhatsAppTemplate {
+  id          String   @id @default(cuid())
+  businessId  String
+  kind        String   // "repair_status" | "order_status" | "general"
+  statusValue String
+  name        String   // Meta template name (e.g. "repair_booked_notification")
+  language    String   @default("en_US")
+  header      String?
+  body        String
+  footer      String?
+  buttons     String?  // JSON array of button objects
   enabled     Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -1455,6 +1627,41 @@ model AdminNotification {
 
   createdAt  DateTime @default(now())
 
+  @@index([businessId])
+}
+
+// Per-business review request automation config — auto-send review requests
+// when a repair/order hits a target status. Supports email (Google review link)
+// and WhatsApp (deep link). Delay + auto-send toggle.
+model ReviewAutomationConfig {
+  id              String   @id @default(cuid())
+  businessId      String   @unique
+  googleReviewUrl String?
+  whatsAppReviewUrl String?
+  autoSend        Boolean  @default(false)
+  triggerStatus   String   @default("completed")
+  delayHours      Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Per-business closing checklist items — end-of-day tasks with categories,
+// required/optional flags, completion tracking. Custom items supported.
+model ClosingChecklistItem {
+  id          String   @id @default(cuid())
+  businessId  String
+  itemId      String   // stable id (e.g. "cash-count" or "custom-12345")
+  label       String
+  category    String   // "cash" | "repairs" | "inventory" | "admin" | "security"
+  required    Boolean  @default(false)
+  completed   Boolean  @default(false)
+  completedAt DateTime?
+  completedBy String?
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([businessId, itemId])
   @@index([businessId])
 }
 
@@ -1622,4 +1829,52 @@ model Offer {
 
   @@unique([businessId, promoCode])
   @@index([businessId])
+}
+
+model LmsLite {
+  id          String   @id @default(cuid())
+  businessId  String
+  title       String
+  type        String   @default("guide") // "course" | "module" | "guide"
+  description String?
+  content     String?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lessons    CourseLesson[]
+  enrollments CourseEnrollment[]
+
+  @@index([businessId])
+}
+
+model CourseLesson {
+  id        String   @id @default(cuid())
+  courseId  String
+  title     String
+  content   String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course LmsLite @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId])
+}
+
+model CourseEnrollment {
+  id        String   @id @default(cuid())
+  courseId  String
+  staffId   String
+  status    String   @default("assigned") // "assigned" | "in_progress" | "completed"
+  progress  Int      @default(0) // percent 0-100
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course LmsLite @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  staff  Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, staffId])
+  @@index([staffId])
 }

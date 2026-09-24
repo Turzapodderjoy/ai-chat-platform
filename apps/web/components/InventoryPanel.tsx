@@ -53,6 +53,7 @@ export function InventoryPanel({ businessId, active = true }: { businessId: stri
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [lowStockCount, setLowStockCount] = useState<number>(0);
 
   function refreshSilent() {
     const params = new URLSearchParams({
@@ -91,6 +92,21 @@ export function InventoryPanel({ businessId, active = true }: { businessId: stri
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, businessId, search, offset]);
+
+  useEffect(() => {
+    if (!active) return;
+    fetch(`/api/admin/products/low-stock?businessId=${encodeURIComponent(businessId)}`)
+      .then((r) => r.json())
+      .then((data) => setLowStockCount(data.count ?? 0))
+      .catch(() => {});
+    const interval = setInterval(() => {
+      fetch(`/api/admin/products/low-stock?businessId=${encodeURIComponent(businessId)}`)
+        .then((r) => r.json())
+        .then((data) => setLowStockCount(data.count ?? 0))
+        .catch(() => {});
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [active, businessId]);
 
   async function addProduct() {
     if (!draft.name.trim()) return;
@@ -178,6 +194,14 @@ export function InventoryPanel({ businessId, active = true }: { businessId: stri
         Your own stock record — add items by hand or import a CSV/XLSX file. Separate from Product Catalog
         (which only shows what&apos;s been found by crawling your site).
       </p>
+
+      {lowStockCount > 0 && (
+        <div style={{ background: "var(--warning-subtle, #fff3cd)", border: "1px solid var(--warning, #f59e0b)", borderRadius: 6, padding: "10px 14px", marginBottom: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 18 }}>⚠️</span>
+          <strong style={{ fontSize: 14, color: "var(--warning)" }}>{lowStockCount} item{lowStockCount === 1 ? "" : "s"} low on stock</strong>
+          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Set min stock per item; auto-refreshes every 10s</span>
+        </div>
+      )}
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
         <button onClick={() => setShowAdd((s) => !s)} style={primaryButtonStyle}>

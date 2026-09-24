@@ -15,6 +15,7 @@ export interface RepairAppointmentInput {
   isWalkIn?: boolean;
   wantsFreeDiagnosis?: boolean;
   source?: string;
+  locationId?: string;
 }
 
 export interface RepairAppointment extends RepairAppointmentInput {
@@ -127,6 +128,7 @@ function toAppointment(row: {
   serialNumber: string | null;
   totalOverride: number | null;
   contactId: string | null;
+  locationId: string | null;
   items?: Parameters<typeof toItem>[0][];
   createdAt: Date;
   updatedAt: Date;
@@ -159,6 +161,7 @@ function toAppointment(row: {
     serialNumber: row.serialNumber ?? undefined,
     totalOverride: row.totalOverride ?? undefined,
     contactId: row.contactId ?? undefined,
+    locationId: row.locationId ?? undefined,
     items: (row.items ?? []).map(toItem),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -199,6 +202,7 @@ export class RepairAppointmentService {
         isWalkIn: input.isWalkIn ?? false,
         wantsFreeDiagnosis: input.wantsFreeDiagnosis ?? false,
         source: input.source ?? null,
+        locationId: input.locationId ?? null,
       },
     });
     return toAppointment(row);
