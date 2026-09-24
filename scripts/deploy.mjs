@@ -272,7 +272,23 @@ async function deploy() {
   // deploy.mjs from REPO_SOURCE's own files, not from the new commit
   // being deployed. Fast-forward only -- REPO_SOURCE should never carry
   // local commits of its own.
-  run("git merge --ff-only origin/main", REPO_SOURCE);
+  try {
+    run("git merge --ff-only origin/main", REPO_SOURCE);
+  } catch (err) {
+    // Confirmed live (2026-09-24): a force-push to main (history
+    // rewritten, an earlier commit discarded) makes REPO_SOURCE's local
+    // main un-fast-forwardable to the new origin/main forever, since a
+    // plain "ff-only" can never reconcile diverged history -- every
+    // deploy attempt failed here, identically, until someone noticed and
+    // fixed REPO_SOURCE by hand. Per the comment above, REPO_SOURCE is
+    // never meant to carry local commits of its own, so resetting it
+    // straight to origin/main on exactly this failure is safe -- there is
+    // nothing local to lose -- and turns a force-push from "deploys are
+    // stuck until a human intervenes" into "the next push just works."
+    log(`git merge --ff-only failed (likely a force-push rewrote main's history): ${err.message}`);
+    log("Resetting REPO_SOURCE's main to origin/main to recover.");
+    run("git reset --hard origin/main", REPO_SOURCE);
+  }
 
   const remoteSha = execFileSync("git", ["rev-parse", "origin/main"], { cwd: REPO_SOURCE }).toString().trim();
   const deployedSha = currentDeployedSha();
@@ -347,8 +363,18 @@ async function deploy() {
       // more forced reinstall + re-heal, then retry the build once. This
       // is exactly the manual rescue this deploy needed by hand on
       // nearly every run this session.
+      //
+      // Confirmed live (2026-09-24): this rescue's own reinstall failed
+      // outright too (in under a second -- too fast to have done real
+      // install work, a sign pnpm bailed immediately rather than retried
+      // anything) with no fallback of its own, so one bad reinstall here
+      // used to sink the whole deploy even though the routine path just
+      // above had a proven fix for exactly that (a retry loop plus
+      // manually creating any @repo/* symlink still missing after it).
+      // Reusing installWithRetry() here instead of a single bare command
+      // gives this last-resort path the same resilience as the first one.
       log(`Build failed, retrying once after a forced reinstall: ${buildErr.message}`);
-      run("pnpm install --frozen-lockfile --force", releaseDir);
+      installWithRetry(releaseDir);
       healHoistedTypes(releaseDir);
       run("pnpm --filter web run build", releaseDir);
     }

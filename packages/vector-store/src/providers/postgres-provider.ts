@@ -77,14 +77,37 @@ function recordToRow(record: VectorRecord) {
 
 const UPSERT_BATCH_SIZE = 500;
 
+// Must match schema.prisma's `embeddingVec Unsupported("vector(1024)")` --
+// Jina and Mistral both embed at 1024 dims (see vector-store/src/types.ts's
+// own comment), but a provider outside that pair (confirmed live: OpenRouter's
+// free nvidia/llama-nemotron-embed-vl-1b-v2 model embeds at 2048) can be
+// registered too. Postgres already rejects a mismatched insert -- but only
+// after paying for the embedding call and a doomed round-trip, and it did
+// so 2,300+ times over a few days via auto-heal's 30-minute retry, since
+// nothing ever remembered that pairing can't work. Filtering it out before
+// it reaches Postgres turns a silent, endlessly-repeating failure into one
+// clear log line, without having to special-case any provider by name.
+const EXPECTED_EMBEDDING_DIMENSIONS = 1024;
+
 export class PostgresProvider implements VectorStore {
   async initialize(): Promise<void> {
     // Schema is created by `prisma db push` / migrations, not at runtime.
   }
 
   async upsert(records: VectorRecord[]): Promise<void> {
-    for (let i = 0; i < records.length; i += UPSERT_BATCH_SIZE) {
-      const batch = records.slice(i, i + UPSERT_BATCH_SIZE);
+    const usable: VectorRecord[] = [];
+    for (const record of records) {
+      if (record.embedding.length === EXPECTED_EMBEDDING_DIMENSIONS) {
+        usable.push(record);
+        continue;
+      }
+      console.error(
+        `[PostgresProvider.upsert] record ${record.id} (${record.documentId}, provider "${record.metadata?.embeddingProvider ?? "unknown"}") has ${record.embedding.length} dimensions, not ${EXPECTED_EMBEDDING_DIMENSIONS} -- skipped, not retried.`
+      );
+    }
+
+    for (let i = 0; i < usable.length; i += UPSERT_BATCH_SIZE) {
+      const batch = usable.slice(i, i + UPSERT_BATCH_SIZE);
 
       try {
         await withSerializableRetry(() =>
