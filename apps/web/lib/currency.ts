@@ -20,6 +20,7 @@ export function currencySymbol(code: string | null | undefined): string {
 export function useCurrencySymbol(businessId: string): string {
   const [symbol, setSymbol] = useState("$");
   useEffect(() => {
+    if (!businessId) return;
     fetch(`/api/billing/subscription?businessId=${encodeURIComponent(businessId)}`)
       .then((r) => r.json())
       .then((d) => setSymbol(currencySymbol(d.subscription?.subscriptionCurrency)))

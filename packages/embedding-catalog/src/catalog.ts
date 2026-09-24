@@ -1,6 +1,5 @@
 import { JinaProvider } from "@ai-chat-platform/embedding-manager";
 import { MistralEmbeddingProvider } from "@ai-chat-platform/mistral";
-import { OpenRouterEmbeddingProvider } from "@ai-chat-platform/openrouter";
 
 import type { EmbeddingCatalogEntry } from "./types";
 
@@ -23,12 +22,6 @@ export const EMBEDDING_PROVIDER_CATALOG: EmbeddingCatalogEntry[] = [
     label: "Mistral",
     envKey: "MISTRAL_EMBEDDING_API_KEY",
     create: () => new MistralEmbeddingProvider(),
-  },
-  {
-    id: "openrouter",
-    label: "OpenRouter (NVIDIA Nemotron)",
-    envKey: "OPENROUTER_API_KEY",
-    create: () => new OpenRouterEmbeddingProvider(),
   },
 ];
 
