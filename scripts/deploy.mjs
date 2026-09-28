@@ -201,9 +201,9 @@ async function setupHermesAgent(releaseDir) {
     return;
   }
   log("Setting up Hermes agent...");
-  // Create venv and install hermes-agent in editable mode
+  // Create venv and install hermes-agent with all dependencies
   run("python3 -m venv .venv", hermesDir);
-  run(".venv/bin/pip install -e .", hermesDir);
+  run(".venv/bin/pip install -e '.[all]'", hermesDir);
   if (!existsSync(hermesBin)) {
     throw new Error(`Hermes binary not found at ${hermesBin} after install`);
   }
