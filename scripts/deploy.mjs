@@ -344,6 +344,9 @@ async function deploy() {
   mkdirSync(RELEASES_DIR, { recursive: true });
   run(`git worktree add "${releaseDir}" ${remoteSha}`, REPO_SOURCE);
 
+  // Initialize submodules in the new worktree (they don't come along automatically)
+  run("git submodule update --init --recursive", releaseDir);
+
   // Gitignored secrets don't come along with a worktree checkout -- copy
   // the stable, out-of-repo copies in every release.
   mkdirSync(join(releaseDir, "apps", "web"), { recursive: true });
