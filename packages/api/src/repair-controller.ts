@@ -1,4 +1,4 @@
-import { logAudit, archiveDeleted } from "@ai-chat-platform/database";
+import { prisma, logAudit, archiveDeleted } from "@ai-chat-platform/database";
 import { ConversationService } from "@ai-chat-platform/conversation";
 import { RepairAppointmentService, StaffService, type AddOrderItemInput } from "@ai-chat-platform/repairs";
 import { GmailEmailClient, StatusEmailService } from "@ai-chat-platform/email";
@@ -31,6 +31,7 @@ export interface BookRepairInput {
   isWalkIn?: boolean;
   wantsFreeDiagnosis?: boolean;
   source?: string;
+  locationId?: string;
 }
 
 /** Appointment booking + tracking for a client with no AI bot at all
@@ -63,6 +64,12 @@ export class RepairController {
 
     const trackingToken = await this.repairs.generateTrackingToken();
 
+    const location = await prisma.location.findFirst({
+      where: { businessId: input.businessId, isActive: true },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+
     const appointment = await this.repairs.book({
       businessId: input.businessId,
       trackingToken,
@@ -76,6 +83,7 @@ export class RepairController {
       isWalkIn: input.isWalkIn,
       wantsFreeDiagnosis: input.wantsFreeDiagnosis,
       source: input.source,
+      locationId: location?.id ?? input.locationId,
     });
 
     // Non-blocking — never delay the booking response on CRM bookkeeping.
@@ -114,6 +122,11 @@ export class RepairController {
     input: Omit<BookRepairInput, "appointmentDate" | "isWalkIn" | "source"> & { technicianId?: string; priority?: string },
     actorUsername: string
   ) {
+    const location = await prisma.location.findFirst({
+      where: { businessId: input.businessId, isActive: true },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
     const { trackingToken } = await this.book({
       businessId: input.businessId,
       customerName: input.customerName,
@@ -126,6 +139,7 @@ export class RepairController {
       appointmentDate: new Date().toISOString(),
       isWalkIn: true,
       source: "walk-in",
+      locationId: location?.id ?? input.locationId,
     });
     const appointment = await this.repairs.findByToken(trackingToken);
     if (!appointment) throw new Error("Walk-in was created but couldn't be reloaded.");
@@ -252,11 +266,11 @@ export class RepairController {
     return this.staff.listForBusiness(businessId);
   }
 
-  createStaff(input: { businessId: string; name: string; email?: string; phone?: string; role?: string }) {
+  createStaff(input: { businessId: string; name: string; email?: string; phone?: string; role?: string; skills?: string[] }) {
     return this.staff.create(input);
   }
 
-  updateStaff(id: string, data: { name?: string; email?: string; phone?: string; role?: string; active?: boolean }) {
+  updateStaff(id: string, data: { name?: string; email?: string; phone?: string; role?: string; skills?: string[]; active?: boolean }) {
     return this.staff.update(id, data);
   }
 
@@ -277,6 +291,12 @@ export class RepairController {
 
     const trackingToken = input.conversationId ?? (await this.repairs.generateTrackingToken());
 
+    const location = await prisma.location.findFirst({
+      where: { businessId: input.businessId, isActive: true },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+
     const appointment = await this.repairs.book({
       businessId: input.businessId,
       trackingToken,
@@ -289,6 +309,7 @@ export class RepairController {
       appointmentDate: new Date(),
       isWalkIn: input.isWalkIn,
       source: input.isWalkIn ? `walk-in (${actorUsername})` : actorUsername,
+      locationId: location?.id,
     });
 
     // book() above only creates the RepairAppointment row -- unlike the

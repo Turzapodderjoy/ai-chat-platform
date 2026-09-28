@@ -240,7 +240,18 @@ export function ReportsPanel({
   const [range, setRange] = useState<RangeId>("today");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
+  const [locationId, setLocationId] = useState<string | undefined>(undefined);
+  const [locations, setLocations] = useState<{ id: string; name: string }[]>([]);
   const money = moneyWith(useCurrencySymbol(businessId ?? ""));
+
+  useEffect(() => {
+    if (!businessId) return;
+    fetch(`/api/admin/locations?businessId=${businessId}`)
+      .then((r) => r.json())
+      .then((d) => setLocations(d.locations ?? []))
+      .catch(() => setLocations([]));
+  }, [businessId]);
+
   const isHidden = (id: string) => hiddenWidgets.includes(id);
   const toggle = (id: string, hide: boolean) => onToggleWidget?.(id, hide);
 
@@ -252,6 +263,7 @@ export function ReportsPanel({
     function load() {
       const params = new URLSearchParams({ from, to });
       if (businessId) params.set("businessId", businessId);
+      if (locationId) params.set("locationId", locationId);
       fetch(`/api/admin/reports/overview?${params.toString()}`)
         .then((r) => r.json())
         .then(setReport);
@@ -296,6 +308,14 @@ export function ReportsPanel({
                 <option key={o.id} value={o.id}>{o.label}</option>
               ))}
             </select>
+            {businessId && locations.length > 0 && (
+              <select value={locationId ?? ""} onChange={(e) => setLocationId(e.target.value || undefined)} style={{ padding: "6px 8px", fontSize: 12.5, minWidth: 160 }}>
+                <option value="">All Locations</option>
+                {locations.map((loc) => (
+                  <option key={loc.id} value={loc.id}>{loc.name}</option>
+                ))}
+              </select>
+            )}
             {range === "custom" && (
               <>
                 <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} style={{ padding: 6, fontSize: 12.5 }} />

@@ -12,11 +12,19 @@ interface StaffMember {
   email?: string;
   phone?: string;
   role: string;
+  skills?: string[];
   active: boolean;
   createdAt: string;
 }
 
-const EMPTY_DRAFT = { name: "", email: "", phone: "", role: "technician" };
+const EMPTY_DRAFT = { name: "", email: "", phone: "", role: "technician", skills: "" };
+
+function splitSkills(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 export function StaffPanel({ businessId }: { businessId: string }) {
   const [staff, setStaff] = useState<StaffMember[] | null>(null);
@@ -43,7 +51,7 @@ export function StaffPanel({ businessId }: { businessId: string }) {
       const res = await fetch("/api/admin/staff", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, ...draft }),
+        body: JSON.stringify({ businessId, ...draft, skills: splitSkills(draft.skills) }),
       });
       if (res.ok) {
         setDraft(EMPTY_DRAFT);
@@ -57,7 +65,7 @@ export function StaffPanel({ businessId }: { businessId: string }) {
 
   function startEdit(m: StaffMember) {
     setEditId(m.id);
-    setEditDraft({ name: m.name, email: m.email ?? "", phone: m.phone ?? "", role: m.role });
+    setEditDraft({ name: m.name, email: m.email ?? "", phone: m.phone ?? "", role: m.role, skills: (m.skills ?? []).join(", ") });
   }
 
   async function saveEdit(id: string) {
@@ -66,7 +74,7 @@ export function StaffPanel({ businessId }: { businessId: string }) {
       const res = await fetch("/api/admin/staff", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, ...editDraft }),
+        body: JSON.stringify({ id, ...editDraft, skills: splitSkills(editDraft.skills) }),
       });
       if (res.ok) {
         setEditId(null);
@@ -126,6 +134,7 @@ export function StaffPanel({ businessId }: { businessId: string }) {
             <option value="technician">Technician</option>
             <option value="manager">Manager</option>
           </select>
+          <input placeholder="Skills (comma-separated)" value={draft.skills} onChange={(e) => setDraft({ ...draft, skills: e.target.value })} style={{ padding: 8, minWidth: 180 }} />
           <button onClick={addMember} disabled={saving || !draft.name.trim()} style={primaryButtonStyle}>
             {saving ? "Saving..." : "Save"}
           </button>
@@ -149,6 +158,7 @@ export function StaffPanel({ businessId }: { businessId: string }) {
                   <option value="technician">Technician</option>
                   <option value="manager">Manager</option>
                 </select>
+                <input placeholder="Skills (comma-separated)" value={editDraft.skills} onChange={(e) => setEditDraft({ ...editDraft, skills: e.target.value })} style={{ padding: 6, minWidth: 180 }} />
                 <button onClick={() => saveEdit(m.id)} disabled={busyId === m.id} style={{ ...primaryButtonStyle, fontSize: 12 }}>
                   {busyId === m.id ? "Saving..." : "Save"}
                 </button>
@@ -170,6 +180,9 @@ export function StaffPanel({ businessId }: { businessId: string }) {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                   <span style={badgeStyle(m.role === "manager" ? "info" : "neutral")}>{m.role}</span>
+                  {(m.skills ?? []).map((s) => (
+                    <span key={s} style={badgeStyle("neutral")}>{s}</span>
+                  ))}
                   <span style={badgeStyle(m.active ? "ok" : "error")}>{m.active ? "Active" : "Inactive"}</span>
                   <button onClick={() => toggleActive(m)} disabled={busyId === m.id} style={{ fontSize: 11, padding: "6px 12px" }}>
                     {m.active ? "Deactivate" : "Activate"}

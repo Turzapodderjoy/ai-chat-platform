@@ -37,6 +37,7 @@ export function DashboardShell<T extends string>({
   topbarExtra,
   fillHeight,
   children,
+  businessId,
 }: {
   sidebarLabel: ReactNode;
   groups: NavGroup<T>[];
@@ -60,6 +61,7 @@ export function DashboardShell<T extends string>({
    */
   fillHeight?: boolean;
   children: ReactNode;
+  businessId?: string;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<number, boolean>>({});
@@ -68,6 +70,8 @@ export function DashboardShell<T extends string>({
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [globalResults, setGlobalResults] = useState<any[]>([]);
+  const [globalLoading, setGlobalLoading] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchBoxRef = useRef<HTMLDivElement>(null);
   const profileBoxRef = useRef<HTMLDivElement>(null);
@@ -97,12 +101,30 @@ export function DashboardShell<T extends string>({
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  const searchResults = useMemo(() => {
+  // Local nav search
+  const localResults = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return [];
     const flat = groups.flatMap((g) => g.items.map((item) => ({ item, groupLabel: g.label })));
     return flat.filter((f) => f.item.label.toLowerCase().includes(q)).slice(0, 8);
   }, [groups, search]);
+
+  // Global API search
+  useEffect(() => {
+    const q = search.trim();
+    if (q.length < 3) {
+      setGlobalResults([]);
+      return;
+    }
+    let cancelled = false;
+    setGlobalLoading(true);
+    fetch(`/api/admin/global-search?businessId=${businessId}&q=${encodeURIComponent(q)}`)
+      .then((r) => r.json())
+      .then((data) => { if (!cancelled) setGlobalResults(data.results ?? []); })
+      .catch(() => { if (!cancelled) setGlobalResults([]); })
+      .finally(() => { if (!cancelled) setGlobalLoading(false); });
+    return () => { cancelled = true; };
+  }, [search, businessId]);
 
   function jumpTo(id: T) {
     onSelect(id);
@@ -460,45 +482,71 @@ export function DashboardShell<T extends string>({
                     ⌘K
                   </kbd>
                 </div>
-                {searchOpen && search.trim() && (
-                  <div style={{
-                    position: "absolute",
-                    top: "calc(100% + 8px)",
-                    left: 0,
-                    right: 0,
-                    background: "var(--bg-elevated)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "var(--radius-md)",
-                    boxShadow: "var(--shadow-lg)",
-                    overflow: "hidden",
-                    zIndex: 60,
-                    minWidth: 240,
-                  }}>
-                    {searchResults.length === 0 && (
-                      <div style={{ padding: "12px 16px", fontSize: 13, color: "var(--text-muted)" }}>No results found</div>
-                    )}
-                    {searchResults.map(({ item, groupLabel }) => (
-                      <button
-                        key={item.id}
-                        onClick={() => jumpTo(item.id)}
-                        className="ghost"
-                        style={{
-                          width: "100%",
-                          justifyContent: "flex-start",
-                          padding: "10px 14px",
-                          borderRadius: 0,
-                          borderBottom: "1px solid var(--border-subtle)",
-                        }}
-                      >
-                        <span style={{ display: "flex", flexShrink: 0, color: "var(--text-muted)" }}>
-                          <NavIcon id={item.id} />
-                        </span>
-                        <span style={{ flex: 1, textAlign: "left" }}>{item.label}</span>
-                        {groupLabel && <span style={{ fontSize: 11, color: "var(--text-faint)" }}>{groupLabel}</span>}
-                      </button>
-                    ))}
-                  </div>
-                )}
+{searchOpen && search.trim() && (
+                    <div style={{
+                      position: "absolute",
+                      top: "calc(100% + 8px)",
+                      left: 0,
+                      right: 0,
+                      background: "var(--bg-elevated)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "var(--radius-md)",
+                      boxShadow: "var(--shadow-lg)",
+                      overflow: "hidden",
+                      zIndex: 60,
+                      minWidth: 320,
+                      maxHeight: 480,
+                    }}>
+                      {localResults.length === 0 && globalResults.length === 0 && !globalLoading && (
+                        <div style={{ padding: "12px 16px", fontSize: 13, color: "var(--text-muted)" }}>No results found</div>
+                      )}
+                      {globalLoading && <div style={{ padding: "12px 16px", fontSize: 13, color: "var(--text-muted)", textAlign: "center" }}>Searching…</div>}
+                      {localResults.length > 0 && (
+                        <>
+                          <div style={{ padding: "6px 14px", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", borderBottom: "1px solid var(--border-subtle)" }}>
+                            Navigation
+                          </div>
+                          {localResults.map(({ item, groupLabel }) => (
+                            <button
+                              key={item.id}
+                              onClick={() => jumpTo(item.id)}
+                              className="ghost"
+                              style={{
+                                width: "100%",
+                                justifyContent: "flex-start",
+                                padding: "10px 14px",
+                                borderRadius: 0,
+                                borderBottom: "1px solid var(--border-subtle)",
+                              }}
+                            >
+                              <span style={{ display: "flex", flexShrink: 0, color: "var(--text-muted)" }}>
+                                <NavIcon id={item.id} />
+                              </span>
+                              <span style={{ flex: 1, textAlign: "left" }}>{item.label}</span>
+                              {groupLabel && <span style={{ fontSize: 11, color: "var(--text-faint)" }}>{groupLabel}</span>}
+                            </button>
+                          ))}
+                        </>
+                      )}
+                      {globalResults.length > 0 && (
+                        <>
+                          <div style={{ padding: "6px 14px", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", borderBottom: "1px solid var(--border-subtle)", marginTop: localResults.length ? 0 : undefined }}>
+                            Global Search
+                          </div>
+                          {globalResults.map((r) => (
+                            <a key={`${r.type}-${r.id}`} href={r.url} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border-subtle)", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.stopPropagation(); setSearchOpen(false); setSearch(""); }}>
+                              <span style={{ fontSize: 14 }}>{r.type === "conversation" ? "💬" : r.type === "repair" ? "🔧" : r.type === "order" ? "📦" : r.type === "contact" ? "👤" : r.type === "product" ? "📦" : r.type === "invoice" ? "🧾" : "👨‍🔧"}</span>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.title}</div>
+                                <div style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.subtitle}</div>
+                              </div>
+                              <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>{r.type}</span>
+                            </a>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  )}
               </div>
             )}
 

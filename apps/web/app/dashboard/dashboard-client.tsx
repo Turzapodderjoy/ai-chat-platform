@@ -6,6 +6,7 @@ import { AllChatsPanel } from "../../components/AllChatsPanel";
 import { PlatformChannelAppsPanel } from "../../components/PlatformChannelAppsPanel";
 import { TagsPanel } from "../../components/TagsPanel";
 import { ClientAccessPanel } from "../../components/ClientAccessPanel";
+import { ReportsPanel } from "../../components/ReportsPanel";
 import { AdminUsersPanel } from "../../components/AdminUsersPanel";
 import { OverviewPanel } from "../../components/OverviewPanel";
 import { ContactsPanel } from "../../components/ContactsPanel";
@@ -62,7 +63,7 @@ const TIMEZONE_LABELS: [string, string][] = (() => {
     .map(([minutes, tz]): [string, string] => [tz, gmtOffsetLabel(minutes)]);
 })();
 
-type Tab = "overview" | "vpsHealth" | "channels" | "usage" | "clients" | "access" | "adminUsers" | "allchats" | "database" | "tags" | "contacts" | "invoices" | "subscription" | "hermesAgents";
+type Tab = "overview" | "vpsHealth" | "channels" | "usage" | "clients" | "access" | "adminUsers" | "allchats" | "database" | "tags" | "contacts" | "invoices" | "subscription" | "hermesAgents" | "reports";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }] },
@@ -76,6 +77,7 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
     label: "Revenue",
     items: [
       { id: "invoices", label: "Invoices" },
+      { id: "reports", label: "Reports" },
     ],
   },
   { items: [{ id: "clients", label: "Clients" }, { id: "access", label: "Client Access" }, { id: "adminUsers", label: "Admin Users" }, { id: "subscription", label: "Subscription" }] },
@@ -207,6 +209,9 @@ export default function DashboardClient() {
       </div>
       <div style={{ display: tab === "invoices" ? "block" : "none" }}>
         <InvoicesPanel active={tab === "invoices"} />
+      </div>
+      <div style={{ display: tab === "reports" ? "block" : "none" }}>
+        <ReportsPanel active={tab === "reports"} />
       </div>
       <div style={{ display: tab === "tags" ? "block" : "none" }}>
         <TagsPanel />

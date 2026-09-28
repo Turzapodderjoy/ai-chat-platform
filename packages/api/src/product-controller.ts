@@ -1,5 +1,6 @@
 import { refillProduct, listProductLots } from "@ai-chat-platform/database";
 import { ProductService, ProductSyncService, type CreateProductInput, type UpdateProductInput } from "@ai-chat-platform/product-catalog";
+import { prisma } from "@ai-chat-platform/database";
 
 /** The Product Catalog panel's data source — search + offset pagination
  * over the Product table (see ProductSyncService for how it's kept
@@ -27,8 +28,14 @@ export class ProductController {
   }
 
   /** Restock: adds a lot (quantity + its own cost/sell price). */
-  refillProduct(input: { productId: string; quantity: number; costPrice?: number | null; sellPrice?: number | null; note?: string }, actorUsername: string) {
-    return refillProduct({ ...input, receivedBy: actorUsername });
+  async refillProduct(input: { productId: string; quantity: number; costPrice?: number | null; sellPrice?: number | null; note?: string; locationId?: string }, actorUsername: string) {
+    const product = await prisma.product.findUnique({ where: { id: input.productId }, select: { businessId: true } });
+    let locationId = input.locationId;
+    if (!locationId && product) {
+      const loc = await prisma.location.findFirst({ where: { businessId: product.businessId, isActive: true }, orderBy: { createdAt: "asc" }, select: { id: true } });
+      locationId = loc?.id;
+    }
+    return refillProduct({ ...input, receivedBy: actorUsername, locationId });
   }
 
   /** Every lot ever received for a product, newest first -- the cost/price

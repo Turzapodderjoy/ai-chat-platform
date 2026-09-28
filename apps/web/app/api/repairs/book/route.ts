@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getApp } from "../../../../lib/app";
+import { prisma } from "@ai-chat-platform/database";
 
 // Runs on the client's own separately-hosted site (a different origin) —
 // same CORS reasoning as /api/chat/route.ts: no cookies/credentials, and
@@ -43,6 +44,11 @@ export async function POST(req: NextRequest) {
 
   try {
     const app = await getApp();
+    const location = await prisma.location.findFirst({
+      where: { businessId: body.businessId, isActive: true },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
     const result = await app.container.router.repairs.book({
       businessId: body.businessId,
       customerName: body.customerName,
@@ -55,6 +61,7 @@ export async function POST(req: NextRequest) {
       isWalkIn,
       wantsFreeDiagnosis: body.wantsFreeDiagnosis === true || body.wantsFreeDiagnosis === "true",
       source: typeof body.source === "string" ? body.source : isWalkIn ? "walk-in" : "website",
+      locationId: location?.id,
     });
     return NextResponse.json(result, { headers: CORS_HEADERS });
   } catch (err) {

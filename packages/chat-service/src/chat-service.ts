@@ -393,6 +393,15 @@ export class ChatService {
     return run;
   }
 
+  private async getDefaultLocationId(businessId: string): Promise<string | undefined> {
+    const loc = await prisma.location.findFirst({
+      where: { businessId, isActive: true },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    return loc?.id;
+  }
+
   async chat(request: ChatRequest): Promise<ChatResponse> {
     return this.runSequentially(request.sessionId, () => this.chatSequential(request));
   }
@@ -562,9 +571,11 @@ export class ChatService {
               paymentMethod: paris(parsed.paymentMethod),
             };
             if (fields.customerName && fields.phone && fields.deliveryAddress && fields.products && fields.paymentMethod) {
+              const locationId = await this.getDefaultLocationId(businessId);
               const createdOrder = await this.orders.create({
                 businessId,
                 conversationId: request.sessionId,
+                locationId,
                 ...fields,
               });
               // Non-blocking — never delay the customer's confirmation
@@ -589,6 +600,7 @@ export class ChatService {
               await this.repairs.book({
                 businessId,
                 trackingToken,
+                locationId: await this.getDefaultLocationId(businessId),
                 customerName: fields.customerName,
                 phone: fields.phone,
                 email: fields.email || undefined,

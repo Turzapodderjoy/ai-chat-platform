@@ -267,9 +267,6 @@ importers:
       '@ai-chat-platform/database':
         specifier: workspace:*
         version: link:../database
-      '@ai-chat-platform/types':
-        specifier: workspace:*
-        version: link:../types
 
   packages/crm:
     dependencies:
@@ -410,8 +407,6 @@ importers:
       '@ai-chat-platform/database':
         specifier: workspace:*
         version: link:../database
-
-  packages/types: {}
 
   packages/typescript-config: {}
 
