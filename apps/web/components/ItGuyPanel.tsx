@@ -1,6 +1,6 @@
 "use client";
 
-// Control Plane — IT Guy. Hermes acting as the sysadmin: it watches the ops
+// Control Plane — IT Guy. AI acting as the sysadmin: it watches the ops
 // feed, fixes safe things automatically (the monitor does), and any dangerous
 // change is queued as an approval request that the admin approves here with a
 // password (sudo gate). Left column chats with the IT-guy agent; right column
@@ -175,7 +175,7 @@ export function ItGuyPanel() {
       <div style={{ ...cardStyle, padding: 16, display: "flex", flexDirection: "column", maxHeight: 680 }}>
         <h2 style={{ margin: "0 0 10px", fontSize: 16 }}>
           <span style={{ marginRight: 8 }}>🧑‍🔧</span>IT Guy <span style={{ ...primaryButtonStyle, padding: "2px 8px", fontSize: 11, verticalAlign: "middle" }}>made by opencode</span>
-          <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: "var(--muted,#8b93a7)" }}>Hermes as your sysadmin — monitors, fixes safe issues, asks permission for dangerous ones.</span>
+          <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: "var(--muted,#8b93a7)" }}>AI as your sysadmin — monitors, fixes safe issues, asks permission for dangerous ones.</span>
         </h2>
 
         <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, minHeight: 320, maxHeight: 480, paddingRight: 4 }}>

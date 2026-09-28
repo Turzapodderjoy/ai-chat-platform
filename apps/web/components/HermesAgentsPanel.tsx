@@ -35,6 +35,10 @@ export function HermesAgentsPanel() {
   const [creating, setCreating] = useState(false);
   const [openSlug, setOpenSlug] = useState<string | null>(null);
 
+  // All businesses for assignment dropdown
+  const [allBusinesses, setAllBusinesses] = useState<Array<{ id: string; name: string }>>([]);
+  const [fetchingBusinesses, setFetchingBusinesses] = useState(false);
+
   async function refresh() {
     try {
       const res = await fetch("/api/admin/hermes-agents");
@@ -49,6 +53,21 @@ export function HermesAgentsPanel() {
 
   useEffect(() => {
     void refresh();
+  }, []);
+
+  useEffect(() => {
+    setFetchingBusinesses(true);
+    fetch("/api/admin/clients")
+      .then((r) => r.json())
+      .then((data) => {
+        const businesses = (data.clients ?? []).map((c: { id: string; name: string }) => ({
+          id: c.id,
+          name: c.name,
+        }));
+        setAllBusinesses(businesses);
+      })
+      .catch(() => setAllBusinesses([]))
+      .finally(() => setFetchingBusinesses(false));
   }, []);
 
   async function createAgent() {
@@ -108,6 +127,42 @@ export function HermesAgentsPanel() {
     await refresh();
   }
 
+  async function assignBusiness(agent: HermesAgent, businessId: string) {
+    try {
+      const res = await fetch(`/api/admin/clients/${businessId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hermesProfile: agent.slug }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        await showAlert(data.error ?? "Failed to assign business.");
+        return;
+      }
+      await refresh();
+    } catch {
+      await showAlert("Could not assign business.");
+    }
+  }
+
+  async function unassignBusiness(agent: HermesAgent, businessId: string) {
+    try {
+      const res = await fetch(`/api/admin/clients/${businessId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hermesProfile: null }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        await showAlert(data.error ?? "Failed to unassign business.");
+        return;
+      }
+      await refresh();
+    } catch {
+      await showAlert("Could not unassign business.");
+    }
+  }
+
   return (
     <div style={{ maxWidth: 920, display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={cardStyle}>
@@ -149,11 +204,54 @@ export function HermesAgentsPanel() {
                   {agent.provider ? ` · ${agent.provider}` : ""}
                 </div>
                 {agent.businesses.length > 0 ? (
-                  <div style={subtleTextStyle}>
-                    Used by: {agent.businesses.map((b) => `${b.name}${b.hermesEnabled ? " (live)" : ""}`).join(", ")}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
+                    <div style={subtleTextStyle}>Used by:</div>
+                    {agent.businesses.map((b) => (
+                      <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                        <span style={{ color: b.hermesEnabled ? "var(--success)" : "var(--text-muted)" }}>
+                          {b.name} {b.hermesEnabled ? "(live)" : "(off)"}
+                        </span>
+                        <button
+                          className="plain"
+                          onClick={(e) => { e.stopPropagation(); unassignBusiness(agent, b.id); }}
+                          style={{ fontSize: 11, color: "var(--danger)", padding: "2px 6px" }}
+                          title="Unassign"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                    <div style={{ marginTop: 4 }}>
+                      <select
+                        value=""
+                        onChange={(e) => { e.stopPropagation(); if (e.target.value) assignBusiness(agent, e.target.value); }}
+                        disabled={fetchingBusinesses}
+                        style={{ ...inputStyle, fontSize: 12, padding: "4px 8px", width: "100%" }}
+                      >
+                        <option value="" disabled selected>Assign another business…</option>
+                        {allBusinesses
+                          .filter((biz) => !agent.businesses.some((ab) => ab.id === biz.id))
+                          .map((biz) => (
+                            <option key={biz.id} value={biz.id}>{biz.name}</option>
+                          ))}
+                      </select>
+                    </div>
                   </div>
                 ) : (
-                  <div style={subtleTextStyle}>Not assigned to any business.</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
+                    <div style={subtleTextStyle}>Not assigned to any business.</div>
+                    <select
+                      value=""
+                      onChange={(e) => { e.stopPropagation(); if (e.target.value) assignBusiness(agent, e.target.value); }}
+                      disabled={fetchingBusinesses}
+                      style={{ ...inputStyle, fontSize: 12, padding: "4px 8px", width: "100%" }}
+                    >
+                      <option value="" disabled selected>Assign a business…</option>
+                      {allBusinesses.map((biz) => (
+                        <option key={biz.id} value={biz.id}>{biz.name}</option>
+                      ))}
+                    </select>
+                  </div>
                 )}
               </div>
               <button style={dangerButtonStyle} onClick={() => deleteAgent(agent)}>

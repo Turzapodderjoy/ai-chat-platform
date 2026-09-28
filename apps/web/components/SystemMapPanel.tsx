@@ -862,7 +862,7 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 10, flexWrap: "wrap" }}>
           <div style={{ fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ width: 22, height: 22, borderRadius: 7, background: "linear-gradient(135deg,#0d9488,#2dd4bf)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#fff" }}>🛠️</span>
-            Tell Hermes &amp; opencode what to change or fix
+            Tell the AI &amp; opencode what to change or fix
           </div>
           {pendingOps.length > 0 && (
             <button className="ghost" onClick={onGotoItGuy} title="Jump to IT Guy console" style={{ fontSize: 12, color: "#f59e0b", padding: "4px 10px", borderRadius: 999, border: "1px solid #f59e0b55", background: "rgba(245,158,11,0.08)" }}>
@@ -936,7 +936,7 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
           </div>
 
           <div style={{ ...cardStyle, padding: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>Hermes agent storage</div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>Agent storage</div>
             <div style={{ ...subtleTextStyle, marginTop: 2 }}>one folder per agent under data/hermes/profiles/</div>
             <div style={{ marginTop: 8 }}>
               {snap.storage.profiles.map((p) => (

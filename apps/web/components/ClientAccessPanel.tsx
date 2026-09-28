@@ -11,6 +11,7 @@ interface Client {
   name: string;
   aiEnabled: boolean;
   hermesEnabled: boolean;
+  hermesProfile: string | null;
 }
 
 interface ClientAccount {
@@ -136,6 +137,10 @@ export function ClientAccessPanel() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [pendingPanels, setPendingPanels] = useState<Record<string, string[]>>({});
+
+  // Hermes agent profiles for assignment dropdown
+  const [hermesAgents, setHermesAgents] = useState<Array<{ slug: string; name?: string }>>([]);
+  const [fetchingAgents, setFetchingAgents] = useState(false);
 
   // Password reset -- there's no "view" for an existing password
   // (hashed, one-way), only change-and-log-it. pwExpandedId mirrors
@@ -390,8 +395,8 @@ export function ClientAccessPanel() {
     }
   }
 
-  // Hermes Engine: chat() cuts the customer's conversations over to the
-  // client's Hermes agent profile (the AIVA AI engine). Requires a
+  // AI Engine: chat() cuts the customer's conversations over to the
+  // client's agent profile (the AIVA AI engine). Requires a
   // provisioned profile; without one the chat fails closed to the
   // canned handoff message. Read fresh on every message.
   async function toggleHermes(client: Client) {
@@ -409,6 +414,21 @@ export function ClientAccessPanel() {
   }
 
   useEffect(refresh, []);
+
+  useEffect(() => {
+    setFetchingAgents(true);
+    fetch("/api/admin/hermes-agents")
+      .then((r) => r.json())
+      .then((data) => {
+        const agents = (data.agents ?? []).map((a: { slug: string; model?: string | null; provider?: string | null }) => ({
+          slug: a.slug,
+          name: a.slug + (a.model ? ` (${a.model}${a.provider ? ` · ${a.provider}` : ""})` : ""),
+        }));
+        setHermesAgents(agents);
+      })
+      .catch(() => setHermesAgents([]))
+      .finally(() => setFetchingAgents(false));
+  }, []);
 
   useEffect(() => {
     if (!businessId && clients && clients.length > 0) {
@@ -709,28 +729,48 @@ export function ClientAccessPanel() {
         <div style={{ marginTop: 12, border: "1px solid var(--border)", borderRadius: 8, padding: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div>
             <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 4 }}>
-              Hermes Engine — {clients?.find((c) => c.id === businessId)?.name}
+              AI Engine — {clients?.find((c) => c.id === businessId)?.name}
             </div>
             <p style={{ fontSize: 12, color: "var(--text-faint)", margin: 0 }}>
-              Runs this client&apos;s AI on the Hermes agent engine instead of the legacy pipeline (website, Messenger, Instagram, WhatsApp). Requires a provisioned agent profile; takes effect on the very next message. Needs its client&apos;s AI Replies (above) to be on.
+              Runs this client&apos;s AI on the agent engine instead of the legacy pipeline (website, Messenger, Instagram, WhatsApp). Requires a provisioned agent profile; takes effect on the very next message. Needs its client&apos;s AI Replies (above) to be on.
             </p>
           </div>
-          <button
-            onClick={() => toggleHermes(clients!.find((c) => c.id === businessId)!)}
-            disabled={togglingHermes}
-            style={{
-              padding: "8px 16px",
-              fontSize: 13,
-              fontWeight: 600,
-              borderRadius: "var(--radius-sm)",
-              border: "1px solid var(--border)",
-              cursor: "pointer",
-              background: clients?.find((c) => c.id === businessId)?.hermesEnabled ? "var(--success-subtle)" : "var(--danger-subtle)",
-              color: clients?.find((c) => c.id === businessId)?.hermesEnabled ? "var(--success)" : "var(--danger)",
-            }}
-          >
-            {clients?.find((c) => c.id === businessId)?.hermesEnabled ? "HERMES: ON" : "HERMES: OFF"}
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <select
+              value={clients?.find((c) => c.id === businessId)?.hermesProfile ?? ""}
+              onChange={(e) => {
+                const profile = e.target.value || null;
+                fetch(`/api/admin/clients/${businessId}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ hermesProfile: profile }),
+                }).then(() => refresh());
+              }}
+              disabled={fetchingAgents || togglingHermes}
+              style={{ padding: "6px 10px", fontSize: 12, minWidth: 180 }}
+            >
+              <option value="">None (use default)</option>
+              {hermesAgents.map((a) => (
+                <option key={a.slug} value={a.slug}>{a.name}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => toggleHermes(clients!.find((c) => c.id === businessId)!)}
+              disabled={togglingHermes}
+              style={{
+                padding: "8px 16px",
+                fontSize: 13,
+                fontWeight: 600,
+                borderRadius: "var(--radius-sm)",
+                border: "1px solid var(--border)",
+                cursor: "pointer",
+                background: clients?.find((c) => c.id === businessId)?.hermesEnabled ? "var(--success-subtle)" : "var(--danger-subtle)",
+                color: clients?.find((c) => c.id === businessId)?.hermesEnabled ? "var(--success)" : "var(--danger)",
+              }}
+            >
+              {clients?.find((c) => c.id === businessId)?.hermesEnabled ? "HERMES: ON" : "HERMES: OFF"}
+            </button>
+          </div>
         </div>
       )}
 

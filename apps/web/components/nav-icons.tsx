@@ -296,15 +296,14 @@ offers: (p) => (
       <path d="M8.6 15.4c.8 1.4 1.9 2.1 3.4 2.1s2.6-.7 3.4-2.1" />
     </Svg>
   ),
-  hermesAgents: (p) => <HermesMark {...p} />,
-  hermesControl: (p) => <HermesMark {...p} />,
+  hermesAgents: (p) => <AgentMark {...p} />,
+  hermesControl: (p) => <AgentMark {...p} />,
 };
 
-// Hermes brand mark — the winged helmet of the messenger god, the platform's
-// AI agent layer. Used as the logo for the Hermes nav entries (and reusable
-// anywhere a Hermes badge is needed). Filled to survive the small sizes it
-// renders at in the sidebar.
-function HermesMark(props: SVGProps<SVGSVGElement>) {
+// Agent mark — generic AI agent symbol for navigation. Clean geometric
+// design representing an autonomous agent node. Used for agent-related
+// nav entries and reusable as a generic agent badge.
+function AgentMark(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
       width="16"
@@ -314,15 +313,16 @@ function HermesMark(props: SVGProps<SVGSVGElement>) {
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
-      {/* helmet dome */}
-      <path d="M12 2.6c3.2 0 5.6 2.2 5.6 5.2v2.2a3.4 3.4 0 0 1-3.4 3.4H9.8a3.4 3.4 0 0 1-3.4-3.4V7.8C6.4 4.8 8.8 2.6 12 2.6Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
-      {/* helmet brim + neck guard */}
-      <path d="M6 10.8c1.7 1 3.7 1.4 6 1.4s4.3-.4 6-1.4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-      <path d="M9.2 17.6c.8 1.3 1.7 2.1 2.8 2.1s2-.8 2.8-2.1" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-      {/* left wing */}
-      <path d="M6.6 6.6C4.2 5.1 2.3 6 1.6 8.9M6.8 8.8c-2.3-1.2-4.3-.3-4.8 2.5M6.9 11c-1.9-1-3.5-.2-3.9 2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      {/* right wing */}
-      <path d="M17.4 6.6c2.4-1.5 4.3-.6 5 2.3M17.2 8.8c2.3-1.2 4.3-.3 4.8 2.5M17.1 11c1.9-1 3.5-.2 3.9 2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      {/* Head - rounded rectangle */}
+      <path d="M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      {/* Eyes */}
+      <circle cx="9" cy="10" r="1.2" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="15" cy="10" r="1.2" stroke="currentColor" strokeWidth="1.5" />
+      {/* Antenna */}
+      <path d="M12 4V1M10 2h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      {/* Signal arcs */}
+      <path d="M7 18c0-1.5 1.2-2.7 2.7-2.7s2.7 1.2 2.7 2.7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M16 18c0-1.5 1.2-2.7 2.7-2.7s2.7 1.2 2.7 2.7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
   );
 }
