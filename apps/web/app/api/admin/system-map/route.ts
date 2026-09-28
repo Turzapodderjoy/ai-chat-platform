@@ -32,12 +32,13 @@ export async function GET(req: NextRequest) {
     try {
       const app = await getApp();
       const session = await app.container.router.clientAuth.getSession(clientToken);
+      console.log('[system-map] session:', session ? { isAdmin: session.isAdmin, username: session.username } : 'null');
       if (session?.isAdmin) {
         const snapshot = await app.container.router.systemMap.snapshot();
         return NextResponse.json(snapshot);
       }
-    } catch {
-      // ignore verification errors
+    } catch (e) {
+      console.log('[system-map] clientAuth.getSession error:', e);
     }
   }
 
