@@ -10,6 +10,7 @@ import {
   primaryButtonStyle,
   subtleTextStyle,
 } from "./dashboard-styles";
+import { ModelSelector } from "./ModelSelector";
 
 interface HermesAgentBusiness {
   id: string;
@@ -204,12 +205,18 @@ function EditableAgent({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
       <label style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
-        Model override (AIVA_MODEL)
-        <input style={{ ...inputStyle, marginTop: 4 }} placeholder="ours/… or blank for gateway default" value={model} onChange={(e) => setModel(e.target.value)} />
-      </label>
-      <label style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
-        Provider override (AIVA_PROVIDER)
-        <input style={{ ...inputStyle, marginTop: 4 }} placeholder="blank for gateway default" value={provider} onChange={(e) => setProvider(e.target.value)} />
+        Model (AIVA_MODEL · blank = gateway default)
+        <div style={{ marginTop: 4 }}>
+          <ModelSelector
+            value={model.trim() || null}
+            provider={provider.trim() || null}
+            slug={agent.slug}
+            onChange={(m, p) => {
+              setModel(m ?? "");
+              setProvider(p ?? "");
+            }}
+          />
+        </div>
       </label>
       <label style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
         Persona (SOUL.md)

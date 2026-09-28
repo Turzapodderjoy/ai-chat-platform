@@ -12,13 +12,14 @@
 // route to a dead profile). Reads/writes that filesystem directly — the
 // gateway hot-admits new profiles without a restart.
 
-import { execFile } from "node:child_process";
+import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { promises as fs, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 import { prisma } from "@ai-chat-platform/database";
+import { hermesApiUrl, readProfileApiKey } from "@ai-chat-platform/hermes";
 
 const execFileAsync = promisify(execFile);
 
@@ -33,6 +34,33 @@ const BIN = existsSync(path.join(REPO_ROOT, "vendor/hermes-agent/.venv/bin/herme
   : "hermes";
 
 const RESERVED_SLUGS = new Set(["default", "aiva-portal"]);
+
+const GATEWAY = hermesApiUrl("").replace(/\/v1\/chat\/completions$/, "");
+
+export interface HermesModelOptionsPayload {
+  providers: Array<{
+    slug: string;
+    name: string;
+    models: string[];
+    total_models?: number;
+    authenticated?: boolean;
+    free_tier_row?: boolean;
+    capabilities?: Record<string, { fast?: boolean; reasoning?: boolean }>;
+  }>;
+  model?: string;
+  provider?: string;
+}
+
+export interface HermesSignInState {
+  phase: "idle" | "waiting" | "done";
+  link?: string;
+  code?: string;
+  message?: string;
+}
+
+// One sign-in flow at a time (module-level: the process is the flow's lifetime).
+let signInState: HermesSignInState = { phase: "idle" };
+let signInChild: ChildProcess | null = null;
 
 export interface HermesAgentSummary {
   slug: string;
@@ -212,5 +240,72 @@ export class HermesAdminController {
     }).catch(() => {});
     await fs.rm(dir, { recursive: true, force: true });
     return { deleted: slug };
+  }
+
+  /** The model-picker inventory from the gateway (per-profile when slug is given). */
+  async modelOptions(opts: { slug?: string; refresh?: boolean } = {}): Promise<HermesModelOptionsPayload> {
+    const slug = (opts.slug ?? "").trim();
+    const profiled = slug && slug !== "default";
+    const key = profiled ? await readProfileApiKey(slug) : await readProfileApiKey();
+    if (!key) throw new Error("Gateway API key not found for that agent.");
+    const base = profiled
+      ? `${GATEWAY}/p/${encodeURIComponent(slug)}/api/model/options`
+      : `${GATEWAY}/api/model/options`;
+    const url = opts.refresh ? `${base}?refresh=true` : base;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
+    if (!res.ok) throw new Error(`Gateway model options failed (HTTP ${res.status}).`);
+    return (await res.json()) as HermesModelOptionsPayload;
+  }
+
+  /**
+   * Start `hermes auth upgrade` (device-code sign-in to Nous) for the home
+   * profile or a named one. The child prints the consent link + code; we keep
+   * parsing stdout until approval/timeout and expose it via signInStatus().
+   */
+  async signInStart(slug?: string): Promise<HermesSignInState> {
+    if (signInChild) return signInState;
+    const clean = (slug ?? "").trim();
+    const args = ["auth", "upgrade", "--no-browser"];
+    if (clean && clean !== "default") args.push("-p", clean);
+    signInState = { phase: "waiting" };
+    // HERMES_GUEST_ONBOARDING is process-env only (serve-dev.mjs sets it for the
+    // gateway): without it the transfer flow precondition says the free tier is
+    // unavailable, so force the gate on for this child.
+    const child = spawn(BIN, args, {
+      env: {
+        ...process.env,
+        HERMES_HOME,
+        HERMES_GUEST_ONBOARDING: "1",
+        // stdout is a pipe: CPython block-buffers it, which would hide the
+        // consent link/code until exit. Unbuffered → scraped live.
+        PYTHONUNBUFFERED: "1",
+      },
+      cwd: REPO_ROOT,
+    });
+    signInChild = child;
+    let buf = "";
+    const scrape = (): void => {
+      const link = buf.match(/1\. Open:\s+(\S+)/)?.[1];
+      const code = buf.match(/enter code:\s+(\S+)/)?.[1];
+      if (link && signInState.phase === "waiting") {
+        signInState = { phase: "waiting", link, code };
+      }
+    };
+    child.stdout?.on("data", (d: Buffer) => { buf += d.toString(); scrape(); });
+    child.stderr?.on("data", (d: Buffer) => { buf += d.toString(); scrape(); });
+    child.on("close", (code) => {
+      signInChild = null;
+      const tail = buf.trim().split("\n").filter(Boolean).pop() ?? "";
+      signInState = { phase: "done", link: signInState.link, code: signInState.code, message: code === 0 ? "" : tail };
+    });
+    child.on("error", (err) => {
+      signInChild = null;
+      signInState = { phase: "done", message: err.message };
+    });
+    return signInState;
+  }
+
+  signInStatus(): HermesSignInState {
+    return signInState;
   }
 }
