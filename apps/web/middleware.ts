@@ -21,7 +21,7 @@ export const config = {
 const CLIENT_COOKIE = "client_session";
 const ADMIN_COOKIE = "admin_session";
 
-export async function proxy(req: NextRequest) {
+export default async function middleware(req: NextRequest) {
   const fixedAdmin = verifyAdminToken(req.cookies.get(ADMIN_COOKIE)?.value);
 
   const clientToken = req.cookies.get(CLIENT_COOKIE)?.value;
