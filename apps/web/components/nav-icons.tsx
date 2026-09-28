@@ -270,7 +270,62 @@ offers: (p) => (
       <path d="M12 6v12M9 9h6" />
     </Svg>
   ),
+  systemMap: (p) => (
+    <Svg {...p}>
+      <circle cx="5" cy="5" r="2.2" />
+      <circle cx="19" cy="5" r="2.2" />
+      <circle cx="12" cy="13" r="2.6" />
+      <circle cx="5" cy="19" r="2.2" />
+      <circle cx="19" cy="19" r="2.2" />
+      <path d="m6.8 6.4 3.5 4.8M17.2 6.4l-3.5 4.8M6.8 17.6l3.5-3.4M17.2 17.6l-3.5-3.4" />
+    </Svg>
+  ),
+  itguy: (p) => (
+    <Svg {...p}>
+      <path d="M4 14v-2a8 8 0 0 1 16 0v2" />
+      <rect x="3" y="14" width="4" height="6" rx="1.5" />
+      <rect x="17" y="14" width="4" height="6" rx="1.5" />
+      <path d="M20 20a3 3 0 0 1-3 2.5h-2.5" />
+      <path d="M9.5 4.8 11 8l3.2 1.5-3.2 1.5L9.5 14.2 8 11 4.8 9.5 8 8Z" fill="currentColor" />
+    </Svg>
+  ),
+  adminUsers: (p) => (
+    <Svg {...p}>
+      <path d="M12 2 4.5 5v6c0 5 3.2 8.6 7.5 11 4.3-2.4 7.5-6 7.5-11V5Z" />
+      <circle cx="12" cy="9.5" r="2.6" />
+      <path d="M8.6 15.4c.8 1.4 1.9 2.1 3.4 2.1s2.6-.7 3.4-2.1" />
+    </Svg>
+  ),
+  hermesAgents: (p) => <HermesMark {...p} />,
+  hermesControl: (p) => <HermesMark {...p} />,
 };
+
+// Hermes brand mark — the winged helmet of the messenger god, the platform's
+// AI agent layer. Used as the logo for the Hermes nav entries (and reusable
+// anywhere a Hermes badge is needed). Filled to survive the small sizes it
+// renders at in the sidebar.
+function HermesMark(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      {/* helmet dome */}
+      <path d="M12 2.6c3.2 0 5.6 2.2 5.6 5.2v2.2a3.4 3.4 0 0 1-3.4 3.4H9.8a3.4 3.4 0 0 1-3.4-3.4V7.8C6.4 4.8 8.8 2.6 12 2.6Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+      {/* helmet brim + neck guard */}
+      <path d="M6 10.8c1.7 1 3.7 1.4 6 1.4s4.3-.4 6-1.4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <path d="M9.2 17.6c.8 1.3 1.7 2.1 2.8 2.1s2-.8 2.8-2.1" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      {/* left wing */}
+      <path d="M6.6 6.6C4.2 5.1 2.3 6 1.6 8.9M6.8 8.8c-2.3-1.2-4.3-.3-4.8 2.5M6.9 11c-1.9-1-3.5-.2-3.9 2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      {/* right wing */}
+      <path d="M17.4 6.6c2.4-1.5 4.3-.6 5 2.3M17.2 8.8c2.3-1.2 4.3-.3 4.8 2.5M17.1 11c1.9-1 3.5-.2 3.9 2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 export function NavIcon({ id, ...rest }: { id: string } & SVGProps<SVGSVGElement>) {
   const Icon = ICONS[id];

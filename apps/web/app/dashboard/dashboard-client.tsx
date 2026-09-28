@@ -235,7 +235,7 @@ export default function DashboardClient() {
         <HermesControlRoomPanel />
       </div>
       <div style={{ display: tab === "systemMap" ? "block" : "none" }}>
-        <SystemMapPanel />
+        <SystemMapPanel onGotoItGuy={() => setTab("itguy")} />
       </div>
       <div style={{ display: tab === "itguy" ? "block" : "none" }}>
         <ItGuyPanel />

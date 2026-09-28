@@ -48,10 +48,25 @@ export interface StorageInfo {
   secretPresent: boolean;
 }
 
+export interface SystemActivity {
+  messagesLastHour: number;
+  messages24h: number;
+  conversationsToday: number;
+  messagesByChannel: Record<string, number>;
+  agentActivity: Array<{
+    slug: string;
+    businessName: string | null;
+    lastActiveAt: string | null;
+    conversationsToday: number;
+    messages24h: number;
+  }>;
+}
+
 export interface MapSnapshot {
   generatedAt: string;
   nodes: MapNode[];
   storage: StorageInfo;
+  activity: SystemActivity;
   os: { freeMem: number; totalMem: number; diskUsedPercent: number | null } | null;
 }
 
@@ -231,6 +246,65 @@ async function snapStorage(): Promise<StorageInfo> {
   return { dbBytes, tables, profiles, logsBytes, secretPresent };
 }
 
+async function snapActivity(): Promise<SystemActivity> {
+  const empty: SystemActivity = {
+    messagesLastHour: 0,
+    messages24h: 0,
+    conversationsToday: 0,
+    messagesByChannel: {},
+    agentActivity: [],
+  };
+  try {
+    const channelRows = await prisma.$queryRaw<
+      Array<{ channel: string; count: number }>
+    >`
+      SELECT c.channel AS channel, COUNT(m.id)::int AS count
+      FROM "Message" m JOIN "Conversation" c ON c.id = m."conversationId"
+      WHERE m."createdAt" >= now() - interval '24 hours'
+      GROUP BY c.channel`;
+    const [hour, day24, convToday, byAgent] = await Promise.all([
+      prisma.$queryRaw<Array<{ n: number }>>`SELECT COUNT(*)::int AS n FROM "Message" WHERE "createdAt" >= now() - interval '1 hour'`,
+      prisma.$queryRaw<Array<{ n: number }>>`SELECT COUNT(*)::int AS n FROM "Message" WHERE "createdAt" >= now() - interval '24 hours'`,
+      prisma.$queryRaw<Array<{ n: number }>>`SELECT COUNT(*)::int AS n FROM "Conversation" WHERE "createdAt" >= date_trunc('day', now())`,
+      prisma.$queryRaw<
+        Array<{
+          slug: string;
+          businessName: string | null;
+          lastActiveAt: Date | null;
+          conversationsToday: number;
+          messages24h: number;
+        }>
+      >`
+        SELECT b."hermesProfile" AS slug, b.name AS "businessName",
+               MAX(m."createdAt") AS "lastActiveAt",
+               COUNT(DISTINCT c.id) FILTER (WHERE c."createdAt" >= date_trunc('day', now()))::int AS "conversationsToday",
+               COUNT(m.id)::int AS "messages24h"
+        FROM "Message" m
+        JOIN "Conversation" c ON c.id = m."conversationId"
+        JOIN "Business" b ON b.id = c."businessId"
+        WHERE b."hermesProfile" IS NOT NULL AND b."hermesProfile" <> ''
+        GROUP BY b."hermesProfile", b.name`,
+    ]);
+    const messagesByChannel: Record<string, number> = {};
+    for (const r of channelRows) messagesByChannel[r.channel] = Number(r.count) || 0;
+    return {
+      messagesLastHour: Number(hour[0]?.n) || 0,
+      messages24h: Number(day24[0]?.n) || 0,
+      conversationsToday: Number(convToday[0]?.n) || 0,
+      messagesByChannel,
+      agentActivity: byAgent.map((r) => ({
+        slug: r.slug,
+        businessName: r.businessName,
+        lastActiveAt: r.lastActiveAt ? new Date(r.lastActiveAt).toISOString() : null,
+        conversationsToday: Number(r.conversationsToday) || 0,
+        messages24h: Number(r.messages24h) || 0,
+      })),
+    };
+  } catch {
+    return empty;
+  }
+}
+
 export class SystemMapController {
   async snapshot(): Promise<MapSnapshot> {
     const [gw, web, pg, tunnel] = await Promise.all([
@@ -239,7 +313,15 @@ export class SystemMapController {
       probePg(),
       probeTunnel(),
     ]);
-    const [profiles, storage] = await Promise.all([snapProfiles(), snapStorage()]);
+    const [profiles, storage, activity] = await Promise.all([snapProfiles(), snapStorage(), snapActivity()]);
+
+    const activityBySlug = new Map(activity.agentActivity.map((a) => [a.slug, a]));
+    const activityNote = (slug: string): string => {
+      const a = activityBySlug.get(slug);
+      if (!a || a.messages24h === 0) return "";
+      const mins = a.lastActiveAt ? Math.max(0, Math.round((Date.now() - new Date(a.lastActiveAt).getTime()) / 60000)) : null;
+      return ` · ${a.messages24h} msg/24h · last ${mins === null ? "—" : mins === 0 ? "just now" : `${mins}m ago`}`;
+    };
 
     const nodes: MapNode[] = [
       { id: "ch-web", label: "Website Widget", kind: "channel", status: "ok", detail: "customer chat widget on client sites" },
@@ -276,14 +358,14 @@ export class SystemMapController {
         label: "Hermes Control",
         kind: "agent",
         status: gw.ok ? "ok" : "down",
-        detail: "platform 'default' agent — the assigned changer (Control Room + IT Guy)",
+        detail: `platform 'default' agent — the assigned changer (Control Room + IT Guy) · ${activity.conversationsToday} conv today · ${activity.messagesLastHour} msg/1h`,
       },
       ...profiles.map((p) => ({
         id: `agt-${p.slug}`,
         label: p.slug,
         kind: "agent" as const,
         status: p.status,
-        detail: p.detail,
+        detail: p.detail + activityNote(p.slug),
       })),
       {
         id: "prv-ai",
@@ -312,6 +394,6 @@ export class SystemMapController {
       osInfo = null;
     }
 
-    return { generatedAt: new Date().toISOString(), nodes, storage, os: osInfo };
+    return { generatedAt: new Date().toISOString(), nodes, storage, activity, os: osInfo };
   }
 }
