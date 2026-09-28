@@ -178,12 +178,6 @@ function healHoistedTypes(releaseDir) {
 
 function installWithRetry(releaseDir) {
   for (let attempt = 1; attempt <= INSTALL_ATTEMPTS; attempt++) {
-    // pnpm's frozen-lockfile fast path skips re-linking when it thinks
-    // node_modules already satisfies the lockfile -- confirmed live, that
-    // "already satisfies" check doesn't verify every package actually
-    // got hoisted, so a broken first attempt just gets silently repeated
-    // as-is on every retry in the same worktree. --force bypasses that
-    // fast path and makes the retry actually redo the hoisting.
     run(`pnpm install --frozen-lockfile${attempt > 1 ? " --force" : ""}`, releaseDir);
   }
   if (!workspaceLinksOk(releaseDir)) {
@@ -193,6 +187,27 @@ function installWithRetry(releaseDir) {
       throw new Error(`apps/web/node_modules/@repo is still missing required links even after manual linking.`);
     }
   }
+}
+
+async function setupHermesAgent(releaseDir) {
+  const hermesDir = join(releaseDir, "vendor", "hermes-agent");
+  if (!existsSync(hermesDir)) {
+    log("No vendor/hermes-agent directory found -- skipping Hermes setup");
+    return;
+  }
+  const hermesBin = join(hermesDir, ".venv", "bin", "hermes");
+  if (existsSync(hermesBin)) {
+    log("Hermes agent already installed");
+    return;
+  }
+  log("Setting up Hermes agent...");
+  // Create venv and install hermes-agent in editable mode
+  run("python3 -m venv .venv", hermesDir);
+  run(".venv/bin/pip install -e .", hermesDir);
+  if (!existsSync(hermesBin)) {
+    throw new Error(`Hermes binary not found at ${hermesBin} after install`);
+  }
+  log("Hermes agent installed successfully");
 }
 
 function currentDeployedSha() {
@@ -289,6 +304,10 @@ async function deploy() {
     log("Resetting REPO_SOURCE's main to origin/main to recover.");
     run("git reset --hard origin/main", REPO_SOURCE);
   }
+  // Ensure submodules (e.g., vendor/hermes-agent) are initialized at the
+  // correct commit for the new origin/main. This runs after the main repo
+  // is updated so the submodule SHA recorded in the new commit is fetched.
+  run("git submodule update --init --recursive", REPO_SOURCE);
 
   const remoteSha = execFileSync("git", ["rev-parse", "origin/main"], { cwd: REPO_SOURCE }).toString().trim();
   const deployedSha = currentDeployedSha();
@@ -351,6 +370,7 @@ async function deploy() {
   try {
     installWithRetry(releaseDir);
     healHoistedTypes(releaseDir);
+    await setupHermesAgent(releaseDir);
     run("npx prisma generate --schema=packages/database/prisma/schema.prisma", releaseDir);
     try {
       run("pnpm --filter web run build", releaseDir);
