@@ -14,6 +14,7 @@ import { verifyAdminToken } from "@ai-chat-platform/client-auth";
 // (stateless, nothing to invalidate early for it) OR a real ClientAccount
 // with isAdmin set (DB-backed, validated on every request the same as a
 // regular client session, so disabling one kicks it out immediately).
+export const runtime = "nodejs";
 export const config = {
   matcher: ["/dashboard", "/dashboard/:businessId/:path*", "/api/admin/:path*"],
 };
