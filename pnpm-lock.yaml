@@ -115,6 +115,9 @@ importers:
       '@ai-chat-platform/email':
         specifier: workspace:*
         version: link:../email
+      '@ai-chat-platform/hermes':
+        specifier: workspace:*
+        version: link:../hermes
       '@ai-chat-platform/notifications':
         specifier: workspace:*
         version: link:../notifications

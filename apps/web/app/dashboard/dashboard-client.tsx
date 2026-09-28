@@ -18,6 +18,7 @@ import { cardStyle, cellStyle, subtleTextStyle, primaryButtonStyle, inputStyle }
 import { showAlert, showConfirm } from "../../lib/app-dialog";
 import { StatCard, StatCardRow } from "../../components/StatCard";
 import { HermesAgentsPanel } from "../../components/HermesAgentsPanel";
+import { HermesControlRoomPanel } from "../../components/HermesControlRoomPanel";
 
 // The full IANA zone list, straight from the runtime -- every browser
 // and Node 18+ ships this, so there's no reason to hand-curate a
@@ -63,7 +64,7 @@ const TIMEZONE_LABELS: [string, string][] = (() => {
     .map(([minutes, tz]): [string, string] => [tz, gmtOffsetLabel(minutes)]);
 })();
 
-type Tab = "overview" | "vpsHealth" | "channels" | "usage" | "clients" | "access" | "adminUsers" | "allchats" | "database" | "tags" | "contacts" | "invoices" | "subscription" | "hermesAgents" | "reports";
+type Tab = "overview" | "vpsHealth" | "channels" | "usage" | "clients" | "access" | "adminUsers" | "allchats" | "database" | "tags" | "contacts" | "invoices" | "subscription" | "hermesAgents" | "hermesControl" | "reports";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }] },
@@ -95,6 +96,7 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
       { id: "usage", label: "Usage" },
       { id: "database", label: "Database" },
       { id: "hermesAgents", label: "Hermes Agents" },
+      { id: "hermesControl", label: "Hermes Control Room" },
       { id: "vpsHealth", label: "VPS Health" },
     ],
   },
@@ -224,6 +226,9 @@ export default function DashboardClient() {
       </div>
       <div style={{ display: tab === "hermesAgents" ? "block" : "none" }}>
         <HermesAgentsPanel />
+      </div>
+      <div style={{ display: tab === "hermesControl" ? "block" : "none" }}>
+        <HermesControlRoomPanel />
       </div>
     </DashboardShell>
   );

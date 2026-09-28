@@ -22,6 +22,7 @@ import { GmailSenderConfigController } from "./gmail-sender-config-controller";
 import { OfferController } from "./offer-controller";
 import { GoogleSignInController } from "./google-sign-in-controller";
 import { HermesAdminController } from "./hermes-admin-controller";
+import { HermesControlRoomController } from "./hermes-control-controller";
 
 export class ApiRouter {
   constructor(
@@ -48,6 +49,7 @@ export class ApiRouter {
     readonly gmailSenderConfig: GmailSenderConfigController,
     readonly offers: OfferController,
     readonly googleSignIn: GoogleSignInController,
-    readonly hermes: HermesAdminController
+    readonly hermes: HermesAdminController,
+    readonly hermesControl: HermesControlRoomController
   ) {}
 }

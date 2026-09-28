@@ -133,6 +133,16 @@ function endpointFor(tenant?: string): string {
   return `${base}/v1/chat/completions`;
 }
 
+/**
+ * The gateway's chat-completions URL for a tenant (no `/p/` prefix = the
+ * platform/default agent). Exposed for callers that need to talk to the
+ * gateway directly (e.g. probes that must not trigger hermesChat's
+ * degraded-override fallback).
+ */
+export function hermesApiUrl(tenant?: string): string {
+  return endpointFor(tenant);
+}
+
 interface HermesCompletionResponse {
   id?: string;
   model?: string;

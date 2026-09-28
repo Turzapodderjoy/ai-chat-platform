@@ -2,7 +2,9 @@ export {
   hermesChat,
   hermesModels,
   readProfileApiKey,
+  readProfileEnv,
   hermesHome,
+  hermesApiUrl,
   HermesError,
 } from "./client";
 export type {

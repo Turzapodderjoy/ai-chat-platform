@@ -26,6 +26,7 @@
     "@ai-chat-platform/tagging-pipeline": "workspace:*",
     "@ai-chat-platform/tenant": "workspace:*",
     "@ai-chat-platform/widget-config": "workspace:*",
-    "@ai-chat-platform/widget-visibility": "workspace:*"
+    "@ai-chat-platform/widget-visibility": "workspace:*",
+    "@ai-chat-platform/hermes": "workspace:*"
   }
 }
