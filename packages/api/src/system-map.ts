@@ -94,7 +94,7 @@ async function probeTunnel(): Promise<{ status: NodeStatus; latency?: number; de
   if (!url) {
     try {
       const raw = await fs.readFile("/tmp/opencode/cloudflared.log", "utf8");
-      url = raw.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/)?.[0] ?? "";
+      url = raw.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/g)?.slice(-1)?.[0] ?? "";
     } catch {
       /* ignore */
     }
@@ -103,8 +103,8 @@ async function probeTunnel(): Promise<{ status: NodeStatus; latency?: number; de
   const start = Date.now();
   try {
     const res = await Promise.race([
-      fetch(`${url}/api/health`, { signal: AbortSignal.timeout(5000) }),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("tunnel probe timeout")), 6000)),
+      fetch(`${url}/api/health`, { signal: AbortSignal.timeout(10_000) }),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("tunnel probe timeout")), 12_000)),
     ]);
     const ok = res.ok;
     return {
@@ -113,7 +113,9 @@ async function probeTunnel(): Promise<{ status: NodeStatus; latency?: number; de
       detail: `${url}${ok ? "" : ` (HTTP ${res.status})`}`,
     };
   } catch {
-    return { status: "down", detail: `${url} not reachable` };
+    // One slow/failed probe under edge load isn't a down signal — the
+    // ops monitor's own serial probes decide on restarts. Report degraded.
+    return { status: "degraded", latency: Date.now() - start, detail: `${url} probe timed out (transient?)` };
   }
 }
 

@@ -103,15 +103,25 @@ function spawnDetached(cmd: string, args: string[], cwd: string, outFile: string
 }
 
 async function writeTunnelUrlAfterStart(): Promise<void> {
-  await new Promise((r) => setTimeout(r, 5000));
-  try {
-    const url = await latestTunnelUrlFromLog();
-    if (url) {
-      await fs.mkdir(SYSTEM_DIR, { recursive: true });
-      await fs.writeFile(TUNNEL_URL_FILE, url);
+  for (let attempt = 0; attempt < 8; attempt++) {
+    await new Promise((r) => setTimeout(r, 4000));
+    try {
+      const url = await latestTunnelUrlFromLog();
+      if (!url) continue;
+      // Verify before persisting: a freshly spawned instance takes a few
+      // seconds to answer from the edge; only record a URL that health-checks.
+      const ok = await Promise.race([
+        fetch(`${url}/api/health`, { signal: AbortSignal.timeout(10_000) }).then((r) => r.ok).catch(() => false),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 12_000)),
+      ]);
+      if (ok) {
+        await fs.mkdir(SYSTEM_DIR, { recursive: true });
+        await fs.writeFile(TUNNEL_URL_FILE, url);
+        return;
+      }
+    } catch {
+      /* binary/log missing — keep retrying */
     }
-  } catch {
-    /* binary/log missing — leave URL unchanged */
   }
 }
 
@@ -256,7 +266,7 @@ export class OpsMonitorController {
       try {
         const res = await Promise.race([
           fetch(`${tunnelUrl}/api/health`, { signal: AbortSignal.timeout(4000) }),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("tunnel timeout")), 5000)),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("tunnel timeout")), 12_000)),
         ]);
         tunnelUp = res.ok;
       } catch {
@@ -294,25 +304,35 @@ export class OpsMonitorController {
           tunnelCheck.message += " — restart throttled (recent attempt)";
         }
       } else if (tunnelProcs > 0) {
-        // A tunnel process is alive but the saved URL is unresponsive — the
-        // instance may have been re-assigned a new URL; retrack the newest
-        // one and re-probe it instead of spawning (avoids process pile-up).
+        // A tunnel process is alive but the saved URL is unresponsive. Guess
+        // a replacement URL from the log, but NEVER adopt one that does not
+        // actually answer — the newest log URL may belong to a now-dead
+        // instance, and wrongly switching the tracked URL would make the map
+        // lie (e.g. reporting a dead 530 URL as the live tunnel).
         const latest = await latestTunnelUrlFromLog();
         if (latest && latest !== tunnelUrl) {
-          await fs.mkdir(SYSTEM_DIR, { recursive: true });
-          await fs.writeFile(TUNNEL_URL_FILE, latest);
+          let latestOk = false;
           try {
             const res = await Promise.race([
-              fetch(`${latest}/api/health`, { signal: AbortSignal.timeout(4000) }),
-              new Promise<never>((_, reject) => setTimeout(() => reject(new Error("tunnel timeout")), 5000)),
+              fetch(`${latest}/api/health`, { signal: AbortSignal.timeout(10_000) }),
+              new Promise<never>((_, reject) => setTimeout(() => reject(new Error("tunnel timeout")), 12_000)),
             ]);
-            tunnelUp = res.ok;
+            latestOk = res.ok;
           } catch {
-            tunnelUp = false;
+            latestOk = false;
           }
-          tunnelCheck.status = tunnelUp ? "ok" : "warning";
-          tunnelCheck.message = tunnelUp ? latest : `${latest} unreachable`;
-          if (tunnelUp) this.lastWarned.delete("tunnel");
+          if (latestOk) {
+            await fs.mkdir(SYSTEM_DIR, { recursive: true });
+            await fs.writeFile(TUNNEL_URL_FILE, latest);
+            tunnelCheck.status = "ok";
+            tunnelCheck.message = latest;
+            this.lastWarned.delete("tunnel");
+          } else {
+            tunnelCheck.status = "warning";
+            tunnelCheck.message = `${tunnelUrl} unreachable — newest logged URL (${latest}) did not verify either; keeping tracked URL.`;
+          }
+        } else {
+          tunnelCheck.status = "warning";
         }
       } else {
         tunnelCheck.message = "down — cloudflared binary not found";
