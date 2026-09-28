@@ -21,11 +21,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not authorized." }, { status: 401 });
   }
 
-  const body = (await req.json().catch(() => ({}))) as { message?: string };
+  const body = (await req.json().catch(() => ({}))) as { message?: string; mode?: "control" | "itguy" };
   const message = typeof body.message === "string" ? body.message.trim() : "";
   if (!message) {
     return NextResponse.json({ error: "message is required" }, { status: 400 });
   }
+  const mode = body.mode === "itguy" ? "itguy" : "control";
 
   // A stable per-login session key so the admin's thread with Hermes keeps
   // its memory across turns without anything DB-side.
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const app = await getApp();
-    const result = await app.container.router.hermesControl.turn(sessionKey, message);
+    const result = await app.container.router.hermesControl.turn(sessionKey, message, mode);
     return NextResponse.json(result);
   } catch (err) {
     return NextResponse.json(

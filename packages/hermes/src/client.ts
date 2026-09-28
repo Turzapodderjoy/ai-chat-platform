@@ -43,6 +43,8 @@ export interface HermesChatArgs extends HermesProfileKeyInput {
   history?: Array<{ role: "user" | "assistant"; content: string }>;
   /** Explicit API key override (tests/tools). Normally resolved from the profile .env. */
   apiKey?: string;
+  /** HTTP timeout for the gateway call. Defaults to 90s. */
+  timeoutMs?: number;
 }
 
 export interface HermesChatResult {
@@ -188,7 +190,7 @@ export async function hermesChat(args: HermesChatArgs): Promise<HermesChatResult
         "X-Hermes-Session-Key": args.sessionKey,
       },
       body: JSON.stringify({ ...body, messages, stream: false }),
-      signal: AbortSignal.timeout(90_000),
+      signal: AbortSignal.timeout(args.timeoutMs ?? 90_000),
     });
 
   // A bad admin-set override (unknown model/provider, or a gateway that

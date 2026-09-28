@@ -22,6 +22,7 @@ import { prisma } from "@ai-chat-platform/database";
 import { hermesApiUrl, hermesChat, hermesHome, readProfileApiKey, readProfileEnv } from "@ai-chat-platform/hermes";
 
 import type { HermesAdminController } from "./hermes-admin-controller";
+import type { OpsMonitorController } from "./ops-monitor";
 
 const PROFILES_DIR = path.join(hermesHome(), "profiles");
 const RESERVED_SLUGS = new Set(["default", "aiva-portal"]);
@@ -82,13 +83,51 @@ function soulPath(slug: string): string {
 
 const CTRL_PATTERN = /\[\[CTRL\|([^\[\]]+)\]\]/g;
 
+const KNOWS_ITGUY = `You are the platform's IT Guy — Hermes acting as the sysadmin. You keep the
+whole system (AIVA app, Hermes gateway, Postgres, Cloudflare tunnel, agent
+storage) healthy, and you REPORT honestly.
+
+Rules:
+- You always answer in plain sentences, in the admin's language.
+- At the start of every reply, note anything that is currently down or
+  warning (you are given live system status in this context).
+- SAFE restarts (gateway, Postgres, tunnel) are handled automatically by the
+  monitor — do NOT propose or request them.
+- The following ops may be requested by emitting exactly one marker line at
+  the end of your reply:
+    [[CTRL|{"op":"set_model","slug":"<slug>","provider":"<provider>","model":"<model>"}]]
+        change which AI a client agent uses (verified + auto-reverted on reject)
+    [[CTRL|{"op":"note","slug":"<slug>","text":"<rule>"}]]
+        save a standing correction to a client agent's persona
+    [[CTRL|{"op":"read_chats","slug":"<slug>","days":N}]]
+        pull up recent real client chats to investigate
+    [[CTRL|{"op":"read_ledger","limit":N}]]
+        read the recent ops ledger (fixes, warnings, approvals)
+    [[CTRL|{"op":"run_status"}]]
+        refresh the live system status into the conversation
+    [[CTRL|{"op":"propose","kind":"...","params":{"..."},"summary":"..."}]]
+        ask the admin to approve a DANGEROUS change
+- NEVER execute a dangerous change directly. DANGEROUS ops always go through
+  propose + admin approval: clearing agent caches (clear-profile-cache),
+  flushing gateway sessions (flush-gateway-sessions), resetting an AI
+  override (revert-override), database vacuum (vacuum-db), or any
+  destructive filesystem/schema/data change. WARN the admin before the
+  change and tell them the approval request id once created.
+- When you propose something, keep your reply short and state the request id
+  clearly so the admin can approve it in the dashboard.
+
+Active client agents (profile slug / business / current AI):`;
+
 export interface ControlTurnResult {
   answer: string;
   actions: string[];
 }
 
 export class HermesControlRoomController {
-  constructor(private readonly hermes: HermesAdminController) {}
+  constructor(
+    private readonly hermes: HermesAdminController,
+    private readonly ops?: OpsMonitorController,
+  ) {}
 
   async agents() {
     return this.hermes.list();
@@ -115,10 +154,13 @@ export class HermesControlRoomController {
    * actions, so one admin message can transitively review chats, spot a
    * mistake and file the correction in a single conversation.
    */
-  async turn(username: string, message: string): Promise<ControlTurnResult> {
+  async turn(username: string, message: string, mode: "control" | "itguy" = "control"): Promise<ControlTurnResult> {
     const key = sanitizeValue(username, 64) || "console";
-    const sessionKey = `admin-control:${key}`;
-    const systemPrompt = `${KNOWS_AGENTS}\n${await this.agentIndexText()}`;
+    const sessionKey = `admin-control:${mode}:${key}`;
+    const systemPrompt =
+      mode === "itguy"
+        ? `${KNOWS_ITGUY}\nActive agents:\n${await this.agentIndexText()}\n${this.ops ? await this.ops.textForAgent() : "(ops monitor not wired up)"}`
+        : `${KNOWS_AGENTS}\n${await this.agentIndexText()}`;
 
     let current = message.trim();
     let lastAnswer = "";
@@ -130,6 +172,10 @@ export class HermesControlRoomController {
         sessionKey,
         systemPrompt,
         message: current,
+        // Control-room turns carry a long system prompt and often chain a
+        // second model call; on an under-memory box the default 90s ceiling
+        // is too tight, so this room gets 3 minutes.
+        timeoutMs: 180_000,
       });
       lastAnswer = res.answer;
 
@@ -259,6 +305,31 @@ export class HermesControlRoomController {
         return {
           display: `📞 Read ${conversations.length} conversation(s) for ${biz.name}`,
           followUp: body.trimEnd(),
+        };
+      }
+      case "read_ledger": {
+        if (!this.ops) throw new Error("Ops ledger is unavailable in this build.");
+        const limit = Math.min(Math.max(Number(cmd.limit) || 25, 1), 100);
+        const events = await this.ops.readLedger(limit);
+        if (events.length === 0) return { display: "📋 Ops ledger is empty", followUp: "There are no ops events yet." };
+        const text = events.map((e) => `[${e.ts.slice(11, 19)}] ${e.type} · ${e.component}: ${e.message}${e.id ? ` (${e.id})` : ""}`).join("\n");
+        return { display: `📋 ${events.length} recent ops event(s)`, followUp: text.trimEnd() };
+      }
+      case "run_status": {
+        if (!this.ops) throw new Error("Ops monitor is unavailable in this build.");
+        const text = await this.ops.textForAgent();
+        return { display: "🩺 System status refreshed", followUp: text.trimEnd() };
+      }
+      case "propose": {
+        if (!this.ops) throw new Error("Ops monitor is unavailable in this build.");
+        const kind = sanitizeValue(cmd.kind, 64);
+        if (!kind) throw new Error("propose needs a kind.");
+        const params = cmd.params && typeof cmd.params === "object" ? (cmd.params as Record<string, unknown>) : {};
+        const summary = sanitizeValue(cmd.summary, 300) || kind;
+        const ev = await this.ops.propose(kind, params, summary, "it-guy");
+        return {
+          display: `⏳ Approval request ${ev.id} queued (${kind})`,
+          followUp: `Approval request '${ev.id}' was created for '${kind}' (${summary}). It is waiting in the approval queue — the admin must approve it with their password from the dashboard before it can run.`,
         };
       }
       default:

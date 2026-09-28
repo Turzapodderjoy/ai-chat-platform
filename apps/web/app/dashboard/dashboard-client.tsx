@@ -19,6 +19,8 @@ import { showAlert, showConfirm } from "../../lib/app-dialog";
 import { StatCard, StatCardRow } from "../../components/StatCard";
 import { HermesAgentsPanel } from "../../components/HermesAgentsPanel";
 import { HermesControlRoomPanel } from "../../components/HermesControlRoomPanel";
+import { SystemMapPanel } from "../../components/SystemMapPanel";
+import { ItGuyPanel } from "../../components/ItGuyPanel";
 
 // The full IANA zone list, straight from the runtime -- every browser
 // and Node 18+ ships this, so there's no reason to hand-curate a
@@ -64,7 +66,7 @@ const TIMEZONE_LABELS: [string, string][] = (() => {
     .map(([minutes, tz]): [string, string] => [tz, gmtOffsetLabel(minutes)]);
 })();
 
-type Tab = "overview" | "vpsHealth" | "channels" | "usage" | "clients" | "access" | "adminUsers" | "allchats" | "database" | "tags" | "contacts" | "invoices" | "subscription" | "hermesAgents" | "hermesControl" | "reports";
+type Tab = "overview" | "vpsHealth" | "channels" | "usage" | "clients" | "access" | "adminUsers" | "allchats" | "database" | "tags" | "contacts" | "invoices" | "subscription" | "hermesAgents" | "hermesControl" | "systemMap" | "itguy" | "reports";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }] },
@@ -97,6 +99,8 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
       { id: "database", label: "Database" },
       { id: "hermesAgents", label: "Hermes Agents" },
       { id: "hermesControl", label: "Hermes Control Room" },
+      { id: "systemMap", label: "System Map" },
+      { id: "itguy", label: "IT Guy" },
       { id: "vpsHealth", label: "VPS Health" },
     ],
   },
@@ -229,6 +233,12 @@ export default function DashboardClient() {
       </div>
       <div style={{ display: tab === "hermesControl" ? "block" : "none" }}>
         <HermesControlRoomPanel />
+      </div>
+      <div style={{ display: tab === "systemMap" ? "block" : "none" }}>
+        <SystemMapPanel />
+      </div>
+      <div style={{ display: tab === "itguy" ? "block" : "none" }}>
+        <ItGuyPanel />
       </div>
     </DashboardShell>
   );

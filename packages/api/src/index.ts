@@ -24,3 +24,5 @@ export * from "./offer-controller";
 export * from "./google-sign-in-controller";
 export * from "./hermes-admin-controller";
 export * from "./hermes-control-controller";
+export * from "./ops-monitor";
+export * from "./system-map";

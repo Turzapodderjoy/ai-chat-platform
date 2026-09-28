@@ -23,6 +23,8 @@ import { OfferController } from "./offer-controller";
 import { GoogleSignInController } from "./google-sign-in-controller";
 import { HermesAdminController } from "./hermes-admin-controller";
 import { HermesControlRoomController } from "./hermes-control-controller";
+import { OpsMonitorController } from "./ops-monitor";
+import { SystemMapController } from "./system-map";
 
 export class ApiRouter {
   constructor(
@@ -50,6 +52,8 @@ export class ApiRouter {
     readonly offers: OfferController,
     readonly googleSignIn: GoogleSignInController,
     readonly hermes: HermesAdminController,
-    readonly hermesControl: HermesControlRoomController
+    readonly hermesControl: HermesControlRoomController,
+    readonly ops: OpsMonitorController,
+    readonly systemMap: SystemMapController
   ) {}
 }

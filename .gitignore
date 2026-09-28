@@ -28,3 +28,7 @@ local/
 
 # Hermes agent runtime state (HERMES_HOME)
 data/hermes/
+
+# Control-plane runtime state: ops ledger + recorded tunnel URL (machine-local)
+data/ops/
+data/system/
