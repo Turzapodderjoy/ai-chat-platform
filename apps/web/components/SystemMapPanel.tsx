@@ -1,16 +1,19 @@
 "use client";
 
-// Control Plane — System Map. Live n8n-style box graph of the whole platform
+// Control Plane — System Map, n8n-style. Live box graph of the whole platform
 // (channels -> app -> gateway -> agents/provider) re-probed every few seconds.
-// Upgraded to behave like a real ops console:
-//   - node boxes can be dragged into any arrangement (persisted per browser)
-//   - edges carry live traffic numbers from the actual DB
-//   - agent boxes show how busy they are right now
-//   - an inline command box lets you tell Hermes/opencode what to change or
-//     fix without leaving the map
-//   - one click puts the whole thing fullscreen
-// A Storage band (DB tables, agent profiles, logs/secrets) + OS vitals sit
-// underneath, same as before.
+// The canvas behaves like a wiring editor, not a static picture:
+//   - drag nodes anywhere (pointer-captured, never sticks), pinch/wheel to
+//     zoom, drag the background to pan
+//   - add nodes from the toolbox and label them yourself
+//   - add/remove connections by dragging between the port dots
+//   - delete any node or connection (Delete/Backspace or the ✕ button)
+//   - the workspace (positions, zoom, added/removed nodes + wires) persists
+//     per-browser
+//   - agent tiles are wired into the stream (gateway -> agent -> provider)
+// Live traffic numbers ride the edges, busy agents pulse green.
+// A fullscreen toggle + inline "tell Hermes/opencode what to change or fix"
+// command box sit on top; the Storage band lives underneath.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -70,9 +73,22 @@ interface OpsSnapshot {
   pending: OpsEvent[];
 }
 
+interface CustomNode {
+  id: string;
+  label: string;
+  kind: string;
+  status?: string;
+  latency?: number;
+  detail?: string;
+}
+interface Wire {
+  from: string;
+  to: string;
+}
+
 const Q = 170;
 const QH = 58;
-const POS_KEY = "aiva.systemmap.pos";
+const WS_KEY = "aiva.systemmap.ws";
 
 const STATUS_COLOR: Record<string, string> = {
   ok: "#22c55e",
@@ -82,8 +98,6 @@ const STATUS_COLOR: Record<string, string> = {
   unknown: "#9ca3af",
 };
 
-// Default arrangement. Agents are appended in a right-hand column below the
-// fixed nodes; the user can drag everything around afterwards.
 const FIXED_POS: Record<string, { x: number; y: number }> = {
   "ch-web": { x: 20, y: 30 },
   "ch-messenger": { x: 20, y: 116 },
@@ -98,7 +112,7 @@ const FIXED_POS: Record<string, { x: number; y: number }> = {
   "agt-platform": { x: 660, y: 40 },
 };
 
-const EDGES: Array<{ from: string; to: string; label?: string }> = [
+const BASE_EDGES: Array<Wire & { label?: string }> = [
   { from: "ch-web", to: "next-api" },
   { from: "ch-messenger", to: "next-api" },
   { from: "ch-instagram", to: "next-api" },
@@ -110,6 +124,14 @@ const EDGES: Array<{ from: string; to: string; label?: string }> = [
   { from: "hermes-gateway", to: "prv-ai" },
 ];
 
+const ADD_TYPES: Array<{ kind: string; hint: string }> = [
+  { kind: "channel", hint: "Channel box" },
+  { kind: "app", hint: "App/service box" },
+  { kind: "agent", hint: "Agent box" },
+  { kind: "provider", hint: "Provider box" },
+  { kind: "net", hint: "Network box" },
+];
+
 const KIND_ICON: Record<string, string> = {
   channel: "📬",
   app: "🖧",
@@ -117,6 +139,24 @@ const KIND_ICON: Record<string, string> = {
   provider: "☁",
   net: "🔀",
 };
+
+interface StoredWs {
+  pos?: Record<string, { x: number; y: number }>;
+  customNodes?: CustomNode[];
+  customEdges?: Wire[];
+  hiddenIds?: string[];
+  removedEdges?: string[];
+  transform?: { x: number; y: number; scale: number };
+}
+
+function loadWs(): StoredWs {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(localStorage.getItem(WS_KEY) ?? "{}") as StoredWs;
+  } catch {
+    return {};
+  }
+}
 
 function fmtBytes(n: number | null): string {
   if (n === null) return "—";
@@ -146,10 +186,17 @@ const SUGGESTIONS = [
   "Anything waiting for approval?",
 ];
 
+function edgeLabel({ from, to, label }: { from: string; to: string; label?: string }, act: Activity): string | undefined {
+  if (label) return label;
+  if (from.startsWith("ch-")) return `${act.messagesByChannel[from] ?? 0} msg/24h`;
+  if (from === "next-api" && to === "postgres") return `${act.messages24h} msg/24h`;
+  if (from === "hermes-gateway" && to === "prv-ai") return `${act.messagesLastHour} msg/1h`;
+  return undefined;
+}
+
 export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [error, setError] = useState("");
-  const [selected, setSelected] = useState<string | null>(null);
   const [full, setFull] = useState(false);
   const [cmd, setCmd] = useState("");
   const [cmdBusy, setCmdBusy] = useState(false);
@@ -157,19 +204,39 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
   const [cmdError, setCmdError] = useState("");
   const [pendingOps, setPendingOps] = useState<OpsEvent[]>([]);
 
-  // Draggable node positions, seeded from the static layout, persisted in the
-  // browser so an arrangement survives reloads.
-  const [pos, setPos] = useState<Record<string, { x: number; y: number }>>(() => {
-    if (typeof window === "undefined") return {};
-    try {
-      return JSON.parse(localStorage.getItem(POS_KEY) ?? "{}");
-    } catch {
-      return {};
-    }
-  });
-  const dragRef = useRef<{ id: string; ox: number; oy: number; moved: number; px: number; py: number } | null>(null);
-  const latestPos = useRef<Record<string, { x: number; y: number }>>({});
+  // ---- workspace (draggable/zoomable/editable canvas state) ----
+  const ws0 = useRef<StoredWs>(loadWs()).current;
+  const [pos, setPos] = useState<Record<string, { x: number; y: number }>>({ ...(ws0.pos ?? {}) });
+  const [customNodes, setCustomNodes] = useState<CustomNode[]>(ws0.customNodes ?? []);
+  const [customEdges, setCustomEdges] = useState<Wire[]>(ws0.customEdges ?? []);
+  const [hiddenIds, setHiddenIds] = useState<string[]>(ws0.hiddenIds ?? []);
+  const [removedEdges, setRemovedEdges] = useState<string[]>(ws0.removedEdges ?? []);
+  const [transform, setTransform] = useState(ws0.transform ?? { x: 0, y: 0, scale: 1 });
+  const [selected, setSelected] = useState<{ type: "node" | "edge"; id: string } | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [conn, setConn] = useState<{ from: string; x: number; y: number } | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
 
+  const surfaceRef = useRef<HTMLDivElement | null>(null);
+  const nodeDrag = useRef<{ id: string; px: number; py: number; moved: number } | null>(null);
+  const panRef = useRef<{ px: number; py: number; ox: number; oy: number } | null>(null);
+  const connActive = useRef<{ from: string } | null>(null);
+  const hoverNodeRef = useRef<string | null>(null);
+  const renameOrig = useRef<string | null>(null);
+  const latestPos = useRef<Record<string, { x: number; y: number }>>({ ...(ws0.pos ?? {}) });
+
+  const commitConnTo = (to?: string) => {
+    const ac = connActive.current;
+    if (!ac) return;
+    connActive.current = null;
+    setConn(null);
+    if (to && to !== ac.from) {
+      setCustomEdges((w) => (w.some((x) => x.from === ac.from && x.to === to) ? w : [...w, { from: ac.from, to }]));
+      setRemovedEdges((r) => r.filter((x) => x !== `${ac.from}->${to}`));
+    }
+  };
+
+  // ---- live reload (map + pending ops) ----
   useEffect(() => {
     let alive = true;
     const load = () =>
@@ -205,7 +272,7 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
     };
   }, []);
 
-  // ESC leaves fullscreen.
+  // ESC leaves fullscreen; Delete removes the selected node/edge.
   useEffect(() => {
     if (!full) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setFull(false);
@@ -213,6 +280,28 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [full]);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (full && e.key === "Escape") return;
+      if ((e.key === "Delete" || e.key === "Backspace") && selected) {
+        const input = document.activeElement as HTMLElement | null;
+        if (input && (input.tagName === "INPUT" || input.tagName === "TEXTAREA")) return;
+        e.preventDefault();
+        if (selected.type === "edge") {
+          const [from, to] = selected.id.split("->");
+          setRemovedEdges((r) => (r.includes(selected.id) ? r : [...r, selected.id]));
+          setCustomEdges((c) => c.filter((w) => !(w.from === from && w.to === to)));
+          setSelected(null);
+        } else {
+          removeNode(selected.id);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  // ---- base layout + seeding new topology ids into draggable positions ----
   const layout = useMemo(() => {
     if (!snap) return null;
     const base: Record<string, { x: number; y: number }> = { ...FIXED_POS };
@@ -226,8 +315,6 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
     return base;
   }, [snap]);
 
-  // Seed any missing node into the draggable positions whenever the topology
-  // changes (e.g. a new agent profile appears).
   useEffect(() => {
     if (!layout) return;
     setPos((prev) => {
@@ -236,19 +323,25 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
       for (const [id, p] of Object.entries(layout)) {
         if (!next[id]) {
           next[id] = p;
+          latestPos.current[id] = p;
           changed = true;
-        }
-      }
-      if (changed && typeof window !== "undefined") {
-        try {
-          localStorage.setItem(POS_KEY, JSON.stringify(next));
-        } catch {
-          /* storage full/unavailable */
         }
       }
       return changed ? next : prev;
     });
   }, [layout]);
+
+  // persist workspace whenever an editing shape changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        WS_KEY,
+        JSON.stringify({ pos, customNodes, customEdges, hiddenIds, removedEdges, transform } satisfies StoredWs),
+      );
+    } catch {
+      /* storage full/unavailable */
+    }
+  }, [pos, customNodes, customEdges, hiddenIds, removedEdges, transform]);
 
   const statusOf = useMemo(() => {
     const m: Record<string, string> = {};
@@ -267,6 +360,50 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
     return m;
   }, [snap]);
   const actByChannel: Record<string, number> = snap?.activity.messagesByChannel ?? {};
+
+  // ---- visible nodes = snapshot nodes minus hidden, plus user-added custom ----
+  const visibleNodes = useMemo(() => {
+    const fromSnap = (snap?.nodes ?? []).filter((n) => !hiddenIds.includes(n.id));
+    return [...fromSnap, ...customNodes.filter((c) => !hiddenIds.includes(c.id))];
+  }, [snap, customNodes, hiddenIds]);
+
+  const allPos = useMemo(() => {
+    const merged = { ...pos };
+    for (const c of customNodes) if (!merged[c.id]) merged[c.id] = { x: 0, y: 0 };
+    return merged;
+  }, [pos, customNodes]);
+
+  // ---- edges: base + auto-wired agents + user wires, minus removed/hidden ----
+  const edges = useMemo(() => {
+    const hidden = (id: string) => hiddenIds.includes(id);
+    const out: Array<Wire & { label?: string }> = [];
+    for (const e of BASE_EDGES) {
+      if (hidden(e.from) || hidden(e.to) || removedEdges.includes(`${e.from}->${e.to}`)) continue;
+      out.push(e);
+    }
+    for (const n of snap?.nodes ?? []) {
+      if (n.kind !== "agent" || hidden(n.id)) continue;
+      if (!removedEdges.includes(`hermes-gateway->${n.id}`)) out.push({ from: "hermes-gateway", to: n.id });
+      if (!removedEdges.includes(`${n.id}->prv-ai`) && !hidden("prv-ai")) out.push({ from: n.id, to: "prv-ai" });
+    }
+    for (const w of customEdges) {
+      if (hidden(w.from) || hidden(w.to) || removedEdges.includes(`${w.from}->${w.to}`)) continue;
+      out.push(w);
+    }
+    return out;
+  }, [snap, customEdges, hiddenIds, removedEdges]);
+
+  const canvasW = useMemo(() => Math.max(1120, ...Object.values(allPos).map((p) => p.x + Q), 0) + 140, [allPos]);
+  const canvasH = useMemo(() => Math.max(600, ...Object.values(allPos).map((p) => p.y + QH), 0) + 140, [allPos]);
+
+  const toCanvas = (clientX: number, clientY: number) => {
+    const r = surfaceRef.current?.getBoundingClientRect();
+    if (!r) return { x: 0, y: 0 };
+    return {
+      x: (clientX - r.left - transform.x) / transform.scale,
+      y: (clientY - r.top - transform.y) / transform.scale,
+    };
+  };
 
   async function sendCmd(override?: string) {
     const message = (override ?? cmd).trim();
@@ -292,6 +429,51 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
     }
   }
 
+  function removeNode(id: string) {
+    setCustomNodes((c) => c.filter((n) => n.id !== id));
+    setCustomEdges((w) => w.filter((e) => e.from !== id && e.to !== id));
+    setRemovedEdges((r) => [...r, ...edges.filter((e) => e.from === id || e.to === id).map((e) => `${e.from}->${e.to}`)]);
+    setHiddenIds((h) => (h.includes(id) ? h : [...h, id]));
+    setPos((p) => {
+      const next = { ...p };
+      delete next[id];
+      return next;
+    });
+    setSelected(null);
+  }
+
+  function addNode(kind: string) {
+    const id = `c-${Date.now().toString(36)}`;
+    const { x, y } = toCanvas(window.innerWidth / 2, (window.innerHeight || 700) / 2);
+    setPos((p) => ({ ...p, [id]: { x: Math.max(0, x - Q / 2), y: Math.max(0, y - QH / 2) } }));
+    setCustomNodes((c) => [...c, { id, label: `${kind} box`, kind }]);
+    setSelected({ type: "node", id });
+    setEditingId(id);
+    setAddOpen(false);
+  }
+
+  function resetWorkspace() {
+    setCustomNodes([]);
+    setCustomEdges([]);
+    setHiddenIds([]);
+    setRemovedEdges([]);
+    setTransform({ x: 0, y: 0, scale: 1 });
+    setPos({ ...(layout ?? {}) });
+    setSelected(null);
+    setEditingId(null);
+  }
+
+  function zoomBy(factor: number) {
+    setTransform((t) => {
+      const scale = Math.min(2.4, Math.max(0.3, t.scale * factor));
+      const r = surfaceRef.current?.getBoundingClientRect();
+      if (!r) return { ...t, scale };
+      const cx = (r.width / 2 - t.x) / t.scale;
+      const cy = (r.height / 2 - t.y) / t.scale;
+      return { x: r.width / 2 - cx * scale, y: r.height / 2 - cy * scale, scale };
+    });
+  }
+
   if (!snap || !layout) {
     return (
       <div style={{ ...cardStyle, padding: 24 }}>
@@ -302,12 +484,9 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
     );
   }
 
-  const sel = selected ? nodeById[selected] : null;
+  const sel = selected?.type === "node" ? visibleNodes.find((n) => n.id === selected.id) : null;
   const totalRows = snap.storage.tables.reduce((a, t) => a + (t.rows ?? 0), 0);
   const agentNodes = snap.nodes.filter((n) => n.kind === "agent");
-  const canvasW = Math.max(1080, ...Object.values(pos).map((p) => p.x + Q), 0) + 60;
-  const canvasH = Math.max(560, ...Object.values(pos).map((p) => p.y + QH), 0) + 80;
-
   const channelCounts = [
     { id: "ch-web", label: "Web" },
     { id: "ch-messenger", label: "Messenger" },
@@ -367,142 +546,300 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
         </div>
       </div>
 
-      {/* Edge + node canvas */}
-      <div style={{ overflow: "auto", position: "relative", border: "1px solid var(--border-subtle)", borderRadius: 12, background: "rgba(0,0,0,0.18)" }}>
-        <div style={{ position: "relative", width: canvasW, height: canvasH }}>
+      {/* Editor toolbar */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ position: "relative" }}>
+          <button
+            className="ghost"
+            onClick={() => setAddOpen((o) => !o)}
+            style={{ fontSize: 12.5, padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", fontWeight: 600 }}
+          >
+            ➕ Add node
+          </button>
+          {addOpen && (
+            <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 30, background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "var(--shadow-lg)", padding: 6, minWidth: 180 }}>
+              {ADD_TYPES.map((t) => (
+                <button
+                  key={t.kind}
+                  className="ghost"
+                  onClick={() => addNode(t.kind)}
+                  style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 10px", borderRadius: 8, fontSize: 12.5, textAlign: "left" }}
+                >
+                  <span>{KIND_ICON[t.kind] ?? "▫️"}</span>
+                  {t.hint}
+                </button>
+              ))}
+              <div style={{ borderTop: "1px solid var(--border-subtle)", margin: "4px 0" }} />
+              <div style={{ fontSize: 11, color: "var(--text-muted)", padding: "4px 10px" }}>
+                drag between port dots to wire nodes
+              </div>
+            </div>
+          )}
+        </div>
+        <span style={{ fontSize: 11.5, color: "var(--text-muted)" }}>
+          scale {(transform.scale * 100).toFixed(0)}%
+        </span>
+        <button className="ghost" onClick={() => zoomBy(1.15)} title="Zoom in" style={{ width: 30, height: 30, padding: 0, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)" }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+        </button>
+        <button className="ghost" onClick={() => zoomBy(1 / 1.15)} title="Zoom out" style={{ width: 30, height: 30, padding: 0, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)" }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M5 12h14" /></svg>
+        </button>
+        <button className="ghost" onClick={resetWorkspace} title="Reset layout" style={{ fontSize: 12.5, padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)" }}>
+          ⟳ Reset
+        </button>
+        <span style={{ flex: 1 }} />
+        <span style={{ fontSize: 11.5, color: "var(--text-muted)" }}>
+          {visibleNodes.length} nodes · {edges.length} connections{hiddenIds.length ? ` · ${hiddenIds.length} hidden` : ""}
+        </span>
+      </div>
+
+      {/* Canvas */}
+      <div
+        ref={surfaceRef}
+        onWheel={(e) => {
+          const factor = e.deltaY < 0 ? 1.1 : 0.9;
+          setTransform((t) => {
+            const scale = Math.min(2.4, Math.max(0.3, t.scale * factor));
+            const r = surfaceRef.current?.getBoundingClientRect();
+            if (!r) return { ...t, scale };
+            const px = e.clientX - r.left;
+            const py = e.clientY - r.top;
+            const k = scale / t.scale;
+            return { x: px - (px - t.x) * k, y: py - (py - t.y) * k, scale };
+          });
+        }}
+        onPointerDown={(e) => {
+          if (e.target !== surfaceRef.current) return;
+          panRef.current = { px: e.clientX, py: e.clientY, ox: transform.x, oy: transform.y };
+          setSelected(null);
+          setEditingId(null);
+          setAddOpen(false);
+        }}
+        onPointerMove={(e) => {
+          const pan = panRef.current;
+          if (pan) {
+            setTransform((t) => ({ ...t, x: pan.ox + (e.clientX - pan.px), y: pan.oy + (e.clientY - pan.py) }));
+            return;
+          }
+          if (connActive.current) {
+            const p = toCanvas(e.clientX, e.clientY);
+            setConn((c) => (c ? { ...c, x: p.x, y: p.y } : c));
+          }
+        }}
+        onPointerUp={() => {
+          panRef.current = null;
+          commitConnTo(hoverNodeRef.current ?? undefined);
+          hoverNodeRef.current = null;
+        }}
+        style={{
+          overflow: "hidden",
+          position: "relative",
+          height: 560,
+          border: "1px solid var(--border-subtle)",
+          borderRadius: 12,
+          background: "rgba(0,0,0,0.18)",
+          cursor: connActive.current ? "crosshair" : "grab",
+          touchAction: "none",
+        }}
+      >
+        <div style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`, transformOrigin: "0 0", position: "absolute", inset: 0 }}>
           <svg width={canvasW} height={canvasH} style={{ position: "absolute", inset: 0 }}>
-            {EDGES.map((e) => {
-              const a = nodeCenter(pos[e.from]);
-              const b = nodeCenter(pos[e.to]);
+            {edges.map((e) => {
+              const a = nodeCenter(allPos[e.from]);
+              const b = nodeCenter(allPos[e.to]);
               if (!a || !b) return null;
+              const key = `${e.from}->${e.to}`;
               const color = STATUS_COLOR[statusOf[e.from] ?? "unknown"] ?? "#9ca3af";
-              let label = e.label;
-              if (e.from.startsWith("ch-")) {
-                const n = actByChannel[e.from] ?? 0;
-                label = `${n} msg/24h`;
-              } else if (e.from === "next-api" && e.to === "postgres") {
-                label = `${snap.activity.messages24h} msg/24h`;
-              } else if (e.from === "hermes-gateway" && e.to === "prv-ai") {
-                label = `${snap.activity.messagesLastHour} msg/1h`;
-              }
+              const isSel = selected?.type === "edge" && selected.id === key;
+              const label = edgeLabel(e, snap.activity);
               return (
-                <g key={`${e.from}-${e.to}`}>
-                  <line x1={a.cx} y1={a.cy} x2={b.cx} y2={b.cy} stroke={color} strokeWidth={1.6} strokeOpacity={0.5} />
+                <g key={key}>
+                  <line x1={a.cx} y1={a.cy} x2={b.cx} y2={b.cy} stroke="transparent" strokeWidth={14} style={{ cursor: "pointer" }} onClick={() => setSelected({ type: "edge", id: key })} />
+                  <line x1={a.cx} y1={a.cy} x2={b.cx} y2={b.cy} stroke={color} strokeWidth={isSel ? 2.6 : 1.6} strokeOpacity={isSel ? 1 : 0.5} pointerEvents="none" />
                   {label && (
-                    <text x={(a.cx + b.cx) / 2} y={(a.cy + b.cy) / 2 - 6} fill="#8b93a7" fontSize={11} textAnchor="middle" style={{ pointerEvents: "none" }}>
+                    <text x={(a.cx + b.cx) / 2} y={(a.cy + b.cy) / 2 - 6} fill={isSel ? "#e8eaf0" : "#8b93a7"} fontSize={11} textAnchor="middle" pointerEvents="none">
                       {label}
                     </text>
                   )}
                 </g>
               );
             })}
+            {conn && nodeCenter(allPos[conn.from]) && (() => {
+              const a = nodeCenter(allPos[conn.from])!;
+              return (
+                <g pointerEvents="none">
+                  <line x1={a.cx} y1={a.cy} x2={conn.x} y2={conn.y} stroke="#ffd166" strokeWidth={2} strokeDasharray="5 4" />
+                </g>
+              );
+            })()}
           </svg>
 
-          {/* Nodes: HTML boxes, draggable with the pointer, click still selects. */}
-          <div
-            style={{ position: "absolute", inset: 0 }}
-            onPointerMove={(e) => {
-              const d = dragRef.current;
-              if (!d) return;
-              const dx = e.clientX - d.px;
-              const dy = e.clientY - d.py;
-              d.moved += Math.abs(dx) + Math.abs(dy);
-              const p = pos[d.id];
-              if (p) {
-                d.px = e.clientX;
-                d.py = e.clientY;
-                setPos((prev) => {
-                  const cur = prev[d.id];
-                  const next = cur ? { ...prev, [d.id]: { x: Math.max(0, cur.x + dx), y: Math.max(0, cur.y + dy) } } : prev;
-                  latestPos.current = next;
-                  return next;
-                });
-              }
-            }}
-            onPointerUp={() => {
-              const hadDrag = dragRef.current;
-              if (hadDrag && hadDrag.moved > 6 && Object.keys(latestPos.current).length && typeof window !== "undefined") {
-                try {
-                  localStorage.setItem(POS_KEY, JSON.stringify(latestPos.current));
-                } catch {
-                  /* ignore */
-                }
-              }
-              dragRef.current = null;
-            }}
-            onPointerLeave={() => (dragRef.current = null)}
-          >
-            {Object.entries(pos).flatMap(([id, p]) => {
-              const n = nodeById[id];
-              if (!n) return [];
-              const color = STATUS_COLOR[n.status] ?? "#9ca3af";
-              const isSel = selected === id;
-              const act = n.kind === "agent" ? activityBySlug[n.id.replace(/^agt-/, "")] : undefined;
-              const live = act && act.messages24h > 0;
-              return (
-                <div
-                  key={id}
+          {/* Nodes */}
+          {visibleNodes.map((n) => {
+            const p = allPos[n.id];
+            if (!p) return null;
+            const status = n.status ?? "unknown";
+            const color = STATUS_COLOR[status] ?? "#9ca3af";
+            const isSel = selected?.type === "node" && selected.id === n.id;
+            const act = n.kind === "agent" ? activityBySlug[n.id.replace(/^agt-/, "")] : undefined;
+            const live = Boolean(act && act.messages24h > 0);
+            const isCustom = /^c-/.test(n.id);
+            return (
+              <div
+                key={n.id}
+                style={{ position: "absolute", left: p.x, top: p.y, width: Q, minHeight: QH, background: "rgba(255,255,255,0.05)", border: isSel ? `2px solid ${color}` : `1px solid ${color}55`, borderRadius: 10, padding: "8px 10px", cursor: "grab", boxSizing: "border-box", userSelect: "none", touchAction: "none", boxShadow: isSel ? "0 2px 14px rgba(0,0,0,0.35)" : undefined }}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  if (e.button !== 0) return;
+                  (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                  nodeDrag.current = { id: n.id, px: e.clientX, py: e.clientY, moved: 0 };
+                }}
+                onPointerMove={(e) => {
+                  const d = nodeDrag.current;
+                  if (!d || d.id !== n.id) return;
+                  const dx = e.clientX - d.px;
+                  const dy = e.clientY - d.py;
+                  d.moved += Math.abs(dx) + Math.abs(dy);
+                  d.px = e.clientX;
+                  d.py = e.clientY;
+                  setPos((prev) => {
+                    const cur = prev[n.id];
+                    const next = cur ? { ...prev, [n.id]: { x: Math.max(0, cur.x + dx), y: Math.max(0, cur.y + dy) } } : prev;
+                    latestPos.current = next;
+                    return next;
+                  });
+                }}
+                onPointerUp={(e) => {
+                  const d = nodeDrag.current;
+                  if (d && d.id === n.id) {
+                    if (d.moved > 6 && Object.keys(latestPos.current).length) {
+                      try {
+                        localStorage.setItem(WS_KEY, JSON.stringify({ pos: latestPos.current, customNodes, customEdges, hiddenIds, removedEdges, transform }));
+                      } catch {
+                        /* ignore */
+                      }
+                    }
+                    nodeDrag.current = null;
+                  }
+                }}
+                onPointerCancel={() => (nodeDrag.current = null)}
+                onClick={() => {
+                  if (nodeDrag.current && nodeDrag.current.id === n.id && nodeDrag.current.moved > 6) return;
+                  setSelected((s) => (s?.type === "node" && s.id === n.id ? null : { type: "node", id: n.id }));
+                }}
+                onDoubleClick={() => {
+                  if (isCustom) {
+                    renameOrig.current = n.label;
+                    setEditingId((e) => (e === n.id ? null : n.id));
+                  }
+                }}
+                title={n.detail || (isCustom ? "double-click to rename" : undefined)}
+              >
+                {/* ports */}
+                <span
                   onPointerDown={(e) => {
-                    dragRef.current = { id, ox: p.x, oy: p.y, moved: 0, px: e.clientX, py: e.clientY };
+                    e.stopPropagation();
+                    if (connActive.current) return;
+                    const p0 = toCanvas(e.clientX, e.clientY);
+                    connActive.current = { from: n.id };
+                    setConn({ from: n.id, x: p0.x, y: p0.y });
                   }}
                   onPointerUp={(e) => {
                     e.stopPropagation();
+                    if (!connActive.current) return;
+                    commitConnTo(n.id);
                   }}
-                  onClick={() => {
-                    if (dragRef.current && dragRef.current.moved > 6) return;
-                    setSelected(isSel ? null : id);
+                  style={{ position: "absolute", left: -5, top: "50%", transform: "translateY(-50%)", width: 11, height: 11, borderRadius: "50%", background: "#1e293b", border: `2px solid ${color}`, cursor: "crosshair" }}
+                  onPointerEnter={() => (hoverNodeRef.current = n.id)}
+                  onPointerLeave={() => {
+                    if (hoverNodeRef.current === n.id) hoverNodeRef.current = null;
                   }}
-                  title={n.detail}
-                  style={{
-                    position: "absolute",
-                    left: p.x,
-                    top: p.y,
-                    width: Q,
-                    minHeight: QH,
-                    background: "rgba(255,255,255,0.05)",
-                    border: isSel ? `1.5px solid ${color}` : `1px solid ${color}55`,
-                    borderRadius: 10,
-                    padding: "8px 10px",
-                    cursor: "grab",
-                    boxSizing: "border-box",
-                    userSelect: "none",
-                    touchAction: "none",
-                    boxShadow: isSel ? "0 2px 14px rgba(0,0,0,0.35)" : undefined,
+                />
+                <span
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    if (connActive.current) return;
+                    const p0 = toCanvas(e.clientX, e.clientY);
+                    connActive.current = { from: n.id };
+                    setConn({ from: n.id, x: p0.x, y: p0.y });
                   }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>
-                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
+                  onPointerUp={(e) => {
+                    e.stopPropagation();
+                    if (!connActive.current) return;
+                    commitConnTo(n.id);
+                  }}
+                  style={{ position: "absolute", left: Q - 6, top: "50%", transform: "translateY(-50%)", width: 11, height: 11, borderRadius: "50%", background: "#1e293b", border: `2px solid ${color}`, cursor: "crosshair" }}
+                  onPointerEnter={() => (hoverNodeRef.current = n.id)}
+                  onPointerLeave={() => {
+                    if (hoverNodeRef.current === n.id) hoverNodeRef.current = null;
+                  }}
+                />
+                {isSel && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeNode(n.id);
+                    }}
+                    title="Remove from map"
+                    style={{ position: "absolute", top: -8, right: -8, width: 20, height: 20, borderRadius: "50%", border: "1px solid var(--border)", background: "var(--bg-elevated)", color: "#f87171", fontSize: 12, lineHeight: 1, padding: 0, cursor: "pointer", zIndex: 5 }}
+                  >
+                    ✕
+                  </button>
+                )}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
+                  {editingId === n.id && isCustom ? (
+                    <input
+                      autoFocus
+                      defaultValue={n.label}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setCustomNodes((c) => c.map((x) => (x.id === n.id ? { ...x, label: v } : x)));
+                      }}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim() || n.label;
+                        setCustomNodes((c) => c.map((x) => (x.id === n.id ? { ...x, label: v } : x)));
+                        setEditingId(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                        if (e.key === "Escape") {
+                          setCustomNodes((c) => c.map((x) => (x.id === n.id && renameOrig.current ? { ...x, label: renameOrig.current } : x)));
+                          setEditingId(null);
+                        }
+                      }}
+                      style={{ width: 96, fontSize: 12, padding: "2px 4px", borderRadius: 6, border: "1px solid var(--accent)", background: "var(--surface)", color: "var(--text)", boxSizing: "border-box" }}
+                    />
+                  ) : (
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", maxWidth: 116 }}>
                       {KIND_ICON[n.kind] ?? ""} {n.label}
                     </span>
-                    {live && (
-                      <span style={{ flexShrink: 0, width: 6, height: 6, borderRadius: "50%", background: "#22c55e", animation: "aiva-pulse 1.6s infinite" }}>
-                        <style>{"@keyframes aiva-pulse{0%,100%{opacity:1}50%{opacity:.25}}"}</style>
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: 10.5, color: "var(--muted, #8b93a7)", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {n.status.toUpperCase()}
-                    {typeof n.latency === "number" ? ` · ${n.latency}ms` : ""}
-                    {act && live ? ` · ${act.messages24h} msg · ${ageLabel(act.lastActiveAt)}` : n.kind === "agent" ? " · idle" : ""}
-                  </div>
+                  )}
+                  {live && (
+                    <span style={{ flexShrink: 0, width: 6, height: 6, borderRadius: "50%", background: "#22c55e", animation: "aiva-pulse 1.6s infinite" }}>
+                      <style>{"@keyframes aiva-pulse{0%,100%{opacity:1}50%{opacity:.25}}"}</style>
+                    </span>
+                  )}
                 </div>
-              );
-            })}
-          </div>
+                <div style={{ fontSize: 10.5, color: "var(--muted, #8b93a7)", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {status.toUpperCase()}
+                  {typeof n.latency === "number" ? ` · ${n.latency}ms` : ""}
+                  {act && live ? ` · ${act.messages24h} msg · ${ageLabel(act.lastActiveAt)}` : n.kind === "agent" ? " · idle" : ""}
+                  {isCustom ? " · custom" : ""}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* Live traffic strip + node detail */}
+      {/* Traffic strip + help */}
       <div style={{ display: "flex", gap: 14, alignItems: "center", fontSize: 12.5, color: "var(--muted, #8b93a7)", flexWrap: "wrap" }}>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <span style={{ fontWeight: 600, color: "var(--fg,#e8eaf0)" }}>Channels:</span>
           {channelCounts.map((c) => (
-            <span
-              key={c.id}
-              title={`${c.label} — inbound messages, last 24h`}
-              style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid var(--border)", background: "var(--surface)", color: c.n ? "var(--fg,#e8eaf0)" : "var(--muted,#8b93a7)" }}
-            >
+            <span key={c.id} title={`${c.label} — inbound messages, last 24h`} style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid var(--border)", background: "var(--surface)", color: c.n ? "var(--fg,#e8eaf0)" : "var(--muted,#8b93a7)" }}>
               {c.label} {c.n}
             </span>
           ))}
@@ -510,18 +847,17 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
         <span style={{ flex: 1 }} />
         <span>
           {sel ? (
-            <span>
-              <b style={{ color: "var(--fg, #e8eaf0)" }}>{sel.label}</b> — {sel.detail}
-            </span>
+            <>
+              <b style={{ color: "var(--fg, #e8eaf0)" }}>{sel.label}</b> — {sel.detail || "custom box"}
+              {isSelNodeCustom(selected)}
+            </>
           ) : (
-            <span>
-              Drag boxes to rearrange · {agentNodes.length} agent(s) · {snap.nodes.filter((n) => n.status === "ok").length}/{snap.nodes.length} nodes healthy
-            </span>
+            <span>drag nodes · scroll to zoom · drag background to pan · drag between ports to wire · Del removes</span>
           )}
         </span>
       </div>
 
-      {/* Command box — tell Hermes/opencode what to change or fix */}
+      {/* Command box */}
       <div style={{ ...cardStyle, padding: 14, background: "linear-gradient(180deg, rgba(13,148,136,0.08), rgba(13,148,136,0.02))" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 10, flexWrap: "wrap" }}>
           <div style={{ fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
@@ -529,12 +865,7 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
             Tell Hermes &amp; opencode what to change or fix
           </div>
           {pendingOps.length > 0 && (
-            <button
-              className="ghost"
-              onClick={onGotoItGuy}
-              title="Jump to IT Guy console"
-              style={{ fontSize: 12, color: "#f59e0b", padding: "4px 10px", borderRadius: 999, border: "1px solid #f59e0b55", background: "rgba(245,158,11,0.08)" }}
-            >
+            <button className="ghost" onClick={onGotoItGuy} title="Jump to IT Guy console" style={{ fontSize: 12, color: "#f59e0b", padding: "4px 10px", borderRadius: 999, border: "1px solid #f59e0b55", background: "rgba(245,158,11,0.08)" }}>
               {pendingOps.length} change{pendingOps.length > 1 ? "s" : ""} waiting for approval →
             </button>
           )}
@@ -546,45 +877,15 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
             onKeyDown={(e) => e.key === "Enter" && sendCmd()}
             placeholder={`e.g. "Fix anything that's down now" or "Revert the AI override for aiva-portal"`}
             disabled={cmdBusy}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              padding: "10px 12px",
-              borderRadius: 10,
-              border: "1px solid var(--border)",
-              background: "var(--surface)",
-              color: "var(--text)",
-              fontSize: 13,
-              boxSizing: "border-box",
-            }}
+            style={{ flex: 1, minWidth: 0, padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }}
           />
-          <button
-            onClick={() => sendCmd()}
-            disabled={cmdBusy}
-            className="ghost"
-            style={{
-              padding: "10px 18px",
-              borderRadius: 10,
-              background: "linear-gradient(135deg,#0d9488,#2dd4bf)",
-              color: "#fff",
-              fontWeight: 600,
-              fontSize: 13,
-              opacity: cmdBusy ? 0.7 : 1,
-              border: "none",
-            }}
-          >
+          <button onClick={() => sendCmd()} disabled={cmdBusy} className="ghost" style={{ padding: "10px 18px", borderRadius: 10, background: "linear-gradient(135deg,#0d9488,#2dd4bf)", color: "#fff", fontWeight: 600, fontSize: 13, opacity: cmdBusy ? 0.7 : 1, border: "none" }}>
             {cmdBusy ? "Working…" : "Send"}
           </button>
         </div>
         <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
           {SUGGESTIONS.map((s) => (
-            <button
-              key={s}
-              className="ghost"
-              onClick={() => sendCmd(s)}
-              disabled={cmdBusy}
-              style={{ fontSize: 11.5, padding: "4px 10px", borderRadius: 999, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-secondary)" }}
-            >
+            <button key={s} className="ghost" onClick={() => sendCmd(s)} disabled={cmdBusy} style={{ fontSize: 11.5, padding: "4px 10px", borderRadius: 999, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-secondary)" }}>
               {s}
             </button>
           ))}
@@ -673,24 +974,18 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
     </div>
   );
 
-  // Fullscreen = same content, mounted as a fixed viewport overlay.
   if (full) {
     return (
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 400,
-          background: "var(--bg, #0b0e14)",
-          padding: "18px 22px 32px",
-          overflow: "auto",
-          boxSizing: "border-box",
-        }}
-      >
+      <div style={{ position: "fixed", inset: 0, zIndex: 400, background: "var(--bg, #0b0e14)", padding: "18px 22px 32px", overflow: "auto", boxSizing: "border-box" }}>
         {mapBody}
       </div>
     );
   }
 
   return <div style={{ ...cardStyle, padding: 20, position: "relative" }}>{mapBody}</div>;
+}
+
+function isSelNodeCustom(selected: { type: "node" | "edge"; id: string } | null): string | null {
+  if (selected?.type !== "node") return null;
+  return /^c-/.test(selected.id) ? " · double-click to rename" : null;
 }
