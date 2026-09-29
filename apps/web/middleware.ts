@@ -24,6 +24,7 @@ const ADMIN_COOKIE = "admin_session";
 
 export default async function middleware(req: NextRequest) {
   console.log("[middleware] path:", req.nextUrl.pathname, "clientToken:", req.cookies.get("client_session")?.value?.slice(0, 10));
+  const start = Date.now();
   const fixedAdmin = verifyAdminToken(req.cookies.get(ADMIN_COOKIE)?.value);
 
   const clientToken = req.cookies.get(CLIENT_COOKIE)?.value;
@@ -37,7 +38,11 @@ export default async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
 
   if (pathname.startsWith("/api/admin")) {
-    if (isAdmin || validSession) return NextResponse.next();
+    if (isAdmin || validSession) {
+      console.log("[middleware] /api/admin: allowing request, isAdmin:", isAdmin, "validSession:", validSession);
+      return NextResponse.next();
+    }
+    console.log("[middleware] /api/admin: denying request, isAdmin:", isAdmin, "validSession:", validSession);
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
