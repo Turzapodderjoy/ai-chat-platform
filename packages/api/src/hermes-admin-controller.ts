@@ -512,6 +512,18 @@ export class HermesAdminController {
     skills.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
 
     const db = readProfileDb(slug);
+    const debug = {
+      dir,
+      dirExists: existsSync(dir),
+      skillsRoot: path.join(dir, "skills"),
+      skillsRootExists: existsSync(path.join(dir, "skills")),
+      readdir: await fs
+        .readdir(path.join(dir, "skills"), { withFileTypes: true })
+        .then((e) => e.length)
+        .catch((e) => `ERR ${(e as Error).message}`),
+      stateDbExists: existsSync(path.join(dir, "state.db")),
+      hermesHomeEnv: process.env.HERMES_HOME ?? "(unset)",
+    };
     try {
       const totals = db.one<Record<string, number | null>>(`SELECT
           (SELECT count(*) FROM sessions)  AS sessions,
@@ -528,6 +540,7 @@ export class HermesAdminController {
         return {
           slug,
           raw: true,
+          debug,
           totals,
           usage,
           messages: db.all(
@@ -549,6 +562,7 @@ export class HermesAdminController {
 
       return {
         slug,
+        debug,
         memory,
         userMemory: user,
         skills,
