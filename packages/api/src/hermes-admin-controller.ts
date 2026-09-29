@@ -485,18 +485,32 @@ export class HermesAdminController {
     // under skills/ (both skills/<name> and skills/<category>/<name> exist).
     const skills: Array<{ name: string; category: string; description: string }> = [];
     const skillsRoot = path.join(dir, "skills");
+    const c = { entries: 0, dirs: 0, subs: 0, subDirs: 0, mdOk: 0, mdEmpty: 0, readErr: 0, directHit: 0 };
     if (existsSync(skillsRoot)) {
       for (const entry of await fs.readdir(skillsRoot, { withFileTypes: true })) {
+        c.entries++;
         if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+        c.dirs++;
         const catDir = path.join(skillsRoot, entry.name);
         const read = async (root: string, name: string, category: string): Promise<void> => {
-          const md = await fs.readFile(path.join(root, "SKILL.md"), "utf8").catch(() => "");
-          if (!md.trim()) return;
+          let md = "";
+          try {
+            md = await fs.readFile(path.join(root, "SKILL.md"), "utf8");
+          } catch {
+            c.readErr++;
+            return;
+          }
+          if (!md.trim()) {
+            c.mdEmpty++;
+            return;
+          }
+          c.mdOk++;
           const description = md.match(/^description:\s*(.+)$/m)?.[1]?.trim() ?? "";
           skills.push({ name, category, description });
         };
         const direct = await fs.readFile(path.join(catDir, "SKILL.md"), "utf8").catch(() => "");
         if (direct.trim()) {
+          c.directHit++;
           skills.push({
             name: entry.name,
             category: "general",
@@ -504,8 +518,13 @@ export class HermesAdminController {
           });
           continue;
         }
-        for (const sub of await fs.readdir(catDir, { withFileTypes: true })) {
-          if (sub.isDirectory() && !sub.name.startsWith(".")) await read(catDir, sub.name, entry.name);
+        c.subs++;
+        const subEntries = await fs.readdir(catDir, { withFileTypes: true }).catch(() => []);
+        for (const sub of subEntries) {
+          if (sub.isDirectory() && !sub.name.startsWith(".")) {
+            c.subDirs++;
+            await read(catDir, sub.name, entry.name);
+          }
         }
       }
     }
@@ -540,6 +559,7 @@ export class HermesAdminController {
       probeOk,
       probeErr,
       skillsLen: skills.length,
+      c,
       stateDbExists: existsSync(path.join(dir, "state.db")),
       hermesHomeEnv: process.env.HERMES_HOME ?? "(unset)",
     };
