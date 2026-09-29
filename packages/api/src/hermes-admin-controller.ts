@@ -377,11 +377,23 @@ export class HermesAdminController {
    * priority 0 and becomes the active one (older accounts stay switchable).
    * The child prints the consent link + code; we keep parsing stdout until
    * approval/timeout and expose it via signInStatus().
+   *
+   * A signed-out "login" (addAccount not explicitly set) auto-promotes to the
+   * oauth add flow: `auth upgrade` only ever errors here ("free tier is not
+   * available right now"), so the panel's Authorize button must land a real
+   * credential rather than show that dead-end message.
    */
   async signInStart(slug?: string, opts?: { addAccount?: boolean }): Promise<HermesSignInState> {
     if (signInChild) return signInState;
     const clean = (slug ?? "").trim();
-    const addAccount = opts?.addAccount === true;
+    let addAccount = opts?.addAccount === true;
+    if (!addAccount) {
+      try {
+        addAccount = !(await this.authStatus()).signedIn;
+      } catch {
+        /* keep addAccount=false if the status probe itself failed */
+      }
+    }
     const args = addAccount
       ? ["auth", "add", "nous", "--type", "oauth", "--no-browser", "--timeout", "900", "--priority", "0"]
       : ["auth", "upgrade", "--no-browser"];
