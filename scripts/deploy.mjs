@@ -204,6 +204,14 @@ async function setupHermesAgent(releaseDir) {
   // Create venv and install hermes-agent with all dependencies
   run("python3 -m venv .venv", hermesDir);
   run(".venv/bin/pip install -e '.[all]'", hermesDir);
+  // `[all]` deliberately excludes the messaging extra (aiohttp etc.), which
+  // the gateway's REST API server platform needs; rich/dotenv/httpx/psutil/
+  // ruamel.yaml are runtime deps a fresh venv wouldn't otherwise carry.
+  // Installing them explicitly keeps a fresh release venv able to serve :8642.
+  run(
+    ".venv/bin/pip install 'aiohttp>=3.9,<4' rich python-dotenv httpx psutil 'ruamel.yaml>=0.18,<1'",
+    hermesDir
+  );
   if (!existsSync(hermesBin)) {
     throw new Error(`Hermes binary not found at ${hermesBin} after install`);
   }

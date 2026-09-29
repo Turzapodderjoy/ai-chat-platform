@@ -32,21 +32,14 @@ export async function GET(req: NextRequest) {
     try {
       const app = await getApp();
       const session = await app.container.router.clientAuth.getSession(clientToken);
-      console.log('[system-map] session:', session ? { isAdmin: session.isAdmin, username: session.username } : 'null');
       if (session?.isAdmin) {
-        console.log('[system-map] returning snapshot');
         const snapshot = await app.container.router.systemMap.snapshot();
         return NextResponse.json(snapshot);
-      } else {
-        console.log('[system-map] session found but not admin');
       }
-    } catch (e) {
-      console.log('[system-map] clientAuth.getSession error:', e);
+    } catch {
+      // treat as unauthorized below
     }
-  } else {
-    console.log('[system-map] no clientToken');
   }
 
-  console.log('[system-map] returning Not authorized');
   return NextResponse.json({ error: "Not authorized." }, { status: 401 });
 }
