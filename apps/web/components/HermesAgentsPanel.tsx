@@ -28,12 +28,38 @@ interface HermesAgent {
   businesses: HermesAgentBusiness[];
 }
 
+interface AuthAccount {
+  idx: number;
+  id: string;
+  label: string;
+  authType: string;
+  active: boolean;
+  exhausted?: string;
+}
+
+interface AuthStatus {
+  signedIn: boolean;
+  freeTier: boolean;
+  activeId?: string;
+  accounts: AuthAccount[];
+  message?: string;
+}
+
+interface SignInState {
+  phase: "idle" | "waiting" | "done";
+  link?: string;
+  code?: string;
+  message?: string;
+}
+
 export function HermesAgentsPanel() {
   const [agents, setAgents] = useState<HermesAgent[] | null>(null);
   const [error, setError] = useState("");
   const [newSlug, setNewSlug] = useState("");
   const [creating, setCreating] = useState(false);
   const [openSlug, setOpenSlug] = useState<string | null>(null);
+  const [auth, setAuth] = useState<AuthStatus | null>(null);
+  const [sign, setSign] = useState<SignInState>({ phase: "idle" });
 
   // All businesses for assignment dropdown
   const [allBusinesses, setAllBusinesses] = useState<Array<{ id: string; name: string }>>([]);
@@ -69,6 +95,78 @@ export function HermesAgentsPanel() {
       .catch(() => setAllBusinesses([]))
       .finally(() => setFetchingBusinesses(false));
   }, []);
+
+  async function loadAuth() {
+    try {
+      const res = await fetch("/api/admin/hermes-auth");
+      const data = (await res.json()) as { auth: AuthStatus };
+      setAuth(data.auth ?? { signedIn: false, freeTier: false, accounts: [] });
+    } catch {
+      /* transient — keep last state */
+    }
+  }
+
+  useEffect(() => {
+    void loadAuth();
+  }, []);
+
+  // Poll the device-code flow until the portal approval lands (or expires).
+  useEffect(() => {
+    if (sign.phase !== "waiting") return;
+    const t = setInterval(() => {
+      fetch("/api/admin/hermes-auth?signin=1")
+        .then((r) => r.json())
+        .then((next: SignInState) => {
+          if (next.phase !== "waiting") {
+            setSign(next);
+            void loadAuth();
+          } else if (next.link) {
+            setSign(next);
+          }
+        })
+        .catch(() => {
+          /* transient poll failure — keep trying */
+        });
+    }, 2_500);
+    return () => clearInterval(t);
+  }, [sign.phase]);
+
+  async function startSignIn(addAccount: boolean) {
+    try {
+      const res = await fetch("/api/admin/hermes-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "login", addAccount }),
+      });
+      const data = (await res.json()) as { signin?: SignInState; error?: string };
+      if (!res.ok || !data.signin) throw new Error(data.error ?? "Could not start sign-in.");
+      setSign(data.signin);
+    } catch (err) {
+      await showAlert(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function authAction(action: string, id?: string) {
+    try {
+      const res = await fetch("/api/admin/hermes-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, id }),
+      });
+      const data = (await res.json()) as { auth?: AuthStatus; error?: string };
+      if (!res.ok || !data.auth) throw new Error(data.error ?? "Action failed.");
+      setAuth(data.auth);
+    } catch (err) {
+      await showAlert(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function removeAccount(acc: AuthAccount) {
+    if (!(await showConfirm(`Sign out '${acc.label}'?\n\nThis removes the account from the platform's default agent. Lost chats switch to the next account (or to login-failure replies).`))) {
+      return;
+    }
+    await authAction("remove", acc.id);
+  }
 
   async function createAgent() {
     const slug = newSlug.trim().toLowerCase();
@@ -165,6 +263,116 @@ export function HermesAgentsPanel() {
 
   return (
     <div style={{ maxWidth: 920, display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={cardStyle}>
+        <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>AI account &amp; access</div>
+        <div style={subtleTextStyle}>
+          Authorize an AI provider once for the platform&apos;s default agent — every agent created here
+          inherits it. Chat replies fall back to a login-failure message until an account is
+          authorized; with several accounts, switch to another if one stops working.
+        </div>
+
+        {auth && (
+          auth.signedIn ? (
+            <div style={{ color: "var(--success)", fontSize: 13, marginTop: 8 }}>
+              Authorized ✓
+              <span style={subtleTextStyle}>
+                {" "}— chats are served with real AI replies{sign.phase === "done" && !sign.message ? ", just signed in" : ""}.
+              </span>
+              {auth.accounts.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
+                  {auth.accounts.map((acc) => (
+                    <div key={acc.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5 }}>
+                      <span style={{ fontFamily: "monospace" }}>{acc.label}</span>
+                      {acc.active && <span style={{ color: "var(--success)" }}>(active)</span>}
+                      {acc.exhausted && <span style={{ color: "#b76e12" }}>{acc.exhausted}</span>}
+                      {!acc.active && (
+                        <button
+                          className="plain"
+                          onClick={() => void authAction("activate", acc.id)}
+                          style={{ fontSize: 11, padding: "2px 6px" }}
+                          title="Make this the active account"
+                        >
+                          Use
+                        </button>
+                      )}
+                      {acc.exhausted && (
+                        <button
+                          className="plain"
+                          onClick={() => void authAction("reset", acc.id)}
+                          style={{ fontSize: 11, padding: "2px 6px" }}
+                          title="Clear the exhaustion/cooldown flag"
+                        >
+                          Reset
+                        </button>
+                      )}
+                      <button
+                        className="plain"
+                        onClick={() => void removeAccount(acc)}
+                        style={{ fontSize: 11, color: "var(--danger)", padding: "2px 6px" }}
+                        title="Sign out this account"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ color: auth.freeTier ? "#b76e12" : "var(--danger)", fontSize: 13 }}>
+                {auth.freeTier
+                  ? "Free tier — welcome model only. Chats will be limited until an account is authorized."
+                  : "Not signed in — chats currently reply with a login-failure message."}
+              </div>
+              {auth.message && <div style={{ ...subtleTextStyle, fontSize: 11.5 }}>{auth.message}</div>}
+            </div>
+          )
+        )}
+
+        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          {!auth?.signedIn && (
+            <button
+              style={primaryButtonStyle}
+              onClick={() => void startSignIn(false)}
+              disabled={sign.phase === "waiting"}
+            >
+              {sign.phase === "done" && !sign.message ? "Signed in ✓" : "Authorize / Sign in"}
+            </button>
+          )}
+          {auth?.signedIn && (
+            <button
+              style={primaryButtonStyle}
+              onClick={() => void startSignIn(true)}
+              disabled={sign.phase === "waiting"}
+            >
+              {sign.phase === "waiting" ? "Waiting…" : "Add another account"}
+            </button>
+          )}
+        </div>
+
+        {sign.phase === "waiting" && (
+          <div style={{ fontSize: 12.5, display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
+            {sign.link ? (
+              <>
+                <a href={sign.link} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
+                  {sign.link}
+                </a>
+                <span>
+                  Enter code: <strong style={{ fontFamily: "monospace", fontSize: 15 }}>{sign.code}</strong>
+                </span>
+                <span style={subtleTextStyle}>Waiting for approval…</span>
+              </>
+            ) : (
+              <span style={subtleTextStyle}>Starting sign-in…</span>
+            )}
+          </div>
+        )}
+        {sign.phase === "done" && sign.message && (
+          <div style={{ ...subtleTextStyle, fontSize: 12, marginTop: 8 }}>{sign.message}</div>
+        )}
+      </div>
+
       <div style={cardStyle}>
         <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Hermes Agents</div>
         <div style={subtleTextStyle}>

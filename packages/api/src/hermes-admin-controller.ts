@@ -62,6 +62,23 @@ export interface HermesSignInState {
 let signInState: HermesSignInState = { phase: "idle" };
 let signInChild: ChildProcess | null = null;
 
+export interface HermesAuthAccount {
+  idx: number;
+  id: string;
+  label: string;
+  authType: string;
+  active: boolean;
+  exhausted?: string;
+}
+
+export interface HermesAuthStatus {
+  signedIn: boolean;
+  freeTier: boolean;
+  activeId?: string;
+  accounts: HermesAuthAccount[];
+  message?: string;
+}
+
 export interface HermesAgentSummary {
   slug: string;
   provisioned: boolean;
@@ -119,6 +136,101 @@ function validateSlug(slug: string): void {
 }
 
 export class HermesAdminController {
+  private async runAuthCmd(args: string[]): Promise<string> {
+    const { stdout } = await execFileAsync(BIN, args, {
+      env: { ...process.env, HERMES_HOME, PYTHONUNBUFFERED: "1" },
+      cwd: REPO_ROOT,
+    });
+    return stdout;
+  }
+
+  /**
+   * Pooled Nous accounts on the platform's default agent (every agent created
+   * here clones this identity). Rows come from `hermes auth list nous`; the
+   * free tier is rendered separately by the CLI and never listed as a
+   * credential, so signed-in == at least one countable entry.
+   */
+  async authStatus(): Promise<HermesAuthStatus> {
+    let listOut = "";
+    try {
+      listOut = await this.runAuthCmd(["auth", "list", "nous"]);
+    } catch {
+      /* no credentials yet — treated as signed out */
+    }
+    const accounts: HermesAuthAccount[] = [];
+    let freeTier = false;
+    for (const rawLine of listOut.split("\n")) {
+      const line = rawLine.trimEnd();
+      const cred = line.match(/^\s*#(\d+)\s+(.+)$/);
+      if (!cred) {
+        if (!freeTier && /free tier/i.test(line)) freeTier = true;
+        continue;
+      }
+      const row = cred[2]!;
+      const idM = row.match(/(?:^|\s)id=(\S+)/);
+      if (!idM) continue;
+      const prioM = row.match(/(?:^|\s)priority=(\d+)/);
+      const id = idM[1]!;
+      const priority = prioM ? Number(prioM[1]) : Number.MAX_SAFE_INTEGER;
+      const head = row.slice(0, idM.index ?? 0).replace(/^\s*#\d+\s*/, "").trimEnd();
+      const headTok = head.split(/\s{2,}/);
+      const label = headTok[0]?.trim() || id;
+      const authType = (headTok.length > 1 ? headTok[headTok.length - 1] : "")?.trim() || "";
+      const tail = row.slice((idM.index ?? 0) + idM[0].length);
+      const status = tail.replace(/^.*?priority=\d+/, "").replace(/source=\S+/, "").replace(/\s*←\s*$/, "").trim();
+      accounts.push({
+        idx: Number(cred[1]),
+        id,
+        label,
+        authType,
+        active: priority === 0,
+        exhausted: status || undefined,
+      });
+    }
+
+    let message: string | undefined;
+    let signedIn = accounts.length > 0;
+    if (!signedIn) {
+      let statusOut = "";
+      try {
+        statusOut = await this.runAuthCmd(["auth", "status", "nous"]);
+      } catch {
+        /* keep the logged-out verdict */
+      }
+      const bits = statusOut.split("\n").map((s) => s.trim()).filter(Boolean);
+      const verdict = bits[0] ?? "";
+      if (/(?:logged in|signed in)/i.test(verdict)) signedIn = true;
+      if (/free tier/i.test(verdict)) freeTier = true;
+      if (bits.length > 0) message = bits.join(" ");
+    }
+    return {
+      signedIn,
+      freeTier,
+      activeId: accounts.find((a) => a.active)?.id,
+      accounts,
+      message,
+    };
+  }
+
+  async authActivate(id: string): Promise<HermesAuthStatus> {
+    if (!id) throw new Error("Account id is required.");
+    await this.runAuthCmd(["auth", "priority", "nous", id, "0"]);
+    return this.authStatus();
+  }
+
+  async authRemove(id: string): Promise<HermesAuthStatus> {
+    if (!id) throw new Error("Account id is required.");
+    await this.runAuthCmd(["auth", "remove", "nous", id]);
+    return this.authStatus();
+  }
+
+  async authReset(id?: string): Promise<HermesAuthStatus> {
+    const args = ["auth", "reset", "nous"];
+    if (id) args.push(id);
+    await this.runAuthCmd(args);
+    return this.authStatus();
+  }
+
   async list(): Promise<HermesAgentSummary[]> {
     await fs.mkdir(PROFILES_DIR, { recursive: true });
     const entries = await fs.readdir(PROFILES_DIR, { withFileTypes: true });
@@ -258,16 +370,37 @@ export class HermesAdminController {
   }
 
   /**
-   * Start `hermes auth upgrade` (device-code sign-in to Nous) for the home
-   * profile or a named one. The child prints the consent link + code; we keep
-   * parsing stdout until approval/timeout and expose it via signInStatus().
+   * Start a Nous device-code sign-in. Default (addAccount=false) runs
+   * `hermes auth upgrade` — the free-tier-to-account promotion — for the home
+   * profile or a named one. addAccount=true runs `hermes auth add nous
+   * --type oauth` instead, so a genuinely new account lands in the pool at
+   * priority 0 and becomes the active one (older accounts stay switchable).
+   * The child prints the consent link + code; we keep parsing stdout until
+   * approval/timeout and expose it via signInStatus().
    */
-  async signInStart(slug?: string): Promise<HermesSignInState> {
+  async signInStart(slug?: string, opts?: { addAccount?: boolean }): Promise<HermesSignInState> {
     if (signInChild) return signInState;
     const clean = (slug ?? "").trim();
-    const args = ["auth", "upgrade", "--no-browser"];
-    if (clean && clean !== "default") args.push("-p", clean);
+    const addAccount = opts?.addAccount === true;
+    const args = addAccount
+      ? ["auth", "add", "nous", "--type", "oauth", "--no-browser", "--timeout", "900", "--priority", "0"]
+      : ["auth", "upgrade", "--no-browser"];
+    if (!addAccount && clean && clean !== "default") args.push("-p", clean);
     signInState = { phase: "waiting" };
+    // "Add account" runs the CLI's device-code flow, but a shared Nous
+    // credential at <home>/shared/nous_auth.json (written by the first login)
+    // makes it adopt the existing login non-interactively — no new consent,
+    // and with no TTY the import question defaults to yes. Park the shared
+    // store aside for the child's lifetime so a genuinely new account gets a
+    // fresh device-code approval; keep the child's refresh (a failed login
+    // restores the previous store).
+    const sharedPath = path.join(HERMES_HOME, "shared", "nous_auth.json");
+    const asidePath = `${sharedPath}.import-${Date.now()}`;
+    let movedShared = false;
+    if (addAccount && existsSync(sharedPath)) {
+      await fs.rename(sharedPath, asidePath);
+      movedShared = true;
+    }
     // HERMES_GUEST_ONBOARDING is process-env only (serve-dev.mjs sets it for the
     // gateway): without it the transfer flow precondition says the free tier is
     // unavailable, so force the gate on for this child.
@@ -295,11 +428,19 @@ export class HermesAdminController {
     child.stderr?.on("data", (d: Buffer) => { buf += d.toString(); scrape(); });
     child.on("close", (code) => {
       signInChild = null;
+      if (movedShared) {
+        if (code === 0) {
+          void fs.rm(asidePath, { force: true });
+        } else {
+          void fs.rename(asidePath, sharedPath).catch(() => {});
+        }
+      }
       const tail = buf.trim().split("\n").filter(Boolean).pop() ?? "";
       signInState = { phase: "done", link: signInState.link, code: signInState.code, message: code === 0 ? "" : tail };
     });
     child.on("error", (err) => {
       signInChild = null;
+      if (movedShared) void fs.rename(asidePath, sharedPath).catch(() => {});
       signInState = { phase: "done", message: err.message };
     });
     return signInState;
