@@ -196,24 +196,43 @@ async function setupHermesAgent(releaseDir) {
     return;
   }
   const hermesBin = join(hermesDir, ".venv", "bin", "hermes");
+  // hermes-agent declares its ENTIRE core dependency list with
+  // `python_version >= '3.14'` markers; on Ubuntu 24.04's python3.12 pip
+  // silently skips all of them and still exits 0. Those are the exact
+  // packages the gateway actually imports, so install them explicitly and
+  // enforce them with an import check -- otherwise a fresh release's venv
+  // ships without rich/httpx/ruamel and the gateway dies on startup.
+  const runtimeDeps =
+    "rich python-dotenv 'httpx[socks]==0.28.1' psutil 'ruamel.yaml>=0.18,<1' 'aiohttp>=3.9,<4'";
+  const verify = () =>
+    run(
+      `.venv/bin/python -c "import rich, dotenv, httpx, psutil, ruamel.yaml, aiohttp, hermes_cli"`,
+      hermesDir
+    );
   if (existsSync(hermesBin)) {
-    log("Hermes agent already installed");
-    return;
+    try {
+      verify();
+      log("Hermes agent already installed");
+      return;
+    } catch {
+      log("Hermes venv present but missing runtime deps -- repairing");
+      run(`.venv/bin/pip install -e '.[all]' ${runtimeDeps}`, hermesDir);
+    }
+  } else {
+    log("Setting up Hermes agent...");
+    // Create venv and install hermes-agent with all dependencies
+    run("python3 -m venv .venv", hermesDir);
+    run(`.venv/bin/pip install -e '.[all]' ${runtimeDeps}`, hermesDir);
   }
-  log("Setting up Hermes agent...");
-  // Create venv and install hermes-agent with all dependencies
-  run("python3 -m venv .venv", hermesDir);
-  run(".venv/bin/pip install -e '.[all]'", hermesDir);
-  // `[all]` deliberately excludes the messaging extra (aiohttp etc.), which
-  // the gateway's REST API server platform needs; rich/dotenv/httpx/psutil/
-  // ruamel.yaml are runtime deps a fresh venv wouldn't otherwise carry.
-  // Installing them explicitly keeps a fresh release venv able to serve :8642.
-  run(
-    ".venv/bin/pip install 'aiohttp>=3.9,<4' rich python-dotenv httpx psutil 'ruamel.yaml>=0.18,<1'",
-    hermesDir
-  );
   if (!existsSync(hermesBin)) {
     throw new Error(`Hermes binary not found at ${hermesBin} after install`);
+  }
+  try {
+    verify();
+  } catch (err) {
+    throw new Error(
+      `Hermes venv at ${hermesDir}/.venv cannot import gateway runtime deps: ${err.message}`
+    );
   }
   log("Hermes agent installed successfully");
 }
