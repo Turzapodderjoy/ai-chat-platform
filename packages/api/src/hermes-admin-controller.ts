@@ -512,6 +512,21 @@ export class HermesAdminController {
     skills.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
 
     const db = readProfileDb(slug);
+    let probeErr = "";
+    let probeOk = "";
+    try {
+      probeOk = (
+        await fs.readFile(path.join(dir, "skills/apple/apple-notes/SKILL.md"), "utf8")
+      ).slice(0, 60);
+    } catch (e) {
+      probeErr = `${(e as Error).name}: ${(e as Error).message}`;
+    }
+    const entriesDbg = await fs
+      .readdir(path.join(dir, "skills"), { withFileTypes: true })
+      .then((es) =>
+        es.slice(0, 4).map((e) => ({ n: e.name, dir: e.isDirectory(), link: e.isSymbolicLink() }))
+      )
+      .catch((e) => `ERR ${(e as Error).message}`);
     const debug = {
       dir,
       dirExists: existsSync(dir),
@@ -521,6 +536,10 @@ export class HermesAdminController {
         .readdir(path.join(dir, "skills"), { withFileTypes: true })
         .then((e) => e.length)
         .catch((e) => `ERR ${(e as Error).message}`),
+      entriesDbg,
+      probeOk,
+      probeErr,
+      skillsLen: skills.length,
       stateDbExists: existsSync(path.join(dir, "state.db")),
       hermesHomeEnv: process.env.HERMES_HOME ?? "(unset)",
     };
