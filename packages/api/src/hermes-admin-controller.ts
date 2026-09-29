@@ -160,7 +160,7 @@ async function queryStateDb(
   for (const key of Object.keys(queries)) empty[key] = [];
   if (!existsSync(file)) return empty;
   try {
-    const { stdout } = await execFileAsync("python3", [SQLITE_READ_SCRIPT, file, JSON.stringify(queries)], {
+    const { stdout } = await execFileAsync("python3", ["-c", SQLITE_READ_SCRIPT, file, JSON.stringify(queries)], {
       timeout: 15_000,
       maxBuffer: 8 * 1024 * 1024,
     });
