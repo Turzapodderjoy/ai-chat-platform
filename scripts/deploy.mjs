@@ -203,10 +203,10 @@ async function setupHermesAgent(releaseDir) {
   // enforce them with an import check -- otherwise a fresh release's venv
   // ships without rich/httpx/ruamel and the gateway dies on startup.
   const runtimeDeps =
-    "rich python-dotenv 'httpx[socks]==0.28.1' psutil 'ruamel.yaml>=0.18,<1' 'aiohttp>=3.9,<4'";
+    "rich python-dotenv 'httpx[socks]==0.28.1' psutil 'ruamel.yaml>=0.18,<1' 'aiohttp>=3.9,<4' 'openai==2.24.0'";
   const verify = () =>
     run(
-      `.venv/bin/python -c "import rich, dotenv, httpx, psutil, ruamel.yaml, aiohttp, hermes_cli"`,
+      `.venv/bin/python -c "import rich, dotenv, httpx, psutil, ruamel.yaml, aiohttp, openai, hermes_cli"`,
       hermesDir
     );
   if (existsSync(hermesBin)) {

@@ -17,7 +17,15 @@ import { fileURLToPath } from "node:url";
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 8642;
-const DEFAULT_MODEL = "nous/welcome";
+// The Nous Portal account runs on the free tier, which has $0 credits: every
+// paid model (including the account's own recommended default) answers with
+// "insufficient_credits_for_paid_model". The `:free` models are the only ones
+// that actually work, so that is the platform-wide default.
+const DEFAULT_MODEL = "upstage/solar-pro4:free";
+// The gateway IGNORES the requested model unless the request names a provider --
+// without it, it silently uses the account default and the free model is never
+// honored. Always send one.
+const DEFAULT_PROVIDER = "nous";
 
 // Repo root from this file's position: packages/hermes/src -> <repo>.
 const REPO_ROOT = path.resolve(
@@ -177,9 +185,10 @@ export async function hermesChat(args: HermesChatArgs): Promise<HermesChatResult
   // Admin-set model/provider override (AIVA_MODEL/AIVA_PROVIDER in the
   // profile's .env) wins over the caller default; explicit `args.model`
   // wins over everything. The gateway honors per-request model/provider.
-  const effectiveModel = args.model ?? env.aivaModel ?? DEFAULT_MODEL;
-  const effectiveProvider = env.aivaProvider;
-  const overrideInPlay = effectiveModel !== DEFAULT_MODEL || Boolean(effectiveProvider);
+  const modelOverride = args.model ?? env.aivaModel;
+  const effectiveModel = modelOverride ?? DEFAULT_MODEL;
+  const effectiveProvider = env.aivaProvider ?? DEFAULT_PROVIDER;
+  const overrideInPlay = Boolean(modelOverride || env.aivaProvider);
 
   const post = (body: { model: string; provider?: string }): Promise<Response> =>
     fetch(endpointFor(args.tenant), {
@@ -198,9 +207,13 @@ export async function hermesChat(args: HermesChatArgs): Promise<HermesChatResult
   // wedge a customer conversation — fall back to the gateway's safe
   // default once. The gateway sometimes returns 200 with the error as the
   // answer text, so a degraded-looking answer counts as "failed" too.
+  // "requires available credits" is the free-tier answer when someone pins a
+  // PAID model, which the free default also fixes.
   const isDegraded = (answer: string, res: Response): boolean =>
     !res.ok ||
-    /^⚠️|Provider authentication failed|Unknown provider|Unknown model/i.test(answer);
+    /^⚠️|Provider authentication failed|Unknown provider|Unknown model|Billing or credits exhausted|requires available credits/i.test(
+      answer
+    );
 
   let res = await post({
     model: effectiveModel,
@@ -212,7 +225,7 @@ export async function hermesChat(args: HermesChatArgs): Promise<HermesChatResult
   answer = data?.choices?.[0]?.message?.content ?? "";
 
   if (overrideInPlay && isDegraded(answer, res)) {
-    res = await post({ model: DEFAULT_MODEL });
+    res = await post({ model: DEFAULT_MODEL, provider: DEFAULT_PROVIDER });
     data = res.ok ? ((await res.json().catch(() => null)) as HermesCompletionResponse | null) : null;
     answer = data?.choices?.[0]?.message?.content ?? "";
   }
