@@ -165,7 +165,10 @@ async function queryStateDb(
       maxBuffer: 8 * 1024 * 1024,
     });
     return { ...empty, ...(JSON.parse(stdout) as Record<string, Array<Record<string, unknown>>>) };
-  } catch {
+  } catch (err) {
+    // Never swallow this silently — a broken state read looks exactly like
+    // "this agent has no activity", which is a miserable thing to debug.
+    console.error("[hermes] state.db read failed", { file, err: (err as Error).message });
     return empty;
   }
 }
