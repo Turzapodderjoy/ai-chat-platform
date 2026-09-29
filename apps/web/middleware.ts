@@ -23,6 +23,7 @@ const CLIENT_COOKIE = "client_session";
 const ADMIN_COOKIE = "admin_session";
 
 export default async function middleware(req: NextRequest) {
+  console.log("[middleware] path:", req.nextUrl.pathname, "clientToken:", req.cookies.get("client_session")?.value?.slice(0, 10));
   const fixedAdmin = verifyAdminToken(req.cookies.get(ADMIN_COOKIE)?.value);
 
   const clientToken = req.cookies.get(CLIENT_COOKIE)?.value;
