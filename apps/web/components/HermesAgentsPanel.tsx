@@ -25,6 +25,7 @@ interface HermesAgent {
   model: string | null;
   provider: string | null;
   soul: string | null;
+  apiKey: string | null;
   businesses: HermesAgentBusiness[];
 }
 
@@ -411,6 +412,7 @@ export function HermesAgentsPanel() {
                   {agent.model ?? "default model"}
                   {agent.provider ? ` · ${agent.provider}` : ""}
                 </div>
+                {agent.apiKey && <ApiKeyRow slug={agent.slug} apiKey={agent.apiKey} />}
                 {agent.businesses.length > 0 ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
                     <div style={subtleTextStyle}>Used by:</div>
@@ -477,6 +479,40 @@ export function HermesAgentsPanel() {
           <div style={subtleTextStyle}>No agents yet — create one above.</div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ApiKeyRow({ slug, apiKey }: { slug: string; apiKey: string }) {
+  const [copied, setCopied] = useState(false);
+  const truncated = `${apiKey.slice(0, 9)}…${apiKey.slice(-4)}`;
+  return (
+    <div
+      style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, fontSize: 12 }}
+      onClick={(e) => e.stopPropagation()}
+      title={`API key for '${slug}' — used to call /p/${slug}/v1/chat/completions`}
+    >
+      <span style={{ color: "var(--text-muted)", flexShrink: 0 }}>API key:</span>
+      <code style={{ fontFamily: "monospace", fontSize: 11.5, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{truncated}</code>
+      <button
+        type="button"
+        className="plain"
+        style={{ fontSize: 11, padding: "2px 8px", flexShrink: 0, color: copied ? "var(--success, #34a853)" : "var(--accent)" }}
+        onClick={(e) => {
+          e.stopPropagation();
+          navigator.clipboard?.writeText(apiKey).then(
+            () => {
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            },
+            () => {
+              /* clipboard unavailable — fall back to a prompt */
+            }
+          );
+        }}
+      >
+        {copied ? "copied ✓" : "copy"}
+      </button>
     </div>
   );
 }

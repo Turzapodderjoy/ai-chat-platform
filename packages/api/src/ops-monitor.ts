@@ -24,17 +24,24 @@ import { probeTcp, dirSize } from "./system-map";
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const HERMES_HOME = hermesHome();
 const PROFILES_DIR = path.join(HERMES_HOME, "profiles");
-const OPS_DIR = path.join(REPO_ROOT, "data", "ops");
+// State (ops ledger + tunnel-url) lives in a durable directory. Local dev
+// defaults to <repo>/data; production sets AIVA_STATE_DIR (e.g.
+// /opt/aiva/ops) so history survives release rollouts instead of resetting
+// every deploy.
+const STATE_DIR = process.env.AIVA_STATE_DIR || path.join(REPO_ROOT, "data");
+const OPS_DIR = path.join(STATE_DIR, "ops");
 const OPS_LOG = path.join(OPS_DIR, "ops.jsonl");
-const SYSTEM_DIR = path.join(REPO_ROOT, "data", "system");
+const SYSTEM_DIR = path.join(STATE_DIR, "system");
 const TUNNEL_URL_FILE = path.join(SYSTEM_DIR, "tunnel-url");
 const PGDATA = path.join(REPO_ROOT, "..", "local-postgres", "pgdata");
 const PG_LOG = path.join(REPO_ROOT, "..", "local-postgres", "pg.log");
-const TUNNEL_BIN = "/tmp/opencode/cloudflared";
-const TUNNEL_LOG = "/tmp/opencode/cloudflared.log";
+const TUNNEL_BIN = process.env.AIVA_TUNNEL_BIN || "/tmp/opencode/cloudflared";
+const TUNNEL_LOG = process.env.AIVA_TUNNEL_LOG || "/tmp/opencode/cloudflared.log";
 const CACHE_DIRS = ["cache", "image_cache", "audio_cache"];
 const GATEWAY_PORT = Number(process.env.HERMES_PORT || 8642);
-const WEB_PORT = 3000;
+// The web app's own listen port. Next dev runs 3000; the VPS runs 3001 — the
+// monitor must probe the real one or the "AIVA app" check lies forever.
+const WEB_PORT = Number(process.env.AIVA_WEB_PORT || 3000);
 const PG_PORT = 5432;
 
 const HEARTBEAT_MS = 60_000;

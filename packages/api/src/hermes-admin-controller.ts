@@ -85,6 +85,11 @@ export interface HermesAgentSummary {
   model: string | null;
   provider: string | null;
   soul: string | null;
+  /** API_SERVER_KEY from the profile .env — admin-only, shown so the key is
+   *  recoverable without re-provisioning (the panel shows it with a copy
+   *  button). Never emitted to client sessions: /api/admin/hermes-agents is
+   *  gated to the fixed admin cookie. */
+  apiKey: string | null;
   businesses: Array<{ id: string; name: string; slug: string; hermesEnabled: boolean }>;
 }
 
@@ -252,6 +257,7 @@ export class HermesAdminController {
         model: readEnvValue(envRaw, "AIVA_MODEL"),
         provider: readEnvValue(envRaw, "AIVA_PROVIDER"),
         soul,
+        apiKey: readEnvValue(envRaw, "API_SERVER_KEY"),
         businesses: businesses.filter((b) => b.hermesProfile === slug).map((b) => ({
           id: b.id,
           name: b.name,

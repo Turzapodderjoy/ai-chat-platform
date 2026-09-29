@@ -90,10 +90,13 @@ export function ModelSelector({
     }
   }
 
-  // Open the panel → initial fetch; keep it fresh while open (live, like Hermes).
+  // Open the panel → force the gateway to re-probe provider auth on the first
+  // fetch (refresh=true), so a freshly authorized account shows up immediately
+  // instead of serving the gateway's cached "signed out" catalog. After that,
+  // keep it fresh while open (live, like Hermes) via plain cache reads.
   useEffect(() => {
     if (!open) return;
-    void load(false);
+    void load(true);
     const t = setInterval(() => void load(false), 45_000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps

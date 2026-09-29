@@ -133,6 +133,92 @@ interface Client {
 
 const TAB_IDS = NAV_GROUPS.flatMap((g) => g.items.map((i) => i.id));
 
+interface OpsCheck {
+  component: string;
+  label: string;
+  status: "ok" | "warning" | "down";
+  message: string;
+  autoFixed?: boolean;
+}
+interface OpsSnapshot {
+  checks: OpsCheck[];
+}
+
+const OPS_STATUS_COLOR: Record<string, string> = { warning: "#f59e0b", down: "#ef4444" };
+
+/** IT Guy's alert strip — polls /api/admin/ops and surfaces anything that is
+ *  not fully healthy right on the dashboard, with a jump straight into the IT
+ *  Guy tab. This is how the "whole IT team" gets our attention instead of
+ *  staying hidden inside its own panel. */
+function ItGuyAlertBanner({ onGoto }: { onGoto: () => void }) {
+  const [issues, setIssues] = useState<OpsCheck[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    const poll = () => {
+      fetch("/api/admin/ops")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((s: OpsSnapshot | null) => {
+          if (alive && s) {
+            setIssues((s.checks ?? []).filter((c) => c.status !== "ok" && c.status !== undefined));
+          }
+        })
+        .catch(() => {
+          /* transient — keep last state */
+        });
+    };
+    poll();
+    const id = setInterval(poll, 30_000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
+
+  if (issues.length === 0) return null;
+  return (
+    <div
+      style={{
+        marginBottom: 14,
+        padding: "10px 14px",
+        borderRadius: 12,
+        background: "rgba(245,158,11,0.12)",
+        border: "1px solid rgba(245,158,11,0.45)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        fontSize: 13,
+      }}
+    >
+      <span>
+        ⚠️ <b>IT Guy:</b>{" "}
+        {issues.map((c, i) => (
+          <span key={c.component}>
+            {i > 0 && " · "}
+            <span style={{ color: OPS_STATUS_COLOR[c.status] ?? "#f59e0b" }}>{c.label}</span>{" "}
+            {c.status === "down" ? "down" : "warning"}
+          </span>
+        ))}
+      </span>
+      <button
+        onClick={onGoto}
+        style={{
+          ...primaryButtonStyle,
+          fontSize: 11,
+          padding: "4px 10px",
+          background: "rgba(245,158,11,0.9)",
+          color: "#1a1205",
+          borderColor: "transparent",
+          flexShrink: 0,
+        }}
+      >
+        Inspect in IT Guy
+      </button>
+    </div>
+  );
+}
+
 export default function DashboardClient() {
   const [tab, setTab] = useState<Tab>("overview");
   const [username, setUsername] = useState<string | null>(null);
@@ -184,6 +270,7 @@ export default function DashboardClient() {
       onLogout={logout}
       fillHeight={tab === "allchats"}
     >
+      <ItGuyAlertBanner onGoto={() => selectTab("itguy")} />
       {/* Every panel stays mounted (hidden via CSS, not unmounted) so
           switching tabs never wipes a panel's local state. */}
       <div style={{ display: tab === "overview" ? "block" : "none" }}>

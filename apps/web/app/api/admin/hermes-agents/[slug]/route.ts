@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { verifyAdminToken } from "@ai-chat-platform/client-auth";
+
 import { getApp } from "../../../../../lib/app";
 
+const ADMIN_COOKIE = "admin_session";
+
+function authorized(req: NextRequest): boolean {
+  return verifyAdminToken(req.cookies.get(ADMIN_COOKIE)?.value ?? "");
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+  if (!authorized(req)) return NextResponse.json({ error: "Not authorized." }, { status: 401 });
   const app = await getApp();
   const { slug } = await params;
   const body = (await req.json().catch(() => ({}))) as { soul?: string; model?: string; provider?: string };
@@ -14,7 +23,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ sl
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+  if (!authorized(req)) return NextResponse.json({ error: "Not authorized." }, { status: 401 });
   const app = await getApp();
   const { slug } = await params;
   try {
