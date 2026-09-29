@@ -1,23 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { verifyAdminToken } from "@ai-chat-platform/client-auth";
-
 import { getApp } from "../../../../lib/app";
-
-const ADMIN_COOKIE = "admin_session";
+import { isAdminRequest } from "../../../../lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
 /** The Control Room's agent roster, for the panel's context line. */
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!(await isAdminRequest(req))) return NextResponse.json({ error: "Not authorized." }, { status: 401 });
   const app = await getApp();
   return NextResponse.json({ agents: await app.container.router.hermesControl.agents() });
 }
 
 /** One admin message to the Hermes Control Room. Admin-only (proxied). */
 export async function POST(req: NextRequest) {
-  const rawCookie = req.cookies.get(ADMIN_COOKIE)?.value ?? "";
-  if (!verifyAdminToken(rawCookie)) {
+  if (!(await isAdminRequest(req))) {
     return NextResponse.json({ error: "Not authorized." }, { status: 401 });
   }
 
@@ -29,8 +26,11 @@ export async function POST(req: NextRequest) {
   const mode = body.mode === "itguy" ? "itguy" : "control";
 
   // A stable per-login session key so the admin's thread with Hermes keeps
-  // its memory across turns without anything DB-side.
-  const sessionKey = rawCookie.replace(/[^a-zA-Z0-9-_.]/g, "").slice(0, 32) || "console";
+  // its memory across turns without anything DB-side. DB admins carry
+  // client_session (not admin_session), so fall back to that for them.
+  const adminRaw = req.cookies.get("admin_session")?.value ?? "";
+  const clientRaw = req.cookies.get("client_session")?.value ?? "";
+  const sessionKey = (adminRaw || clientRaw).replace(/[^a-zA-Z0-9-_.]/g, "").slice(0, 32) || "console";
 
   try {
     const app = await getApp();

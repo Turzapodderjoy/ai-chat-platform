@@ -1,20 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { verifyAdminToken } from "@ai-chat-platform/client-auth";
-
 import { getApp } from "../../../../lib/app";
-
-const ADMIN_COOKIE = "admin_session";
+import { isAdminRequest } from "../../../../lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
-function authorized(req: NextRequest): boolean {
-  return verifyAdminToken(req.cookies.get(ADMIN_COOKIE)?.value ?? "");
-}
-
 /** Model-picker inventory (gateway /api/model/options) and sign-in status. */
 export async function GET(req: NextRequest) {
-  if (!authorized(req)) return NextResponse.json({ error: "Not authorized." }, { status: 401 });
+  if (!(await isAdminRequest(req))) return NextResponse.json({ error: "Not authorized." }, { status: 401 });
   const app = await getApp();
   const params = req.nextUrl.searchParams;
   if (params.get("signin") === "1") {
@@ -33,7 +26,7 @@ export async function GET(req: NextRequest) {
 
 /** Kick off the Nous device-code sign-in (one flow at a time). */
 export async function POST(req: NextRequest) {
-  if (!authorized(req)) return NextResponse.json({ error: "Not authorized." }, { status: 401 });
+  if (!(await isAdminRequest(req))) return NextResponse.json({ error: "Not authorized." }, { status: 401 });
   const app = await getApp();
   const body = (await req.json().catch(() => ({}))) as { action?: string; slug?: string };
   if (body.action !== "signin-start") {

@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { checkAdminCredentials, verifyAdminToken } from "@ai-chat-platform/client-auth";
+import { checkAdminCredentials } from "@ai-chat-platform/client-auth";
 
 import { getApp } from "../../../../lib/app";
-
-const ADMIN_COOKIE = "admin_session";
+import { isAdminRequest } from "../../../../lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
 /** Live ops status (checks, pending approvals, recent ledger). Admin-only. */
 export async function GET(req: NextRequest) {
-  const rawCookie = req.cookies.get(ADMIN_COOKIE)?.value ?? "";
-  if (!verifyAdminToken(rawCookie)) {
+  if (!(await isAdminRequest(req))) {
     return NextResponse.json({ error: "Not authorized." }, { status: 401 });
   }
   try {
@@ -34,8 +32,7 @@ export async function GET(req: NextRequest) {
  *     against the admin credentials, then execute/deny.
  */
 export async function POST(req: NextRequest) {
-  const rawCookie = req.cookies.get(ADMIN_COOKIE)?.value ?? "";
-  if (!verifyAdminToken(rawCookie)) {
+  if (!(await isAdminRequest(req))) {
     return NextResponse.json({ error: "Not authorized." }, { status: 401 });
   }
 

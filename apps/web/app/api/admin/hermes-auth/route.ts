@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getApp } from "../../../../lib/app";
+import { isAdminRequest } from "../../../../lib/admin-auth";
 
+export const dynamic = "force-dynamic";
+
+// Platform AI accounts are shared secrets (the pool all agents inherit) —
+// mutating them stays admin-only, same gate as the rest of the platform.
 export async function GET(req: NextRequest) {
+  if (!(await isAdminRequest(req))) return NextResponse.json({ error: "Not authorized." }, { status: 401 });
   const app = await getApp();
   if (new URL(req.url).searchParams.get("signin") === "1") {
     return NextResponse.json(app.container.router.hermes.signInStatus());
@@ -11,6 +17,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await isAdminRequest(req))) return NextResponse.json({ error: "Not authorized." }, { status: 401 });
   const app = await getApp();
   const body = (await req.json().catch(() => ({}))) as {
     action?: string;
