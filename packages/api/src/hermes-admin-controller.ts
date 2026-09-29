@@ -144,11 +144,15 @@ const SQLITE_READ_SCRIPT = [
   "db = sqlite3.connect('file:' + sys.argv[1] + '?mode=ro', uri=True, timeout=2)",
   "db.row_factory = sqlite3.Row",
   "out = {}",
+  "errs = {}",
   "for key, sql in json.loads(sys.argv[2]).items():",
   "    try:",
   "        out[key] = [dict(r) for r in db.execute(sql).fetchall()]",
-  "    except Exception:",
+  "    except Exception as e:",
   "        out[key] = []",
+  "        errs[key] = '%s: %s' % (type(e).__name__, e)",
+  "if errs:",
+  "    print(json.dumps({'__errors__': errs}), file=sys.stderr)",
   "print(json.dumps(out))",
 ].join("\n");
 
@@ -160,10 +164,14 @@ async function queryStateDb(
   for (const key of Object.keys(queries)) empty[key] = [];
   if (!existsSync(file)) return empty;
   try {
-    const { stdout } = await execFileAsync("python3", ["-c", SQLITE_READ_SCRIPT, file, JSON.stringify(queries)], {
-      timeout: 15_000,
-      maxBuffer: 8 * 1024 * 1024,
-    });
+    const { stdout, stderr } = await execFileAsync(
+      "python3",
+      ["-c", SQLITE_READ_SCRIPT, file, JSON.stringify(queries)],
+      { timeout: 15_000, maxBuffer: 8 * 1024 * 1024 }
+    );
+    if (stderr.includes("__errors__")) {
+      console.error("[hermes] state.db partial read", { file, stderr: stderr.trim().slice(0, 500) });
+    }
     return { ...empty, ...(JSON.parse(stdout) as Record<string, Array<Record<string, unknown>>>) };
   } catch (err) {
     // Never swallow this silently — a broken state read looks exactly like
