@@ -133,58 +133,38 @@ async function freshKey(): Promise<string> {
   return stdout.trim();
 }
 
-/**
- * Read-only access to a profile's state.db via node:sqlite (built in, no
- * dep). A missing/locked DB degrades to empty results instead of throwing —
- * insights must never 500 an agent that simply hasn't been talked to yet.
- * ponytail: synchronous is fine here; these queries are single-row aggregates.
- */
-function readProfileDb(slug: string): {
-  all: <T = Record<string, unknown>>(sql: string) => T[];
-  one: <T = Record<string, unknown>>(sql: string) => T | null;
-  close: () => void;
-} {
-  const empty = {
-    all: <T,>(_sql: string): T[] => [],
-    one: <T,>(_sql: string): T | null => null,
-    close: (): void => {},
-  };
-  const file = path.join(profileDir(slug), "state.db");
+// Reads a profile's state.db through python3's stdlib sqlite3. node:sqlite
+// is flag-gated on Node 22 (--experimental-sqlite) and silently absent
+// otherwise, which made every aggregate come back empty; python3 is already a
+// hard dependency here (the Hermes CLI is python). A missing/locked DB or any
+// failed query degrades to an empty result instead of throwing — insights must
+// never 500 an agent that simply hasn't been talked to yet.
+const SQLITE_READ_SCRIPT = [
+  "import json, sqlite3, sys",
+  "db = sqlite3.connect('file:' + sys.argv[1] + '?mode=ro', uri=True, timeout=2)",
+  "db.row_factory = sqlite3.Row",
+  "out = {}",
+  "for key, sql in json.loads(sys.argv[2]).items():",
+  "    try:",
+  "        out[key] = [dict(r) for r in db.execute(sql).fetchall()]",
+  "    except Exception:",
+  "        out[key] = []",
+  "print(json.dumps(out))",
+].join("\n");
+
+async function queryStateDb(
+  file: string,
+  queries: Record<string, string>
+): Promise<Record<string, Array<Record<string, unknown>>>> {
+  const empty: Record<string, Array<Record<string, unknown>>> = {};
+  for (const key of Object.keys(queries)) empty[key] = [];
   if (!existsSync(file)) return empty;
   try {
-    // Lazy + require: node:sqlite is experimental and only needed when an
-    // admin opens an agent's Insights tab.
-    const { DatabaseSync } = require("node:sqlite") as typeof import("node:sqlite");
-    const db = new DatabaseSync(file, { readOnly: true });
-    try {
-      // The live gateway may hold a write lock; don't fail fast on it.
-      db.exec("PRAGMA busy_timeout=2000");
-    } catch {
-      /* advisory only */
-    }
-    return {
-      all: <T,>(sql: string): T[] => {
-        try {
-          return db.prepare(sql).all() as T[];
-        } catch {
-          return [];
-        }
-      },
-      one: <T,>(sql: string): T | null => {
-        try {
-          return (db.prepare(sql).get() as T | undefined) ?? null;
-        } catch {
-          return null;
-        }
-      },
-      close: (): void => {
-        try {
-          db.close();
-        } catch {
-          /* already closed */
-        }
-      },
-    };
+    const { stdout } = await execFileAsync("python3", [SQLITE_READ_SCRIPT, file, JSON.stringify(queries)], {
+      timeout: 15_000,
+      maxBuffer: 8 * 1024 * 1024,
+    });
+    return { ...empty, ...(JSON.parse(stdout) as Record<string, Array<Record<string, unknown>>>) };
   } catch {
     return empty;
   }
@@ -485,139 +465,79 @@ export class HermesAdminController {
     // under skills/ (both skills/<name> and skills/<category>/<name> exist).
     const skills: Array<{ name: string; category: string; description: string }> = [];
     const skillsRoot = path.join(dir, "skills");
-    const c = { entries: 0, dirs: 0, subs: 0, subDirs: 0, mdOk: 0, mdEmpty: 0, readErr: 0, directHit: 0 };
     if (existsSync(skillsRoot)) {
       for (const entry of await fs.readdir(skillsRoot, { withFileTypes: true })) {
-        c.entries++;
         if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
-        c.dirs++;
         const catDir = path.join(skillsRoot, entry.name);
-        const read = async (root: string, name: string, category: string): Promise<void> => {
-          let md = "";
-          try {
-            md = await fs.readFile(path.join(root, "SKILL.md"), "utf8");
-          } catch {
-            c.readErr++;
-            return;
-          }
-          if (!md.trim()) {
-            c.mdEmpty++;
-            return;
-          }
-          c.mdOk++;
-          const description = md.match(/^description:\s*(.+)$/m)?.[1]?.trim() ?? "";
-          skills.push({ name, category, description });
-        };
+        const descriptionOf = (md: string): string =>
+          md.match(/^description:\s*(.+)$/m)?.[1]?.trim() ?? "";
+        // A category dir can be a skill itself (skills/<name>/SKILL.md) or hold
+        // several (skills/<category>/<name>/SKILL.md). Hermes' bundled skills
+        // use the category form, so support both.
         const direct = await fs.readFile(path.join(catDir, "SKILL.md"), "utf8").catch(() => "");
         if (direct.trim()) {
-          c.directHit++;
-          skills.push({
-            name: entry.name,
-            category: "general",
-            description: direct.match(/^description:\s*(.+)$/m)?.[1]?.trim() ?? "",
-          });
+          skills.push({ name: entry.name, category: "general", description: descriptionOf(direct) });
           continue;
         }
-        c.subs++;
         const subEntries = await fs.readdir(catDir, { withFileTypes: true }).catch(() => []);
         for (const sub of subEntries) {
-          if (sub.isDirectory() && !sub.name.startsWith(".")) {
-            c.subDirs++;
-            await read(catDir, sub.name, entry.name);
-          }
+          if (!sub.isDirectory() || sub.name.startsWith(".")) continue;
+          const md = await fs
+            .readFile(path.join(catDir, sub.name, "SKILL.md"), "utf8")
+            .catch(() => "");
+          if (md.trim()) skills.push({ name: sub.name, category: entry.name, description: descriptionOf(md) });
         }
       }
     }
     skills.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
 
-    const db = readProfileDb(slug);
-    let probeErr = "";
-    let probeOk = "";
-    try {
-      probeOk = (
-        await fs.readFile(path.join(dir, "skills/apple/apple-notes/SKILL.md"), "utf8")
-      ).slice(0, 60);
-    } catch (e) {
-      probeErr = `${(e as Error).name}: ${(e as Error).message}`;
-    }
-    const entriesDbg = await fs
-      .readdir(path.join(dir, "skills"), { withFileTypes: true })
-      .then((es) =>
-        es.slice(0, 4).map((e) => ({ n: e.name, dir: e.isDirectory(), link: e.isSymbolicLink() }))
-      )
-      .catch((e) => `ERR ${(e as Error).message}`);
-    const debug = {
-      dir,
-      dirExists: existsSync(dir),
-      skillsRoot: path.join(dir, "skills"),
-      skillsRootExists: existsSync(path.join(dir, "skills")),
-      readdir: await fs
-        .readdir(path.join(dir, "skills"), { withFileTypes: true })
-        .then((e) => e.length)
-        .catch((e) => `ERR ${(e as Error).message}`),
-      entriesDbg,
-      probeOk,
-      probeErr,
-      skillsLen: skills.length,
-      c,
-      stateDbExists: existsSync(path.join(dir, "state.db")),
-      hermesHomeEnv: process.env.HERMES_HOME ?? "(unset)",
-    };
-    try {
-      const totals = db.one<Record<string, number | null>>(`SELECT
-          (SELECT count(*) FROM sessions)  AS sessions,
-          (SELECT count(*) FROM messages) AS messages,
-          (SELECT min(timestamp) FROM messages) AS first_ts,
-          (SELECT max(timestamp) FROM messages) AS last_ts`);
-      const usage = db.one<Record<string, number | null>>(`SELECT
-          coalesce(sum(api_call_count),0)    AS calls,
-          coalesce(sum(input_tokens),0)      AS input_tokens,
-          coalesce(sum(output_tokens),0)     AS output_tokens,
-          coalesce(sum(cache_read_tokens),0) AS cache_read_tokens`);
-
-      if (view === "raw") {
-        return {
-          slug,
-          raw: true,
-          debug,
-          totals,
-          usage,
-          messages: db.all(
-            `SELECT id, session_id, role, substr(content,1,400) AS content, timestamp
-             FROM messages ORDER BY timestamp DESC LIMIT 50`
-          ),
-          usageRows: db.all(
-            `SELECT session_id, model, task, api_call_count, input_tokens, output_tokens
-             FROM session_model_usage ORDER BY rowid DESC LIMIT 25`
-          ),
+    // One python3 hop for the SQLite aggregates. node:sqlite exists but is
+    // flag-gated on Node 22 (--experimental-sqlite), and python3 is already a
+    // hard dependency of the Hermes CLI we shell out to anyway.
+    const stateDb = path.join(dir, "state.db");
+    const want: Record<string, string> = view === "raw"
+      ? {
+          totals: `SELECT (SELECT count(*) FROM sessions) AS sessions, (SELECT count(*) FROM messages) AS messages, (SELECT min(timestamp) FROM messages) AS first_ts, (SELECT max(timestamp) FROM messages) AS last_ts`,
+          usage: `SELECT coalesce(sum(api_call_count),0) AS calls, coalesce(sum(input_tokens),0) AS input_tokens, coalesce(sum(output_tokens),0) AS output_tokens, coalesce(sum(cache_read_tokens),0) AS cache_read_tokens`,
+          messages: `SELECT id, session_id, role, substr(content,1,400) AS content, timestamp FROM messages ORDER BY timestamp DESC LIMIT 50`,
+          usageRows: `SELECT session_id, model, task, api_call_count, input_tokens, output_tokens FROM session_model_usage ORDER BY rowid DESC LIMIT 25`,
+        }
+      : {
+          totals: `SELECT (SELECT count(*) FROM sessions) AS sessions, (SELECT count(*) FROM messages) AS messages, (SELECT min(timestamp) FROM messages) AS first_ts, (SELECT max(timestamp) FROM messages) AS last_ts`,
+          usage: `SELECT coalesce(sum(api_call_count),0) AS calls, coalesce(sum(input_tokens),0) AS input_tokens, coalesce(sum(output_tokens),0) AS output_tokens, coalesce(sum(cache_read_tokens),0) AS cache_read_tokens`,
+          daily: `SELECT date(timestamp,'unixepoch') AS day, count(*) AS n FROM messages GROUP BY day ORDER BY day DESC LIMIT 14`,
+          lastUserMessages: `SELECT substr(content,1,240) AS content, timestamp FROM messages WHERE role='user' ORDER BY timestamp DESC LIMIT 5`,
         };
-      }
+    const rows = await queryStateDb(stateDb, want);
 
-      // Daily traffic for the last 14 days (the panel's activity sparkline).
-      const daily = db.all<{ day: string; n: number }>(
-        `SELECT date(timestamp,'unixepoch') AS day, count(*) AS n
-         FROM messages GROUP BY day ORDER BY day DESC LIMIT 14`
-      ).reverse();
+    const totals = (rows.totals?.[0] ?? null) as Record<string, number | null> | null;
+    const usage = (rows.usage?.[0] ?? null) as Record<string, number | null> | null;
 
+    if (view === "raw") {
       return {
         slug,
-        debug,
-        memory,
-        userMemory: user,
-        skills,
+        raw: true,
         totals,
         usage,
-        daily,
-        lastUserMessages: db
-          .all<{ content: string; timestamp: number }>(
-            `SELECT substr(content,1,240) AS content, timestamp
-             FROM messages WHERE role='user' ORDER BY timestamp DESC LIMIT 5`
-          )
-          .map((r) => ({ content: r.content, at: new Date(r.timestamp * 1000).toISOString() })),
+        messages: rows.messages ?? [],
+        usageRows: rows.usageRows ?? [],
       };
-    } finally {
-      db.close();
     }
+
+    return {
+      slug,
+      memory,
+      userMemory: user,
+      skills,
+      totals,
+      usage,
+      // newest-last so the sparkline reads left-to-right
+      daily: [...(rows.daily ?? [])].reverse(),
+      lastUserMessages: (rows.lastUserMessages ?? []).map((r) => ({
+        content: r.content,
+        at: new Date(Number(r.timestamp) * 1000).toISOString(),
+      })),
+    };
   }
 
   /** On-demand language training. See hermes-language-trainer for the caps. */
