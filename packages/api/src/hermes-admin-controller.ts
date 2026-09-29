@@ -150,7 +150,7 @@ const SQLITE_READ_SCRIPT = [
   "        out[key] = [dict(r) for r in db.execute(sql).fetchall()]",
   "    except Exception as e:",
   "        out[key] = []",
-  "        errs[key] = '%s: %s' % (type(e).__name__, e)",
+  "        errs[key] = '%s: %s | sql=%s' % (type(e).__name__, e, sql)",
   "if errs:",
   "    print(json.dumps({'__errors__': errs}), file=sys.stderr)",
   "print(json.dumps(out))",
@@ -170,7 +170,7 @@ async function queryStateDb(
       { timeout: 15_000, maxBuffer: 8 * 1024 * 1024 }
     );
     if (stderr.includes("__errors__")) {
-      console.error("[hermes] state.db partial read", { file, stderr: stderr.trim().slice(0, 500) });
+      console.error("[hermes] state.db partial read", { file, stderr: stderr.trim().slice(0, 900) });
     }
     return { ...empty, ...(JSON.parse(stdout) as Record<string, Array<Record<string, unknown>>>) };
   } catch (err) {
