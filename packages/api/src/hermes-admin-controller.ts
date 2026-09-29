@@ -21,6 +21,8 @@ import { promisify } from "node:util";
 import { prisma } from "@ai-chat-platform/database";
 import { hermesApiUrl, readProfileApiKey } from "@ai-chat-platform/hermes";
 
+import { trainLanguage, type TrainOptions, type TrainResult } from "./hermes-language-trainer";
+
 const execFileAsync = promisify(execFile);
 
 const REPO_ROOT = path.resolve(
@@ -131,6 +133,63 @@ async function freshKey(): Promise<string> {
   return stdout.trim();
 }
 
+/**
+ * Read-only access to a profile's state.db via node:sqlite (built in, no
+ * dep). A missing/locked DB degrades to empty results instead of throwing —
+ * insights must never 500 an agent that simply hasn't been talked to yet.
+ * ponytail: synchronous is fine here; these queries are single-row aggregates.
+ */
+function readProfileDb(slug: string): {
+  all: <T = Record<string, unknown>>(sql: string) => T[];
+  one: <T = Record<string, unknown>>(sql: string) => T | null;
+  close: () => void;
+} {
+  const empty = {
+    all: <T,>(_sql: string): T[] => [],
+    one: <T,>(_sql: string): T | null => null,
+    close: (): void => {},
+  };
+  const file = path.join(profileDir(slug), "state.db");
+  if (!existsSync(file)) return empty;
+  try {
+    // Lazy + require: node:sqlite is experimental and only needed when an
+    // admin opens an agent's Insights tab.
+    const { DatabaseSync } = require("node:sqlite") as typeof import("node:sqlite");
+    const db = new DatabaseSync(file, { readOnly: true });
+    try {
+      // The live gateway may hold a write lock; don't fail fast on it.
+      db.exec("PRAGMA busy_timeout=2000");
+    } catch {
+      /* advisory only */
+    }
+    return {
+      all: <T,>(sql: string): T[] => {
+        try {
+          return db.prepare(sql).all() as T[];
+        } catch {
+          return [];
+        }
+      },
+      one: <T,>(sql: string): T | null => {
+        try {
+          return (db.prepare(sql).get() as T | undefined) ?? null;
+        } catch {
+          return null;
+        }
+      },
+      close: (): void => {
+        try {
+          db.close();
+        } catch {
+          /* already closed */
+        }
+      },
+    };
+  } catch {
+    return empty;
+  }
+}
+
 function validateSlug(slug: string): void {
   if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(slug)) {
     throw new Error("Slug must be lowercase letters, digits and dashes (max 64 chars).");
@@ -138,6 +197,58 @@ function validateSlug(slug: string): void {
   if (RESERVED_SLUGS.has(slug)) {
     throw new Error(`'${slug}' is reserved.`);
   }
+}
+
+/** "Sales Rep" / "sales_rep!!" -> "sales-rep" (agent NAME, never a business name). */
+export function slugifyName(name: string): string {
+  return name
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+}
+
+export interface AgentBrief {
+  name: string;
+  role?: string;
+  jobDescription?: string;
+  audience?: string;
+  successDefinition?: string;
+  tone?: string;
+  languages?: string;
+  rules?: string;
+  examples?: string;
+}
+
+/**
+ * Compose a Hermes SOUL.md from the wizard's answers — deterministic, free,
+ * no model call. Each answer becomes a labelled block; omitted answers are
+ * skipped. The result is the agent's baseline persona, editable in the panel
+ * and refinable by the model on demand.
+ */
+export function composeSoul(brief: AgentBrief): string {
+  const parts: string[] = [
+    `You are ${brief.name.trim()}${brief.role?.trim() ? `, ${brief.role.trim()}` : ""}. ` +
+      `You are a trained, professional AI employee who does this job well and consistently.`,
+  ];
+  const block = (heading: string, body?: string): void => {
+    const text = (body ?? "").trim();
+    if (text) parts.push(`\n## ${heading}\n${text}`);
+  };
+  block("Your job", brief.jobDescription);
+  block("Who you talk to", brief.audience);
+  block("What a good day looks like", brief.successDefinition);
+  block("How you speak", brief.tone);
+  block("Languages", brief.languages);
+  block("Hard rules", brief.rules);
+  block("Example replies", brief.examples);
+  parts.push(
+    "\nStay in character, stay concise, and say plainly when you don't know something. " +
+      "Match the length of your reply to the weight of the ask."
+  );
+  return parts.join("\n");
 }
 
 export class HermesAdminController {
@@ -269,13 +380,12 @@ export class HermesAdminController {
     return out;
   }
 
-  async create(input: { slug: string; soul?: string }): Promise<{ slug: string; apiKey: string }> {
+  async create(input: { slug: string; soul?: string; brief?: AgentBrief }): Promise<{ slug: string; apiKey: string }> {
     const slug = input.slug.trim().toLowerCase();
     validateSlug(slug);
     if (existsSync(profileDir(slug))) {
       throw new Error(`Agent '${slug}' already exists.`);
     }
-
     await execFileAsync(BIN, ["profile", "create", slug, "--clone", "--no-alias"], {
       env: { ...process.env, HERMES_HOME },
       cwd: REPO_ROOT,
@@ -295,6 +405,8 @@ export class HermesAdminController {
 
     if (input.soul && input.soul.trim()) {
       await fs.writeFile(soulPath(slug), input.soul);
+    } else if (input.brief) {
+      await fs.writeFile(soulPath(slug), composeSoul(input.brief));
     }
 
     return { slug, apiKey };
@@ -330,6 +442,137 @@ export class HermesAdminController {
 
     const raw = await fs.readFile(envPath(slug), "utf8").catch(() => "");
     return { slug, model: readEnvValue(raw, "AIVA_MODEL"), provider: readEnvValue(raw, "AIVA_PROVIDER") };
+  }
+
+  /**
+   * Optional model pass over the wizard-composed SOUL.md. The template is
+   * always the baseline; this only tightens prose. Costs one model call, so
+   * it is an explicit admin action, never part of create.
+   */
+  async polishSoul(slug: string): Promise<{ slug: string; soul: string }> {
+    const soul = await fs.readFile(soulPath(slug), "utf8").catch(() => "");
+    if (!soul.trim()) throw new Error(`Agent '${slug}' has no SOUL.md to polish.`);
+    const { hermesChat } = await import("@ai-chat-platform/hermes");
+    const result = await hermesChat({
+      tenant: slug,
+      sessionKey: `polish:${slug}`,
+      timeoutMs: 120_000,
+      systemPrompt:
+        "You tighten AI agent personas. Return ONLY the improved persona as markdown. " +
+        "Keep every concrete fact, rule, name and language; improve structure, clarity and " +
+        "imperative voice. Do not add sections that were not asked for. No preamble, no code fence.",
+      message: `Rewrite this persona so it reads as a trained professional employee:\n\n${soul}`,
+    });
+    const polished = result.answer.trim() || soul;
+    await fs.writeFile(soulPath(slug), polished);
+    return { slug, soul: polished };
+  }
+
+  /**
+   * What the agent has learned + how it is going, read from the profile's own
+   * state: Hermes' built-in memory store (memories/MEMORY.md, USER.md), the
+   * skills it can load, and state.db for traffic/usage. view="raw" returns the
+   * underlying message/usage rows for the explorer toggle.
+   */
+  async insights(slug: string, view: "curated" | "raw" = "curated"): Promise<unknown> {
+    const dir = profileDir(slug);
+    if (!existsSync(dir)) throw new Error(`Agent '${slug}' does not exist.`);
+
+    const memory = await fs.readFile(path.join(dir, "memories/MEMORY.md"), "utf8").catch(() => "");
+    const user = await fs.readFile(path.join(dir, "memories/USER.md"), "utf8").catch(() => "");
+
+    // Skills the agent can actually load: a dir with a SKILL.md, one level
+    // under skills/ (both skills/<name> and skills/<category>/<name> exist).
+    const skills: Array<{ name: string; category: string; description: string }> = [];
+    const skillsRoot = path.join(dir, "skills");
+    if (existsSync(skillsRoot)) {
+      for (const entry of await fs.readdir(skillsRoot, { withFileTypes: true })) {
+        if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+        const catDir = path.join(skillsRoot, entry.name);
+        const read = async (root: string, name: string, category: string): Promise<void> => {
+          const md = await fs.readFile(path.join(root, "SKILL.md"), "utf8").catch(() => "");
+          if (!md.trim()) return;
+          const description = md.match(/^description:\s*(.+)$/m)?.[1]?.trim() ?? "";
+          skills.push({ name, category, description });
+        };
+        const direct = await fs.readFile(path.join(catDir, "SKILL.md"), "utf8").catch(() => "");
+        if (direct.trim()) {
+          skills.push({
+            name: entry.name,
+            category: "general",
+            description: direct.match(/^description:\s*(.+)$/m)?.[1]?.trim() ?? "",
+          });
+          continue;
+        }
+        for (const sub of await fs.readdir(catDir, { withFileTypes: true })) {
+          if (sub.isDirectory() && !sub.name.startsWith(".")) await read(catDir, sub.name, entry.name);
+        }
+      }
+    }
+    skills.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+
+    const db = readProfileDb(slug);
+    try {
+      const totals = db.one<Record<string, number | null>>(`SELECT
+          (SELECT count(*) FROM sessions)  AS sessions,
+          (SELECT count(*) FROM messages) AS messages,
+          (SELECT min(timestamp) FROM messages) AS first_ts,
+          (SELECT max(timestamp) FROM messages) AS last_ts`);
+      const usage = db.one<Record<string, number | null>>(`SELECT
+          coalesce(sum(api_call_count),0)    AS calls,
+          coalesce(sum(input_tokens),0)      AS input_tokens,
+          coalesce(sum(output_tokens),0)     AS output_tokens,
+          coalesce(sum(cache_read_tokens),0) AS cache_read_tokens`);
+
+      if (view === "raw") {
+        return {
+          slug,
+          raw: true,
+          totals,
+          usage,
+          messages: db.all(
+            `SELECT id, session_id, role, substr(content,1,400) AS content, timestamp
+             FROM messages ORDER BY timestamp DESC LIMIT 50`
+          ),
+          usageRows: db.all(
+            `SELECT session_id, model, task, api_call_count, input_tokens, output_tokens
+             FROM session_model_usage ORDER BY rowid DESC LIMIT 25`
+          ),
+        };
+      }
+
+      // Daily traffic for the last 14 days (the panel's activity sparkline).
+      const daily = db.all<{ day: string; n: number }>(
+        `SELECT date(timestamp,'unixepoch') AS day, count(*) AS n
+         FROM messages GROUP BY day ORDER BY day DESC LIMIT 14`
+      ).reverse();
+
+      return {
+        slug,
+        memory,
+        userMemory: user,
+        skills,
+        totals,
+        usage,
+        daily,
+        lastUserMessages: db
+          .all<{ content: string; timestamp: number }>(
+            `SELECT substr(content,1,240) AS content, timestamp
+             FROM messages WHERE role='user' ORDER BY timestamp DESC LIMIT 5`
+          )
+          .map((r) => ({ content: r.content, at: new Date(r.timestamp * 1000).toISOString() })),
+      };
+    } finally {
+      db.close();
+    }
+  }
+
+  /** On-demand language training. See hermes-language-trainer for the caps. */
+  train(slug: string, opts: TrainOptions): Promise<TrainResult> {
+    if (!existsSync(profileDir(slug))) {
+      return Promise.reject(new Error(`Agent '${slug}' does not exist.`));
+    }
+    return trainLanguage(slug, HERMES_HOME, opts);
   }
 
   async delete(slug: string): Promise<{ deleted: string }> {
