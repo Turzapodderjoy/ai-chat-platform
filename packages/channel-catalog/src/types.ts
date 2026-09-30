@@ -1,3 +1,5 @@
+import type { ReplySettings } from "./reply-settings";
+
 /** A single normalized inbound message extracted from a webhook payload —
  * every channel's payload shape is different, so `parseInboundMessage`
  * exists to translate all of them into this one shape before anything
@@ -101,6 +103,16 @@ export interface ChannelAdapter {
    * failure — the caller falls back to text-only handling. */
   resolveImageUrl?(connection: ChannelConnectionInfo, mediaId: string): Promise<string | null>;
 
-  /** Sends a reply back through this channel's Send API. */
-  sendMessage?(connection: ChannelConnectionInfo, recipientId: string, text: string): Promise<void>;
+  /** Sends a reply back through this channel's Send API.
+   *
+   * `settings` is the caller's resolved per-business reply settings (see
+   * reply-settings.ts). Only channels that pace their own sends use it --
+   * today just the unofficial WhatsApp connection, whose human-like
+   * delay is configurable; adapters that send instantly ignore it. */
+  sendMessage?(
+    connection: ChannelConnectionInfo,
+    recipientId: string,
+    text: string,
+    settings?: ReplySettings
+  ): Promise<void>;
 }

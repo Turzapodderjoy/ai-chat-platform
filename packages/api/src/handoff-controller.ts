@@ -2,6 +2,8 @@ import { ConversationService, ConversationNoteService } from "@ai-chat-platform/
 import { CHANNEL_CATALOG } from "@ai-chat-platform/channel-catalog";
 import type { ChannelConnectionService } from "@ai-chat-platform/channel-connections";
 
+import { resolveReplySettingsFor } from "./reply-settings";
+
 export interface HandoffSummary {
   sessionId: string;
   status: string;
@@ -102,7 +104,12 @@ export class HandoffController {
       );
 
       if (entry?.sendMessage && connection) {
-        await entry.sendMessage(connection, conversation.externalUserId, message);
+        await entry.sendMessage(
+          connection,
+          conversation.externalUserId,
+          message,
+          await resolveReplySettingsFor(conversation.businessId)
+        );
       }
     }
 

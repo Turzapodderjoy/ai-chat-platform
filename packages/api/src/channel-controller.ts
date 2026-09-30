@@ -8,6 +8,8 @@ import {
 import { ChannelAppCredentialService, ChannelConnectionService } from "@ai-chat-platform/channel-connections";
 import { ChatService } from "@ai-chat-platform/chat-service";
 
+import { resolveReplySettingsFor } from "./reply-settings";
+
 /**
  * Per-client channel connections (website/Messenger/Instagram/WhatsApp)
  * plus the one-time platform-wide Meta App setup — same catalog-driven
@@ -223,7 +225,12 @@ export class ChannelController {
         imageUrl,
       });
 
-      await entry.sendMessage(connection, msg.senderId, response.answer);
+      await entry.sendMessage(
+        connection,
+        msg.senderId,
+        response.answer,
+        await resolveReplySettingsFor(connection.businessId)
+      );
     }
   }
 }

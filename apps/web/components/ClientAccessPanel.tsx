@@ -67,6 +67,7 @@ const ALL_PANELS: { id: string; label: string }[] = [
   { id: "repairs", label: "Repairs" },
   { id: "allchats", label: "All Chats" },
   { id: "channels", label: "Integrations" },
+  { id: "replysettings", label: "Reply Timing" },
   { id: "contacts", label: "Customer Database" },
   { id: "invoices", label: "Invoices" },
   { id: "reports", label: "Reports" },

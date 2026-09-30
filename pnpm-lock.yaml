@@ -33,6 +33,9 @@ importers:
       '@ai-chat-platform/bootstrap':
         specifier: workspace:*
         version: link:../../packages/bootstrap
+      '@ai-chat-platform/channel-catalog':
+        specifier: workspace:*
+        version: link:../../packages/channel-catalog
       '@ai-chat-platform/client-auth':
         specifier: workspace:*
         version: link:../../packages/client-auth
@@ -240,6 +243,9 @@ importers:
 
   packages/chat-service:
     dependencies:
+      '@ai-chat-platform/channel-catalog':
+        specifier: workspace:*
+        version: link:../channel-catalog
       '@ai-chat-platform/conversation':
         specifier: workspace:*
         version: link:../conversation

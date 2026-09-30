@@ -9,6 +9,8 @@
  * linked via QR). Base URL + global API key are platform-wide config,
  * read from env like every other provider key. */
 
+import { DEFAULT_REPLY_SETTINGS, type ReplySettings } from "../reply-settings";
+
 function baseUrl(): string {
   return process.env.EVOLUTION_API_BASE_URL ?? "http://localhost:2786";
 }
@@ -165,53 +167,47 @@ export async function sendTextMessage(instanceName: string, number: string, text
 }
 
 // Roughly 45 WPM (~230ms/word) as the CENTER of a random range, not a
-// fixed value — a flat words*230 formula is itself a detectable bot
+// fixed value -- a flat words*230 formula is itself a detectable bot
 // signature (real human typing speed varies message to message, and
-// within one message). ±35% jitter per word plus an occasional longer
-// "thinking" pause (mid-sentence hesitation, not just at the start)
-// keeps the total both irregular and still bounded/reasonable.
-const MS_PER_WORD_BASE = 230;
-const WORD_JITTER = 0.35;
-const MIN_DELAY_MS = 900;
-const MAX_DELAY_MS = 7500;
-const THINKING_PAUSE_CHANCE = 0.2;
-const THINKING_PAUSE_RANGE: [number, number] = [400, 1300];
+// within one message). Plus ±35% jitter per word and an occasional
+// longer "thinking" pause (mid-sentence hesitation, not just at the
+// start) keeps the total irregular but still bounded/reasonable. Every
+// one of these is now a per-business setting rather than a constant
+// (see reply-settings.ts); this is only where the maths lives.
 
 function randomBetween(min: number, max: number): number {
   return min + Math.random() * (max - min);
 }
 
-function typingDelayFor(text: string): number {
+function typingDelayFor(text: string, settings: ReplySettings): number {
   const words = text.trim().split(/\s+/).filter(Boolean).length;
   let total = 0;
   for (let i = 0; i < words; i++) {
-    total += randomBetween(MS_PER_WORD_BASE * (1 - WORD_JITTER), MS_PER_WORD_BASE * (1 + WORD_JITTER));
+    total += randomBetween(settings.msPerWord * (1 - settings.wordJitter), settings.msPerWord * (1 + settings.wordJitter));
   }
-  if (Math.random() < THINKING_PAUSE_CHANCE) {
-    total += randomBetween(...THINKING_PAUSE_RANGE);
+  if (Math.random() < settings.thinkPauseChance) {
+    total += randomBetween(settings.thinkPauseMinMs, settings.thinkPauseMaxMs);
   }
-  return Math.round(Math.min(MAX_DELAY_MS, Math.max(MIN_DELAY_MS, total)));
+  return Math.round(Math.min(settings.maxDelayMs, Math.max(settings.minDelayMs, total)));
 }
 
-// Splits on blank lines first (the AI's own paragraph breaks are the
-// most natural seams); a single long paragraph with no breaks falls
-// back to sentence boundaries. Capped at 3 bubbles — enough to read as
-// a person typing multiple thoughts, not so many it reads as spam
-// flooding (a different bot-detection trigger than the one this is
-// meant to avoid).
-const MAX_CHUNKS = 3;
-
-function splitIntoMessages(text: string): string[] {
+/** Splits on blank lines first (the AI's own paragraph breaks are the
+ * most natural seams); a single long paragraph with no breaks falls
+ * back to sentence boundaries. Capped at settings.maxChunks bubbles --
+ * enough to read as a person typing multiple thoughts, not so many it
+ * reads as spam flooding (a different bot-detection trigger than the
+ * one this is meant to avoid). */
+function splitIntoMessages(text: string, maxChunks: number): string[] {
   const paragraphs = text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
   const parts = paragraphs.length > 1 ? paragraphs : text.split(/(?<=[.!?])\s+(?=[A-Zঀ-৿])/).map((p) => p.trim()).filter(Boolean);
 
   if (parts.length <= 1) return [text.trim()];
-  if (parts.length <= MAX_CHUNKS) return parts;
+  if (parts.length <= maxChunks) return parts;
 
-  // More natural breaks than the cap allows -- merge down to MAX_CHUNKS
+  // More natural breaks than the cap allows -- merge down to maxChunks
   // evenly rather than dropping content past the limit.
   const merged: string[] = [];
-  const perChunk = Math.ceil(parts.length / MAX_CHUNKS);
+  const perChunk = Math.ceil(parts.length / maxChunks);
   for (let i = 0; i < parts.length; i += perChunk) {
     merged.push(parts.slice(i, i + perChunk).join(" "));
   }
@@ -234,26 +230,42 @@ function splitIntoMessages(text: string): string[] {
 const sendQueues = new Map<string, Promise<void>>();
 
 /** Sends a reply as a human would type it -- a realistic "typing…"
- * pause before each message, and a long answer broken into a few
- * natural bubbles instead of one instant-pasted wall of text. Owner's
- * explicit call: an unofficial Baileys connection (this channel, see
- * this file's own header comment on "real ban risk") is exactly the
- * kind of automation WhatsApp's own anti-bot heuristics watch for --
- * instant, unbroken replies are a real flagged pattern. The official
- * Meta Cloud API integration (whatsapp.ts) is a sanctioned bot channel
- * by design and doesn't use this. */
-export function sendHumanPacedMessage(instanceName: string, number: string, text: string): Promise<void> {
+ *  pause before each message, and a long answer broken into a few
+ *  natural bubbles instead of one instant-pasted wall of text. Owner's
+ *  explicit call: an unofficial Baileys connection (this channel, see
+ *  this file's own header comment on "real ban risk") is exactly the
+ *  kind of automation WhatsApp's own anti-bot heuristics watch for --
+ *  instant, unbroken replies are a real flagged pattern. The official
+ *  Meta Cloud API integration (whatsapp.ts) is a sanctioned bot channel
+ *  by design and doesn't use this.
+ *
+ *  `settings` is resolved per send by the caller from the platform
+ *  default + this business's override (reply-settings.ts); omitting it
+ *  keeps the historical behaviour. An all-zero pace (minDelayMs and
+ *  maxDelayMs both 0) skips the presence ping and the timer entirely,
+ *  so the reply goes out immediately. */
+export function sendHumanPacedMessage(
+  instanceName: string,
+  number: string,
+  text: string,
+  settings: ReplySettings = DEFAULT_REPLY_SETTINGS
+): Promise<void> {
   const key = `${instanceName}:${number}`;
   const prior = sendQueues.get(key) ?? Promise.resolve();
 
   const next = prior
     .catch(() => {}) // one turn's send failure must never wedge every later turn to this customer
     .then(async () => {
-      const parts = splitIntoMessages(text);
+      const parts = splitIntoMessages(text, settings.maxChunks);
       for (const part of parts) {
-        const delay = typingDelayFor(part);
-        await sendPresence(instanceName, number, delay);
-        await new Promise((resolve) => setTimeout(resolve, delay));
+        const delay = typingDelayFor(part, settings);
+        // delay 0 is the "reply instantly" setting: a "composing"
+        // presence with delay 0 is meaningless, and awaiting a 0ms timer
+        // only adds a tick.
+        if (delay > 0) {
+          await sendPresence(instanceName, number, delay);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
         await sendTextMessage(instanceName, number, part);
       }
     });

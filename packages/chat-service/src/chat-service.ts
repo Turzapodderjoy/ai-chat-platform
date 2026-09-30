@@ -1,3 +1,4 @@
+import { resolveReplySettings } from "@ai-chat-platform/channel-catalog";
 import { ConversationService, ConversationMessage, OrderService } from "@ai-chat-platform/conversation";
 import { hermesChat, localBrainChat } from "@ai-chat-platform/hermes";
 import type { ContactService } from "@ai-chat-platform/crm";
@@ -390,12 +391,21 @@ interface BusinessChatInfo {
   aiEnabled: boolean;
   languageMode: string;
   timezone: string | null;
+  /** Raw JSON blob from Business.replySettings -- parsed (not read
+   *  field-by-field) because only one number is needed here and the
+   *  shape lives in one place, channel-catalog's reply-settings.ts. */
+  replySettings: string | null;
 }
 
 // A conversation a human has been working for a while is theirs — never
-// let the bot jump back in until it goes stale (2h since the handoff
-// was last requested/refreshed; an agent reply resets handoffRequestedAt).
-const HANDOFF_STALE_MS = 2 * 60 * 60 * 1000;
+// let the bot jump back in until it goes stale (2h by default since the
+// handoff was last requested/refreshed; an agent reply resets
+// handoffRequestedAt). The window itself is a per-business setting now
+// (Business.replySettings.handoffStaleMinutes, editable in the client
+// dashboard's Reply Settings tab) — the platform default and this
+// business's override are layered by resolveReplySettings, so an
+// unconfigured business still gets the 2h this started as.
+const DEFAULT_HANDOFF_STALE_MINUTES = 120;
 
 export class ChatService {
   constructor(
@@ -464,6 +474,7 @@ export class ChatService {
               aiEnabled: true,
               languageMode: true,
               timezone: true,
+              replySettings: true,
             },
           });
 
@@ -505,12 +516,16 @@ export class ChatService {
     );
 
     // A conversation a human has been working for a while is theirs —
-    // don't let the bot jump back in. Past HANDOFF_STALE_MS since the
-    // handoff was last requested/refreshed (an agent reply resets the
-    // clock), treat it as abandoned and return the bot to hand anyway,
-    // same as a brand-new conversation.
+    // don't let the bot jump back in. Past the business's configured
+    // staleness window (default 2h) since the handoff was last
+    // requested/refreshed (an agent reply resets the clock), treat it as
+    // abandoned and return the bot to hand anyway, same as a brand-new
+    // conversation.
+    const handoffStaleMs =
+      (biz?.replySettings ? resolveReplySettings(null, biz.replySettings).handoffStaleMinutes : DEFAULT_HANDOFF_STALE_MINUTES) *
+      60_000;
     const handoffAge = conversation.handoffRequestedAt ? Date.now() - conversation.handoffRequestedAt.getTime() : null;
-    const handoffIsStale = handoffAge !== null && handoffAge > HANDOFF_STALE_MS;
+    const handoffIsStale = handoffAge !== null && handoffAge > handoffStaleMs;
 
     if (handoffIsStale) {
       await this.conversations.setHandoffStatus(request.sessionId, "bot");
@@ -585,7 +600,7 @@ export class ChatService {
         history: priorHistory
           .filter((m) => m.role === "user" || m.role === "assistant")
           .map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
-        systemPrompt: buildHermesSystemPrompt(request, biz ?? { name: null, type: "regular", hermesEnabled: true, hermesProfile: null, aiEnabled: true, languageMode, timezone: null }, languageMode),
+        systemPrompt: buildHermesSystemPrompt(request, biz ?? { name: null, type: "regular", hermesEnabled: true, hermesProfile: null, aiEnabled: true, languageMode, timezone: null, replySettings: null }, languageMode),
       });
 
       const wantsHandoff =

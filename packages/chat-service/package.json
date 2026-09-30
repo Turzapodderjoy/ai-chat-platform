@@ -7,6 +7,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@ai-chat-platform/channel-catalog": "workspace:*",
     "@ai-chat-platform/conversation": "workspace:*",
     "@ai-chat-platform/crm": "workspace:*",
     "@ai-chat-platform/database": "workspace:*",

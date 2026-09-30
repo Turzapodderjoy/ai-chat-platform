@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState } from "react";
 
 import { AllChatsPanel } from "../../components/AllChatsPanel";
 import { PlatformChannelAppsPanel } from "../../components/PlatformChannelAppsPanel";
+import ReplySettingsPanel from "../../components/ReplySettingsPanel";
 import { TagsPanel } from "../../components/TagsPanel";
 import { ClientAccessPanel } from "../../components/ClientAccessPanel";
 import { ReportsPanel } from "../../components/ReportsPanel";
@@ -66,7 +67,7 @@ const TIMEZONE_LABELS: [string, string][] = (() => {
     .map(([minutes, tz]): [string, string] => [tz, gmtOffsetLabel(minutes)]);
 })();
 
-type Tab = "overview" | "vpsHealth" | "channels" | "usage" | "clients" | "access" | "adminUsers" | "allchats" | "database" | "tags" | "contacts" | "invoices" | "subscription" | "hermesAgents" | "hermesControl" | "systemMap" | "itguy" | "reports";
+type Tab = "overview" | "vpsHealth" | "channels" | "usage" | "clients" | "access" | "adminUsers" | "allchats" | "database" | "tags" | "contacts" | "invoices" | "subscription" | "hermesAgents" | "hermesControl" | "replysettings" | "systemMap" | "itguy" | "reports";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }] },
@@ -95,6 +96,7 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
     label: "Platform",
     items: [
       { id: "channels", label: "Integrations" },
+      { id: "replysettings", label: "Reply Timing" },
       { id: "usage", label: "Usage" },
       { id: "database", label: "Database" },
       { id: "hermesAgents", label: "AI Agents" },
@@ -278,6 +280,9 @@ export default function DashboardClient() {
       </div>
       <div style={{ display: tab === "channels" ? "block" : "none" }}>
         <PlatformChannelAppsPanel />
+      </div>
+      <div style={{ display: tab === "replysettings" ? "block" : "none" }}>
+        <ReplySettingsPanel />
       </div>
       <div style={{ display: tab === "usage" ? "block" : "none" }}>
         <UsagePanel />

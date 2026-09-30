@@ -89,6 +89,16 @@ model Business {
   // chat-service.ts so a dashboard change applies on the next turn.
   languageMode      String    @default("auto")
 
+  // This business's override of the platform's WhatsApp reply settings
+  // (typing pace, min/max wait, thinking pauses, bubbles per reply, and
+  // how long a human handoff stays "owned" before the bot may resume) --
+  // a JSON blob validated by channel-catalog's parseReplySettings, or
+  // null to inherit PlatformReplySettings. Read fresh on every send, so
+  // a change in the client's Reply Settings tab applies to the very next
+  // reply. Same "one nullable column, null = use the default" convention
+  // as enabledIntegrations above.
+  replySettings     String?
+
   // ===== Hermes agent embedding (Wave 3+) ===============================
   // Slug of this business's Hermes profile under HERMES_HOME/profiles/<slug>
   // (multiplexed at /p/<slug>/v1/chat/completions). Set when the agent is
@@ -1506,4 +1516,18 @@ model CourseEnrollment {
 
   @@unique([courseId, staffId])
   @@index([staffId])
+}
+
+/// Platform-wide default for the WhatsApp reply settings every business
+/// inherits (see Business.replySettings). A singleton row -- id is the
+/// literal "default" so there can only ever be one, matching the
+/// hand-rolled-singleton pattern used by the other *Config tables rather
+/// than introducing a "settings key/value" abstraction for one value.
+/// `settings` holds the same JSON shape as Business.replySettings, or
+/// null to mean "the compiled-in defaults in channel-catalog", which is
+/// what an untouched deployment gets.
+model PlatformReplySettings {
+  id        String   @id @default("default")
+  settings  String?
+  updatedAt DateTime @updatedAt
 }

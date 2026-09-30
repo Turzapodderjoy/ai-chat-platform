@@ -25,6 +25,7 @@ import { StaffPanel } from "../../../components/StaffPanel";
 import { EmployeeMetricsPanel } from "../../../components/EmployeeMetricsPanel";
 import { ClosingChecklistPanel } from "../../../components/ClosingChecklistPanel";
 import { WhatsAppTemplatesPanel } from "../../../components/WhatsAppTemplatesPanel";
+import ReplySettingsPanel from "../../../components/ReplySettingsPanel";
 import { ContactsPanel } from "../../../components/ContactsPanel";
 import { InvoicesPanel } from "../../../components/InvoicesPanel";
 import { ReportsPanel } from "../../../components/ReportsPanel";
@@ -40,7 +41,7 @@ import { DeletedDataPanel } from "../../../components/DeletedDataPanel";
 import { ClientHomePanel } from "../../../components/ClientHomePanel";
 import { AppointmentNotificationBell } from "../../../components/AppointmentNotificationBell";
 
-type Tab = "home" | "overview" | "tagdashboard" | "products" | "inventory" | "orders" | "purchaseorders" | "locations" | "shifts" | "teamchat" | "delivery" | "repairs" | "offers" | "staff" | "metrics" | "kpi" | "checklist" | "whatsapp" | "lms" | "multiloc" | "allchats" | "channels" | "contacts" | "invoices" | "reports" | "partsusage" | "notifications" | "settings" | "deleted";
+type Tab = "home" | "overview" | "tagdashboard" | "products" | "inventory" | "orders" | "purchaseorders" | "locations" | "shifts" | "teamchat" | "delivery" | "repairs" | "offers" | "staff" | "metrics" | "kpi" | "checklist" | "whatsapp" | "replysettings" | "lms" | "multiloc" | "allchats" | "channels" | "contacts" | "invoices" | "reports" | "partsusage" | "notifications" | "settings" | "deleted";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "home", label: "Home" }, { id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }, { id: "reports", label: "Reports" }, { id: "partsusage", label: "Parts Usage" }] },
@@ -73,6 +74,7 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
       { id: "multiloc", label: "Multi-Location Report" },
       { id: "checklist", label: "Closing Checklist" },
       { id: "whatsapp", label: "WhatsApp Templates" },
+      { id: "replysettings", label: "Reply Timing" },
       { id: "products", label: "Product Catalog" },
       { id: "inventory", label: "Inventory" },
       { id: "notifications", label: "Notifications" },
@@ -121,6 +123,7 @@ const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
       { id: "multiloc", label: "Multi-Location Report" },
       { id: "checklist", label: "Closing Checklist" },
       { id: "whatsapp", label: "WhatsApp Templates" },
+      { id: "replysettings", label: "Reply Timing" },
       { id: "inventory", label: "Inventory" },
     ],
   },
@@ -535,6 +538,7 @@ export default function ClientDashboardClient() {
         ["multiloc", <MultiLocationReportPanel key="multiloc" businessId={businessId} />],
         ["checklist", <ClosingChecklistPanel key="checklist" businessId={businessId} />],
         ["whatsapp", <WhatsAppTemplatesPanel key="whatsapp" businessId={businessId} />],
+        ["replysettings", <ReplySettingsPanel key="replysettings" businessId={businessId} />],
         ["contacts", <ContactsPanel key="contacts" businessId={businessId} active={tab === "contacts"} />],
         ["invoices", <InvoicesPanel key="invoices" businessId={businessId} active={tab === "invoices"} />],
         [
