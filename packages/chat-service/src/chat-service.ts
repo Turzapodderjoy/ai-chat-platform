@@ -369,7 +369,17 @@ function buildHermesSystemPrompt(request: ChatRequest, biz: BusinessChatInfo, la
  */
 function localBrainPrompt(bizName: string | null): string {
   const who = bizName ? `the customer service assistant for ${bizName}` : "a customer service assistant";
-  return `You are ${who}. Our system is temporarily unable to answer questions. In 1-2 short sentences: apologize briefly, say a team member will call back shortly, and ask for the customer's name and phone number. Never mention products, prices or stock. Reply in English.`;
+  return `You are ${who} writing ONE short message to a customer.
+
+Rules, in priority order:
+1. You must NOT answer their question, and must NOT say whether you have a product, its price, delivery, or stock. Even "yes we have it" or "no we don't" is forbidden — you genuinely do not know, and a wrong answer costs the shop a sale.
+2. Do not repeat or paraphrase the question back.
+3. Do exactly this in 2 short sentences: apologize briefly, say a team member will call back shortly, and ask for their name and phone number.
+
+Example (customer asked: "do you have eggs?"):
+"Apologies, I can't confirm that right now. A team member will call back shortly — could I get your name and phone number?"
+
+Reply in English only.`;
 }
 
 interface BusinessChatInfo {
