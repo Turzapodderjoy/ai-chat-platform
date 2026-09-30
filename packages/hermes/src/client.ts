@@ -323,7 +323,10 @@ export async function localBrainChat(args: LocalBrainArgs): Promise<LocalBrainRe
           { role: "user", content: args.message },
         ],
         max_tokens: args.maxTokens ?? 200,
-        temperature: 0.4,
+        // 0.2, not the usual 0.4: this model's phrasing drifts at higher
+        // temperatures ("we will contact your name and phone number"), and
+        // the fallback line has to read like a company, not a dice roll.
+        temperature: 0.2,
         stream: false,
       }),
       signal: AbortSignal.timeout(args.timeoutMs ?? 45_000),
