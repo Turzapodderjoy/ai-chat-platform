@@ -398,14 +398,11 @@ interface BusinessChatInfo {
 }
 
 // A conversation a human has been working for a while is theirs — never
-// let the bot jump back in until it goes stale (2h by default since the
-// handoff was last requested/refreshed; an agent reply resets
-// handoffRequestedAt). The window itself is a per-business setting now
-// (Business.replySettings.handoffStaleMinutes, editable in the client
-// dashboard's Reply Settings tab) — the platform default and this
-// business's override are layered by resolveReplySettings, so an
-// unconfigured business still gets the 2h this started as.
-const DEFAULT_HANDOFF_STALE_MINUTES = 120;
+// let the bot jump back in until it goes stale. The window is a setting:
+// PlatformReplySettings.handoffStaleMinutes (mother dashboard) then
+// Business.replySettings.handoffStaleMinutes (client dashboard), over the
+// 2h default in channel-catalog's DEFAULT_REPLY_SETTINGS. One source of
+// truth for the number, so the bot and the dashboard cannot disagree.
 
 export class ChatService {
   constructor(
@@ -461,10 +458,10 @@ export class ChatService {
     // lock) takes effect on the very next customer message, no restart.
     // The "default" (platform/portal) business has no row; every flag
     // defaults to the permissive value.
-    const biz: BusinessChatInfo | null =
+    const [biz, platformReply] = await Promise.all([
       businessId === "default"
         ? null
-        : await prisma.business.findUnique({
+        : prisma.business.findUnique({
             where: { id: businessId },
             select: {
               name: true,
@@ -476,7 +473,12 @@ export class ChatService {
               timezone: true,
               replySettings: true,
             },
-          });
+          }),
+      // The platform default row is what an admin edits in the mother
+      // dashboard's Reply Timing tab, and it also governs the "default"
+      // (portal) business, which has no row of its own.
+      prisma.platformReplySettings.findUnique({ where: { id: "default" } }),
+    ]);
 
     const languageMode = biz?.languageMode ?? "auto";
 
@@ -516,14 +518,13 @@ export class ChatService {
     );
 
     // A conversation a human has been working for a while is theirs —
-    // don't let the bot jump back in. Past the business's configured
-    // staleness window (default 2h) since the handoff was last
-    // requested/refreshed (an agent reply resets the clock), treat it as
-    // abandoned and return the bot to hand anyway, same as a brand-new
-    // conversation.
+    // don't let the bot jump back in. Past the resolved staleness window
+    // (platform default, then this business's override, then the built-in
+    // 2h) since the handoff was last requested/refreshed (an agent reply
+    // resets the clock), treat it as abandoned and return the bot to hand
+    // anyway, same as a brand-new conversation.
     const handoffStaleMs =
-      (biz?.replySettings ? resolveReplySettings(null, biz.replySettings).handoffStaleMinutes : DEFAULT_HANDOFF_STALE_MINUTES) *
-      60_000;
+      resolveReplySettings(platformReply?.settings, biz?.replySettings).handoffStaleMinutes * 60_000;
     const handoffAge = conversation.handoffRequestedAt ? Date.now() - conversation.handoffRequestedAt.getTime() : null;
     const handoffIsStale = handoffAge !== null && handoffAge > handoffStaleMs;
 
