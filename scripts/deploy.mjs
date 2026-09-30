@@ -462,6 +462,41 @@ async function deploy() {
   }
   run("pm2 save", undefined, PM2_TIMEOUT_MS);
 
+  // The Hermes gateway is a long-lived systemd service, not pm2, so nothing
+  // above touched it -- and that silently breaks the bot. Confirmed live on
+  // 2026-09-30: a gateway started at 06:17 kept serving from the release
+  // that this script later PRUNED (its python3 interpreter path was deleted
+  // out from under the live process), and it stopped being able to resolve
+  // any provider at all. Every customer message then fell through to the
+  // local 0.6B model and a "someone will call you" handoff, while auth.json
+  // on disk was perfectly healthy. Restarting it fixed it instantly.
+  //
+  // So: restart it on every deploy so it runs the release that is actually
+  // current. Best-effort -- a VPS without the unit (or the Windows laptop,
+  // which has no systemd) must not fail an otherwise-good deploy.
+  if (!IS_WINDOWS) {
+    try {
+      if (existsSync("/etc/systemd/system/hermes-gateway.service") || existsSync("/usr/lib/systemd/system/hermes-gateway.service")) {
+        run("systemctl restart hermes-gateway", undefined, 90 * 1000);
+        log("hermes-gateway restarted onto the current release.");
+        // Give it a moment to bind 8642, then prove it actually resolves a
+        // provider -- a gateway that comes up but cannot reach any model is
+        // exactly the failure above, and it should be loud in the deploy log
+        // rather than discovered by a customer.
+        await new Promise((r) => setTimeout(r, 8000));
+        const probe = execSync(
+          "curl -s -m 20 -o /dev/null -w '%{http_code}' http://127.0.0.1:8642/ || true",
+          { encoding: "utf8" }
+        ).trim();
+        log(`hermes-gateway port 8642 responds: HTTP ${probe || "no response"} (404 from the root path is normal -- it only serves /p/<profile>/v1).`);
+      } else {
+        log("hermes-gateway unit not present -- skipping gateway restart.");
+      }
+    } catch (err) {
+      log(`hermes-gateway restart failed (deploy itself is fine): ${err.message}`);
+    }
+  }
+
   pruneOldReleases(shortSha);
   log(`=== Deploy of ${shortSha} complete ===`);
 }
