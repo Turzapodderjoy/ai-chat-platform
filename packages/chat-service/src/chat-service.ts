@@ -451,19 +451,20 @@ export class ChatService {
         8
       );
 
-    // A customer-sent photo: the gateway is text-only today, so Hermes
-    // can't see the pixels. The customer's own words still flow through
-    // and Hermes is told a photo was attached so it can ask about it.
-    let effectiveMessage = request.message;
+    // A customer-sent photo is passed to Hermes as a real image_url content
+    // part (the gateway accepts OpenAI vision shape). The text record stored
+    // in the conversation still marks the attachment so a human reviewer — or
+    // a later text-only turn — can see a photo was part of the exchange.
+    let storedMessage = request.message;
     if (request.imageUrl) {
-      const photoNote = "[Customer attached a photo this turn. You can't see it — if the photo matters, tell them you can't view images and ask them to describe what's in it.]";
-      effectiveMessage = request.message.trim() ? `${request.message}\n${photoNote}` : photoNote;
+      const photoNote = "[Customer attached a photo this turn. Hermes can see it via the image_url part, so answer from the picture unless it asks you not to.]";
+      storedMessage = request.message.trim() ? `${request.message}\n${photoNote}` : photoNote;
     }
 
     await this.conversations.addMessage(
       request.sessionId,
       "user",
-      effectiveMessage
+      storedMessage
     );
 
     // A conversation a human has been working for a while is theirs —
@@ -541,7 +542,8 @@ export class ChatService {
     try {
       const result = await hermesChat({
         tenant: movieTenant,
-        message: effectiveMessage,
+        message: request.message,
+        imageUrl: request.imageUrl,
         sessionKey: `${businessId}:${request.sessionId}`,
         history: priorHistory
           .filter((m) => m.role === "user" || m.role === "assistant")

@@ -49,6 +49,10 @@ export interface HermesChatArgs extends HermesProfileKeyInput {
   model?: string;
   /** Optional prior turns to seed context (OpenAI messages shape). */
   history?: Array<{ role: "user" | "assistant"; content: string }>;
+  /** A photo attached to this turn. Sent as a native OpenAI ``image_url``
+   * content part so a vision-capable model can actually see it; the gateway
+   * accepts http(s) and data:image/... URLs. */
+  imageUrl?: string;
   /** Explicit API key override (tests/tools). Normally resolved from the profile .env. */
   apiKey?: string;
   /** HTTP timeout for the gateway call. Defaults to 90s. */
@@ -176,10 +180,18 @@ export async function hermesChat(args: HermesChatArgs): Promise<HermesChatResult
     );
   }
 
-  const messages: Array<{ role: string; content: string }> = [
+  const messages: Array<{ role: string; content: unknown }> = [
     ...(args.systemPrompt ? [{ role: "system", content: args.systemPrompt }] : []),
     ...(args.history ?? []),
-    { role: "user", content: args.message },
+    args.imageUrl
+      ? {
+          role: "user",
+          content: [
+            { type: "text", text: args.message },
+            { type: "image_url", image_url: { url: args.imageUrl } },
+          ],
+        }
+      : { role: "user", content: args.message },
   ];
 
   // Admin-set model/provider override (AIVA_MODEL/AIVA_PROVIDER in the
