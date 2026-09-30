@@ -4,9 +4,17 @@ import {
   getConnectionState,
   getQrCode,
   registerWebhook,
+  type ChannelConnectionInfo,
+  type ChannelAdapter,
 } from "@ai-chat-platform/channel-catalog";
 import { ChannelAppCredentialService, ChannelConnectionService } from "@ai-chat-platform/channel-connections";
 import { ChatService } from "@ai-chat-platform/chat-service";
+import {
+  matchProductsForPictures,
+  pictureCaption,
+  wantsPictures,
+  type ProductService,
+} from "@ai-chat-platform/product-catalog";
 
 import { resolveReplySettingsFor } from "./reply-settings";
 
@@ -23,7 +31,8 @@ export class ChannelController {
   constructor(
     private readonly channelConnections: ChannelConnectionService,
     private readonly appCredentials: ChannelAppCredentialService,
-    private readonly chat: ChatService
+    private readonly chat: ChatService,
+    private readonly products: ProductService
   ) {}
 
   catalog() {
@@ -225,12 +234,55 @@ export class ChannelController {
         imageUrl,
       });
 
+      await this.maybeSendProductPictures(entry, connection, msg.senderId, msg.text);
+
       await entry.sendMessage(
         connection,
         msg.senderId,
         response.answer,
         await resolveReplySettingsFor(connection.businessId)
       );
+    }
+  }
+
+  /** "Send me a picture of X" → send the catalogue photo, then the normal
+   *  text reply. Deliberately deterministic (picture-request.ts) rather
+   *  than asking the model to attach an image: the local fallback brain
+   *  has no vision and no tool access, and a hallucinated product name
+   *  would put the wrong photo in front of a real customer.
+   *
+   *  Photos go BEFORE the text on purpose — the text reply is human-paced
+   *  (seconds of deliberate typing delay), and the customer asked for a
+   *  picture, not for a sentence about a picture. A failure here must
+   *  never cost the customer their text reply, so every error is
+   *  swallowed after logging. */
+  private async maybeSendProductPictures(
+    entry: NonNullable<ChannelAdapter>,
+    connection: ChannelConnectionInfo,
+    recipientId: string,
+    text: string
+  ): Promise<void> {
+    if (!entry.sendImage) return;
+    if (!text.trim() || !wantsPictures(text)) return; // no intent -> zero queries, zero cost
+
+    try {
+      // ponytail: capped page. A tenant with more than 200 catalogue items
+      // could have a match fall outside this page; raise if that ever
+      // happens (a per-name search would then be the fix).
+      const { products } = await this.products.forBusiness(connection.businessId, { limit: 200 });
+      const matches = matchProductsForPictures(text, products).slice(0, 3);
+      for (const match of matches) {
+        try {
+          await entry.sendImage(connection, recipientId, match.imageUrl, pictureCaption(match.product));
+        } catch (err) {
+          console.error(
+            `[channel] product photo failed for ${match.product.name} (${connection.businessId}):`,
+            err
+          );
+        }
+      }
+    } catch (err) {
+      console.error(`[channel] picture lookup failed for business ${connection.businessId}:`, err);
     }
   }
 }

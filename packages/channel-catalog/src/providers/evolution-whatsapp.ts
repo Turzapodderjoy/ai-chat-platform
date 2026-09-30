@@ -1,6 +1,6 @@
 import type { ChannelAdapter, ChannelConnectionInfo, InboundMessage } from "../types";
 import type { ReplySettings } from "../reply-settings";
-import { getBase64FromMediaMessage, sendHumanPacedMessage } from "./evolution-shared";
+import { getBase64FromMediaMessage, sendHumanPacedMessage, sendImageMessage } from "./evolution-shared";
 
 /** Baileys-native message shape, passed through by Evolution API's
  * MESSAGES_UPSERT webhook mostly as-is (confirmed via Evolution API's
@@ -78,5 +78,14 @@ export const evolutionWhatsappAdapter: ChannelAdapter = {
     settings?: ReplySettings
   ): Promise<void> {
     await sendHumanPacedMessage(connection.externalId, recipientId, text, settings);
+  },
+
+  async sendImage(
+    connection: ChannelConnectionInfo,
+    recipientId: string,
+    imageUrl: string,
+    caption?: string
+  ): Promise<void> {
+    await sendImageMessage(connection.externalId, recipientId, imageUrl, caption);
   },
 };

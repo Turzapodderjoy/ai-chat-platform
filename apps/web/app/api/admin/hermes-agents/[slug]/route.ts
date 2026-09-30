@@ -7,7 +7,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ sl
   if (!(await isAdminRequest(req))) return NextResponse.json({ error: "Not authorized." }, { status: 401 });
   const app = await getApp();
   const { slug } = await params;
-  const body = (await req.json().catch(() => ({}))) as { soul?: string; model?: string; provider?: string };
+  const body = (await req.json().catch(() => ({}))) as {
+    soul?: string;
+    model?: string;
+    provider?: string;
+    backupModel?: string;
+    backupProvider?: string;
+  };
   try {
     const updated = await app.container.router.hermes.update(slug, body);
     return NextResponse.json(updated);

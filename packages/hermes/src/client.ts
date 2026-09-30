@@ -112,6 +112,12 @@ export interface HermesProfileEnv {
   aivaModel?: string;
   /** Admin-set provider override (AIVA_PROVIDER). Absent = gateway default. */
   aivaProvider?: string;
+  /** Backup slot tried when the pinned model fails (AIVA_BACKUP_MODEL). Absent
+   * = the platform free default. This is the "second provider" an admin can
+   *  point at another vendor without touching the primary. */
+  aivaBackupModel?: string;
+  /** Provider for the backup slot (AIVA_BACKUP_PROVIDER). */
+  aivaBackupProvider?: string;
 }
 
 /**
@@ -127,7 +133,13 @@ export async function readProfileEnv(tenantFilter?: string): Promise<HermesProfi
       const v = m ? m[1]!.trim() : undefined;
       return v ? v : undefined;
     };
-    return { apiKey: val("API_SERVER_KEY"), aivaModel: val("AIVA_MODEL"), aivaProvider: val("AIVA_PROVIDER") };
+    return {
+      apiKey: val("API_SERVER_KEY"),
+      aivaModel: val("AIVA_MODEL"),
+      aivaProvider: val("AIVA_PROVIDER"),
+      aivaBackupModel: val("AIVA_BACKUP_MODEL"),
+      aivaBackupProvider: val("AIVA_BACKUP_PROVIDER"),
+    };
   } catch {
     return {};
   }
@@ -165,9 +177,50 @@ interface HermesCompletionResponse {
 }
 
 /**
+ * A provider failure is very often NOT an HTTP error. The gateway answers
+ * 200 with the failure as the assistant's message -- confirmed live: a
+ * removed model id returns
+ *   200 "Model 'x' isn't available on Nous Portal. Pick a different model
+ *        with /model … Provider said: HTTP 404: …"
+ * and a local model with too small a context window returns
+ *   200 "…context window of 4,096 tokens, below the minimum 64,000
+ *        required by Hermes Agent…"
+ * The previous check matched five phrases, none of which appear in those
+ * strings, so the error text was treated as a valid answer and shipped to
+ * the customer as the bot's reply. Every observed shape is listed here
+ * rather than a generic "looks like an error" heuristic, because the only
+ * signal available is the text itself.
+ */
+const PROVIDER_FAILURE =
+  /^⚠️|isn't available on Nous Portal|didn't answer after \d+ attempts|Application not found|Provider said: HTTP|Pick a different model with \/model|below the minimum|Unknown provider|Unknown model|Provider authentication failed|Billing or credits exhausted|requires available credits|insufficient_credits|Internal server error|Traceback \(most recent call last\)/i;
+
+/** A response counts as a real answer only if the gateway says 200 AND the
+ *  completion carries non-empty text that isn't a provider failure. */
+function isUsableCompletion(
+  answer: string,
+  res: Response,
+  data: HermesCompletionResponse | null
+): boolean {
+  if (!res.ok) return false;
+  if (!Array.isArray(data?.choices) || data.choices.length === 0) return false;
+  if (!answer.trim()) return false;
+  return !PROVIDER_FAILURE.test(answer);
+}
+
+/**
  * Send one chat completion to the Hermes gateway. Resolves the tenant's API
  * key from the profile .env; throws HermesError(401) when the profile key is
  * missing/fail-closed.
+ *
+ * Walks a fallback chain rather than trusting one pinned model. The Nous free
+ * tier 404s and retires models regularly, and a bad admin-set pin (a local
+ * model the gateway cannot host, a removed model id) would otherwise put a
+ * provider error in a customer's face. Order:
+ *   1. the pinned model (AIVA_MODEL/AIVA_PROVIDER, or the caller's model)
+ *   2. the backup slot (AIVA_BACKUP_MODEL/AIVA_BACKUP_PROVIDER)
+ *   3. the platform free default
+ * When every hop fails it throws, and the caller's own fallback tiers (local
+ * llama.cpp, then canned) take over -- so a customer never sees an error.
  */
 export async function hermesChat(args: HermesChatArgs): Promise<HermesChatResult> {
   const env = args.apiKey ? {} : await readProfileEnv(args.tenant);
@@ -200,7 +253,6 @@ export async function hermesChat(args: HermesChatArgs): Promise<HermesChatResult
   const modelOverride = args.model ?? env.aivaModel;
   const effectiveModel = modelOverride ?? DEFAULT_MODEL;
   const effectiveProvider = env.aivaProvider ?? DEFAULT_PROVIDER;
-  const overrideInPlay = Boolean(modelOverride || env.aivaProvider);
 
   const post = (body: { model: string; provider?: string }): Promise<Response> =>
     fetch(endpointFor(args.tenant), {
@@ -214,59 +266,66 @@ export async function hermesChat(args: HermesChatArgs): Promise<HermesChatResult
       signal: AbortSignal.timeout(args.timeoutMs ?? 90_000),
     });
 
-  // A bad admin-set override (unknown model/provider, or a gateway that
-  // resolves it to a warning completion instead of an answer) must not
-  // wedge a customer conversation — fall back to the gateway's safe
-  // default once. The gateway sometimes returns 200 with the error as the
-  // answer text, so a degraded-looking answer counts as "failed" too.
-  // "requires available credits" is the free-tier answer when someone pins a
-  // PAID model, which the free default also fixes.
-  const isDegraded = (answer: string, res: Response): boolean =>
-    !res.ok ||
-    /^⚠️|Provider authentication failed|Unknown provider|Unknown model|Billing or credits exhausted|requires available credits/i.test(
-      answer
-    );
-
-  let res = await post({
-    model: effectiveModel,
-    ...(effectiveProvider ? { provider: effectiveProvider } : {}),
-  });
-  let answer = "";
-  let data: HermesCompletionResponse | null = null;
-  if (res.ok) data = (await res.json().catch(() => null)) as HermesCompletionResponse | null;
-  answer = data?.choices?.[0]?.message?.content ?? "";
-
-  if (overrideInPlay && isDegraded(answer, res)) {
-    res = await post({ model: DEFAULT_MODEL, provider: DEFAULT_PROVIDER });
-    data = res.ok ? ((await res.json().catch(() => null)) as HermesCompletionResponse | null) : null;
-    answer = data?.choices?.[0]?.message?.content ?? "";
+  // Ordered hops, deduplicated: a pin that IS the free default must not be
+  // retried against itself and burn 90s of customer wait time.
+  const hops: Array<{ model: string; provider: string; label: string }> = [];
+  const seen = new Set<string>();
+  for (const hop of [
+    { model: effectiveModel, provider: effectiveProvider, label: "pinned" },
+    {
+      model: env.aivaBackupModel ?? DEFAULT_MODEL,
+      provider: env.aivaBackupProvider ?? DEFAULT_PROVIDER,
+      label: "backup",
+    },
+    { model: DEFAULT_MODEL, provider: DEFAULT_PROVIDER, label: "free default" },
+  ]) {
+    const key = `${hop.model}|${hop.provider}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    hops.push(hop);
   }
 
-  if (res.status === 401 || res.status === 403) {
-    const text = await res.text().catch(() => "");
-    throw new HermesError(
-      `Hermes gateway rejected credentials for '${args.tenant || "default"}' (${res.status}). Key mismatch from the profile .env? ${text}`,
-      res.status,
-      "Hermes authentication failed"
-    );
+  const failures: string[] = [];
+  for (const hop of hops) {
+    const res = await post({ model: hop.model, provider: hop.provider });
+
+    // A rejected key is not a model problem -- every hop would fail the same
+    // way, so fail closed immediately with the credential-specific message.
+    if (res.status === 401 || res.status === 403) {
+      const text = await res.text().catch(() => "");
+      throw new HermesError(
+        `Hermes gateway rejected credentials for '${args.tenant || "default"}' (${res.status}). Key mismatch from the profile .env? ${text}`,
+        res.status,
+        "Hermes authentication failed"
+      );
+    }
+
+    const data = res.ok
+      ? ((await res.json().catch(() => null)) as HermesCompletionResponse | null)
+      : null;
+    const answer = data?.choices?.[0]?.message?.content ?? "";
+
+    if (isUsableCompletion(answer, res, data)) {
+      return {
+        answer,
+        sessionId: data?.id ?? args.sessionKey,
+        provider: "hermes",
+        tokens: data?.usage?.total_tokens ?? 0,
+        model: data?.model ?? hop.model,
+      };
+    }
+
+    const why = res.ok
+      ? (answer.trim() ? `provider error text: ${answer.trim().slice(0, 160)}` : "empty completion")
+      : `HTTP ${res.status}`;
+    failures.push(`${hop.label} (${hop.provider}/${hop.model}): ${why}`);
   }
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new HermesError(
-      `Hermes gateway request failed (${res.status}): ${text}`,
-      res.status,
-      `Hermes request failed (${res.status})`
-    );
-  }
-
-  return {
-    answer,
-    sessionId: data?.id ?? args.sessionKey,
-    provider: "hermes",
-    tokens: data?.usage?.total_tokens ?? 0,
-    model: data?.model ?? effectiveModel,
-  };
+  throw new HermesError(
+    `Every Hermes model failed for '${args.tenant || "default"}' — ${failures.join(" | ")}`,
+    502,
+    "Hermes request failed (all fallbacks exhausted)"
+  );
 }
 
 // ── Local fallback brain (llama.cpp on this same VPS) ─────────────────

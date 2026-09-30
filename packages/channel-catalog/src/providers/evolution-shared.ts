@@ -166,6 +166,56 @@ export async function sendTextMessage(instanceName: string, number: string, text
   });
 }
 
+/** Baileys tags the WhatsApp message with a mimetype; without one a
+ *  .webp/.heic catalogue photo is frequently delivered as an unopenable
+ *  file. Inferred from the URL, best-effort. */
+function imageMimeType(url: string): string | undefined {
+  const ext = url.split("?")[0]?.split("#")[0]?.split(".").pop()?.toLowerCase();
+  switch (ext) {
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "png":
+      return "image/png";
+    case "webp":
+      return "image/webp";
+    case "gif":
+      return "image/gif";
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Send a product photo. The body shape is not guesswork: Evolution
+ * 2.3.7 validates POST /message/sendMedia/:instance against
+ * `mediaMessageSchema` (src/validate/message.schema.ts), which requires
+ * only `number` + `mediatype` and takes the payload in **`media`** --
+ * not `mediaUrl`/`url`/`base64`, all of which are rejected at runtime
+ * with "Owned media must be a url or base64" because the controller
+ * tests isURL(data.media) || isBase64(data.media). Because a plain
+ * http(s) URL satisfies isURL, Evolution fetches the bytes itself and
+ * the app never has to download or re-encode a catalogue image.
+ */
+export async function sendImageMessage(
+  instanceName: string,
+  number: string,
+  mediaUrl: string,
+  caption?: string
+): Promise<void> {
+  const mimetype = imageMimeType(mediaUrl);
+  await request(`/message/sendMedia/${instanceName}`, {
+    method: "POST",
+    body: JSON.stringify({
+      number,
+      mediatype: "image",
+      media: mediaUrl,
+      ...(mimetype ? { mimetype } : {}),
+      ...(caption ? { caption } : {}),
+    }),
+  });
+}
+
 // Roughly 45 WPM (~230ms/word) as the CENTER of a random range, not a
 // fixed value -- a flat words*230 formula is itself a detectable bot
 // signature (real human typing speed varies message to message, and

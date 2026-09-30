@@ -115,4 +115,12 @@ export interface ChannelAdapter {
     text: string,
     settings?: ReplySettings
   ): Promise<void>;
+
+  /** Sends a photo to the customer. Optional because not every channel
+   *  can: the unofficial WhatsApp bridge can (Evolution
+   *  `POST /message/sendMedia`), the official Cloud API needs a separate
+   *  media-upload handshake and does not implement this yet. A channel
+   *  without it simply sends the text reply and no photo — callers must
+   *  treat absence as "cannot", never as "succeeded". */
+  sendImage?(connection: ChannelConnectionInfo, recipientId: string, imageUrl: string, caption?: string): Promise<void>;
 }

@@ -108,7 +108,7 @@ export class Container {
       new HealthController(),
       new AdminController(chatUsageLog, tenants, conversations),
       new HandoffController(conversations, channelConnections, conversationNotes),
-      new ChannelController(channelConnections, channelAppCredentials, chat),
+      new ChannelController(channelConnections, channelAppCredentials, chat, productService),
       new TagController(tagService, tagAssignments, tagAnalytics),
       new ClientAuthController(clientAuth),
       new WidgetConfigController(widgetConfig),

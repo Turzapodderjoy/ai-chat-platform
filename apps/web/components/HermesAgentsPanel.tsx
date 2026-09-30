@@ -25,6 +25,8 @@ interface HermesAgent {
   provisioned: boolean;
   model: string | null;
   provider: string | null;
+  backupModel: string | null;
+  backupProvider: string | null;
   soul: string | null;
   apiKey: string | null;
   businesses: HermesAgentBusiness[];
@@ -213,7 +215,10 @@ export function HermesAgentsPanel() {
     }
   }
 
-  async function saveAgent(agent: HermesAgent, patch: { soul?: string; model?: string; provider?: string }) {
+  async function saveAgent(
+    agent: HermesAgent,
+    patch: { soul?: string; model?: string; provider?: string; backupModel?: string; backupProvider?: string }
+  ) {
     const res = await fetch(`/api/admin/hermes-agents/${agent.slug}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -556,11 +561,16 @@ function EditableAgent({
   onSave,
 }: {
   agent: HermesAgent;
-  onSave: (agent: HermesAgent, patch: { soul?: string; model?: string; provider?: string }) => Promise<void>;
+  onSave: (
+    agent: HermesAgent,
+    patch: { soul?: string; model?: string; provider?: string; backupModel?: string; backupProvider?: string }
+  ) => Promise<void>;
 }) {
   const [soul, setSoul] = useState(agent.soul ?? "");
   const [model, setModel] = useState(agent.model ?? "");
   const [provider, setProvider] = useState(agent.provider ?? "");
+  const [backupModel, setBackupModel] = useState(agent.backupModel ?? "");
+  const [backupProvider, setBackupProvider] = useState(agent.backupProvider ?? "");
   const [saving, setSaving] = useState(false);
   const [polishing, setPolishing] = useState(false);
 
@@ -585,12 +595,20 @@ function EditableAgent({
   async function save() {
     setSaving(true);
     try {
-      const patch: { soul?: string; model?: string; provider?: string } = {};
+      const patch: {
+        soul?: string;
+        model?: string;
+        provider?: string;
+        backupModel?: string;
+        backupProvider?: string;
+      } = {};
       if ((soul.trim() ?? "") !== (agent.soul ?? "").trim()) patch.soul = soul;
       const m = model.trim();
       const p = provider.trim();
       if (m !== (agent.model ?? "")) patch.model = m;
       if (p !== (agent.provider ?? "")) patch.provider = p;
+      if (backupModel.trim() !== (agent.backupModel ?? "")) patch.backupModel = backupModel.trim();
+      if (backupProvider.trim() !== (agent.backupProvider ?? "")) patch.backupProvider = backupProvider.trim();
       if (Object.keys(patch).length > 0) await onSave(agent, patch);
     } finally {
       setSaving(false);
@@ -600,7 +618,7 @@ function EditableAgent({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
       <label style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
-        Model (AIVA_MODEL · blank = gateway default)
+        Primary model (AIVA_MODEL · blank = gateway default)
         <div style={{ marginTop: 4 }}>
           <ModelSelector
             value={model.trim() || null}
@@ -611,6 +629,25 @@ function EditableAgent({
               setProvider(p ?? "");
             }}
           />
+        </div>
+      </label>
+      <label style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
+        Backup model (AIVA_BACKUP_MODEL · used when the primary fails)
+        <div style={{ marginTop: 4 }}>
+          <ModelSelector
+            value={backupModel.trim() || null}
+            provider={backupProvider.trim() || null}
+            slug={agent.slug}
+            onChange={(m, p) => {
+              setBackupModel(m ?? "");
+              setBackupProvider(p ?? "");
+            }}
+          />
+        </div>
+        <div style={{ ...subtleTextStyle, fontSize: 11.5, marginTop: 4 }}>
+          {backupModel.trim()
+            ? `Tried automatically if ${model.trim() || "the gateway default"} fails, then the local model, then a handoff.`
+            : "Blank = the platform free model, then the local model, then a handoff. A customer never sees a provider error."}
         </div>
       </label>
       <label style={{ fontSize: 12.5, color: "var(--text-muted)" }}>

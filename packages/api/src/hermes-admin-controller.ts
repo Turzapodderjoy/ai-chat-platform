@@ -86,6 +86,10 @@ export interface HermesAgentSummary {
   provisioned: boolean;
   model: string | null;
   provider: string | null;
+  /** Second-choice model tried when `model` fails. Null = the platform free
+   *  default, which is what every unconfigured agent already gets. */
+  backupModel: string | null;
+  backupProvider: string | null;
   soul: string | null;
   /** API_SERVER_KEY from the profile .env — admin-only, shown so the key is
    *  recoverable without re-provisioning (the panel shows it with a copy
@@ -107,7 +111,7 @@ function soulPath(slug: string): string {
   return path.join(profileDir(slug), "SOUL.md");
 }
 
-const MODEL_ENV_KEYS = ["AIVA_PROVIDER", "AIVA_MODEL"] as const;
+const MODEL_ENV_KEYS = ["AIVA_PROVIDER", "AIVA_MODEL", "AIVA_BACKUP_PROVIDER", "AIVA_BACKUP_MODEL"] as const;
 
 /**
  * Hermes resolves the provider/model from the PROFILE's .env, and a freshly
@@ -398,6 +402,8 @@ export class HermesAdminController {
         provisioned: Boolean(readEnvValue(envRaw, "API_SERVER_KEY")),
         model: readEnvValue(envRaw, "AIVA_MODEL"),
         provider: readEnvValue(envRaw, "AIVA_PROVIDER"),
+        backupModel: readEnvValue(envRaw, "AIVA_BACKUP_MODEL"),
+        backupProvider: readEnvValue(envRaw, "AIVA_BACKUP_PROVIDER"),
         soul,
         apiKey: readEnvValue(envRaw, "API_SERVER_KEY"),
         businesses: businesses.filter((b) => b.hermesProfile === slug).map((b) => ({
@@ -453,8 +459,14 @@ export class HermesAdminController {
 
   async update(
     slug: string,
-    input: { soul?: string; model?: string; provider?: string }
-  ): Promise<{ slug: string; model: string | null; provider: string | null }> {
+    input: { soul?: string; model?: string; provider?: string; backupModel?: string; backupProvider?: string }
+  ): Promise<{
+    slug: string;
+    model: string | null;
+    provider: string | null;
+    backupModel: string | null;
+    backupProvider: string | null;
+  }> {
     if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(slug)) {
       throw new Error("Invalid agent slug.");
     }
@@ -467,11 +479,18 @@ export class HermesAdminController {
       await fs.writeFile(soulPath(slug), input.soul);
     }
 
-    if (input.model !== undefined || input.provider !== undefined) {
+    if (
+      input.model !== undefined ||
+      input.provider !== undefined ||
+      input.backupModel !== undefined ||
+      input.backupProvider !== undefined
+    ) {
       const raw = await fs.readFile(envPath(slug), "utf8").catch(() => "");
       const edits: Record<string, string | null> = {};
       if (input.model !== undefined) edits.AIVA_MODEL = input.model.trim() || null;
       if (input.provider !== undefined) edits.AIVA_PROVIDER = input.provider.trim() || null;
+      if (input.backupModel !== undefined) edits.AIVA_BACKUP_MODEL = input.backupModel.trim() || null;
+      if (input.backupProvider !== undefined) edits.AIVA_BACKUP_PROVIDER = input.backupProvider.trim() || null;
       const out = upsertEnv(raw || "", edits);
       if (!/API_SERVER_KEY/.test(out)) {
         throw new Error(`Agent '${slug}' has no API_SERVER_KEY yet — provision first.`);
@@ -480,7 +499,13 @@ export class HermesAdminController {
     }
 
     const raw = await fs.readFile(envPath(slug), "utf8").catch(() => "");
-    return { slug, model: readEnvValue(raw, "AIVA_MODEL"), provider: readEnvValue(raw, "AIVA_PROVIDER") };
+    return {
+      slug,
+      model: readEnvValue(raw, "AIVA_MODEL"),
+      provider: readEnvValue(raw, "AIVA_PROVIDER"),
+      backupModel: readEnvValue(raw, "AIVA_BACKUP_MODEL"),
+      backupProvider: readEnvValue(raw, "AIVA_BACKUP_PROVIDER"),
+    };
   }
 
   /**
