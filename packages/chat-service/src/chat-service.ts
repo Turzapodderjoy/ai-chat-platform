@@ -1,5 +1,5 @@
 import { ConversationService, ConversationMessage, OrderService } from "@ai-chat-platform/conversation";
-import { hermesChat } from "@ai-chat-platform/hermes";
+import { hermesChat, localBrainChat } from "@ai-chat-platform/hermes";
 import type { ContactService } from "@ai-chat-platform/crm";
 import type { RepairAppointmentService } from "@ai-chat-platform/repairs";
 import { prisma } from "@ai-chat-platform/database";
@@ -345,6 +345,23 @@ function buildHermesSystemPrompt(request: ChatRequest, biz: BusinessChatInfo, la
     .join("\n\n");
 }
 
+/**
+ * Persona for the LOCAL fallback brain. Intentionally ~50 tokens: the local
+ * model runs on a 4-vCPU box where every prompt token costs the customer a
+ * visible fraction of a second. Rules mirror the cloud agent's essentials
+ * (same-language replies, brevity, never invent facts) and nothing else.
+ */
+function localBrainPrompt(bizName: string | null, languageMode: string): string {
+  const who = bizName ? `You are the customer service assistant for ${bizName}.` : "You are a helpful customer service assistant.";
+  const lang =
+    languageMode === "bangla"
+      ? "Always reply in Bangla."
+      : languageMode === "banglish"
+        ? "Always reply in Banglish (Bangla written in Latin letters)."
+        : "Always reply in the same language the customer used.";
+  return `${who} ${lang} Keep it to 1-2 short sentences. Never invent prices, stock, delivery times or policies — if you are not sure, say so and offer to have a team member follow up.`;
+}
+
 interface BusinessChatInfo {
   name: string | null;
   type: string;
@@ -666,10 +683,47 @@ export class ChatService {
         messageId: savedMessage.id,
       };
     } catch (hermesErr) {
-      // Fail closed but never crash the customer: log, and fall back to
-      // a canned "someone will pick this up" line WITHOUT re-persisting
-      // the user message (it's already stored above).
+      // The cloud brain is down (the Nous free tier 404s a lot). Before
+      // giving the customer a canned handoff line, try the local VPS model
+      // as a raw completion: no tools, no memory, a ~90-token prompt, ~4s.
+      // ponytail: deliberately not the agent — see localBrainChat's note on
+      // why the 14.6K-token agent prompt can't run on this CPU.
       console.error(`[hermes] request failed for business ${businessId}:`, hermesErr);
+      const local = await localBrainChat({
+        system: localBrainPrompt(biz?.name ?? null, languageMode),
+        history: priorHistory
+          .filter((m) => m.role === "user" || m.role === "assistant")
+          .map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+        message: request.message,
+      });
+
+      if (local) {
+        // Not re-persisting the user message: it was already stored above.
+        const savedMessage = await this.conversations.addMessage(
+          request.sessionId,
+          "assistant",
+          local.answer,
+          "local"
+        );
+        this.usageLog.record({
+          chatId: request.sessionId,
+          provider: "local",
+          tokens: local.tokens,
+          confidence: 0,
+          createdAt: new Date().toISOString(),
+        });
+        return {
+          answer: local.answer,
+          provider: "local",
+          tokens: local.tokens,
+          confidence: 0,
+          messageId: savedMessage.id,
+        };
+      }
+
+      // Local brain unreachable too: fail closed but never crash the
+      // customer — log, and fall back to a canned "someone will pick this
+      // up" line WITHOUT re-persisting the user message.
       return {
         answer: HANDOFF_MESSAGE_EN,
         provider: "system",

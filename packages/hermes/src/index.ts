@@ -1,6 +1,8 @@
 export {
   hermesChat,
   hermesModels,
+  localBrainChat,
+  localBrainEndpoint,
   readProfileApiKey,
   readProfileEnv,
   hermesHome,
@@ -12,4 +14,6 @@ export type {
   HermesChatResult,
   HermesModelsResult,
   HermesProfileKeyInput,
+  LocalBrainArgs,
+  LocalBrainResult,
 } from "./client";

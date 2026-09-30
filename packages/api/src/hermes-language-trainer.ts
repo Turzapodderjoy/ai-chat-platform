@@ -169,14 +169,62 @@ async function fetchOne(url: string, deadline: number): Promise<{ text: string; 
 }
 
 // ── source selection ────────────────────────────────────────────────────────
-function allowlistUrls(language: string, max: number): string[] {
-  const key = language.toLowerCase();
-  const pick = (hosts: string[], pathFor?: (l: string) => string): string[] =>
-    hosts.slice(0, 2).map((h) => `https://${h}${pathFor?.(key) ?? "/wiki/" + encodeURIComponent(language)}`);
+// ISO-639-1 -> that language's OWN Wikipedia/Wiktionary, so the pack is
+// distilled from sources WRITTEN IN the target language (native idiom) rather
+// than its article on an English wiki. Any unlisted two-letter code still
+// resolves heuristically to <code>.<tld>; unresolvable names fall back to the
+// platform-standard hosts below. All entries stay within the SSRF allowlist.
+const LANGUAGE_WIKIS: Record<string, { wikipedia?: string; wiktionary?: string }> = {
+  en: { wikipedia: "en.wikipedia.org", wiktionary: "en.wiktionary.org" },
+  es: { wikipedia: "es.wikipedia.org", wiktionary: "es.wiktionary.org" },
+  pt: { wikipedia: "pt.wikipedia.org", wiktionary: "pt.wiktionary.org" },
+  fr: { wikipedia: "fr.wikipedia.org", wiktionary: "fr.wiktionary.org" },
+  de: { wikipedia: "de.wikipedia.org", wiktionary: "de.wiktionary.org" },
+  hi: { wikipedia: "hi.wikipedia.org", wiktionary: "hi.wiktionary.org" },
+  bn: { wikipedia: "bn.wikipedia.org", wiktionary: "bn.wiktionary.org" },
+  ar: { wikipedia: "ar.wikipedia.org", wiktionary: "ar.wiktionary.org" },
+  ur: { wikipedia: "ur.wikipedia.org", wiktionary: "ur.wiktionary.org" },
+  tl: { wikipedia: "tl.wikipedia.org", wiktionary: "tl.wiktionary.org" },
+  vi: { wikipedia: "vi.wikipedia.org", wiktionary: "vi.wiktionary.org" },
+  id: { wikipedia: "id.wikipedia.org", wiktionary: "id.wiktionary.org" },
+  ms: { wikipedia: "ms.wikipedia.org", wiktionary: "ms.wiktionary.org" },
+  th: { wikipedia: "th.wikipedia.org", wiktionary: "th.wiktionary.org" },
+  zh: { wikipedia: "zh.wikipedia.org", wiktionary: "zh.wiktionary.org" },
+  ja: { wikipedia: "ja.wikipedia.org", wiktionary: "ja.wiktionary.org" },
+  ko: { wikipedia: "ko.wikipedia.org", wiktionary: "ko.wiktionary.org" },
+  sw: { wikipedia: "sw.wikipedia.org", wiktionary: "sw.wiktionary.org" },
+  tr: { wikipedia: "tr.wikipedia.org", wiktionary: "tr.wiktionary.org" },
+  ru: { wikipedia: "ru.wikipedia.org", wiktionary: "ru.wiktionary.org" },
+  it: { wikipedia: "it.wikipedia.org", wiktionary: "it.wiktionary.org" },
+  nl: { wikipedia: "nl.wikipedia.org", wiktionary: "nl.wiktionary.org" },
+  pl: { wikipedia: "pl.wikipedia.org", wiktionary: "pl.wiktionary.org" },
+  sv: { wikipedia: "sv.wikipedia.org", wiktionary: "sv.wiktionary.org" },
+};
+const LANGUAGE_NAME_CODES: Record<string, string> = {
+  english: "en", spanish: "es", portuguese: "pt", "brazilian portuguese": "pt-br",
+  french: "fr", german: "de", hindi: "hi", bengali: "bn", bangla: "bn", arabic: "ar",
+  urdu: "ur", tagalog: "tl", filipino: "tl", vietnamese: "vi", indonesian: "id",
+  malay: "ms", thai: "th", chinese: "zh", mandarin: "zh", japanese: "ja",
+  korean: "ko", swahili: "sw", turkish: "tr", russian: "ru", italian: "it",
+  dutch: "nl", polish: "pl", swedish: "sv",
+};
+
+function languageWikiHosts(language: string, code: string): { wikipedia?: string; wiktionary?: string } {
+  const byName = LANGUAGE_NAME_CODES[language.trim().toLowerCase()];
+  const base = (byName ?? code).split("-")[0]!;
+  const explicit = LANGUAGE_WIKIS[base];
+  if (explicit) return explicit;
+  // Any other ISO-639-1 pair still gets its own wiki; a non-existent one is
+  // simply dropped by the fetch later (unreachable sources never fail a run).
+  return { wikipedia: `${base}.wikipedia.org`, wiktionary: `${base}.wiktionary.org` };
+}
+
+function allowlistUrls(language: string, code: string, max: number): string[] {
+  const hosts = languageWikiHosts(language, code);
   const urls: string[] = [];
-  urls.push(...pick(ALLOWLIST.wikipedia ?? []));
-  urls.push(...pick(ALLOWLIST.wiktionary ?? []));
-  urls.push(...pick(ALLOWLIST.wikibooks ?? [], () => "/"));
+  if (hosts.wikipedia) urls.push(`https://${hosts.wikipedia}/wiki/${encodeURIComponent(language)}`);
+  if (hosts.wiktionary) urls.push(`https://${hosts.wiktionary}/wiki/${encodeURIComponent(language)}`);
+  urls.push(...(ALLOWLIST.wikibooks ?? []).slice(0, 1).map((h) => `https://${h}`));
   return urls.slice(0, max);
 }
 
@@ -228,16 +276,14 @@ export async function trainLanguage(
   const cacheFile = fetchCachePath(home, slug);
   const cache = await readJson<FetchCache>(cacheFile, {});
 
-  // Candidate sources: allowlist first, then opt-in paste-URLs.
-  const candidates: Array<{ url: string; optIn: boolean }> = allowlistUrls(language, maxPages).map((u) => ({
-    url: u,
-    optIn: false,
-  }));
-  for (const raw of opts.urls ?? []) {
-    if (candidates.length >= maxPages + (opts.urls?.length ?? 0)) break;
-    const u = raw.trim();
-    if (u) candidates.push({ url: u, optIn: true });
-  }
+  // Candidate sources. The page budget is a TOTAL cap across the native-host
+  // allowlist and any pasted URLs — the admin's explicit URLs win the budget.
+  const usr = [...new Set((opts.urls ?? []).map((s) => s.trim()).filter(Boolean))].slice(0, maxPages);
+  const allow = allowlistUrls(language, code, Math.max(1, maxPages - usr.length));
+  const candidates: Array<{ url: string; optIn: boolean }> = [
+    ...usr.map((url) => ({ url, optIn: true })),
+    ...allow.slice(0, Math.max(0, maxPages - usr.length)).map((url) => ({ url, optIn: false })),
+  ];
 
   const chunks: string[] = [];
   let chars = 0;
@@ -286,13 +332,22 @@ export async function trainLanguage(
     timeoutMs: Math.max(30_000, Math.min(180_000, deadline - Date.now())),
     systemPrompt:
       "You are a language and communication coach. You produce a practical, compact " +
-      "language pack that another AI agent will follow to sound natural and human in the " +
-      "target language. Return ONLY markdown. Be concrete and example-rich; never pad.",
+      "language pack that another AI agent will follow to sound like a fluent native " +
+      "customer-service speaker in the target language. Return ONLY markdown. Be concrete " +
+      "and example-rich; never pad.",
     message: `Write a language + communication pack for an AI customer-service agent speaking ${language}.
+
+The ENTIRE pack must be written IN ${language} itself — headings, examples and all — so a reader who knows no English can follow it.
+
+Make the agent sound like a local, never like translated or politely written English:
+- Use the real everyday register of ${language}: natural word order, contractions/short forms, filler and politeness particles a native actually uses.
+- Match the local politeness and honorific culture for customer service (forms of address, respectful verb forms, informal vs formal address) and say WHICH register to use with customers.
+- Give common customer-service sentences exactly as a local would say them, plus the top mistakes a foreigner makes and why they sound robotic.
+- Keep any code-switched words (e.g. English product names) the way locals actually keep them.
 
 Cover: core everyday phrasing, register and politeness norms, how to sound warm and human (not robotic or translated), common mistakes to avoid, and 5 short example exchanges.
 
-Use this source material (may be noisy; trust it over inventing):
+Use this source material (may be noisy; it is native-language material, trust it over inventing):
 ${digest}`,
   });
 

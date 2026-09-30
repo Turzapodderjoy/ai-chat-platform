@@ -269,6 +269,75 @@ export async function hermesChat(args: HermesChatArgs): Promise<HermesChatResult
   };
 }
 
+// ── Local fallback brain (llama.cpp on this same VPS) ─────────────────
+// The gateway's own agent prompt is ~14.6K tokens (SOUL + tools + skills +
+// memory), and this CPU prefills at 12-18 tok/s — minutes per turn. So the
+// local model is NOT driven through the gateway: when the cloud brain is
+// down we call it RAW with a ~90-token prompt (~4s round trip). It is a
+// 0.6B model with no tools, no memory and no vision — last-resort replies
+// only, never the primary path.
+export interface LocalBrainArgs {
+  /** Short persona/instruction line. Keep it small: every token costs a
+   *  customer-visible second on a 4-vCPU box. */
+  system: string;
+  /** Prior turns; only the last few are sent. */
+  history?: Array<{ role: "user" | "assistant"; content: string }>;
+  message: string;
+  maxTokens?: number;
+  timeoutMs?: number;
+}
+
+export interface LocalBrainResult {
+  answer: string;
+  tokens: number;
+}
+
+/** Env read per call (not at import) so tests can point it elsewhere. */
+export function localBrainEndpoint(): { url: string; model: string; apiKey: string | null } {
+  return {
+    url: process.env.LOCAL_BRAIN_URL ?? "http://127.0.0.1:8080",
+    model: process.env.LOCAL_BRAIN_MODEL ?? "qwen3-0.6b-instruct",
+    apiKey: process.env.LOCAL_BRAIN_API_KEY ?? null,
+  };
+}
+
+/**
+ * One raw chat completion against the local llama.cpp server. Resolves null
+ * on ANY problem (server down, non-2xx, empty answer, timeout) — the caller
+ * still has its own canned last resort, so this must never throw.
+ */
+export async function localBrainChat(args: LocalBrainArgs): Promise<LocalBrainResult | null> {
+  const { url, model, apiKey } = localBrainEndpoint();
+  try {
+    const res = await fetch(`${url.replace(/\/+$/, "")}/v1/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: args.system },
+          ...(args.history ?? []).slice(-4),
+          { role: "user", content: args.message },
+        ],
+        max_tokens: args.maxTokens ?? 200,
+        temperature: 0.4,
+        stream: false,
+      }),
+      signal: AbortSignal.timeout(args.timeoutMs ?? 45_000),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as HermesCompletionResponse;
+    const answer = (data.choices?.[0]?.message?.content ?? "").trim();
+    if (!answer) return null;
+    return { answer, tokens: data.usage?.total_tokens ?? 0 };
+  } catch {
+    return null;
+  }
+}
+
 export interface HermesModelsResult {
   models: string[];
 }
