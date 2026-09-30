@@ -509,13 +509,13 @@ export class HermesAdminController {
     const want: Record<string, string> = view === "raw"
       ? {
           totals: `SELECT (SELECT count(*) FROM sessions) AS sessions, (SELECT count(*) FROM messages) AS messages, (SELECT min(timestamp) FROM messages) AS first_ts, (SELECT max(timestamp) FROM messages) AS last_ts`,
-          usage: `SELECT coalesce(sum(api_call_count),0) AS calls, coalesce(sum(input_tokens),0) AS input_tokens, coalesce(sum(output_tokens),0) AS output_tokens, coalesce(sum(cache_read_tokens),0) AS cache_read_tokens`,
+          usage: `SELECT coalesce(sum(api_call_count),0) AS calls, coalesce(sum(input_tokens),0) AS input_tokens, coalesce(sum(output_tokens),0) AS output_tokens, coalesce(sum(cache_read_tokens),0) AS cache_read_tokens FROM session_model_usage`,
           messages: `SELECT id, session_id, role, substr(content,1,400) AS content, timestamp FROM messages ORDER BY timestamp DESC LIMIT 50`,
           usageRows: `SELECT session_id, model, task, api_call_count, input_tokens, output_tokens FROM session_model_usage ORDER BY rowid DESC LIMIT 25`,
         }
       : {
           totals: `SELECT (SELECT count(*) FROM sessions) AS sessions, (SELECT count(*) FROM messages) AS messages, (SELECT min(timestamp) FROM messages) AS first_ts, (SELECT max(timestamp) FROM messages) AS last_ts`,
-          usage: `SELECT coalesce(sum(api_call_count),0) AS calls, coalesce(sum(input_tokens),0) AS input_tokens, coalesce(sum(output_tokens),0) AS output_tokens, coalesce(sum(cache_read_tokens),0) AS cache_read_tokens`,
+          usage: `SELECT coalesce(sum(api_call_count),0) AS calls, coalesce(sum(input_tokens),0) AS input_tokens, coalesce(sum(output_tokens),0) AS output_tokens, coalesce(sum(cache_read_tokens),0) AS cache_read_tokens FROM session_model_usage`,
           daily: `SELECT date(timestamp,'unixepoch') AS day, count(*) AS n FROM messages GROUP BY day ORDER BY day DESC LIMIT 14`,
           lastUserMessages: `SELECT substr(content,1,240) AS content, timestamp FROM messages WHERE role='user' ORDER BY timestamp DESC LIMIT 5`,
         };
