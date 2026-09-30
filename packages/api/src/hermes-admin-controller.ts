@@ -371,8 +371,12 @@ export class HermesAdminController {
     return out;
   }
 
-  async create(input: { slug: string; soul?: string; brief?: AgentBrief }): Promise<{ slug: string; apiKey: string }> {
-    const slug = input.slug.trim().toLowerCase();
+  async create(input: { slug?: string; soul?: string; brief?: AgentBrief }): Promise<{ slug: string; apiKey: string }> {
+    // The agent's NAME is the source of truth for its slug: an API caller must
+    // not be able to create "acme-support" for an agent named "Mina". The
+    // explicit slug is still honoured for the legacy/clone flow.
+    const requested = input.brief?.name?.trim() ? slugifyName(input.brief.name) : (input.slug ?? "");
+    const slug = requested.trim().toLowerCase();
     validateSlug(slug);
     if (existsSync(profileDir(slug))) {
       throw new Error(`Agent '${slug}' already exists.`);

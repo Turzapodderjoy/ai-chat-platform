@@ -182,11 +182,11 @@ export function HermesAgentsPanel() {
     await authAction("remove", acc.id);
   }
 
-  async function createAgentFromBrief(brief: AgentBrief) {
+  async function createAgentFromBrief(brief: AgentBrief): Promise<boolean> {
     const slug = slugify(brief.name);
     if (!slug) {
       await showAlert("Give the agent a name (letters/numbers).");
-      return;
+      return false;
     }
     setCreating(true);
     try {
@@ -198,14 +198,16 @@ export function HermesAgentsPanel() {
       const data = (await res.json()) as { slug?: string; apiKey?: string; error?: string };
       if (!res.ok || !data.apiKey) {
         await showAlert(data.error ?? "Failed to create agent.");
-        return;
+        return false;
       }
       await refresh();
       await showAlert(
         `Agent '${data.slug}' created and trained on its SOUL.\n\nCopy this API key now — it is only shown once:\n\n${data.apiKey}`
       );
+      return true;
     } catch {
       await showAlert("Could not create agent.");
+      return false;
     } finally {
       setCreating(false);
     }
@@ -409,8 +411,11 @@ export function HermesAgentsPanel() {
         <AgentWizard
           onClose={() => setWizardOpen(false)}
           onCreate={async (brief) => {
-            await createAgentFromBrief(brief);
-            setWizardOpen(false);
+            // Only dismiss the wizard once the agent actually exists, so a
+            // failed create leaves the answered questions in place to retry.
+            const created = await createAgentFromBrief(brief);
+            if (created) setWizardOpen(false);
+            return created;
           }}
           creating={creating}
         />
@@ -650,7 +655,7 @@ function AgentWizard({
   creating,
 }: {
   onClose: () => void;
-  onCreate: (brief: AgentBrief) => Promise<void>;
+  onCreate: (brief: AgentBrief) => Promise<boolean>;
   creating: boolean;
 }) {
   const [step, setStep] = useState(0);
