@@ -280,7 +280,7 @@ export async function trainLanguage(
 
   // The single distillation call that turns source text into a usable pack.
   const digest = chunks.join("\n\n").slice(0, maxChars);
-  const { answer } = await hermesChat({
+  const { answer: answerRaw } = await hermesChat({
     tenant: slug,
     sessionKey: `train:${slug}:${code}`,
     timeoutMs: Math.max(30_000, Math.min(180_000, deadline - Date.now())),
@@ -295,6 +295,17 @@ Cover: core everyday phrasing, register and politeness norms, how to sound warm 
 Use this source material (may be noisy; trust it over inventing):
 ${digest}`,
   });
+
+  // hermesChat resolves with an error code (e.g. "platform.api_server.
+  // provider_error_line") instead of throwing when the model call fails.
+  // Persisting that as a language skill would tell the admin the agent
+  // "learned" an error message, so refuse instead.
+  const answer = answerRaw.trim();
+  if (!answer || answer.length < 40 || /^(platform|internal|error)\.[a-z_.]+$/i.test(answer)) {
+    throw new Error(
+      `Language training failed: the model returned no usable pack (${answer.slice(0, 120) || "empty response"}).`
+    );
+  }
 
   // Persist as a real, loadable Hermes skill.
   const skillDir = path.join(dir, "skills", `language-${code}`);

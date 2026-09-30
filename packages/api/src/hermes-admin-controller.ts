@@ -107,6 +107,22 @@ function soulPath(slug: string): string {
   return path.join(profileDir(slug), "SOUL.md");
 }
 
+/**
+ * Hermes resolves provider credentials from the profile's own auth.json, so a
+ * freshly cloned profile has none and every model call fails with
+ * "platform.api_server.provider_error_line". The existing working profiles
+ * link to the shared credential; replicate that on create so a new agent is
+ * actually usable the moment it is created.
+ */
+async function linkSharedAuth(slug: string): Promise<void> {
+  const shared = path.join(HERMES_HOME, "auth.json");
+  const target = path.join(profileDir(slug), "auth.json");
+  if (!existsSync(shared) || existsSync(target)) return;
+  await fs.symlink(shared, target).catch((err) => {
+    console.error("[hermes] could not link shared auth.json", { slug, err: (err as Error).message });
+  });
+}
+
 function readEnvValue(raw: string, key: string): string | null {
   const m = raw.match(new RegExp(`^${key}\\s*=\\s*(.+)$`, "m"));
   const v = m ? m[1]!.trim() : "";
@@ -403,6 +419,8 @@ export class HermesAdminController {
     } else if (input.brief) {
       await fs.writeFile(soulPath(slug), composeSoul(input.brief));
     }
+
+    await linkSharedAuth(slug);
 
     return { slug, apiKey };
   }
