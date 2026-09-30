@@ -129,15 +129,6 @@ function repairConfirmedMessage(fields: RepairFields, trackingToken: string): st
 }
 
 // ── Canned messages & language helpers (no LLM involved) ─────────────
-const HANDOFF_MESSAGE_EN =
-  "I can't help with that right now. Let me connect you with a team member who can — they'll pick up right where this conversation left off.";
-
-const HANDOFF_MESSAGE_BN =
-  "এই বিষয়ে আমি এখন সাহায্য করতে পারছি না। আমি আপনাকে একজন টিম মেম্বারের সাথে সংযুক্ত করছি — তিনি এই কথোপকথন যেখানে শেষ হয়েছে সেখান থেকেই শুরু করবেন।";
-
-const HANDOFF_MESSAGE_BANGLISH =
-  "E bishoye ami ekhon sahajjo korte parchi na. Ami apnake ekjon team member-er sathe connect kore dicchi — uni ei conversation ja jekhane sesh hoyeche sekhan theke shuru korben.";
-
 const ALREADY_WAITING_MESSAGES_EN = [
   "Thanks for reaching out! Our team already has your message and will reply here shortly — feel free to share any more details in the meantime.",
   "Appreciate your patience! A team member has your message and will get back to you here soon.",
@@ -157,6 +148,25 @@ const ALREADY_WAITING_MESSAGES_BANGLISH = [
   "Dhoirjo dhorar jonno dhonnobad! Amader ekjon team member apnar message dekheche, shiggiri eikhane reply korben.",
   "Bujhlam — ei bishoye apni already amader team er sathe achen, tara shiggiri reply korben. Er moddhe aro kichu janate chaile nishchinte likhun.",
   "Message er jonno dhonnobad! Amader team eta niye dekhche, shiggiri eikhane reply korbe.",
+];
+
+// Used when the cloud brain is unreachable AND the local model can't be
+// trusted with this customer's language (it is only wired for English —
+// see localBrainPrompt). Always pairs with a handoff, because it promises
+// a callback: a real person is the only thing that can answer next.
+const BRAIN_DOWN_MESSAGES_EN = [
+  "Sorry — our assistant system is having trouble right now, so I can't answer questions properly yet. I've passed your message to our team and someone will call you shortly. Could you share your name and phone number?",
+  "Apologies, I'm having trouble reaching our system at the moment. Your message is with our team and a team member will call you back shortly. May I have your name and phone number?",
+];
+
+const BRAIN_DOWN_MESSAGES_BN = [
+  "দুঃখিত — এই মুহূর্তে আমাদের সিস্টেমে সমস্যা হচ্ছে, তাই আপনার প্রশ্নের উত্তর দিতে পারছি না। আপনার বার্তাটি আমাদের টিমের কাছে পৌঁছেছে, একজন টিম মেম্বার শীঘ্রই আপনাকে ফোন করবেন। আপনার নাম ও ফোন নম্বরটা জানাবেন?",
+  "দুঃখিত, এই মুহূর্তে সিস্টেমে সমস্যার কারণে ঠিকমতো উত্তর দিতে পারছি না। আপনার বার্তা টিমের কাছে আছে, একজন টিম মেম্বার শীঘ্রই কল করবেন। আপনার নাম ও ফোন নম্বর দেবেন?",
+];
+
+const BRAIN_DOWN_MESSAGES_BANGLISH = [
+  "Dujkhit — eihon amader system-e somossha hocche, tai apnar prosno-ur uttor dite parchi na. Apnar barta amader team-e kase pouchheche, ekjon team member shiggiri apnake phone korben. Apnar naam o phone number ta janaben?",
+  "Dujkhit, eihon system-e somosshar karone thik moto uttor dite parchi na. Apnar barta team-er kase ache, ekjon team member shiggiri call korben. Apnar naam o phone number debe na?",
 ];
 
 const GREETING_BN = /^(হ্যালো|হাই|সালাম|আসসালামু\s*আলাইকুম)[।!?\s]*$/;
@@ -346,20 +356,17 @@ function buildHermesSystemPrompt(request: ChatRequest, biz: BusinessChatInfo, la
 }
 
 /**
- * Persona for the LOCAL fallback brain. Intentionally ~50 tokens: the local
- * model runs on a 4-vCPU box where every prompt token costs the customer a
- * visible fraction of a second. Rules mirror the cloud agent's essentials
- * (same-language replies, brevity, never invent facts) and nothing else.
+ * Persona for the LOCAL fallback brain, used for ENGLISH conversations
+ * only (measured on the VPS: the 0.6B model is coherent in English but
+ * produces gibberish in Bangla/Banglish and invents wrong "no, we don't
+ * have that" answers — worse than the outage it replaces). Its one job is
+ * the same as the canned messages: apologize, promise a callback, ask for
+ * a name and number. Kept ~60 tokens — every prompt token costs the
+ * customer a visible fraction of a second on a 4-vCPU box.
  */
-function localBrainPrompt(bizName: string | null, languageMode: string): string {
-  const who = bizName ? `You are the customer service assistant for ${bizName}.` : "You are a helpful customer service assistant.";
-  const lang =
-    languageMode === "bangla"
-      ? "Always reply in Bangla."
-      : languageMode === "banglish"
-        ? "Always reply in Banglish (Bangla written in Latin letters)."
-        : "Always reply in the same language the customer used.";
-  return `${who} ${lang} Keep it to 1-2 short sentences. Never invent prices, stock, delivery times or policies — if you are not sure, say so and offer to have a team member follow up.`;
+function localBrainPrompt(bizName: string | null): string {
+  const who = bizName ? `the customer service assistant for ${bizName}` : "a customer service assistant";
+  return `You are ${who}. Our system is temporarily unable to answer questions. In 1-2 short sentences: apologize briefly, say a team member will call back shortly, and ask for the customer's name and phone number. Never mention products, prices or stock. Reply in English.`;
 }
 
 interface BusinessChatInfo {
@@ -683,53 +690,64 @@ export class ChatService {
         messageId: savedMessage.id,
       };
     } catch (hermesErr) {
-      // The cloud brain is down (the Nous free tier 404s a lot). Before
-      // giving the customer a canned handoff line, try the local VPS model
-      // as a raw completion: no tools, no memory, a ~90-token prompt, ~4s.
-      // ponytail: deliberately not the agent — see localBrainChat's note on
-      // why the 14.6K-token agent prompt can't run on this CPU.
+      // The cloud brain is down (the Nous free tier 404s a lot), so never
+      // leave the customer with a raw error. Two fallback tiers:
+      //   1. English + local VPS model up -> let the 0.6B write the
+      //      "sorry, team will call you" line (measured coherent in
+      //      English, ~4s, no tools/memory/vision).
+      //   2. Everything else -> a canned line in the customer's own
+      //      language. Deterministic: the local model is NOT used for
+      //      Bangla/Banglish (gibberish) and neither tier invents prices,
+      //      stock or policies.
+      // Both promise a callback, so both raise a handoff for a human.
+      // ponytail: deliberately not the Hermes agent — see localBrainChat's
+      // note on why the 14.6K-token agent prompt can't run on this CPU.
       console.error(`[hermes] request failed for business ${businessId}:`, hermesErr);
-      const local = await localBrainChat({
-        system: localBrainPrompt(biz?.name ?? null, languageMode),
-        history: priorHistory
-          .filter((m) => m.role === "user" || m.role === "assistant")
-          .map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
-        message: request.message,
+      const lang = cannedMessageLanguage(languageMode, request.message);
+      const fallbackHistory = priorHistory
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+
+      const local =
+        lang === "english"
+          ? await localBrainChat({
+              system: localBrainPrompt(biz?.name ?? null),
+              history: fallbackHistory,
+              message: request.message,
+            })
+          : null;
+
+      const canned =
+        lang === "bangla" ? BRAIN_DOWN_MESSAGES_BN : lang === "banglish" ? BRAIN_DOWN_MESSAGES_BANGLISH : BRAIN_DOWN_MESSAGES_EN;
+      const answer = local?.answer ?? canned[greetingIndex(request.sessionId + request.message) % canned.length]!;
+      const provider = local ? "local" : "canned";
+      const tokens = local?.tokens ?? 0;
+
+      // Not re-persisting the user message: it was already stored above.
+      const savedMessage = await this.conversations.addMessage(
+        request.sessionId,
+        "assistant",
+        answer,
+        provider
+      );
+      this.conversations
+        .requestHandoff(request.sessionId, "Cloud brain unavailable — fallback reply sent", request.message.slice(0, 200))
+        .catch((err) => console.error("[ChatService] fallback handoff request failed:", err));
+      this.usageLog.record({
+        chatId: request.sessionId,
+        provider,
+        tokens,
+        confidence: 0,
+        createdAt: new Date().toISOString(),
       });
 
-      if (local) {
-        // Not re-persisting the user message: it was already stored above.
-        const savedMessage = await this.conversations.addMessage(
-          request.sessionId,
-          "assistant",
-          local.answer,
-          "local"
-        );
-        this.usageLog.record({
-          chatId: request.sessionId,
-          provider: "local",
-          tokens: local.tokens,
-          confidence: 0,
-          createdAt: new Date().toISOString(),
-        });
-        return {
-          answer: local.answer,
-          provider: "local",
-          tokens: local.tokens,
-          confidence: 0,
-          messageId: savedMessage.id,
-        };
-      }
-
-      // Local brain unreachable too: fail closed but never crash the
-      // customer — log, and fall back to a canned "someone will pick this
-      // up" line WITHOUT re-persisting the user message.
       return {
-        answer: HANDOFF_MESSAGE_EN,
-        provider: "system",
-        tokens: 0,
+        answer,
+        provider,
+        tokens,
         confidence: 0,
         handoff: true,
+        messageId: savedMessage.id,
       };
     }
   }
