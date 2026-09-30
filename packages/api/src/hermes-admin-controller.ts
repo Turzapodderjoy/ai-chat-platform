@@ -107,6 +107,30 @@ function soulPath(slug: string): string {
   return path.join(profileDir(slug), "SOUL.md");
 }
 
+const MODEL_ENV_KEYS = ["AIVA_PROVIDER", "AIVA_MODEL"] as const;
+
+/**
+ * Hermes resolves the provider/model from the PROFILE's .env, and a freshly
+ * cloned profile has neither key -- so every call fell through to the gateway
+ * default and failed with "platform.api_server.provider_error_line". Copy the
+ * root-level defaults into a new profile (never overwriting values it already
+ * has) so a wizard-created agent can actually talk to a model.
+ */
+async function inheritModelEnv(slug: string): Promise<void> {
+  const root = await fs.readFile(path.join(HERMES_HOME, ".env"), "utf8").catch(() => "");
+  const inherited = MODEL_ENV_KEYS.map((key) => ({ key, value: readEnvValue(root, key) })).filter(
+    (entry) => Boolean(entry.value)
+  );
+  if (inherited.length === 0) return;
+
+  const file = envPath(slug);
+  const current = await fs.readFile(file, "utf8").catch(() => "");
+  const missing = inherited.filter((entry) => !new RegExp(`^${entry.key}=`, "m").test(current));
+  if (missing.length === 0) return;
+  const kept = current.replace(/\n*$/, current ? "\n" : "");
+  await fs.writeFile(file, `${kept}${missing.map((entry) => `${entry.key}=${entry.value}`).join("\n")}\n`);
+}
+
 /**
  * Hermes resolves provider credentials from the profile's own auth.json, so a
  * freshly cloned profile has none and every model call fails with
@@ -413,6 +437,8 @@ export class HermesAdminController {
     } else if (!/^API_SERVER_ENABLED/.test(existing)) {
       await fs.writeFile(envPath(slug), `API_SERVER_ENABLED=true\n${existing}`);
     }
+
+    await inheritModelEnv(slug);
 
     if (input.soul && input.soul.trim()) {
       await fs.writeFile(soulPath(slug), input.soul);
