@@ -260,7 +260,10 @@ function cannedMessageLanguage(languageMode: string, userMessage: string): "engl
   if (languageMode === "english" || languageMode === "bangla" || languageMode === "banglish") {
     return languageMode;
   }
-  return isBangla(userMessage) ? "bangla" : "english";
+  // detectLanguage (not isBangla) so romanized Bangla is recognized as
+  // Banglish: a script check alone calls it English, and the customer then
+  // gets an English line for a Bangla question.
+  return detectLanguage(userMessage) ?? "english";
 }
 
 function languageLockInstruction(languageMode: string): string {
