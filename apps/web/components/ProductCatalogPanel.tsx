@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import { cardStyle, subtleTextStyle, badgeStyle } from "./dashboard-styles";
 import { useCurrencySymbol } from "../lib/currency";
 
 interface Product {
@@ -53,108 +52,128 @@ export function ProductCatalogPanel({ businessId }: { businessId: string }) {
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <section style={cardStyle}>
-      <h2 style={{ marginTop: 0 }}>Product Catalog</h2>
-      <p style={subtleTextStyle}>
-        Every product attached to this client — kept current automatically as
-        orders and repairs are booked through the assistant.
-      </p>
-
-      <div style={{ display: "flex", gap: 8, margin: "16px 0" }}>
-        <input
-          type="search"
-          name="aiva-search-products"
-          autoComplete="off"
-          placeholder="Search by name, SKU, or description…"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setOffset(0);
-          }}
-          style={{ padding: 8, flex: 1, maxWidth: 420 }}
-        />
-        <span style={{ ...subtleTextStyle, alignSelf: "center", marginTop: 0 }}>
-          {total} product{total === 1 ? "" : "s"}
-        </span>
+    <section className="panel">
+      <div className="panel-head">
+        <div style={{ minWidth: 0 }}>
+          <span className="instrument-label">Product catalog</span>
+          <div className="meta">
+            Every product attached to this client, kept current as orders and repairs are booked through the assistant. Read-only here: manage your own stock records in the Inventory tab.
+          </div>
+        </div>
       </div>
 
-      {!products && <p style={subtleTextStyle}>Loading…</p>}
-      {products && products.length === 0 && (
-        <p style={subtleTextStyle}>{search ? "No products match that search." : "No products synced yet."}</p>
-      )}
-
-      {products && products.length > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 }}>
-          {products.map((p) => (
-            <div
-              key={p.id}
-              style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 12, display: "flex", flexDirection: "column", gap: 6 }}
-            >
-              {p.imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={p.imageUrl}
-                  alt={p.name}
-                  style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 6, background: "var(--surface)" }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: "100%",
-                    height: 120,
-                    borderRadius: 6,
-                    background: "var(--surface)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 12,
-                    color: "var(--text-faint)",
-                  }}
-                >
-                  No image
-                </div>
-              )}
-
-              <strong style={{ fontSize: 13, lineHeight: 1.3 }}>{p.name}</strong>
-
-              {p.price && <div style={{ fontSize: 14, fontWeight: 600 }}>{currency} {p.price}</div>}
-
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {p.stock && (
-                  <span style={badgeStyle(/out/i.test(p.stock) ? "error" : "ok")}>{p.stock}</span>
-                )}
-                {p.sku && <span style={{ fontSize: 11, color: "var(--text-faint)" }}>SKU: {p.sku}</span>}
-              </div>
-
-              {p.description && (
-                <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
-                  {p.description}
-                </p>
-              )}
-
-              {p.sourceUrl && (
-                <a href={p.sourceUrl.split("#")[0]} target="_blank" rel="noreferrer" style={{ fontSize: 11 }}>
-                  View on site →
-                </a>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {products && total > PAGE_SIZE && (
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12, marginTop: 20 }}>
-          <button onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))} disabled={offset === 0}>
-            ← Previous 25
-          </button>
-          <span style={subtleTextStyle}>
-            Page {page} of {pageCount}
+      <div className="panel-body">
+        <div className="toolbar" style={{ marginBottom: 14 }}>
+          <div className="field" style={{ flex: "1 1 220px", maxWidth: 420, minWidth: 0 }}>
+            <label className="field-label" htmlFor="cat-search">Search catalog</label>
+            <input
+              id="cat-search"
+              type="search"
+              name="aiva-search-products"
+              autoComplete="off"
+              placeholder="Name, SKU, description"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setOffset(0);
+              }}
+            />
+          </div>
+          <span className="meta" style={{ alignSelf: "flex-end", paddingBottom: 9 }}>
+            <span className="data">{total}</span> product{total === 1 ? "" : "s"}, prices in {currency}
           </span>
-          <button onClick={() => setOffset(offset + PAGE_SIZE)} disabled={offset + PAGE_SIZE >= total}>
-            Next 25 →
-          </button>
         </div>
-      )}
+
+        {!products && <p className="meta">Loading catalog</p>}
+
+        {products && products.length === 0 && (
+          <div className="empty-state">
+            <span className="empty-state-title">
+              {search ? "No products match that search" : "No products synced yet"}
+            </span>
+            <span className="empty-state-description">
+              {search
+                ? "Clear the search box to see the whole catalog."
+                : "Products appear here once the assistant books an order or repair that mentions them."}
+            </span>
+          </div>
+        )}
+
+        {products && products.length > 0 && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 220px), 1fr))", gap: 12 }}>
+            {products.map((p) => (
+              <div key={p.id} className="panel-sunk" style={{ padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+                {p.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={p.imageUrl}
+                    alt={p.name}
+                    style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: "var(--r-xs)", background: "var(--panel-sunk)" }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: "100%",
+                      height: 120,
+                      borderRadius: "var(--r-xs)",
+                      background: "var(--panel-sunk)",
+                      border: "1px dashed var(--line)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 12,
+                      color: "var(--ink-4)",
+                    }}
+                  >
+                    No image
+                  </div>
+                )}
+
+                <strong style={{ fontSize: 13, lineHeight: 1.3, color: "var(--ink)" }}>{p.name}</strong>
+
+                {p.price && <div className="data" style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{currency}{p.price}</div>}
+
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  {p.stock && (
+                    /out/i.test(p.stock) ? (
+                      <span className="lamp lamp-err">Out of stock</span>
+                    ) : (
+                      <span className="lamp lamp-ok">{p.stock} in stock</span>
+                    )
+                  )}
+                  {p.sku && <span className="data" style={{ fontSize: 11 }}>{p.sku}</span>}
+                </div>
+
+                {p.description && (
+                  <p className="meta" style={{ margin: 0, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
+                    {p.description}
+                  </p>
+                )}
+
+                {p.sourceUrl && (
+                  <a href={p.sourceUrl.split("#")[0]} target="_blank" rel="noreferrer" style={{ fontSize: 11, alignSelf: "flex-start" }}>
+                    View on site
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {products && total > PAGE_SIZE && (
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12, marginTop: 16 }}>
+            <button type="button" className="sm" onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))} disabled={offset === 0}>
+              Previous 25
+            </button>
+            <span className="meta">
+              Page <span className="data">{page}</span> of <span className="data">{pageCount}</span>
+            </span>
+            <button type="button" className="sm" onClick={() => setOffset(offset + PAGE_SIZE)} disabled={offset + PAGE_SIZE >= total}>
+              Next 25
+            </button>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

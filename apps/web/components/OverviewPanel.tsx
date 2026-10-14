@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 
 import { StatCard, StatCardRow } from "./StatCard";
-import { subtleTextStyle } from "./dashboard-styles";
 
 interface Counts {
   clients: number | null;
@@ -54,7 +53,7 @@ export function OverviewPanel({ active = true }: { active?: boolean }) {
           tone={counts.openHandoffs !== null && counts.openHandoffs > 0 ? "warning" : "success"}
         />
       </StatCardRow>
-      <p style={subtleTextStyle}>Use the sidebar to drill into any section.</p>
+      <p className="meta" style={{ margin: "4px 0 0" }}>Use the sidebar to drill into any section.</p>
     </section>
   );
 }

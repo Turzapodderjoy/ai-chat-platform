@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import { primaryButtonStyle, subtleTextStyle, cellStyle } from "./dashboard-styles";
-
 interface RefillProduct {
   id: string;
   name: string;
@@ -23,8 +21,17 @@ export interface ProductLotRow {
   receivedAt: string;
 }
 
-const fieldStyle = { padding: 8, fontSize: 13, width: "100%", boxSizing: "border-box" } as const;
-const labelStyle = { display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--text-muted)" } as const;
+const overlayStyle: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 1000,
+  background: "color-mix(in srgb, var(--ink) 45%, transparent)",
+  backdropFilter: "blur(2px)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 16,
+};
 
 /** Dashboard popup to restock a product: a NEW lot with its own quantity,
  * cost price and sell price. Cost/sell price are optional -- left blank,
@@ -83,47 +90,115 @@ export function RefillDialog({
   return (
     <div
       onMouseDown={(e) => { if (e.target === e.currentTarget && !saving) onClose(); }}
-      style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+      style={overlayStyle}
     >
-      <div
+      <section
         role="dialog"
+        aria-modal="true"
         aria-label={`Refill ${product.name}`}
-        style={{ width: "100%", maxWidth: 440, maxHeight: "100%", overflowY: "auto", background: "var(--surface, #1a1a1f)", border: "1px solid var(--border)", borderRadius: 12, padding: 20, boxShadow: "0 16px 48px rgba(0,0,0,0.5)" }}
+        className="panel"
+        style={{ width: "100%", maxWidth: 440, maxHeight: "100%", overflowY: "auto", boxShadow: "var(--shadow-pop)" }}
       >
-        <h3 style={{ margin: "0 0 4px" }}>Refill · {product.name}</h3>
-        <p style={{ ...subtleTextStyle, marginTop: 0 }}>
-          On hand now: <strong>{product.stock ?? "—"}</strong> · current cost {product.costPrice ? `${currency}${product.costPrice}` : "—"} · current price {product.price ? `${currency}${product.price}` : "—"}.
-          This adds a new lot; earlier lots and past sales keep the cost they had.
-        </p>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <label style={{ ...labelStyle, gridColumn: "1 / -1" }}>
-            Quantity received *
-            <input style={fieldStyle} type="number" min={0} value={quantity} onChange={(e) => setQuantity(e.target.value)} autoFocus />
-          </label>
-          <label style={labelStyle}>
-            New cost price (per unit)
-            <input style={fieldStyle} type="number" min={0} step="0.01" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} placeholder={product.costPrice ?? "same as now"} />
-          </label>
-          <label style={labelStyle}>
-            New sell price
-            <input style={fieldStyle} type="number" min={0} step="0.01" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} placeholder={product.price ?? "same as now"} />
-          </label>
-          <label style={{ ...labelStyle, gridColumn: "1 / -1" }}>
-            Note (optional — supplier, invoice…)
-            <input style={fieldStyle} value={note} onChange={(e) => setNote(e.target.value)} />
-          </label>
+        <div className="panel-head">
+          <span className="instrument-label">Restock</span>
+          <span className="meta">{product.name}</span>
         </div>
+        <div className="panel-body">
+          <div
+            className="panel-sunk"
+            style={{
+              padding: 12,
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
+              gap: 10,
+              marginBottom: 10,
+            }}
+          >
+            <div>
+              <div className="field-label">On hand</div>
+              <div className="data" style={{ fontSize: 13 }}>{product.stock ?? "—"}</div>
+            </div>
+            <div>
+              <div className="field-label">Current cost</div>
+              <div className="data" style={{ fontSize: 13 }}>
+                {product.costPrice ? `${currency}${product.costPrice}` : "—"}
+              </div>
+            </div>
+            <div>
+              <div className="field-label">Current price</div>
+              <div className="data" style={{ fontSize: 13 }}>
+                {product.price ? `${currency}${product.price}` : "—"}
+              </div>
+            </div>
+          </div>
+          <p className="meta" style={{ marginTop: 0 }}>
+            This adds a new lot; earlier lots and past sales keep the cost they had.
+          </p>
 
-        {error && <p style={{ color: "var(--danger, #e5484d)", fontSize: 12, margin: "12px 0 0" }}>{error}</p>}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
+            <div className="field" style={{ gridColumn: "1 / -1" }}>
+              <label className="field-label" htmlFor="refill-quantity">
+                Quantity received *
+              </label>
+              <input
+                id="refill-quantity"
+                type="number"
+                min={0}
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="refill-cost">
+                New cost price (per unit)
+              </label>
+              <input
+                id="refill-cost"
+                type="number"
+                min={0}
+                step="0.01"
+                value={costPrice}
+                onChange={(e) => setCostPrice(e.target.value)}
+                placeholder={product.costPrice ?? "same as now"}
+              />
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="refill-sell">
+                New sell price
+              </label>
+              <input
+                id="refill-sell"
+                type="number"
+                min={0}
+                step="0.01"
+                value={sellPrice}
+                onChange={(e) => setSellPrice(e.target.value)}
+                placeholder={product.price ?? "same as now"}
+              />
+            </div>
+            <div className="field" style={{ gridColumn: "1 / -1" }}>
+              <label className="field-label" htmlFor="refill-note">
+                Note (optional — supplier, invoice)
+              </label>
+              <input
+                id="refill-note"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+              />
+            </div>
+          </div>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-          <button onClick={onClose} disabled={saving} style={{ padding: "8px 14px", fontSize: 13 }}>Cancel</button>
-          <button onClick={submit} disabled={!canSave} style={{ ...primaryButtonStyle, fontSize: 13 }}>
-            {saving ? "Adding…" : "Add lot"}
-          </button>
+          {error && <p className="field-error" style={{ margin: "12px 0 0" }}>{error}</p>}
+
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+            <button type="button" onClick={onClose} disabled={saving}>Cancel</button>
+            <button type="button" className="primary" onClick={submit} disabled={!canSave}>
+              {saving ? "Adding…" : "Add lot"}
+            </button>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
@@ -142,32 +217,47 @@ export function ProductLots({ productId, currency }: { productId: string; curren
 
   const money = (n: number | null) => (n === null ? "—" : `${currency}${n.toLocaleString()}`);
 
-  if (!lots) return <p style={subtleTextStyle}>Loading lots…</p>;
-  if (lots.length === 0) return <p style={subtleTextStyle}>No lots yet — the first restock or sale creates one.</p>;
+  if (!lots) return <p className="meta">Loading lots…</p>;
+  if (lots.length === 0) {
+    return (
+      <div className="empty-state">
+        <span className="empty-state-title">No lots yet</span>
+        <span className="empty-state-description">
+          The first restock of this product creates a lot, and sales draw down the oldest first.
+        </span>
+      </div>
+    );
+  }
 
   return (
-    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-      <thead>
-        <tr>
-          {["Received", "By", "Qty in", "Left", "Cost", "Sell price", "Note"].map((h) => (
-            <th key={h} style={{ ...cellStyle, fontSize: 11, color: "var(--text-faint)" }}>{h}</th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {lots.map((l) => (
-          <tr key={l.id}>
-            <td style={cellStyle}>{new Date(l.receivedAt).toLocaleDateString()}</td>
-            <td style={cellStyle}>{l.receivedBy}</td>
-            <td style={cellStyle}>{l.quantity}</td>
-            <td style={cellStyle}>{l.remaining}</td>
-            <td style={cellStyle}>{money(l.costPrice)}</td>
-            <td style={cellStyle}>{money(l.sellPrice)}</td>
-            <td style={cellStyle}>{l.note ?? "—"}</td>
+    <div className="table-scroll">
+      <table style={{ minWidth: 620 }}>
+        <thead>
+          <tr>
+            <th>Received</th>
+            <th>By</th>
+            <th className="num" style={{ textAlign: "right" }}>Qty in</th>
+            <th className="num" style={{ textAlign: "right" }}>Left</th>
+            <th className="num" style={{ textAlign: "right" }}>Cost</th>
+            <th className="num" style={{ textAlign: "right" }}>Sell price</th>
+            <th>Note</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {lots.map((l) => (
+            <tr key={l.id}>
+              <td className="data" style={{ whiteSpace: "nowrap" }}>{new Date(l.receivedAt).toLocaleDateString()}</td>
+              <td>{l.receivedBy}</td>
+              <td className="data" style={{ textAlign: "right" }}>{l.quantity}</td>
+              <td className="data" style={{ textAlign: "right" }}>{l.remaining}</td>
+              <td className="data" style={{ textAlign: "right" }}>{money(l.costPrice)}</td>
+              <td className="data" style={{ textAlign: "right" }}>{money(l.sellPrice)}</td>
+              <td className="meta">{l.note ?? "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -182,22 +272,30 @@ export function LotsDialog({ product, currency, onClose }: { product: { id: stri
   return (
     <div
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+      style={overlayStyle}
     >
-      <div
+      <section
         role="dialog"
+        aria-modal="true"
         aria-label={`Stock lots for ${product.name}`}
-        style={{ width: "100%", maxWidth: 720, maxHeight: "100%", overflowY: "auto", background: "var(--surface, #1a1a1f)", border: "1px solid var(--border)", borderRadius: 12, padding: 20, boxShadow: "0 16px 48px rgba(0,0,0,0.5)" }}
+        className="panel"
+        style={{ width: "100%", maxWidth: 720, maxHeight: "100%", overflowY: "auto", boxShadow: "var(--shadow-pop)" }}
       >
-        <h3 style={{ margin: "0 0 4px" }}>Stock lots · {product.name}</h3>
-        <p style={{ ...subtleTextStyle, marginTop: 0 }}>Each restock is its own lot with its own cost and sell price. Sales use the oldest lot first.</p>
-        <div className="table-scroll">
+        <div className="panel-head">
+          <span className="instrument-label">Stock lots</span>
+          <span className="meta">{product.name}</span>
+        </div>
+        <div className="panel-body">
+          <p className="meta" style={{ marginTop: 0 }}>
+            Each restock is its own lot with its own cost and sell price. Sales use the oldest lot
+            first.
+          </p>
           <ProductLots productId={product.id} currency={currency} />
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+            <button type="button" onClick={onClose}>Close</button>
+          </div>
         </div>
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-          <button onClick={onClose} style={{ padding: "8px 14px", fontSize: 13 }}>Close</button>
-        </div>
-      </div>
+      </section>
     </div>
   );
 }

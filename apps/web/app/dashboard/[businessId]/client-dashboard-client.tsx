@@ -44,13 +44,7 @@ import { AppointmentNotificationBell } from "../../../components/AppointmentNoti
 type Tab = "home" | "overview" | "tagdashboard" | "products" | "inventory" | "orders" | "purchaseorders" | "locations" | "shifts" | "teamchat" | "delivery" | "repairs" | "offers" | "staff" | "metrics" | "kpi" | "checklist" | "whatsapp" | "replysettings" | "lms" | "multiloc" | "allchats" | "channels" | "contacts" | "invoices" | "reports" | "partsusage" | "notifications" | "settings" | "deleted";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
-  { items: [{ id: "home", label: "Home" }, { id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }, { id: "reports", label: "Reports" }, { id: "partsusage", label: "Parts Usage" }] },
-  {
-    label: "Conversations",
-    items: [
-      { id: "allchats", label: "Inbox" },
-    ],
-  },
+  { items: [{ id: "home", label: "Home" }, { id: "allchats", label: "Inbox" }, { id: "overview", label: "Overview" }, { id: "tagdashboard", label: "Dashboard" }, { id: "reports", label: "Reports" }, { id: "partsusage", label: "Parts Usage" }] },
   {
     label: "CRM",
     items: [
@@ -98,13 +92,7 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
 // Knowledge Hub, Storage, and Integrations are hidden (power-user
 // features that clutter a repair shop's daily workflow).
 const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
-  { items: [{ id: "home", label: "Home" }, { id: "repairs", label: "Repairs" }, { id: "overview", label: "Overview" }, { id: "reports", label: "Reports" }, { id: "partsusage", label: "Parts Usage" }] },
-  {
-    label: "Conversations",
-    items: [
-      { id: "allchats", label: "Inbox" },
-    ],
-  },
+  { items: [{ id: "home", label: "Home" }, { id: "allchats", label: "Inbox" }, { id: "repairs", label: "Repairs" }, { id: "overview", label: "Overview" }, { id: "reports", label: "Reports" }, { id: "partsusage", label: "Parts Usage" }] },
   {
     label: "CRM",
     items: [
@@ -138,7 +126,7 @@ const REPAIR_NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "settings", label: "Settings" }] },
 ];
 
-const TAB_IDS = NAV_GROUPS.flatMap((g) => g.items.map((i) => i.id));
+const TAB_IDS = [...NAV_GROUPS, ...REPAIR_NAV_GROUPS].flatMap((g) => g.items.map((i) => i.id));
 
 interface Client {
   id: string;
@@ -159,6 +147,8 @@ export default function ClientDashboardClient() {
   const router = useRouter();
 
   const [tab, setTab] = useState<Tab>("home");
+  const [mounted, setMounted] = useState<Set<Tab>>(new Set<Tab>(["home"]));
+  useEffect(() => { setMounted((prev) => (prev.has(tab) ? prev : new Set<Tab>([...prev, tab]))); }, [tab]);
   const [client, setClient] = useState<Client | null>(null);
   const [clientType, setClientType] = useState<string>("regular");
   const [isAdmin, setIsAdmin] = useState(false);
@@ -489,6 +479,7 @@ export default function ClientDashboardClient() {
       topbarExtra={<AppointmentNotificationBell businessId={businessId} />}
       fillHeight={tab === "allchats"}
       businessId={businessId}
+      hideRail={tab === "allchats"}
     >
       {previewAsClient && isAdmin && (
         <div
@@ -563,7 +554,7 @@ export default function ClientDashboardClient() {
             </div>
           ),
         ],
-        ["allchats", <AllChatsPanel key="allchats" businessId={businessId} active={tab === "allchats"} businessType={clientType} accountRole={isAdmin ? "admin" : accountRole} />],
+        ["allchats", <AllChatsPanel key="allchats" businessId={businessId} active={tab === "allchats"} businessType={clientType} accountRole={isAdmin ? "admin" : accountRole} onBack={() => setTab("home")} />],
         ["channels", <ChannelsPanel key="channels" businessId={businessId} />],
         ["settings", <UserSettingsPanel key="settings" active={tab === "settings"} businessId={businessId} />],
         ["deleted", <DeletedDataPanel key="deleted" businessId={businessId} active={tab === "deleted"} />],
@@ -589,7 +580,7 @@ export default function ClientDashboardClient() {
             onToggle={toggleWidget}
             style={id === "allchats" ? { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } : undefined}
           >
-            {panel}
+            {mounted.has(id) ? panel : null}
           </RemovableSection>
         </div>
       ))}

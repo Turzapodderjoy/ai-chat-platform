@@ -46,35 +46,34 @@ function Toast({ notification, onClose }: { notification: AppointmentNotificatio
         top: 20,
         right: 20,
         width: 340,
-        padding: "14px 16px",
-        background: "var(--surface)",
-        border: "1px solid var(--accent)",
-        borderLeft: "4px solid var(--accent)",
-        borderRadius: "var(--radius-sm)",
-        boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
+        maxWidth: "calc(100vw - 32px)",
+        padding: "12px 14px",
+        background: "var(--panel)",
+        border: "1px solid var(--line)",
+        borderLeft: "3px solid var(--accent)",
+        borderRadius: "var(--r-md)",
+        boxShadow: "var(--shadow-pop)",
         zIndex: 9999,
-        animation: "slideInRight 0.3s ease-out",
+        animation: "slideInRight 0.3s var(--ease-out)",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 16 }}>🔔</span>
-          <strong style={{ fontSize: 13, color: "var(--text)" }}>New Booking</strong>
-        </div>
-        <button
-          onClick={onClose}
-          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-faint)", fontSize: 16, padding: 0, lineHeight: 1 }}
-        >
-          ✕
-        </button>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 10,
+          marginBottom: 8,
+        }}
+      >
+        <span className="lamp lamp-info">New booking</span>
+        <button onClick={onClose} className="plain sm">Dismiss</button>
       </div>
-      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 2 }}>{notification.customerName}</div>
-      <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{notification.customerName}</div>
+      <div className="data" style={{ fontSize: 12, color: "var(--ink-3)", margin: "3px 0 4px" }}>
         {new Date(notification.appointmentDate).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
       </div>
-      <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.4 }}>
-        {notification.issueDescription}
-      </div>
+      <div className="meta" style={{ fontSize: 12, lineHeight: 1.45 }}>{notification.issueDescription}</div>
     </div>
   );
 }
@@ -210,19 +209,15 @@ export function AppointmentNotificationBell({ businessId }: { businessId: string
       <button
         onClick={() => setOpen((o) => !o)}
         className="plain"
-        aria-label="Notifications"
+        aria-label={items.length > 0 ? `Notifications, ${items.length} unread` : "Notifications"}
         style={{
           position: "relative",
-          width: 36,
-          height: 36,
+          width: 34,
+          height: 34,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          borderRadius: "var(--radius-sm, 8px)",
-          border: "1px solid var(--border)",
-          background: "var(--surface)",
-          cursor: "pointer",
-          color: "var(--text)",
+          color: "var(--ink)",
         }}
       >
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -233,23 +228,15 @@ export function AppointmentNotificationBell({ businessId }: { businessId: string
           <span
             style={{
               position: "absolute",
-              top: -4,
-              right: -4,
-              minWidth: 16,
-              height: 16,
-              padding: "0 4px",
-              borderRadius: 999,
+              top: 1,
+              right: 1,
+              width: 8,
+              height: 8,
+              borderRadius: "var(--r-pill)",
               background: "var(--danger)",
-              color: "white",
-              fontSize: 10,
-              fontWeight: 700,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
             }}
-          >
-            {items.length}
-          </span>
+            aria-hidden="true"
+          />
         )}
       </button>
 
@@ -260,73 +247,74 @@ export function AppointmentNotificationBell({ businessId }: { businessId: string
             top: "calc(100% + 8px)",
             right: 0,
             width: 320,
+            maxWidth: "calc(100vw - 32px)",
             maxHeight: 400,
             overflowY: "auto",
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-md, 12px)",
-            boxShadow: "var(--shadow-lg)",
+            background: "var(--panel)",
+            border: "1px solid var(--line)",
+            borderRadius: "var(--r-md)",
+            boxShadow: "var(--shadow-pop)",
             zIndex: 1000,
-            padding: 10,
+            padding: 12,
           }}
         >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, padding: "0 4px" }}>
-            <strong style={{ fontSize: 13 }}>Notifications</strong>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 10,
+              marginBottom: 10,
+            }}
+          >
+            <span className="instrument-label">Notifications{items.length > 0 ? ` · ${items.length}` : ""}</span>
             {items.length > 0 && (
-              <button
-                onClick={clearAll}
-                className="plain"
-                style={{ fontSize: 11.5, color: "var(--text-faint)", cursor: "pointer" }}
-              >
-                Clear all
-              </button>
+              <button onClick={clearAll} className="ghost sm">Clear all</button>
             )}
           </div>
 
-          {items.length === 0 && (
-            <p style={{ fontSize: 12.5, color: "var(--text-faint)", padding: "8px 4px" }}>No notifications.</p>
-          )}
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {items.map((item) => (
-              <div
-                key={`${item.kind}-${item.id}`}
-                style={{
-                  position: "relative",
-                  padding: "8px 28px 8px 10px",
-                  background: "var(--bg)",
-                  border: item.kind === "subscription" ? "1px solid var(--warning)" : "1px solid var(--border)",
-                  borderRadius: "var(--radius-sm, 8px)",
-                }}
-              >
-                <button
-                  onClick={() => dismiss(item)}
-                  className="plain"
-                  aria-label="Dismiss"
+          {items.length === 0 ? (
+            <div className="empty-state" style={{ padding: "14px 12px" }}>
+              <div className="empty-state-title">Nothing new</div>
+              <div className="empty-state-description">
+                New bookings, admin messages and renewal warnings land here.
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {items.map((item) => (
+                <div
+                  key={`${item.kind}-${item.id}`}
                   style={{
-                    position: "absolute",
-                    top: 6,
-                    right: 6,
-                    width: 18,
-                    height: 18,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "var(--text-faint)",
-                    cursor: "pointer",
-                    fontSize: 13,
+                    position: "relative",
+                    padding: "9px 10px",
+                    background: "var(--panel-sunk)",
+                    border: `1px solid ${item.kind === "subscription" ? "var(--warning)" : "var(--line-soft)"}`,
+                    borderRadius: "var(--r-sm)",
                   }}
                 >
-                  ✕
-                </button>
-                <div style={{ fontSize: 12.5, fontWeight: 650 }}>{item.title}</div>
-                <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>{item.subtitle}</div>
-                {item.detail && (
-                  <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginTop: 2 }}>{item.detail}</div>
-                )}
-              </div>
-            ))}
-          </div>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)", paddingRight: 74 }}>
+                    {item.title}
+                  </div>
+                  <div className="data" style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 3 }}>
+                    {item.subtitle}
+                  </div>
+                  {item.detail && (
+                    <div className="meta" style={{ fontSize: 11.5, marginTop: 3 }}>{item.detail}</div>
+                  )}
+                  <div style={{ position: "absolute", top: 5, right: 6 }}>
+                    <button
+                      onClick={() => dismiss(item)}
+                      className="plain sm"
+                      aria-label={`Dismiss ${item.title}`}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

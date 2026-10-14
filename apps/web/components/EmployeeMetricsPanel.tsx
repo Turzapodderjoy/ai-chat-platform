@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useMemo } from "react";
 
-import { cardStyle, subtleTextStyle, badgeStyle, primaryButtonStyle } from "./dashboard-styles";
 
 interface StaffMember {
   id: string;
@@ -98,59 +97,99 @@ export function EmployeeMetricsPanel({ businessId }: { businessId: string }) {
     return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
   }
 
-  if (loading) return <p style={subtleTextStyle}>Loading metrics…</p>;
-
   return (
-    <section style={{ padding: 0 }}>
-      <div style={{ marginBottom: 16 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Employee Metrics</h2>
-        <p style={{ ...subtleTextStyle, fontSize: 13 }}>
-          Performance overview per technician. Auto-refreshes with repair/time data.
-        </p>
+    <section className="panel">
+      <div className="panel-head">
+        <span className="instrument-label">Employee metrics</span>
+        {!loading && staff.length > 0 && (
+          <span className="data" style={{ fontSize: 11 }}>{staff.length} technicians</span>
+        )}
       </div>
 
-      {!staff.length && <p style={subtleTextStyle}>No staff members yet.</p>}
+      <div className="panel-body">
+        <p className="meta" style={{ marginTop: 0, marginBottom: 14 }}>
+          Performance overview per technician. Auto-refreshes with repair/time data.
+        </p>
 
-      {staff.length > 0 && (
-        <div style={{ ...cardStyle, overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                <th style={{ padding: "8px 10px", textAlign: "left", color: "var(--text-faint)" }}>Technician</th>
-                <th style={{ padding: "8px 10px", textAlign: "right", color: "var(--text-faint)" }}>Repairs Done</th>
-                <th style={{ padding: "8px 10px", textAlign: "right", color: "var(--text-faint)" }}>Revenue</th>
-                <th style={{ padding: "8px 10px", textAlign: "right", color: "var(--text-faint)" }}>Hours Worked</th>
-                <th style={{ padding: "8px 10px", textAlign: "right", color: "var(--text-faint)" }}>Repairs/Hr</th>
-              </tr>
-            </thead>
-            <tbody>
-              {metrics.map((m) => {
-                const member = staff.find((s) => s.id === m.staffId);
-                return (
-                  <tr key={m.staffId} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-                    <td style={{ padding: "8px 10px", fontWeight: 500 }}>{member?.name ?? "—"}</td>
-                    <td style={{ padding: "8px 10px", textAlign: "right" }}>{m.repairsCompleted}</td>
-                    <td style={{ padding: "8px 10px", textAlign: "right" }}>{fmtCurrency(m.totalRevenue)}</td>
-                    <td style={{ padding: "8px 10px", textAlign: "right" }}>{m.totalHours}h</td>
-                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: m.efficiency > 0.5 ? "var(--success)" : "var(--text)" }}>
-                      {m.efficiency.toFixed(2)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 600 }}>
-                <td style={{ padding: "8px 10px" }}>Total</td>
-                <td style={{ padding: "8px 10px", textAlign: "right" }}>{metrics.reduce((s, m) => s + m.repairsCompleted, 0)}</td>
-                <td style={{ padding: "8px 10px", textAlign: "right" }}>{fmtCurrency(metrics.reduce((s, m) => s + m.totalRevenue, 0))}</td>
-                <td style={{ padding: "8px 10px", textAlign: "right" }}>{metrics.reduce((s, m) => s + m.totalHours, 0)}h</td>
-                <td style={{ padding: "8px 10px", textAlign: "right" }}>{(metrics.reduce((s, m) => s + m.repairsCompleted, 0) / (metrics.reduce((s, m) => s + m.totalHours, 0) || 1)).toFixed(2)}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      )}
+        {loading && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="skeleton" style={{ height: 28 }} />
+            <div className="skeleton" style={{ height: 28 }} />
+            <div className="skeleton" style={{ height: 28 }} />
+          </div>
+        )}
+
+        {!loading && !staff.length && (
+          <div className="empty-state">
+            <div className="empty-state-title">No staff members yet</div>
+            <div className="empty-state-description">
+              Add technicians on the Staff tab — repairs they complete and hours they clock show up here.
+            </div>
+          </div>
+        )}
+
+        {!loading && staff.length > 0 && (
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Technician</th>
+                  <th scope="col" style={{ textAlign: "right" }}>Repairs done</th>
+                  <th scope="col" style={{ textAlign: "right" }}>Revenue</th>
+                  <th scope="col" style={{ textAlign: "right" }}>Hours worked</th>
+                  <th scope="col" style={{ textAlign: "right" }}>Repairs / hr</th>
+                </tr>
+              </thead>
+              <tbody>
+                {metrics.map((m) => {
+                  const member = staff.find((s) => s.id === m.staffId);
+                  return (
+                    <tr key={m.staffId}>
+                      <td>
+                        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span className={member?.active ? "lamp lamp-ok" : "lamp lamp-idle"}>
+                            {member?.active ? "Active" : "Inactive"}
+                          </span>
+                          <span style={{ color: "var(--ink)", fontWeight: 500 }}>{member?.name ?? "—"}</span>
+                        </span>
+                      </td>
+                      <td style={{ textAlign: "right" }}><span className="data">{m.repairsCompleted}</span></td>
+                      <td style={{ textAlign: "right" }}><span className="data">{fmtCurrency(m.totalRevenue)}</span></td>
+                      <td style={{ textAlign: "right" }}><span className="data">{m.totalHours}h</span></td>
+                      <td style={{ textAlign: "right" }}>
+                        <span className={m.efficiency > 0.5 ? "lamp lamp-ok" : "lamp lamp-idle"}>
+                          {m.efficiency.toFixed(2)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td><span className="instrument-label">Total</span></td>
+                  <td style={{ textAlign: "right" }}>
+                    <span className="data" style={{ color: "var(--ink)" }}>{metrics.reduce((s, m) => s + m.repairsCompleted, 0)}</span>
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    <span className="data" style={{ color: "var(--ink)" }}>
+                      {fmtCurrency(metrics.reduce((s, m) => s + m.totalRevenue, 0))}
+                    </span>
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    <span className="data" style={{ color: "var(--ink)" }}>{metrics.reduce((s, m) => s + m.totalHours, 0)}h</span>
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    <span className="data" style={{ color: "var(--ink)" }}>
+                      {(metrics.reduce((s, m) => s + m.repairsCompleted, 0) / (metrics.reduce((s, m) => s + m.totalHours, 0) || 1)).toFixed(2)}
+                    </span>
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

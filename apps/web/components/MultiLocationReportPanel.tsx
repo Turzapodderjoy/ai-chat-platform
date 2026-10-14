@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { cardStyle, subtleTextStyle, primaryButtonStyle, labelTextStyle } from "./dashboard-styles";
+import { dataStrongStyle } from "./dashboard-styles";
 
 // Wave B #33 - Multi-location report. Rollup of location-scoped shift + staff
 // coverage per location. Orders/repairs/inventory are not location-scoped yet,
@@ -47,64 +47,73 @@ export function MultiLocationReportPanel({ businessId, active = true }: { busine
   }, [active, refresh]);
 
   return (
-    <div style={cardStyle}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <div>
-          <h3 style={{ margin: 0 }}>Multi-Location Report</h3>
-          <p style={subtleTextStyle}>Shift & staff coverage per location.</p>
+    <section className="panel">
+      <div className="panel-head" style={{ flexWrap: "wrap" }}>
+        <div style={{ minWidth: 0 }}>
+          <span className="instrument-label">Multi-location coverage</span>
+          <div className="meta">
+            {report?.scopeBoundary ?? "Shift and staff coverage per location."}
+          </div>
         </div>
-        <button style={primaryButtonStyle} onClick={refresh}>
-          Refresh
+        <button type="button" className="sm" onClick={refresh}>
+          Refresh coverage
         </button>
       </div>
 
-      {report?.scopeBoundary && (
-        <p style={{ ...subtleTextStyle, fontSize: 12, margin: "0 0 12px", fontStyle: "italic" }}>{report.scopeBoundary}</p>
-      )}
-
-      {loading ? (
-        <p style={subtleTextStyle}>Loading…</p>
-      ) : !report || report.rows.length === 0 ? (
-        <p style={subtleTextStyle}>No locations yet. Add locations and assign shifts to see coverage.</p>
-      ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-            <thead>
-              <tr style={{ ...labelTextStyle, color: "#6b7280", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
-                <th style={{ padding: "8px 10px" }}>Location</th>
-                <th style={{ padding: "8px 10px" }}>Shifts (total)</th>
-                <th style={{ padding: "8px 10px" }}>Upcoming</th>
-                <th style={{ padding: "8px 10px" }}>Active now</th>
-                <th style={{ padding: "8px 10px" }}>Staff covered</th>
-              </tr>
-            </thead>
-            <tbody>
-              {report.rows.map((r) => (
-                <tr key={r.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                  <td style={{ padding: "10px", fontWeight: 600 }}>
-                    {r.name}
-                    {!r.isActive && <span style={{ ...subtleTextStyle, marginLeft: 6 }}>(inactive)</span>}
-                    <div style={{ ...subtleTextStyle, fontWeight: 400, fontSize: 12 }}>{r.city ?? "\u00a0"}</div>
-                  </td>
-                  <td style={{ padding: "10px" }}>{r.shiftsTotal}</td>
-                  <td style={{ padding: "10px" }}>{r.shiftsUpcoming}</td>
-                  <td style={{ padding: "10px" }}>{r.shiftsActiveNow}</td>
-                  <td style={{ padding: "10px" }}>{r.staffCount}</td>
+      <div className="panel-body">
+        {loading ? (
+          <p className="meta">Loading locations</p>
+        ) : !report || report.rows.length === 0 ? (
+          <div className="empty-state">
+            <span className="empty-state-title">No locations yet</span>
+            <span className="empty-state-description">
+              Add locations and assign shifts to see coverage here.
+            </span>
+          </div>
+        ) : (
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Location</th>
+                  <th className="num" style={{ textAlign: "right" }}>Shifts</th>
+                  <th className="num" style={{ textAlign: "right" }}>Upcoming</th>
+                  <th className="num" style={{ textAlign: "right" }}>Active now</th>
+                  <th className="num" style={{ textAlign: "right" }}>Staff covered</th>
                 </tr>
-              ))}
-              {report.total && (
-                <tr style={{ fontWeight: 700, borderTop: "2px solid #e5e7eb" }}>
-                  <td style={{ padding: "10px" }}>Totals</td>
-                  <td style={{ padding: "10px" }}>{report.total.shiftsTotal}</td>
-                  <td style={{ padding: "10px" }}>{report.total.shiftsUpcoming}</td>
-                  <td style={{ padding: "10px" }}>{report.total.shiftsActiveNow}</td>
-                  <td style={{ padding: "10px" }}>{report.total.staffCount}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+              </thead>
+              <tbody>
+                {report.rows.map((r) => (
+                  <tr key={r.id}>
+                    <td>
+                      <span style={{ fontWeight: 600, color: "var(--ink)" }}>{r.name}</span>
+                      {r.isActive ? (
+                        <div><span className="lamp lamp-ok">Active</span></div>
+                      ) : (
+                        <div><span className="lamp lamp-idle">Inactive</span></div>
+                      )}
+                      {r.city && <div className="meta">{r.city}</div>}
+                    </td>
+                    <td className="data num" style={{ textAlign: "right" }}>{r.shiftsTotal}</td>
+                    <td className="data num" style={{ textAlign: "right" }}>{r.shiftsUpcoming}</td>
+                    <td className="data num" style={{ textAlign: "right" }}>{r.shiftsActiveNow}</td>
+                    <td className="data num" style={{ textAlign: "right" }}>{r.staffCount}</td>
+                  </tr>
+                ))}
+                {report.total && (
+                  <tr style={{ borderTop: "2px solid var(--line-strong)" }}>
+                    <td className="meta" style={{ color: "var(--ink)", fontWeight: 600 }}>Totals</td>
+                    <td className="num" style={{ ...dataStrongStyle, textAlign: "right" }}>{report.total.shiftsTotal}</td>
+                    <td className="num" style={{ ...dataStrongStyle, textAlign: "right" }}>{report.total.shiftsUpcoming}</td>
+                    <td className="num" style={{ ...dataStrongStyle, textAlign: "right" }}>{report.total.shiftsActiveNow}</td>
+                    <td className="num" style={{ ...dataStrongStyle, textAlign: "right" }}>{report.total.staffCount}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }

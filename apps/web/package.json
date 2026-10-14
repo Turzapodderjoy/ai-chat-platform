@@ -17,6 +17,7 @@
     "@ai-chat-platform/client-auth": "workspace:*",
     "@ai-chat-platform/database": "workspace:*",
     "@repo/ui": "workspace:*",
+    "motion": "^14.0.0",
     "next": "16.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

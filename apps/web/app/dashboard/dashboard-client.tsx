@@ -67,10 +67,17 @@ const TIMEZONE_LABELS: [string, string][] = (() => {
     .map(([minutes, tz]): [string, string] => [tz, gmtOffsetLabel(minutes)]);
 })();
 
-type Tab = "overview" | "vpsHealth" | "channels" | "usage" | "clients" | "access" | "adminUsers" | "allchats" | "database" | "tags" | "contacts" | "invoices" | "subscription" | "hermesAgents" | "hermesControl" | "replysettings" | "systemMap" | "itguy" | "reports";
+type Tab = "overview" | "vpsHealth" | "channels" | "usage" | "clients" | "access" | "adminUsers" | "allchats" | "database" | "tags" | "contacts" | "invoices" | "subscription" | "hermesAgents" | "hermesControl" | "replysettings" | "systemMap" | "itguy" | "reports" | "changelog";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }] },
+  {
+    label: "Conversations",
+    items: [
+      { id: "allchats", label: "Inbox" },
+      { id: "tags", label: "Tags" },
+    ],
+  },
   {
     label: "CRM",
     items: [
@@ -86,13 +93,6 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
   },
   { items: [{ id: "clients", label: "Clients" }, { id: "access", label: "Client Access" }, { id: "adminUsers", label: "Admin Users" }, { id: "subscription", label: "Subscription" }] },
   {
-    label: "Conversations",
-    items: [
-      { id: "allchats", label: "Inbox" },
-      { id: "tags", label: "Tags" },
-    ],
-  },
-  {
     label: "Platform",
     items: [
       { id: "channels", label: "Integrations" },
@@ -102,7 +102,7 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
       { id: "hermesAgents", label: "AI Agents" },
       { id: "hermesControl", label: "Agent Control" },
       { id: "systemMap", label: "System Map" },
-      { id: "itguy", label: "IT Guy" },
+      { id: "itguy", label: "IT Guy" }, { id: "changelog", label: "Changelog" },
       { id: "vpsHealth", label: "VPS Health" },
     ],
   },
@@ -223,6 +223,8 @@ function ItGuyAlertBanner({ onGoto }: { onGoto: () => void }) {
 
 export default function DashboardClient() {
   const [tab, setTab] = useState<Tab>("overview");
+  const [mounted, setMounted] = useState<Set<Tab>>(new Set<Tab>(["overview"]));
+  useEffect(() => { setMounted((prev) => (prev.has(tab) ? prev : new Set<Tab>([...prev, tab]))); }, [tab]);
   const [username, setUsername] = useState<string | null>(null);
 
   useEffect(() => {
@@ -271,67 +273,71 @@ export default function DashboardClient() {
       username={username}
       onLogout={logout}
       fillHeight={tab === "allchats"}
+      hideRail={tab === "allchats"}
     >
       <ItGuyAlertBanner onGoto={() => selectTab("itguy")} />
       {/* Every panel stays mounted (hidden via CSS, not unmounted) so
           switching tabs never wipes a panel's local state. */}
-      <div style={{ display: tab === "overview" ? "block" : "none" }}>
+      {tab === "overview" ? <div style={{ display: tab === "overview" ? "block" : "none" }}>
         <OverviewPanel active={tab === "overview"} />
-      </div>
-      <div style={{ display: tab === "channels" ? "block" : "none" }}>
+      </div> : null}
+      {tab === "channels" ? <div style={{ display: tab === "channels" ? "block" : "none" }}>
         <PlatformChannelAppsPanel />
-      </div>
-      <div style={{ display: tab === "replysettings" ? "block" : "none" }}>
+      </div> : null}
+      {tab === "replysettings" ? <div style={{ display: tab === "replysettings" ? "block" : "none" }}>
         <ReplySettingsPanel />
-      </div>
-      <div style={{ display: tab === "usage" ? "block" : "none" }}>
+      </div> : null}
+      {tab === "usage" ? <div style={{ display: tab === "usage" ? "block" : "none" }}>
         <UsagePanel />
-      </div>
-      <div style={{ display: tab === "clients" ? "block" : "none" }}>
+      </div> : null}
+      {tab === "clients" ? <div style={{ display: tab === "clients" ? "block" : "none" }}>
         <ClientsPanel />
-      </div>
-      <div style={{ display: tab === "access" ? "block" : "none" }}>
+      </div> : null}
+      {tab === "access" ? <div style={{ display: tab === "access" ? "block" : "none" }}>
         <ClientAccessPanel />
-      </div>
-      <div style={{ display: tab === "adminUsers" ? "block" : "none" }}>
+      </div> : null}
+      {tab === "adminUsers" ? <div style={{ display: tab === "adminUsers" ? "block" : "none" }}>
         <AdminUsersPanel />
-      </div>
-      <div style={{ display: tab === "subscription" ? "block" : "none" }}>
+      </div> : null}
+      {tab === "subscription" ? <div style={{ display: tab === "subscription" ? "block" : "none" }}>
         <SubscriptionPanel />
-      </div>
-      <div style={{ display: tab === "allchats" ? "flex" : "none", flexDirection: "column", flex: 1, minHeight: 0 }}>
-        <AllChatsPanel active={tab === "allchats"} />
-      </div>
-      <div style={{ display: tab === "contacts" ? "block" : "none" }}>
+      </div> : null}
+      {tab === "allchats" ? <div style={{ display: tab === "allchats" ? "flex" : "none", flexDirection: "column", flex: 1, minHeight: 0 }}>
+        <AllChatsPanel active={tab === "allchats"} onBack={() => setTab("overview")} />
+      </div> : null}
+      {tab === "contacts" ? <div style={{ display: tab === "contacts" ? "block" : "none" }}>
         <ContactsPanel active={tab === "contacts"} />
-      </div>
-      <div style={{ display: tab === "invoices" ? "block" : "none" }}>
+      </div> : null}
+      {tab === "invoices" ? <div style={{ display: tab === "invoices" ? "block" : "none" }}>
         <InvoicesPanel active={tab === "invoices"} />
-      </div>
-      <div style={{ display: tab === "reports" ? "block" : "none" }}>
+      </div> : null}
+      {tab === "reports" ? <div style={{ display: tab === "reports" ? "block" : "none" }}>
         <ReportsPanel active={tab === "reports"} />
-      </div>
-      <div style={{ display: tab === "tags" ? "block" : "none" }}>
+      </div> : null}
+      {tab === "tags" ? <div style={{ display: tab === "tags" ? "block" : "none" }}>
         <TagsPanel />
-      </div>
-      <div style={{ display: tab === "database" ? "block" : "none" }}>
+      </div> : null}
+      {tab === "database" ? <div style={{ display: tab === "database" ? "block" : "none" }}>
         <DatabasePanel />
-      </div>
-      <div style={{ display: tab === "vpsHealth" ? "block" : "none" }}>
+      </div> : null}
+      {tab === "vpsHealth" ? <div style={{ display: tab === "vpsHealth" ? "block" : "none" }}>
         <VpsHealthPanel active={tab === "vpsHealth"} />
-      </div>
-      <div style={{ display: tab === "hermesAgents" ? "block" : "none" }}>
+      </div> : null}
+      {tab === "hermesAgents" ? <div style={{ display: tab === "hermesAgents" ? "block" : "none" }}>
         <HermesAgentsPanel />
-      </div>
-      <div style={{ display: tab === "hermesControl" ? "block" : "none" }}>
+      </div> : null}
+      {tab === "hermesControl" ? <div style={{ display: tab === "hermesControl" ? "block" : "none" }}>
         <HermesControlRoomPanel />
-      </div>
-      <div style={{ display: tab === "systemMap" ? "block" : "none" }}>
+      </div> : null}
+      {tab === "systemMap" ? <div style={{ display: tab === "systemMap" ? "block" : "none" }}>
         <SystemMapPanel onGotoItGuy={() => setTab("itguy")} />
-      </div>
-      <div style={{ display: tab === "itguy" ? "block" : "none" }}>
+      </div> : null}
+      {tab === "itguy" ? <div style={{ display: tab === "itguy" ? "block" : "none" }}>
         <ItGuyPanel />
-      </div>
+      </div> : null}
+      {tab === "changelog" ? <div style={{ display: tab === "changelog" ? "block" : "none" }}>
+        <ChangelogPanel />
+      </div> : null}
     </DashboardShell>
   );
 }
@@ -871,6 +877,23 @@ function VpsHealthPanel({ active }: { active: boolean }) {
           </p>
         </>
       )}
+    </section>
+  );
+}
+
+function ChangelogPanel() {
+  const [md, setMd] = useState("");
+  useEffect(() => {
+    fetch("/CHANGELOG.md")
+      .then((r) => r.ok ? r.text() : "# Changelog not found")
+      .then((t) => setMd(t))
+      .catch(() => setMd("# Changelog"));
+  }, []);
+  return (
+    <section style={cardStyle}>
+      <div className="prose" style={{ maxWidth: 1100, margin: "0 auto", padding: 24 }}>
+        <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 13, lineHeight: 1.6 }}>{md}</pre>
+      </div>
     </section>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { cardStyle, subtleTextStyle, primaryButtonStyle, labelTextStyle } from "./dashboard-styles";
+import { StatCard, StatCardRow } from "./StatCard";
 
 // Wave B #29 - KPI dashboard cards. Read-only count tiles sourced from
 // /api/admin/kpi (derived live from Orders / PurchaseOrders / RepairAppointments
@@ -37,51 +37,50 @@ export function KpiCardsPanel({ businessId, active = true }: { businessId: strin
   }, [active, refresh]);
 
   return (
-    <div style={cardStyle}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <div>
-          <h3 style={{ margin: 0 }}>KPI Dashboard</h3>
-          <p style={subtleTextStyle}>
+    <section className="panel">
+      <div className="panel-head" style={{ flexWrap: "wrap" }}>
+        <div style={{ minWidth: 0 }}>
+          <span className="instrument-label">Key numbers</span>
+          <div className="meta">
             Counts derived from this business&apos;s live data
-            {generatedAt ? ` (updated ${new Date(generatedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })})` : ""}.
-          </p>
+            {generatedAt ? (
+              <>
+                , updated <span className="data">{new Date(generatedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</span>
+              </>
+            ) : null}
+            .
+          </div>
         </div>
-        <button style={primaryButtonStyle} onClick={refresh} disabled={loading}>
-          {loading ? "Refreshing…" : "Refresh"}
+        <button type="button" className="sm" onClick={refresh} disabled={loading}>
+          {loading ? "Refreshing counts" : "Refresh counts"}
         </button>
       </div>
 
-      {!cards && loading ? (
-        <p style={subtleTextStyle}>Loading KPIs…</p>
-      ) : !cards ? (
-        <p style={subtleTextStyle}>No data yet.</p>
-      ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-            gap: 12,
-          }}
-        >
-          {cards.map((c) => (
-            <div
-              key={c.id}
-              style={{
-                background: "#f9fafb",
-                borderRadius: 10,
-                padding: "14px 16px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 4,
-              }}
-            >
-              <span style={{ ...labelTextStyle, color: "#6b7280", fontSize: 12 }}>{c.label}</span>
-              <span style={{ fontSize: 28, fontWeight: 700, lineHeight: 1 }}>{c.value.toLocaleString()}</span>
-              <span style={{ ...subtleTextStyle, fontSize: 12 }}>{c.hint}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+      <div className="panel-body">
+        {!cards && loading ? (
+          <p className="meta">Loading key numbers</p>
+        ) : !cards ? (
+          <div className="empty-state">
+            <span className="empty-state-title">No key numbers yet</span>
+            <span className="empty-state-description">
+              Counts appear here once orders, repairs, shifts and staff exist.
+            </span>
+          </div>
+        ) : cards.length === 0 ? (
+          <div className="empty-state">
+            <span className="empty-state-title">No key numbers yet</span>
+            <span className="empty-state-description">
+              Counts appear here once orders, repairs, shifts and staff exist.
+            </span>
+          </div>
+        ) : (
+          <StatCardRow>
+            {cards.map((c) => (
+              <StatCard key={c.id} label={c.label} value={c.value.toLocaleString()} hint={c.hint} />
+            ))}
+          </StatCardRow>
+        )}
+      </div>
+    </section>
   );
 }

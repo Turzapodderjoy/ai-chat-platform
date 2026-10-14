@@ -1,8 +1,8 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 
-import { cardStyle, cellStyle, subtleTextStyle, badgeStyle, primaryButtonStyle } from "./dashboard-styles";
 import { Collapsible } from "./Collapsible";
 import { showConfirm } from "../lib/app-dialog";
 
@@ -628,335 +628,531 @@ export function ClientAccessPanel() {
 
   const adminAccounts = useMemo(() => (accounts ?? []).filter((a) => a.isAdmin), [accounts]);
 
-  return (
-    <section style={cardStyle}>
-      <h2 style={{ marginTop: 0 }}>Client Access</h2>
-      <p style={subtleTextStyle}>
-        Create a login for a client — they sign in at the main site and land straight on their own dashboard
-        (/dashboard/&#123;id&#125;), nowhere else. A client can have more than one login (e.g. different staff).
-        Disabling a login kicks out any session they&apos;re already in, immediately.
-      </p>
+/* ── Presentation: hairline panels, lamps for state, mono for numbers ── */
+const SECTION: CSSProperties = {
+  marginTop: 16,
+  background: "var(--panel)",
+  border: "1px solid var(--line)",
+  borderRadius: "var(--r-md)",
+  boxShadow: "var(--edge-light)",
+};
 
-      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 16 }}>
-        <select
-          style={{ padding: 8 }}
-          value={businessId}
-          onChange={(e) => setBusinessId(e.target.value)}
-          disabled={isAdmin}
-        >
-          {!clients && <option>Loading…</option>}
-          {clients?.length === 0 && <option>No clients yet</option>}
-          {clients?.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-        <input
-          id="client-access-username"
-          style={{ padding: 8, minWidth: 160 }}
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
-        <input
-          style={{ padding: 8, minWidth: 180 }}
-          placeholder="Password (min 8 chars)"
-          type={showPassword ? "text" : "password"}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <button type="button" onClick={() => setPassword(generatePassword())}>
-          Generate
-        </button>
-        <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
-          <input type="checkbox" checked={showPassword} onChange={(e) => setShowPassword(e.target.checked)} />
-          Show
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-          Role
-          <select
-            value={newRole}
-            onChange={(e) => setNewRole(e.target.value as "admin" | "owner" | "staff")}
-            style={{ padding: 6 }}
-            title={
-              newRole === "admin"
-                ? "Full platform access, same as the admin/admin login — not scoped to one client."
-                : "Sets this business's current Owner/Staff panel preset as this login's starting access (see Role Defaults below) — a one-time copy, editable per-account afterward."
-            }
-          >
-            <option value="admin">Admin (platform)</option>
-            <option value="owner">Owner (client)</option>
-            <option value="staff">Staff (client)</option>
-          </select>
-        </label>
-        <button onClick={createAccount} disabled={creating || (!isAdmin && !clients?.length)} style={primaryButtonStyle}>
-          {creating ? "Creating…" : "+ Create login"}
-        </button>
+const SECTION_HEAD: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  flexWrap: "wrap",
+  padding: "10px 16px",
+  borderBottom: "1px solid var(--line-soft)",
+};
+
+const SECTION_BODY: CSSProperties = { padding: 16 };
+
+const HEAD_TEXT: CSSProperties = { maxWidth: "64ch" };
+
+const DESC: CSSProperties = {
+  margin: 0,
+  fontSize: 12.5,
+  lineHeight: 1.55,
+  color: "var(--ink-3)",
+};
+
+const CONTROL_ROW: CSSProperties = {
+  display: "flex",
+  gap: 10,
+  alignItems: "flex-end",
+  flexWrap: "wrap",
+};
+
+const CHECK_GRID: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
+  gap: 8,
+};
+
+const CHECK: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 7,
+  fontSize: 13,
+  color: "var(--ink-2)",
+};
+
+const SWITCH: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 7,
+  fontSize: 12.5,
+  color: "var(--ink-2)",
+};
+
+const CHIP: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 7,
+  padding: "4px 10px",
+  borderRadius: "var(--r-pill)",
+  border: "1px solid var(--line)",
+  background: "var(--panel)",
+  fontSize: 12.5,
+  color: "var(--ink-2)",
+};
+
+const ROW_BETWEEN: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  fontSize: 12.5,
+};
+
+const SUBLIST: CSSProperties = { display: "flex", flexDirection: "column", gap: 6 };
+
+const SUBROW: CSSProperties = {
+  display: "flex",
+  alignItems: "baseline",
+  justifyContent: "space-between",
+  gap: 12,
+  fontSize: 12.5,
+  color: "var(--ink-2)",
+};
+
+const EXPANDED_CELL: CSSProperties = { padding: 0, background: "var(--panel-sunk)" };
+
+const DEVICE_LAMP: Record<string, string> = {
+  active: "lamp lamp-idle",
+  fixed: "lamp lamp-ok",
+  blocked: "lamp lamp-err",
+};
+
+const DEVICE_LABEL: Record<string, string> = {
+  active: "Active",
+  fixed: "Fixed",
+  blocked: "Blocked",
+};
+
+function deviceState(d: DeviceIp): "active" | "fixed" | "blocked" {
+  if (d.blocked) return "blocked";
+  if (d.fixed) return "fixed";
+  return "active";
+}
+
+return (
+    <section className="panel" style={{ overflow: "visible" }}>
+      <div className="panel-head">
+        <span className="instrument-label">Client access</span>
+        <span className="data" style={{ fontSize: 11, color: "var(--ink-3)" }}>
+          {accounts?.length ?? 0} logins
+        </span>
       </div>
 
-      {message && <p style={{ fontSize: 13, opacity: 0.85, marginTop: 8 }}>{message}</p>}
+      <div className="panel-body">
+        <p style={{ ...DESC, marginBottom: 14 }}>
+          Create a login for a client — they sign in at the main site and land straight on their own dashboard
+          (/dashboard/&#123;id&#125;), nowhere else. A client can have more than one login (e.g. different staff).
+          Disabling a login kicks out any session they&apos;re already in, immediately.
+        </p>
 
-      {!isAdmin && businessId && clients?.find((c) => c.id === businessId) && (
-        <div style={{ marginTop: 20, border: "1px solid var(--border)", borderRadius: 8, padding: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 4 }}>
-              AI Replies — {clients?.find((c) => c.id === businessId)?.name}
-            </div>
-            <p style={{ fontSize: 12, color: "var(--text-faint)", margin: 0 }}>
-              Off stops the AI from answering this client&apos;s customers everywhere (website, Messenger, Instagram, WhatsApp) — takes effect on the very next message, no restart. Also hides the per-conversation Stop/Resume AI control for every login of this client, since it&apos;d be a no-op while this is off.
-            </p>
-          </div>
-          <button
-            onClick={() => toggleAi(clients!.find((c) => c.id === businessId)!)}
-            disabled={togglingAi}
-            style={{
-              padding: "8px 16px",
-              fontSize: 13,
-              fontWeight: 600,
-              borderRadius: "var(--radius-sm)",
-              border: "1px solid var(--border)",
-              cursor: "pointer",
-              background: clients?.find((c) => c.id === businessId)?.aiEnabled ? "var(--success-subtle)" : "var(--danger-subtle)",
-              color: clients?.find((c) => c.id === businessId)?.aiEnabled ? "var(--success)" : "var(--danger)",
-            }}
-          >
-            {clients?.find((c) => c.id === businessId)?.aiEnabled ? "AI: ON" : "AI: OFF"}
-          </button>
-        </div>
-      )}
-
-      {!isAdmin && businessId && clients?.find((c) => c.id === businessId) && (
-        <div style={{ marginTop: 12, border: "1px solid var(--border)", borderRadius: 8, padding: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 4 }}>
-              AI Engine — {clients?.find((c) => c.id === businessId)?.name}
-            </div>
-            <p style={{ fontSize: 12, color: "var(--text-faint)", margin: 0 }}>
-              Runs this client&apos;s AI on the agent engine instead of the legacy pipeline (website, Messenger, Instagram, WhatsApp). Requires a provisioned agent profile; takes effect on the very next message. Needs its client&apos;s AI Replies (above) to be on.
-            </p>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        {/* ── Create a login ── */}
+        <div className="toolbar" style={{ marginBottom: 0 }}>
+          <div className="field" style={{ minWidth: 180 }}>
+            <label className="field-label" htmlFor="client-access-client">Client</label>
             <select
-              value={clients?.find((c) => c.id === businessId)?.hermesProfile ?? ""}
-              onChange={(e) => {
-                const profile = e.target.value || null;
-                fetch(`/api/admin/clients/${businessId}`, {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ hermesProfile: profile }),
-                }).then(() => refresh());
-              }}
-              disabled={fetchingAgents || togglingHermes}
-              style={{ padding: "6px 10px", fontSize: 12, minWidth: 180 }}
+              id="client-access-client"
+              value={businessId}
+              onChange={(e) => setBusinessId(e.target.value)}
+              disabled={isAdmin}
+              style={{ fontSize: 13 }}
             >
-              <option value="">None (use default)</option>
-              {hermesAgents.map((a) => (
-                <option key={a.slug} value={a.slug}>{a.name}</option>
+              {!clients && <option>Loading…</option>}
+              {clients?.length === 0 && <option>No clients yet</option>}
+              {clients?.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
-            <button
-              onClick={() => toggleHermes(clients!.find((c) => c.id === businessId)!)}
-              disabled={togglingHermes}
-              style={{
-                padding: "8px 16px",
-                fontSize: 13,
-                fontWeight: 600,
-                borderRadius: "var(--radius-sm)",
-                border: "1px solid var(--border)",
-                cursor: "pointer",
-                background: clients?.find((c) => c.id === businessId)?.hermesEnabled ? "var(--success-subtle)" : "var(--danger-subtle)",
-                color: clients?.find((c) => c.id === businessId)?.hermesEnabled ? "var(--success)" : "var(--danger)",
-              }}
-            >
-              {clients?.find((c) => c.id === businessId)?.hermesEnabled ? "HERMES: ON" : "HERMES: OFF"}
-            </button>
           </div>
-        </div>
-      )}
 
-      {!isAdmin && businessId && (
-        <div style={{ marginTop: 20, border: "1px solid var(--border)", borderRadius: 8, padding: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 8 }}>
-            Teams — {clients?.find((c) => c.id === businessId)?.name ?? "this client"}
-          </div>
-          <p style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 0 }}>
-            A login with no allow-list of its own falls back to its team&apos;s default panels, if it has one —
-            its own allow-list still wins whenever it&apos;s set.
-          </p>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: teams.length > 0 ? 10 : 0 }}>
-            {teams.map((t) => (
-              <span key={t.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "4px 10px", borderRadius: 999, background: "var(--surface)", border: "1px solid var(--border)" }}>
-                {t.name} <span style={{ color: "var(--text-faint)" }}>({t.memberCount})</span>
-                <button onClick={() => toggleTeamPanelsBox(t)} className="plain" style={{ fontSize: 11, color: "var(--accent)" }}>
-                  panels
-                </button>
-                <button onClick={() => deleteTeam(t)} className="plain" style={{ color: "var(--danger)", fontSize: 11, padding: "4px 8px" }}>✕</button>
-              </span>
-            ))}
-          </div>
-          <div style={{ display: "flex", gap: 6 }}>
+          <div className="field" style={{ minWidth: 160 }}>
+            <label className="field-label" htmlFor="client-access-username">Username</label>
             <input
-              style={{ padding: 6, fontSize: 12, flex: 1, maxWidth: 200 }}
-              placeholder="New team name"
-              value={newTeamName}
-              onChange={(e) => setNewTeamName(e.target.value)}
+              id="client-access-username"
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              style={{ fontSize: 13 }}
             />
-            <button onClick={createTeam} disabled={creatingTeam || !newTeamName.trim()} style={{ fontSize: 12, padding: "6px 10px" }}>
-              {creatingTeam ? "Adding…" : "+ Add team"}
-            </button>
           </div>
-          {teamMessage && <p style={{ fontSize: 12, marginTop: 6 }}>{teamMessage}</p>}
 
-          {teamPanelsExpandedId && (
-            <div style={{ marginTop: 14 }}>
-              <Collapsible title={`Default panels for "${teams.find((t) => t.id === teamPanelsExpandedId)?.name}"`} defaultOpen>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
-                  {ALL_PANELS.map((p) => {
-                    const selected = pendingTeamPanels[teamPanelsExpandedId] ?? [];
-                    return (
-                      <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-                        <input
-                          type="checkbox"
-                          checked={selected.includes(p.id)}
-                          onChange={() =>
-                            setPendingTeamPanels((prev) => {
-                              const current = prev[teamPanelsExpandedId] ?? [];
-                              const next = current.includes(p.id) ? current.filter((x) => x !== p.id) : [...current, p.id];
-                              return { ...prev, [teamPanelsExpandedId]: next };
-                            })
-                          }
-                        />
-                        {p.label}
-                      </label>
-                    );
-                  })}
-                </div>
-                <div style={{ marginTop: 14, display: "flex", gap: 8 }}>
-                  <button
-                    onClick={() => saveTeamPanels(teams.find((t) => t.id === teamPanelsExpandedId)!)}
-                    style={primaryButtonStyle}
-                  >
-                    Save
-                  </button>
-                  <button onClick={() => setTeamPanelsExpandedId(null)}>Cancel</button>
-                </div>
-              </Collapsible>
-            </div>
-          )}
+          <div className="field" style={{ minWidth: 190 }}>
+            <label className="field-label" htmlFor="client-access-password">Password</label>
+            <input
+              id="client-access-password"
+              placeholder="Min 8 characters"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={{ fontSize: 13 }}
+            />
+          </div>
+
+          <button type="button" onClick={() => setPassword(generatePassword())} className="ghost sm">
+            Generate
+          </button>
+
+          <label style={SWITCH}>
+            <input type="checkbox" checked={showPassword} onChange={(e) => setShowPassword(e.target.checked)} />
+            Show
+          </label>
+
+          <div className="field" style={{ minWidth: 170 }}>
+            <label className="field-label" htmlFor="client-access-role">Role</label>
+            <select
+              id="client-access-role"
+              value={newRole}
+              onChange={(e) => setNewRole(e.target.value as "admin" | "owner" | "staff")}
+              title={
+                newRole === "admin"
+                  ? "Full platform access, same as the admin/admin login — not scoped to one client."
+                  : "Sets this business's current Owner/Staff panel preset as this login's starting access (see Role defaults below) — a one-time copy, editable per-account afterward."
+              }
+              style={{ fontSize: 13 }}
+            >
+              <option value="admin">Admin (platform)</option>
+              <option value="owner">Owner (client)</option>
+              <option value="staff">Staff (client)</option>
+            </select>
+          </div>
+
+          <button onClick={createAccount} disabled={creating || (!isAdmin && !clients?.length)} className="primary">
+            {creating ? "Creating" : "Create login"}
+          </button>
         </div>
-      )}
 
-      {!isAdmin && businessId && (
-        <div style={{ marginTop: 20, border: "1px solid var(--border)", borderRadius: 8, padding: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 8 }}>
-            Role Defaults — {clients?.find((c) => c.id === businessId)?.name ?? "this client"}
-          </div>
-          <p style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 0 }}>
-            Panels a new login starts with when created as Owner or Staff above — a one-time copy at creation,
-            not a live link, so changing this never affects a login already created.
+        {message && (
+          <p
+            className="meta"
+            style={{
+              marginTop: 10,
+              padding: "8px 11px",
+              borderRadius: "var(--r-sm)",
+              background: message.startsWith("Error") ? "var(--danger-subtle)" : "var(--accent-subtle)",
+              color: message.startsWith("Error") ? "var(--danger)" : "var(--ink-2)",
+            }}
+          >
+            {message}
           </p>
-          <div style={{ display: "flex", gap: 8 }}>
-            {(["owner", "staff"] as const).map((role) => (
-              <button key={role} onClick={() => togglePresetEditor(role)} style={{ fontSize: 12, padding: "6px 12px" }}>
-                Edit {role === "owner" ? "Owner" : "Staff"} defaults
-                {rolePresets[role] && ` (${rolePresets[role]!.length}/${ALL_PANELS.length})`}
+        )}
+
+        {/* ── AI replies ── */}
+        {!isAdmin && businessId && clients?.find((c) => c.id === businessId) && (
+          <div style={SECTION}>
+            <div style={SECTION_HEAD}>
+              <div style={HEAD_TEXT}>
+                <span className="instrument-label">AI replies</span>
+                <p style={{ ...DESC, marginTop: 4 }}>
+                  Off stops the AI from answering this client&apos;s customers everywhere (website, Messenger,
+                  Instagram, WhatsApp) — takes effect on the very next message, no restart. Also hides the
+                  per-conversation Stop/Resume AI control for every login of this client, since it&apos;d be a
+                  no-op while this is off.
+                </p>
+              </div>
+              <span style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span className={clients.find((c) => c.id === businessId)?.aiEnabled ? "lamp lamp-ok" : "lamp lamp-err"}>
+                  {clients.find((c) => c.id === businessId)?.aiEnabled ? "On" : "Off"}
+                </span>
+                <button
+                  onClick={() => toggleAi(clients!.find((c) => c.id === businessId)!)}
+                  disabled={togglingAi}
+                  aria-pressed={!!clients.find((c) => c.id === businessId)?.aiEnabled}
+                  className={clients.find((c) => c.id === businessId)?.aiEnabled ? "ghost sm" : "machine sm"}
+                >
+                  {clients.find((c) => c.id === businessId)?.aiEnabled ? "Turn off AI replies" : "Turn on AI replies"}
+                </button>
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* ── AI engine ── */}
+        {!isAdmin && businessId && clients?.find((c) => c.id === businessId) && (
+          <div style={SECTION}>
+            <div style={SECTION_HEAD}>
+              <div style={HEAD_TEXT}>
+                <span className="instrument-label">AI engine</span>
+                <p style={{ ...DESC, marginTop: 4 }}>
+                  Runs this client&apos;s AI on the agent engine instead of the legacy pipeline (website,
+                  Messenger, Instagram, WhatsApp). Requires a provisioned agent profile; takes effect on the
+                  very next message. Needs this client&apos;s AI replies (above) to be on.
+                </p>
+              </div>
+              <span style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span className={clients.find((c) => c.id === businessId)?.hermesEnabled ? "lamp lamp-machine" : "lamp lamp-idle"}>
+                  {clients.find((c) => c.id === businessId)?.hermesEnabled ? "Engine on" : "Legacy pipeline"}
+                </span>
+                <button
+                  onClick={() => toggleHermes(clients!.find((c) => c.id === businessId)!)}
+                  disabled={togglingHermes}
+                  aria-pressed={!!clients.find((c) => c.id === businessId)?.hermesEnabled}
+                  className={clients.find((c) => c.id === businessId)?.hermesEnabled ? "ghost sm" : "machine sm"}
+                >
+                  {clients.find((c) => c.id === businessId)?.hermesEnabled ? "Turn off agent engine" : "Turn on agent engine"}
+                </button>
+              </span>
+            </div>
+            <div style={{ ...SECTION_BODY, paddingTop: 12, borderTop: "none" }}>
+              <div className="field" style={{ maxWidth: 320 }}>
+                <label className="field-label" htmlFor="client-access-agent">Agent profile</label>
+                <select
+                  id="client-access-agent"
+                  value={clients.find((c) => c.id === businessId)?.hermesProfile ?? ""}
+                  onChange={(e) => {
+                    const profile = e.target.value || null;
+                    fetch(`/api/admin/clients/${businessId}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ hermesProfile: profile }),
+                    }).then(() => refresh());
+                  }}
+                  disabled={fetchingAgents || togglingHermes}
+                  style={{ fontSize: 13 }}
+                >
+                  <option value="">None (use default)</option>
+                  {hermesAgents.map((a) => (
+                    <option key={a.slug} value={a.slug}>{a.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Teams ── */}
+        {!isAdmin && businessId && (
+          <div style={SECTION}>
+            <div style={SECTION_HEAD}>
+              <span className="instrument-label">
+                Teams — {clients?.find((c) => c.id === businessId)?.name ?? "this client"}
+              </span>
+              <span className="data" style={{ fontSize: 11, color: "var(--ink-3)" }}>{teams.length} teams</span>
+            </div>
+            <div style={SECTION_BODY}>
+              <p style={{ ...DESC, marginBottom: 12 }}>
+                A login with no allow-list of its own falls back to its team&apos;s default panels, if it has one —
+                its own allow-list still wins whenever it&apos;s set.
+              </p>
+
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                {teams.length === 0 && (
+                  <span className="meta" style={{ color: "var(--ink-3)" }}>
+                    No teams yet. Add one to hand a group of logins a shared panel default.
+                  </span>
+                )}
+                {teams.map((t) => (
+                  <span key={t.id} style={CHIP}>
+                    <span style={{ color: "var(--ink)" }}>{t.name}</span>
+                    <span className="data" style={{ fontSize: 11, color: "var(--ink-3)" }}>{t.memberCount} members</span>
+                    <button onClick={() => toggleTeamPanelsBox(t)} className="plain" style={{ fontSize: 12, color: "var(--accent)" }}>
+                      Panels
+                    </button>
+                    <button onClick={() => deleteTeam(t)} className="plain" aria-label={`Delete team ${t.name}`} title={`Delete team ${t.name}`} style={{ color: "var(--danger)", fontSize: 12, padding: 2 }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <path d="M18 6 6 18" />
+                        <path d="m6 6 12 12" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+              </div>
+
+              <div className="field" style={{ maxWidth: 280 }}>
+                <label className="field-label" htmlFor="client-access-new-team">New team</label>
+                <input
+                  id="client-access-new-team"
+                  placeholder="Team name"
+                  value={newTeamName}
+                  onChange={(e) => setNewTeamName(e.target.value)}
+                  style={{ fontSize: 13 }}
+                />
+              </div>
+              <button onClick={createTeam} disabled={creatingTeam || !newTeamName.trim()} className="ghost sm" style={{ marginTop: 8 }}>
+                {creatingTeam ? "Adding" : "Add team"}
               </button>
-            ))}
+
+              {teamMessage && <p className="meta" style={{ marginTop: 8 }}>{teamMessage}</p>}
+
+              {teamPanelsExpandedId && (
+                <div style={{ marginTop: 14 }}>
+                  <Collapsible title={`Default panels for "${teams.find((t) => t.id === teamPanelsExpandedId)?.name}"`} defaultOpen>
+                    <div style={CHECK_GRID}>
+                      {ALL_PANELS.map((p) => {
+                        const selected = pendingTeamPanels[teamPanelsExpandedId] ?? [];
+                        return (
+                          <label key={p.id} style={CHECK}>
+                            <input
+                              type="checkbox"
+                              checked={selected.includes(p.id)}
+                              onChange={() =>
+                                setPendingTeamPanels((prev) => {
+                                  const current = prev[teamPanelsExpandedId] ?? [];
+                                  const next = current.includes(p.id) ? current.filter((x) => x !== p.id) : [...current, p.id];
+                                  return { ...prev, [teamPanelsExpandedId]: next };
+                                })
+                              }
+                            />
+                            {p.label}
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <div style={{ marginTop: 14, display: "flex", gap: 8 }}>
+                      <button onClick={() => saveTeamPanels(teams.find((t) => t.id === teamPanelsExpandedId)!)} className="primary sm">
+                        Save default panels
+                      </button>
+                      <button onClick={() => setTeamPanelsExpandedId(null)} className="ghost sm">
+                        Cancel
+                      </button>
+                    </div>
+                  </Collapsible>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Role defaults ── */}
+        {!isAdmin && businessId && (
+          <div style={SECTION}>
+            <div style={SECTION_HEAD}>
+              <span className="instrument-label">
+                Role defaults — {clients?.find((c) => c.id === businessId)?.name ?? "this client"}
+              </span>
+            </div>
+            <div style={SECTION_BODY}>
+              <p style={{ ...DESC, marginBottom: 12 }}>
+                Panels a new login starts with when created as Owner or Staff above — a one-time copy at creation,
+                not a live link, so changing this never affects a login already created.
+              </p>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {(["owner", "staff"] as const).map((role) => (
+                  <button key={role} onClick={() => togglePresetEditor(role)} className="ghost sm">
+                    Edit {role === "owner" ? "Owner" : "Staff"} defaults
+                    <span className="data" style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                      {rolePresets[role] ? `${rolePresets[role]!.length}/${ALL_PANELS.length}` : `All ${ALL_PANELS.length}`}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {presetEditingRole && (
+                <div style={{ marginTop: 14 }}>
+                  <Collapsible title={`Default panels for ${presetEditingRole === "owner" ? "Owner" : "Staff"} logins`} defaultOpen>
+                    <div style={CHECK_GRID}>
+                      {ALL_PANELS.map((p) => (
+                        <label key={p.id} style={CHECK}>
+                          <input
+                            type="checkbox"
+                            checked={pendingPresetPanels.includes(p.id)}
+                            onChange={() =>
+                              setPendingPresetPanels((prev) =>
+                                prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id]
+                              )
+                            }
+                          />
+                          {p.label}
+                        </label>
+                      ))}
+                    </div>
+                    <div style={{ marginTop: 14, display: "flex", gap: 8 }}>
+                      <button onClick={saveRolePreset} disabled={savingPreset} className="primary sm">
+                        {savingPreset ? "Saving" : "Save default panels"}
+                      </button>
+                      <button onClick={() => setPresetEditingRole(null)} className="ghost sm">
+                        Cancel
+                      </button>
+                    </div>
+                  </Collapsible>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Every client ── */}
+        <div style={{ ...SECTION, marginTop: 20 }}>
+          <div className="panel-head">
+            <span className="instrument-label">Every client</span>
+            <div className="field" style={{ minWidth: 200 }}>
+              <label className="field-label" htmlFor="client-access-filter">Filter</label>
+              <input
+                id="client-access-filter"
+                placeholder="Username or client"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                style={{ fontSize: 13 }}
+              />
+            </div>
           </div>
 
-          {presetEditingRole && (
-            <div style={{ marginTop: 14 }}>
-              <Collapsible title={`Default panels for ${presetEditingRole === "owner" ? "Owner" : "Staff"} logins`} defaultOpen>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
-                  {ALL_PANELS.map((p) => (
-                    <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-                      <input
-                        type="checkbox"
-                        checked={pendingPresetPanels.includes(p.id)}
-                        onChange={() =>
-                          setPendingPresetPanels((prev) =>
-                            prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id]
-                          )
-                        }
-                      />
-                      {p.label}
-                    </label>
-                  ))}
-                </div>
-                <div style={{ marginTop: 14, display: "flex", gap: 8 }}>
-                  <button onClick={saveRolePreset} disabled={savingPreset} style={primaryButtonStyle}>
-                    {savingPreset ? "Saving…" : "Save"}
-                  </button>
-                  <button onClick={() => setPresetEditingRole(null)}>Cancel</button>
-                </div>
-              </Collapsible>
-            </div>
-          )}
-        </div>
-      )}
+          <div style={{ padding: 16 }}>
+            {!clientRows && <p className="meta">Loading logins…</p>}
 
-      <div style={{ marginTop: 24, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h3 style={{ margin: 0 }}>Every client</h3>
-        <input
-          style={{ padding: 6, fontSize: 13, width: 200 }}
-          placeholder="Filter by username or client…"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
+            {clientRows && clientRows.length === 0 && (
+              <div className="empty-state">
+                <div className="empty-state-title">No clients to show</div>
+                <div className="empty-state-description">
+                  {clients?.length === 0
+                    ? "No clients yet — add one in the Clients tab, then create its first login here."
+                    : "No client matches this filter. Clear it to see every login."}
+                </div>
+              </div>
+            )}
+
+            {clientRows && clientRows.length > 0 && (
+              <div className="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Username</th>
+                      <th>Role</th>
+                      <th>Client</th>
+                      <th>Status</th>
+                      <th>Panels</th>
+                      <th>Team</th>
+                      <th>Password</th>
+                      <th>Devices</th>
+                      <th>Last login</th>
+                      <th>Created</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {clientRows.map(({ client, accounts: rows }) =>
+                      rows.length > 0 ? (
+                        rows.map((a) => renderAccountRow(a))
+                      ) : (
+                        <tr key={client.id}>
+                          <td><span className="lamp lamp-warn">No login set</span></td>
+                          <td>{client.name}</td>
+                          <td colSpan={8}>
+                            <span className="meta">This client can&apos;t log in yet.</span>
+                          </td>
+                          <td>
+                            <button onClick={() => quickCreateFor(client.id)} className="primary sm">
+                              Create login
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    )}
+                    {adminAccounts.map((a) => renderAccountRow(a))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-
-      {!clientRows && <p>Loading…</p>}
-
-      {clientRows && (
-        <div className="table-scroll">
-        <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
-          <thead>
-            <tr>
-              <th style={cellStyle}>Username</th>
-              <th style={cellStyle}>Role</th>
-              <th style={cellStyle}>Client</th>
-              <th style={cellStyle}>Status</th>
-              <th style={cellStyle}>Panels</th>
-              <th style={cellStyle}>Team</th>
-              <th style={cellStyle}>Password</th>
-              <th style={cellStyle}>Devices</th>
-              <th style={cellStyle}>Last login</th>
-              <th style={cellStyle}>Created</th>
-              <th style={cellStyle}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {clientRows.map(({ client, accounts: rows }) =>
-              rows.length > 0 ? (
-                rows.map((a) => renderAccountRow(a))
-              ) : (
-                <tr key={client.id}>
-                  <td style={cellStyle}>
-                    <span style={badgeStyle("warn")}>No login set</span>
-                  </td>
-                  <td style={cellStyle}>{client.name}</td>
-                  <td style={cellStyle} colSpan={8}>
-                    <span style={{ fontSize: 12, color: "var(--text-faint)" }}>This client can&apos;t log in yet.</span>
-                  </td>
-                  <td style={cellStyle}>
-                    <button onClick={() => quickCreateFor(client.id)}>+ Create login</button>
-                  </td>
-                </tr>
-              )
-            )}
-            {adminAccounts.map((a) => renderAccountRow(a))}
-            {clientRows.length === 0 && (
-              <tr>
-                <td style={cellStyle} colSpan={11}>
-                  {clients?.length === 0 ? "No clients yet — add one in the Clients tab." : "No clients match that filter."}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-        </div>
-      )}
     </section>
   );
 
@@ -964,44 +1160,53 @@ export function ClientAccessPanel() {
     const panelCount = a.allowedPanels?.length ?? ALL_PANELS.length;
     const restricted = a.allowedPanels !== null;
     const selected = pendingPanels[a.id] ?? a.allowedPanels ?? ALL_PANELS.map((p) => p.id);
+    const roleLabel = a.isAdmin ? "Admin" : a.role === "owner" ? "Owner" : a.role === "staff" ? "Staff" : null;
+    const deviceLimit = a.maxDevices ?? (a.role === "owner" ? 2 : 1);
 
     return (
       <Fragment key={a.id}>
         <tr>
-          <td style={cellStyle}>{a.username}</td>
-          <td style={cellStyle}>
-            {a.isAdmin ? (
-              <span style={badgeStyle("info")}>Admin</span>
-            ) : a.role ? (
-              <span style={badgeStyle(a.role === "owner" ? "ok" : "neutral")}>{a.role === "owner" ? "Owner" : "Staff"}</span>
+          <td style={{ fontWeight: 600, color: "var(--ink)" }}>{a.username}</td>
+          <td>
+            {roleLabel ? (
+              <span style={{ color: a.role === "owner" ? "var(--ink)" : "var(--ink-2)", fontWeight: a.role === "owner" ? 600 : 400 }}>
+                {roleLabel}
+              </span>
             ) : (
-              <span style={{ color: "var(--text-faint)" }}>—</span>
+              <span style={{ color: "var(--ink-4)" }}>—</span>
             )}
           </td>
-          <td style={cellStyle}>
-            {a.isAdmin ? <span style={badgeStyle("info")}>Admin — all clients</span> : a.businessName}
-          </td>
-          <td style={cellStyle}>
-            <span style={badgeStyle(a.disabled ? "error" : "ok")}>{a.disabled ? "Restricted" : "Active"}</span>
-          </td>
-          <td style={cellStyle}>
+          <td>
             {a.isAdmin ? (
-              <span style={{ fontSize: 12, color: "var(--text-faint)" }}>All panels</span>
+              <span className="lamp lamp-info">Platform admin</span>
             ) : (
-              <button onClick={() => togglePanelsBox(a)} className="plain" style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                {restricted ? `${panelCount}/${ALL_PANELS.length} panels` : "All panels"}
+              a.businessName
+            )}
+          </td>
+          <td>
+            <span className={a.disabled ? "lamp lamp-err" : "lamp lamp-ok"}>
+              {a.disabled ? "Restricted" : "Active"}
+            </span>
+          </td>
+          <td>
+            {a.isAdmin ? (
+              <span className="data meta">All panels</span>
+            ) : (
+              <button onClick={() => togglePanelsBox(a)} className="plain" style={{ fontSize: 12.5, color: "var(--accent)" }}>
+                <span className="data">{restricted ? `${panelCount}/${ALL_PANELS.length} panels` : `All ${ALL_PANELS.length} panels`}</span>
               </button>
             )}
           </td>
-          <td style={cellStyle}>
+          <td>
             {a.isAdmin ? (
-              <span style={{ fontSize: 12, color: "var(--text-faint)" }}>—</span>
+              <span style={{ color: "var(--ink-4)" }}>—</span>
             ) : a.businessId === businessId ? (
               <select
+                aria-label={`Team for ${a.username}`}
                 value={a.teamId ?? ""}
                 onChange={(e) => assignTeam(a, e.target.value)}
                 disabled={busyId === a.id}
-                style={{ fontSize: 12, padding: 4 }}
+                style={{ fontSize: 12.5, padding: "4px 8px", width: "auto", minWidth: 120 }}
               >
                 <option value="">No team</option>
                 {teams.map((t) => (
@@ -1009,228 +1214,284 @@ export function ClientAccessPanel() {
                 ))}
               </select>
             ) : (
-              <span style={{ fontSize: 12, color: "var(--text-faint)" }}>
-                {teams.find((t) => t.id === a.teamId)?.name ?? "—"}
-              </span>
+              <span className="meta">{teams.find((t) => t.id === a.teamId)?.name ?? "—"}</span>
             )}
           </td>
-          <td style={cellStyle}>
-            <button onClick={() => togglePasswordBox(a)} className="plain" style={{ fontSize: 12, color: "var(--text-muted)" }}>
-              Change / history
+          <td>
+            <button onClick={() => togglePasswordBox(a)} className="plain" style={{ fontSize: 12.5, color: "var(--accent)" }}>
+              Change or view history
             </button>
           </td>
-          <td style={cellStyle}>
+          <td>
             {a.isAdmin || a.isAgent ? (
-              <span style={{ fontSize: 12, color: "var(--text-faint)" }}>—</span>
+              <span style={{ color: "var(--ink-4)" }}>—</span>
             ) : (
-              <button onClick={() => toggleDeviceBox(a)} className="plain" style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                {a.deviceCount}/{a.maxDevices ?? (a.role === "owner" ? 2 : 1)} devices
+              <button onClick={() => toggleDeviceBox(a)} className="plain" style={{ fontSize: 12.5, color: "var(--accent)" }}>
+                <span className="data">{a.deviceCount}/{deviceLimit} devices</span>
               </button>
             )}
           </td>
-          <td style={cellStyle}>{a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString() : "Never"}</td>
-          <td style={cellStyle}>{new Date(a.createdAt).toLocaleDateString()}</td>
-          <td style={cellStyle}>
-            <button onClick={() => setDisabled(a, !a.disabled)} disabled={busyId === a.id}>
-              {busyId === a.id ? "…" : a.disabled ? "Re-enable" : "Restrict"}
-            </button>{" "}
-            <button onClick={() => deleteAccount(a)} disabled={busyId === a.id}>
-              Delete
-            </button>
+          <td>
+            <span className="data" style={{ fontSize: 12 }}>
+              {a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString() : "Never"}
+            </span>
+          </td>
+          <td>
+            <span className="data" style={{ fontSize: 12 }}>{new Date(a.createdAt).toLocaleDateString()}</span>
+          </td>
+          <td>
+            <span style={{ display: "inline-flex", gap: 6 }}>
+              <button
+                onClick={() => setDisabled(a, !a.disabled)}
+                disabled={busyId === a.id}
+                className={a.disabled ? "ghost sm" : "danger sm"}
+              >
+                {busyId === a.id ? "…" : a.disabled ? "Re-enable" : "Restrict"}
+              </button>
+              <button onClick={() => deleteAccount(a)} disabled={busyId === a.id} className="danger sm">
+                Delete
+              </button>
+            </span>
           </td>
         </tr>
+
+        {/* Which panels */}
         {expandedId === a.id && (
           <tr>
-            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={11}>
-              <Collapsible title={`Which panels can "${a.username}" see?`} defaultOpen>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
-                  {ALL_PANELS.map((p) => (
-                    <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-                      <input
-                        type="checkbox"
-                        checked={selected.includes(p.id)}
-                        onChange={() => togglePanel(a.id, p.id)}
-                      />
-                      {p.label}
-                    </label>
-                  ))}
-                </div>
-                <div style={{ marginTop: 14, display: "flex", gap: 8 }}>
-                  <button onClick={() => savePanels(a)} disabled={busyId === a.id} style={primaryButtonStyle}>
-                    {busyId === a.id ? "Saving…" : "Save"}
-                  </button>
-                  <button onClick={() => setExpandedId(null)}>Cancel</button>
-                </div>
-              </Collapsible>
+            <td style={EXPANDED_CELL} colSpan={11}>
+              <div style={{ padding: 16 }}>
+                <Collapsible title={`Which panels can "${a.username}" see?`} defaultOpen>
+                  <div style={CHECK_GRID}>
+                    {ALL_PANELS.map((p) => (
+                      <label key={p.id} style={CHECK}>
+                        <input type="checkbox" checked={selected.includes(p.id)} onChange={() => togglePanel(a.id, p.id)} />
+                        {p.label}
+                      </label>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: 14, display: "flex", gap: 8 }}>
+                    <button onClick={() => savePanels(a)} disabled={busyId === a.id} className="primary sm">
+                      {busyId === a.id ? "Saving" : "Save panel access"}
+                    </button>
+                    <button onClick={() => setExpandedId(null)} className="ghost sm">
+                      Cancel
+                    </button>
+                  </div>
+                </Collapsible>
+              </div>
             </td>
           </tr>
         )}
+
+        {/* Password and activity */}
         {pwExpandedId === a.id && (
           <tr>
-            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={11}>
-              <Collapsible title={`Password & activity for "${a.username}"`} defaultOpen>
-                <p style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 0 }}>
-                  Reveal the current password below, or set a new one — that immediately signs out any of
-                  their active sessions.
-                </p>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
-                  <button type="button" onClick={() => revealPassword(a)} disabled={revealing === a.id}>
-                    {revealing === a.id ? "Revealing…" : a.id in revealed ? "Hide password" : "Show current password"}
-                  </button>
-                  {a.id in revealed && (
-                    <code style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: 6, fontSize: 13 }}>
-                      {revealed[a.id] ?? "(unavailable — set a new one below)"}
-                    </code>
+            <td style={EXPANDED_CELL} colSpan={11}>
+              <div style={{ padding: 16 }}>
+                <Collapsible title={`Password and activity for "${a.username}"`} defaultOpen>
+                  <p style={{ ...DESC, marginBottom: 12 }}>
+                    Reveal the current password below, or set a new one — that immediately signs out any of
+                    their active sessions.
+                  </p>
+
+                  <div style={{ marginBottom: 12 }}>
+                    <button type="button" onClick={() => revealPassword(a)} disabled={revealing === a.id} className="ghost sm">
+                      {revealing === a.id ? "Revealing" : a.id in revealed ? "Hide password" : "Show current password"}
+                    </button>
+                    {a.id in revealed && (
+                      <div style={{ marginTop: 8 }}>
+                        <code>{revealed[a.id] ?? "(unavailable — set a new one below)"}</code>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={CONTROL_ROW}>
+                    <div className="field" style={{ minWidth: 200 }}>
+                      <label className="field-label" htmlFor={`pw-draft-${a.id}`}>New password</label>
+                      <input
+                        id={`pw-draft-${a.id}`}
+                        placeholder="Min 8 characters"
+                        type={pwShow[a.id] ? "text" : "password"}
+                        value={pwDraft[a.id] ?? ""}
+                        onChange={(e) => setPwDraft((prev) => ({ ...prev, [a.id]: e.target.value }))}
+                        style={{ fontSize: 13 }}
+                      />
+                    </div>
+                    <button type="button" onClick={() => setPwDraft((prev) => ({ ...prev, [a.id]: generatePassword() }))} className="ghost sm">
+                      Generate
+                    </button>
+                    <label style={SWITCH}>
+                      <input
+                        type="checkbox"
+                        checked={!!pwShow[a.id]}
+                        onChange={(e) => setPwShow((prev) => ({ ...prev, [a.id]: e.target.checked }))}
+                      />
+                      Show
+                    </label>
+                    <button onClick={() => savePassword(a)} disabled={busyId === a.id} className="primary sm">
+                      {busyId === a.id ? "Saving" : "Set new password"}
+                    </button>
+                    <button onClick={() => setPwExpandedId(null)} className="ghost sm">
+                      Close
+                    </button>
+                  </div>
+
+                  {pwMessage && (
+                    <p
+                      className="meta"
+                      style={{
+                        marginTop: 10,
+                        padding: "8px 11px",
+                        borderRadius: "var(--r-sm)",
+                        background: pwMessage.startsWith("Error") ? "var(--danger-subtle)" : "var(--accent-subtle)",
+                        color: pwMessage.startsWith("Error") ? "var(--danger)" : "var(--ink-2)",
+                      }}
+                    >
+                      {pwMessage}
+                    </p>
                   )}
-                </div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
-                  <input
-                    style={{ padding: 8, minWidth: 180 }}
-                    placeholder="New password (min 8 chars)"
-                    type={pwShow[a.id] ? "text" : "password"}
-                    value={pwDraft[a.id] ?? ""}
-                    onChange={(e) => setPwDraft((prev) => ({ ...prev, [a.id]: e.target.value }))}
-                  />
-                  <button type="button" onClick={() => setPwDraft((prev) => ({ ...prev, [a.id]: generatePassword() }))}>
-                    Generate
-                  </button>
-                  <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
-                    <input
-                      type="checkbox"
-                      checked={!!pwShow[a.id]}
-                      onChange={(e) => setPwShow((prev) => ({ ...prev, [a.id]: e.target.checked }))}
-                    />
-                    Show
-                  </label>
-                  <button onClick={() => savePassword(a)} disabled={busyId === a.id} style={primaryButtonStyle}>
-                    {busyId === a.id ? "Saving…" : "Set new password"}
-                  </button>
-                  <button onClick={() => setPwExpandedId(null)}>Close</button>
-                </div>
-                {pwMessage && <p style={{ fontSize: 12.5, marginTop: 0, marginBottom: 10 }}>{pwMessage}</p>}
 
-                <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 6 }}>
-                  Login history (device IP)
-                </div>
-                {!devices[a.id] && <p style={{ fontSize: 12, color: "var(--text-faint)" }}>Loading…</p>}
-                {devices[a.id]?.length === 0 && (
-                  <p style={{ fontSize: 12, color: "var(--text-faint)" }}>No devices have signed in yet.</p>
-                )}
-                {devices[a.id] && devices[a.id]!.length > 0 && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 14 }}>
-                    {devices[a.id]!.map((d) => (
-                      <div key={d.id} style={{ fontSize: 12.5, display: "flex", justifyContent: "space-between", gap: 12, maxWidth: 480 }}>
-                        <span>
-                          <strong>{d.ip}</strong>
-                          {d.fixed && " — fixed"}
-                          {d.blocked && " — blocked"}
-                        </span>
-                        <span style={{ color: "var(--text-faint)", flexShrink: 0 }}>
-                          last seen {new Date(d.lastSeenAt).toLocaleString()}
-                        </span>
+                  {/* Login history */}
+                  <div style={{ marginTop: 16 }}>
+                    <span className="instrument-label" style={{ display: "block", marginBottom: 8 }}>Login history (device IP)</span>
+                    {!devices[a.id] && <p className="meta">Loading devices…</p>}
+                    {devices[a.id]?.length === 0 && (
+                      <div className="empty-state">
+                        <div className="empty-state-title">No devices yet</div>
+                        <div className="empty-state-description">This login has never signed in from an IP address.</div>
                       </div>
-                    ))}
+                    )}
+                    {devices[a.id] && devices[a.id]!.length > 0 && (
+                      <div style={SUBLIST}>
+                        {devices[a.id]!.map((d) => (
+                          <div key={d.id} style={SUBROW}>
+                            <span style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
+                              <code>{d.ip}</code>
+                              <span className={DEVICE_LAMP[deviceState(d)]}>{DEVICE_LABEL[deviceState(d)]}</span>
+                            </span>
+                            <span className="data meta" style={{ flexShrink: 0 }}>
+                              Last seen {new Date(d.lastSeenAt).toLocaleString()}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
 
-                <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 6 }}>
-                  Activity history
-                </div>
-                {!activity[a.id] && <p style={{ fontSize: 12, color: "var(--text-faint)" }}>Loading…</p>}
-                {activity[a.id]?.length === 0 && <p style={{ fontSize: 12, color: "var(--text-faint)" }}>No changes since this login was created.</p>}
-                {activity[a.id] && activity[a.id]!.length > 0 && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    {activity[a.id]!.map((h, i) => (
-                      <div key={i} style={{ fontSize: 12.5, display: "flex", justifyContent: "space-between", gap: 12, maxWidth: 420 }}>
-                        <span>{describeActivity(h)} — by <strong>{h.changedBy}</strong></span>
-                        <span style={{ color: "var(--text-faint)", flexShrink: 0 }}>{new Date(h.changedAt).toLocaleString()}</span>
+                  {/* Activity history */}
+                  <div style={{ marginTop: 16 }}>
+                    <span className="instrument-label" style={{ display: "block", marginBottom: 8 }}>Activity history</span>
+                    {!activity[a.id] && <p className="meta">Loading activity…</p>}
+                    {activity[a.id]?.length === 0 && (
+                      <div className="empty-state">
+                        <div className="empty-state-title">No changes yet</div>
+                        <div className="empty-state-description">Nothing has changed since this login was created.</div>
                       </div>
-                    ))}
+                    )}
+                    {activity[a.id] && activity[a.id]!.length > 0 && (
+                      <div style={SUBLIST}>
+                        {activity[a.id]!.map((h, i) => (
+                          <div key={i} style={SUBROW}>
+                            <span>
+                              {describeActivity(h)} — by <strong style={{ color: "var(--ink)" }}>{h.changedBy}</strong>
+                            </span>
+                            <span className="data meta" style={{ flexShrink: 0 }}>{new Date(h.changedAt).toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </Collapsible>
+                </Collapsible>
+              </div>
             </td>
           </tr>
         )}
+
+        {/* Devices */}
         {devExpandedId === a.id && (
           <tr>
-            <td style={{ ...cellStyle, borderTop: "none" }} colSpan={11}>
-              <Collapsible title={`Devices for "${a.username}"`} defaultOpen>
-                <p style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 0 }}>
-                  Every IP this login has signed in from. Fixing one locks the login to exactly that
-                  device — every other IP is refused, regardless of the limit below. Blocking one refuses
-                  just that IP and frees its slot. Reset clears everything back to a clean slate.
-                </p>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 14 }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-                    Max devices
-                    <input
-                      type="number"
-                      min={1}
-                      placeholder={a.role === "owner" ? "2 (default)" : "1 (default)"}
-                      value={maxDevicesDraft[a.id] ?? ""}
-                      onChange={(e) => setMaxDevicesDraft((prev) => ({ ...prev, [a.id]: e.target.value }))}
-                      style={{ padding: 6, width: 110 }}
-                    />
-                  </label>
-                  <button onClick={() => saveMaxDevices(a)} disabled={devBusy === a.id} style={primaryButtonStyle}>
-                    {devBusy === a.id ? "Saving…" : "Save"}
-                  </button>
-                  <button onClick={() => deviceAction(a, "reset")} disabled={devBusy === a.id}>
-                    Reset limits
-                  </button>
-                  <button onClick={() => setDevExpandedId(null)}>Close</button>
-                </div>
-                {devMessage && <p style={{ fontSize: 12.5, marginTop: 0, marginBottom: 10 }}>{devMessage}</p>}
+            <td style={EXPANDED_CELL} colSpan={11}>
+              <div style={{ padding: 16 }}>
+                <Collapsible title={`Devices for "${a.username}"`} defaultOpen>
+                  <p style={{ ...DESC, marginBottom: 12 }}>
+                    Every IP this login has signed in from. Fixing one locks the login to exactly that
+                    device — every other IP is refused, regardless of the limit below. Blocking one refuses
+                    just that IP and frees its slot. Reset clears everything back to a clean slate.
+                  </p>
 
-                {!devices[a.id] && <p style={{ fontSize: 12, color: "var(--text-faint)" }}>Loading…</p>}
-                {devices[a.id]?.length === 0 && (
-                  <p style={{ fontSize: 12, color: "var(--text-faint)" }}>No devices have signed in yet.</p>
-                )}
-                {devices[a.id] && devices[a.id]!.length > 0 && (
-                  <div className="table-scroll">
-                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                      <thead>
-                        <tr>
-                          <th style={cellStyle}>IP</th>
-                          <th style={cellStyle}>First seen</th>
-                          <th style={cellStyle}>Last seen</th>
-                          <th style={cellStyle}>Status</th>
-                          <th style={cellStyle}></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {devices[a.id]!.map((d) => (
-                          <tr key={d.id}>
-                            <td style={cellStyle}><code>{d.ip}</code></td>
-                            <td style={cellStyle}>{new Date(d.firstSeenAt).toLocaleString()}</td>
-                            <td style={cellStyle}>{new Date(d.lastSeenAt).toLocaleString()}</td>
-                            <td style={cellStyle}>
-                              {d.blocked ? (
-                                <span style={badgeStyle("error")}>Blocked</span>
-                              ) : d.fixed ? (
-                                <span style={badgeStyle("ok")}>Fixed</span>
-                              ) : (
-                                <span style={badgeStyle("info")}>Active</span>
-                              )}
-                            </td>
-                            <td style={cellStyle}>
-                              <div style={{ display: "flex", gap: 6 }}>
-                                <button onClick={() => deviceAction(a, "fix", d.id)} disabled={devBusy === a.id || d.fixed} style={{ fontSize: 11, padding: "6px 12px" }}>
-                                  Fix
-                                </button>
-                                <button onClick={() => deviceAction(a, "block", d.id)} disabled={devBusy === a.id || d.blocked} style={{ fontSize: 11, padding: "6px 12px" }}>
-                                  Block
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div style={CONTROL_ROW}>
+                    <div className="field" style={{ maxWidth: 160 }}>
+                      <label className="field-label" htmlFor={`max-devices-${a.id}`}>Max devices</label>
+                      <input
+                        id={`max-devices-${a.id}`}
+                        type="number"
+                        min={1}
+                        placeholder={a.role === "owner" ? "2 (default)" : "1 (default)"}
+                        value={maxDevicesDraft[a.id] ?? ""}
+                        onChange={(e) => setMaxDevicesDraft((prev) => ({ ...prev, [a.id]: e.target.value }))}
+                        className="data"
+                        style={{ width: 110 }}
+                      />
+                    </div>
+                    <button onClick={() => saveMaxDevices(a)} disabled={devBusy === a.id} className="primary sm">
+                      {devBusy === a.id ? "Saving" : "Save limit"}
+                    </button>
+                    <button onClick={() => deviceAction(a, "reset")} disabled={devBusy === a.id} className="ghost sm">
+                      Reset limits
+                    </button>
+                    <button onClick={() => setDevExpandedId(null)} className="ghost sm">
+                      Close
+                    </button>
                   </div>
-                )}
-              </Collapsible>
+
+                  {devMessage && <p className="meta" style={{ marginTop: 8 }}>{devMessage}</p>}
+
+                  <div style={{ marginTop: 14 }}>
+                    {!devices[a.id] && <p className="meta">Loading devices…</p>}
+                    {devices[a.id]?.length === 0 && (
+                      <div className="empty-state">
+                        <div className="empty-state-title">No devices yet</div>
+                        <div className="empty-state-description">This login has never signed in from an IP address.</div>
+                      </div>
+                    )}
+                    {devices[a.id] && devices[a.id]!.length > 0 && (
+                      <div className="table-scroll">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>IP</th>
+                              <th>First seen</th>
+                              <th>Last seen</th>
+                              <th>Status</th>
+                              <th />
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {devices[a.id]!.map((d) => (
+                              <tr key={d.id}>
+                                <td><code>{d.ip}</code></td>
+                                <td><span className="data" style={{ fontSize: 12 }}>{new Date(d.firstSeenAt).toLocaleString()}</span></td>
+                                <td><span className="data" style={{ fontSize: 12 }}>{new Date(d.lastSeenAt).toLocaleString()}</span></td>
+                                <td><span className={DEVICE_LAMP[deviceState(d)]}>{DEVICE_LABEL[deviceState(d)]}</span></td>
+                                <td>
+                                  <span style={{ display: "inline-flex", gap: 6 }}>
+                                    <button onClick={() => deviceAction(a, "fix", d.id)} disabled={devBusy === a.id || d.fixed} className="ghost sm">
+                                      Fix IP
+                                    </button>
+                                    <button onClick={() => deviceAction(a, "block", d.id)} disabled={devBusy === a.id || d.blocked} className="danger sm">
+                                      Block IP
+                                    </button>
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </Collapsible>
+              </div>
             </td>
           </tr>
         )}

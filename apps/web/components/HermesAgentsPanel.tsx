@@ -3,14 +3,6 @@
 import { useEffect, useState } from "react";
 
 import { showAlert, showConfirm } from "../lib/app-dialog";
-import {
-  cardStyle,
-  dangerButtonStyle,
-  inputStyle,
-  primaryButtonStyle,
-  secondaryButtonStyle,
-  subtleTextStyle,
-} from "./dashboard-styles";
 import { ModelSelector } from "./ModelSelector";
 
 interface HermesAgentBusiness {
@@ -282,135 +274,185 @@ export function HermesAgentsPanel() {
   }
 
   return (
-    <div style={{ maxWidth: 920, display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={cardStyle}>
-        <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>AI account &amp; access</div>
-        <div style={subtleTextStyle}>
-          Authorize an AI provider once for the platform&apos;s default agent — every agent created here
-          inherits it. Chat replies fall back to a login-failure message until an account is
-          authorized; with several accounts, switch to another if one stops working.
-        </div>
-
-        {auth && (
-          auth.signedIn ? (
-            <div style={{ color: "var(--success)", fontSize: 13, marginTop: 8 }}>
-              Authorized ✓
-              <span style={subtleTextStyle}>
-                {" "}— chats are served with real AI replies{sign.phase === "done" && !sign.message ? ", just signed in" : ""}.
-              </span>
-              {auth.accounts.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
-                  {auth.accounts.map((acc) => (
-                    <div key={acc.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5 }}>
-                      <span style={{ fontFamily: "monospace" }}>{acc.label}</span>
-                      {acc.active && <span style={{ color: "var(--success)" }}>(active)</span>}
-                      {acc.exhausted && <span style={{ color: "#b76e12" }}>{acc.exhausted}</span>}
-                      {!acc.active && (
-                        <button
-                          className="plain"
-                          onClick={() => void authAction("activate", acc.id)}
-                          style={{ fontSize: 11, padding: "2px 6px" }}
-                          title="Make this the active account"
-                        >
-                          Use
-                        </button>
-                      )}
-                      {acc.exhausted && (
-                        <button
-                          className="plain"
-                          onClick={() => void authAction("reset", acc.id)}
-                          style={{ fontSize: 11, padding: "2px 6px" }}
-                          title="Clear the exhaustion/cooldown flag"
-                        >
-                          Reset
-                        </button>
-                      )}
-                      <button
-                        className="plain"
-                        onClick={() => void removeAccount(acc)}
-                        style={{ fontSize: 11, color: "var(--danger)", padding: "2px 6px" }}
-                        title="Sign out this account"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-              <div style={{ color: auth.freeTier ? "#b76e12" : "var(--danger)", fontSize: 13 }}>
-                {auth.freeTier
-                  ? "Free tier — welcome model only. Chats will be limited until an account is authorized."
-                  : "Not signed in — chats currently reply with a login-failure message."}
-              </div>
-              {auth.message && <div style={{ ...subtleTextStyle, fontSize: 11.5 }}>{auth.message}</div>}
-            </div>
-          )
-        )}
-
-        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-          {!auth?.signedIn && (
-            <button
-              style={primaryButtonStyle}
-              onClick={() => void startSignIn(false)}
-              disabled={sign.phase === "waiting"}
-            >
-              {sign.phase === "done" && !sign.message ? "Signed in ✓" : "Authorize / Sign in"}
-            </button>
-          )}
-          {auth?.signedIn && (
-            <button
-              style={primaryButtonStyle}
-              onClick={() => void startSignIn(true)}
-              disabled={sign.phase === "waiting"}
-            >
-              {sign.phase === "waiting" ? "Waiting…" : "Add another account"}
-            </button>
-          )}
-        </div>
-
-        {sign.phase === "waiting" && (
-          <div style={{ fontSize: 12.5, display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
-            {sign.link ? (
-              <>
-                <a href={sign.link} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
-                  {sign.link}
-                </a>
-                <span>
-                  Enter code: <strong style={{ fontFamily: "monospace", fontSize: 15 }}>{sign.code}</strong>
-                </span>
-                <span style={subtleTextStyle}>Waiting for approval…</span>
-              </>
-            ) : (
-              <span style={subtleTextStyle}>Starting sign-in…</span>
+    <div style={{ maxWidth: 920, display: "flex", flexDirection: "column", gap: 14 }}>
+      <section className="panel">
+        <div className="panel-head">
+          <span className="instrument-label">AI account &amp; access</span>
+          <div style={{ display: "flex", gap: 8 }}>
+            {!auth?.signedIn && (
+              <button
+                className="primary sm"
+                onClick={() => void startSignIn(false)}
+                disabled={sign.phase === "waiting"}
+              >
+                {sign.phase === "done" && !sign.message ? "Signed in" : "Authorize provider"}
+              </button>
+            )}
+            {auth?.signedIn && (
+              <button
+                className="sm"
+                onClick={() => void startSignIn(true)}
+                disabled={sign.phase === "waiting"}
+              >
+                {sign.phase === "waiting" ? "Waiting for approval" : "Add another account"}
+              </button>
             )}
           </div>
-        )}
-        {sign.phase === "done" && sign.message && (
-          <div style={{ ...subtleTextStyle, fontSize: 12, marginTop: 8 }}>{sign.message}</div>
-        )}
-      </div>
+        </div>
 
-      <div style={cardStyle}>
-        <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Hermes Agents</div>
-        <div style={subtleTextStyle}>
-          One agent per business (or a shared one). Each has its own persona (SOUL) and persistent memory, served
-          under <code>/p/&lt;slug&gt;/v1/chat/completions</code>. Set a model override to pick the AI; leaving it
-          blank uses the gateway default. A business with <code>hermesEnabled</code> routes its chats here.
+        <div className="panel-body" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <p className="meta" style={{ margin: 0 }}>
+            Authorize an AI provider once for the platform&apos;s default agent — every agent created here
+            inherits it. Until an account is authorized, chat replies fall back to a login-failure message.
+            With several accounts, switch to another if one stops working.
+          </p>
+
+          {auth &&
+            (auth.signedIn ? (
+              <>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                  <span className="lamp lamp-ok">Authorized</span>
+                  <span className="meta">
+                    Chats are served with real AI replies
+                    {sign.phase === "done" && !sign.message ? ", just signed in" : ""}.
+                  </span>
+                </div>
+
+                {auth.accounts.length > 0 && (
+                  <div className="table-scroll">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Account</th>
+                          <th>State</th>
+                          <th>Detail</th>
+                          <th style={{ textAlign: "right" }}>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {auth.accounts.map((acc) => (
+                          <tr key={acc.id}>
+                            <td className="data" style={{ color: "var(--ink)", fontWeight: 500 }}>
+                              {acc.label}
+                            </td>
+                            <td>
+                              {acc.active ? (
+                                <span className="lamp lamp-ok">Active</span>
+                              ) : acc.exhausted ? (
+                                <span className="lamp lamp-warn">Unavailable</span>
+                              ) : (
+                                <span className="lamp lamp-idle">Standby</span>
+                              )}
+                            </td>
+                            <td className="data">{acc.exhausted ?? "—"}</td>
+                            <td>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "flex-end",
+                                  gap: 6,
+                                  flexWrap: "wrap",
+                                }}
+                              >
+                                {!acc.active && (
+                                  <button
+                                    className="primary sm"
+                                    onClick={() => void authAction("activate", acc.id)}
+                                    title="Make this the active account"
+                                  >
+                                    Use this
+                                  </button>
+                                )}
+                                {acc.exhausted && (
+                                  <button
+                                    className="sm"
+                                    onClick={() => void authAction("reset", acc.id)}
+                                    title="Clear the exhaustion/cooldown flag"
+                                  >
+                                    Reset cooldown
+                                  </button>
+                                )}
+                                <button
+                                  className="danger sm"
+                                  onClick={() => void removeAccount(acc)}
+                                  title="Sign out this account"
+                                >
+                                  Sign out
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {auth.freeTier ? (
+                  <>
+                    <span className="lamp lamp-warn">Free tier — welcome model only</span>
+                    <span className="meta">
+                      Chats stay limited until an account is authorized.
+                    </span>
+                  </>
+                ) : (
+                  <span className="lamp lamp-err">
+                    Not signed in — chats reply with a login-failure message
+                  </span>
+                )}
+                {auth.message && <span className="meta">{auth.message}</span>}
+              </div>
+            ))}
+
+          {sign.phase === "waiting" && (
+            <div
+              className="machine-block"
+              style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12.5 }}
+            >
+              {sign.link ? (
+                <>
+                  <a href={sign.link} target="_blank" rel="noreferrer" className="data">
+                    {sign.link}
+                  </a>
+                  <span>
+                    Enter code{" "}
+                    <strong className="data" style={{ fontSize: 15 }}>
+                      {sign.code}
+                    </strong>
+                  </span>
+                  <span className="lamp lamp-machine">Waiting for approval</span>
+                </>
+              ) : (
+                <span className="lamp lamp-machine">Starting sign-in</span>
+              )}
+            </div>
+          )}
+          {sign.phase === "done" && sign.message && <span className="meta">{sign.message}</span>}
         </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <button style={primaryButtonStyle} onClick={() => setWizardOpen(true)}>
-            + New agent
+      </section>
+
+      <section className="panel">
+        <div className="panel-head">
+          <span className="instrument-label">Hermes agents</span>
+          <button className="primary sm" onClick={() => setWizardOpen(true)}>
+            New agent
           </button>
-          <span style={subtleTextStyle}>
-            Answer a few questions and the agent&apos;s persona (SOUL.md) is written for you. The slug comes
-            from the agent&apos;s name, never a business name.
-          </span>
         </div>
-        {error && <div style={{ color: "#b3261e", marginTop: 8 }}>{error}</div>}
-      </div>
+        <div className="panel-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <p className="meta" style={{ margin: 0 }}>
+            One agent per business, or a shared one. Each has its own persona (SOUL) and persistent
+            memory, served under <code>/p/&lt;slug&gt;/v1/chat/completions</code>. A business with
+            <code> hermesEnabled </code> routes its chats here.
+          </p>
+          <div className="machine-block" style={{ fontSize: 12.5 }}>
+            Answer a few questions and the agent&apos;s persona (SOUL.md) is written for you. The slug
+            comes from the agent&apos;s name, never a business name.
+          </div>
+          {error && <div className="field-error">{error}</div>}
+        </div>
+      </section>
 
       {wizardOpen && (
         <AgentWizard
@@ -426,96 +468,173 @@ export function HermesAgentsPanel() {
         />
       )}
 
+      {agents === null && !error && (
+        <div className="panel">
+          <div className="panel-body" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="skeleton skeleton-text" style={{ width: "30%" }} />
+            <div className="skeleton skeleton-text" />
+            <div className="skeleton skeleton-text" />
+          </div>
+        </div>
+      )}
+
       {(agents ?? []).map((agent) => {
         const open = openSlug === agent.slug;
         return (
-          <div key={agent.slug} style={cardStyle}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-              <div
-                style={{ cursor: "pointer", flex: 1 }}
+          <section className="panel" key={agent.slug}>
+            <div className="panel-head">
+              <button
+                type="button"
+                aria-expanded={open}
                 onClick={() => setOpenSlug(open ? null : agent.slug)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  flexWrap: "wrap",
+                  flex: 1,
+                  minWidth: 0,
+                  textAlign: "left",
+                  background: "transparent",
+                  border: "none",
+                  boxShadow: "none",
+                  padding: 0,
+                }}
               >
-                <span style={{ fontSize: 14, fontWeight: 600, fontFamily: "monospace" }}>{agent.slug}</span>
-                {!agent.provisioned && (
-                  <span style={{ color: "#b3261e", fontSize: 12, marginLeft: 8 }}>missing API key</span>
-                )}
-                <div style={subtleTextStyle}>
-                  {agent.model ?? "default model"}
-                  {agent.provider ? ` · ${agent.provider}` : ""}
-                </div>
-                {agent.apiKey && <ApiKeyRow slug={agent.slug} apiKey={agent.apiKey} />}
-                {agent.businesses.length > 0 ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
-                    <div style={subtleTextStyle}>Used by:</div>
-                    {agent.businesses.map((b) => (
-                      <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
-                        <span style={{ color: b.hermesEnabled ? "var(--success)" : "var(--text-muted)" }}>
-                          {b.name} {b.hermesEnabled ? "(live)" : "(off)"}
-                        </span>
-                        <button
-                          className="plain"
-                          onClick={(e) => { e.stopPropagation(); unassignBusiness(agent, b.id); }}
-                          style={{ fontSize: 11, color: "var(--danger)", padding: "2px 6px" }}
-                          title="Unassign"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                    <div style={{ marginTop: 4 }}>
-                      <select
-                        value=""
-                        onChange={(e) => { e.stopPropagation(); if (e.target.value) assignBusiness(agent, e.target.value); }}
-                        disabled={fetchingBusinesses}
-                        style={{ ...inputStyle, fontSize: 12, padding: "4px 8px", width: "100%" }}
-                      >
-                        <option value="" disabled selected>Assign another business…</option>
-                        {allBusinesses
-                          .filter((biz) => !agent.businesses.some((ab) => ab.id === biz.id))
-                          .map((biz) => (
-                            <option key={biz.id} value={biz.id}>{biz.name}</option>
-                          ))}
-                      </select>
-                    </div>
-                  </div>
+                <span className="data" style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)" }}>
+                  {agent.slug}
+                </span>
+                {agent.provisioned ? (
+                  <span className="lamp lamp-ok">Provisioned</span>
                 ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
-                    <div style={subtleTextStyle}>Not assigned to any business.</div>
+                  <span className="lamp lamp-err">No API key</span>
+                )}
+                <span className="meta">
+                  model <span className="data">{agent.model ?? "gateway default"}</span>
+                </span>
+                {agent.provider && (
+                  <span className="meta">
+                    provider <span className="data">{agent.provider}</span>
+                  </span>
+                )}
+              </button>
+              <button className="danger sm" onClick={() => deleteAgent(agent)}>
+                Delete agent
+              </button>
+            </div>
+
+            <div className="panel-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {agent.apiKey && <ApiKeyRow slug={agent.slug} apiKey={agent.apiKey} />}
+
+              {agent.businesses.length > 0 ? (
+                <>
+                  <div className="table-scroll">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Business</th>
+                          <th>Routing</th>
+                          <th style={{ textAlign: "right" }}>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {agent.businesses.map((b) => (
+                          <tr key={b.id}>
+                            <td style={{ color: "var(--ink)" }}>{b.name}</td>
+                            <td>
+                              {b.hermesEnabled ? (
+                                <span className="lamp lamp-ok">Live</span>
+                              ) : (
+                                <span className="lamp lamp-idle">Off</span>
+                              )}
+                            </td>
+                            <td style={{ textAlign: "right" }}>
+                              <button
+                                className="danger sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void unassignBusiness(agent, b.id);
+                                }}
+                                title="Unassign this business"
+                              >
+                                Unassign
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="field">
+                    <label className="field-label" htmlFor={`assign-${agent.slug}`}>
+                      Assign another business
+                    </label>
                     <select
+                      id={`assign-${agent.slug}`}
                       value=""
-                      onChange={(e) => { e.stopPropagation(); if (e.target.value) assignBusiness(agent, e.target.value); }}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        if (e.target.value) assignBusiness(agent, e.target.value);
+                      }}
                       disabled={fetchingBusinesses}
-                      style={{ ...inputStyle, fontSize: 12, padding: "4px 8px", width: "100%" }}
                     >
-                      <option value="" disabled selected>Assign a business…</option>
+                      <option value="" disabled selected>Choose a business…</option>
+                      {allBusinesses
+                        .filter((biz) => !agent.businesses.some((ab) => ab.id === biz.id))
+                        .map((biz) => (
+                          <option key={biz.id} value={biz.id}>{biz.name}</option>
+                        ))}
+                    </select>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span className="meta">Not assigned to any business.</span>
+                  <div className="field">
+                    <label className="field-label" htmlFor={`assign-${agent.slug}`}>
+                      Assign a business
+                    </label>
+                    <select
+                      id={`assign-${agent.slug}`}
+                      value=""
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        if (e.target.value) assignBusiness(agent, e.target.value);
+                      }}
+                      disabled={fetchingBusinesses}
+                    >
+                      <option value="" disabled selected>Choose a business…</option>
                       {allBusinesses.map((biz) => (
                         <option key={biz.id} value={biz.id}>{biz.name}</option>
                       ))}
                     </select>
                   </div>
-                )}
-              </div>
-              <button style={dangerButtonStyle} onClick={() => deleteAgent(agent)}>
-                Delete
-              </button>
-            </div>
+                </>
+              )}
 
-            {open && (
-              <>
-                <EditableAgent agent={agent} onSave={saveAgent} />
-                <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  <AgentInsights slug={agent.slug} />
-                  <TrainLanguagePanel slug={agent.slug} />
-                </div>
-              </>
-            )}
-          </div>
+              {open && (
+                <>
+                  <EditableAgent agent={agent} onSave={saveAgent} />
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ display: "flex", flexDirection: "column", gap: 10 }}
+                  >
+                    <AgentInsights slug={agent.slug} />
+                    <TrainLanguagePanel slug={agent.slug} />
+                  </div>
+                </>
+              )}
+            </div>
+          </section>
         );
       })}
 
       {agents !== null && agents.length === 0 && !error && (
-        <div style={cardStyle}>
-          <div style={subtleTextStyle}>No agents yet — create one above.</div>
+        <div className="empty-state">
+          <span className="empty-state-title">No agents configured yet</span>
+          <span className="empty-state-description">
+            Add an agent to route WhatsApp replies automatically.
+          </span>
         </div>
       )}
     </div>
@@ -527,16 +646,17 @@ function ApiKeyRow({ slug, apiKey }: { slug: string; apiKey: string }) {
   const truncated = `${apiKey.slice(0, 9)}…${apiKey.slice(-4)}`;
   return (
     <div
-      style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, fontSize: 12 }}
+      style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}
       onClick={(e) => e.stopPropagation()}
       title={`API key for '${slug}' — used to call /p/${slug}/v1/chat/completions`}
     >
-      <span style={{ color: "var(--text-muted)", flexShrink: 0 }}>API key:</span>
-      <code style={{ fontFamily: "monospace", fontSize: 11.5, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{truncated}</code>
+      <span className="meta" style={{ flexShrink: 0 }}>API key</span>
+      <code style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {truncated}
+      </code>
       <button
         type="button"
-        className="plain"
-        style={{ fontSize: 11, padding: "2px 8px", flexShrink: 0, color: copied ? "var(--success, #34a853)" : "var(--accent)" }}
+        className="sm"
         onClick={(e) => {
           e.stopPropagation();
           navigator.clipboard?.writeText(apiKey).then(
@@ -550,7 +670,7 @@ function ApiKeyRow({ slug, apiKey }: { slug: string; apiKey: string }) {
           );
         }}
       >
-        {copied ? "copied ✓" : "copy"}
+        {copied ? "Copied" : "Copy key"}
       </button>
     </div>
   );
@@ -616,54 +736,76 @@ function EditableAgent({
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
-      <label style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
-        Primary model (AIVA_MODEL · blank = gateway default)
-        <div style={{ marginTop: 4 }}>
-          <ModelSelector
-            value={model.trim() || null}
-            provider={provider.trim() || null}
-            slug={agent.slug}
-            onChange={(m, p) => {
-              setModel(m ?? "");
-              setProvider(p ?? "");
-            }}
-          />
-        </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <label className="field" style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        <span className="field-label">Primary model</span>
+        <ModelSelector
+          value={model.trim() || null}
+          provider={provider.trim() || null}
+          slug={agent.slug}
+          onChange={(m, p) => {
+            setModel(m ?? "");
+            setProvider(p ?? "");
+          }}
+        />
+        <span className="field-hint">
+          Written as <code>AIVA_MODEL</code>. Leave blank to use the gateway default.
+        </span>
       </label>
-      <label style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
-        Backup model (AIVA_BACKUP_MODEL · used when the primary fails)
-        <div style={{ marginTop: 4 }}>
-          <ModelSelector
-            value={backupModel.trim() || null}
-            provider={backupProvider.trim() || null}
-            slug={agent.slug}
-            onChange={(m, p) => {
-              setBackupModel(m ?? "");
-              setBackupProvider(p ?? "");
-            }}
-          />
-        </div>
-        <div style={{ ...subtleTextStyle, fontSize: 11.5, marginTop: 4 }}>
+
+      <label className="field" style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        <span className="field-label">Backup model</span>
+        <ModelSelector
+          value={backupModel.trim() || null}
+          provider={backupProvider.trim() || null}
+          slug={agent.slug}
+          onChange={(m, p) => {
+            setBackupModel(m ?? "");
+            setBackupProvider(p ?? "");
+          }}
+        />
+        <span className="field-hint">
+          Written as <code>AIVA_BACKUP_MODEL</code>.
+        </span>
+      </label>
+
+      <div className="machine-block" style={{ fontSize: 12.5, display: "flex", flexDirection: "column", gap: 4 }}>
+        <span className="instrument-label" style={{ color: "var(--machine)" }}>
+          Fallback chain
+        </span>
+        <span>
+          <span className="data">{model.trim() || "gateway default"}</span>
+          {" → "}
+          <span className="data">{backupModel.trim() || "platform free model"}</span>
+          {" → local model → human handoff"}
+        </span>
+        <span className="meta">
           {backupModel.trim()
-            ? `Tried automatically if ${model.trim() || "the gateway default"} fails, then the local model, then a handoff.`
-            : "Blank = the platform free model, then the local model, then a handoff. A customer never sees a provider error."}
-        </div>
-      </label>
-      <label style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
-        Persona (SOUL.md)
+            ? "The backup is tried automatically when the primary fails."
+            : "No backup set: a failed primary goes straight to the platform free model."}{" "}
+          A customer never sees a provider error.
+        </span>
+      </div>
+
+      <div className="field">
+        <label className="field-label" htmlFor={`soul-${agent.slug}`}>
+          Persona (SOUL.md)
+        </label>
         <textarea
-          style={{ ...inputStyle, minHeight: 180, marginTop: 4, fontFamily: "monospace", fontSize: 12 }}
+          id={`soul-${agent.slug}`}
+          aria-label="Persona (SOUL.md) for this agent"
+          style={{ minHeight: 180, fontFamily: "var(--font-mono)", fontSize: 12 }}
           value={soul}
           onChange={(e) => setSoul(e.target.value)}
         />
-      </label>
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <button style={primaryButtonStyle} onClick={save} disabled={saving}>
+      </div>
+
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <button className="primary" onClick={save} disabled={saving}>
           {saving ? "Saving…" : "Save agent"}
         </button>
         <button
-          style={secondaryButtonStyle}
+          className="machine"
           onClick={polish}
           disabled={polishing}
           title="Ask Hermes to tighten this persona (one model call)"
@@ -704,108 +846,125 @@ function AgentWizard({
   const steps = ["Identity", "The job", "Voice & rules"];
 
   const field = (
+    id: string,
     label: string,
     key: keyof AgentBrief,
     placeholder: string,
     textarea = false
   ) => (
-    <label style={{ display: "block", fontSize: 12.5, color: "var(--text-muted)", marginBottom: 10 }}>
-      {label}
+    <div className="field" style={{ marginBottom: 10 }}>
+      <label className="field-label" htmlFor={id}>
+        {label}
+      </label>
       {textarea ? (
         <textarea
-          style={{ ...inputStyle, minHeight: 64, marginTop: 4 }}
+          id={id}
+          style={{ minHeight: 64 }}
           placeholder={placeholder}
           value={brief[key] ?? ""}
           onChange={set(key)}
         />
       ) : (
         <input
-          style={{ ...inputStyle, marginTop: 4 }}
+          id={id}
           placeholder={placeholder}
           value={brief[key] ?? ""}
           onChange={set(key)}
         />
       )}
-    </label>
+    </div>
   );
 
   return (
-    <div style={{ ...cardStyle, borderLeft: "3px solid var(--accent, #5b6cff)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ fontSize: 15, fontWeight: 600 }}>Train a new agent</div>
-        <button className="plain" onClick={onClose} style={{ fontSize: 12 }}>✕</button>
+    <section className="panel" style={{ borderLeft: "2px solid var(--machine-line)" }}>
+      <div className="panel-head">
+        <span className="instrument-label">Train a new agent</span>
+        <button className="ghost sm" onClick={onClose}>
+          Close
+        </button>
       </div>
-      <div style={{ display: "flex", gap: 6, margin: "10px 0 14px" }}>
-        {steps.map((s, i) => (
-          <div
-            key={s}
-            style={{
-              flex: 1,
-              fontSize: 11.5,
-              padding: "4px 6px",
-              borderRadius: 4,
-              textAlign: "center",
-              background: i === step ? "var(--accent, #5b6cff)" : "var(--surface-2, #222)",
-              color: i === step ? "#fff" : "var(--text-muted)",
-            }}
-          >
-            {i + 1}. {s}
-          </div>
-        ))}
-      </div>
+      <div className="panel-body">
+        <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+          {steps.map((s, i) => (
+            <div
+              key={s}
+              className={i === step ? "lamp lamp-machine" : "lamp lamp-idle"}
+              style={{
+                flex: 1,
+                justifyContent: "center",
+                padding: "5px 6px",
+                borderRadius: "var(--r-xs)",
+                background: i === step ? "var(--machine-subtle)" : "var(--panel-sunk)",
+                border: `1px solid ${i === step ? "var(--machine-line)" : "var(--line)"}`,
+              }}
+            >
+              <span className="data">{i + 1}</span>
+              <span>{s}</span>
+            </div>
+          ))}
+        </div>
 
-      {step === 0 && (
-        <>
-          {field("Agent name", "name", "e.g. Maya — the front-desk assistant")}
-          {field("Role / title", "role", "e.g. Front desk coordinator")}
-          <div style={subtleTextStyle}>
-            Slug: <code style={{ fontFamily: "monospace" }}>{slug || "—"}</code> (from the agent&apos;s name, not
-            a business). You can assign it to a business later.
-          </div>
-        </>
-      )}
-      {step === 1 && (
-        <>
-          {field("What does it do?", "jobDescription", "Answer questions, take bookings, resolve issues…", true)}
-          {field("Who does it talk to?", "audience", "Customers of the business, mostly via WhatsApp")}
-          {field("What does a good day look like?", "successDefinition", "Every customer gets an answer; no wrong bookings.")}
-        </>
-      )}
-      {step === 2 && (
-        <>
-          {field("How should it speak?", "tone", "Warm, concise, professional; uses the customer's name")}
-          {field("Languages", "languages", "English and Spanish, mirror the customer's language")}
-          {field("Hard rules", "rules", "Never quote pricing over $500 without a human. Never guess.", true)}
-          {field("Example replies", "examples", "Hi! How can I help today?", true)}
-        </>
-      )}
+        {step === 0 && (
+          <>
+            {field("wiz-name", "Agent name", "name", "e.g. Maya — the front-desk assistant")}
+            {field("wiz-role", "Role / title", "role", "e.g. Front desk coordinator")}
+            <div className="machine-block" style={{ fontSize: 12.5 }}>
+              Slug <span className="data">{slug || "—"}</span> comes from the agent&apos;s name, not a
+              business. You can assign it to a business later.
+            </div>
+          </>
+        )}
+        {step === 1 && (
+          <>
+            {field("wiz-job", "What does it do?", "jobDescription", "Answer questions, take bookings, resolve issues…", true)}
+            {field("wiz-audience", "Who does it talk to?", "audience", "Customers of the business, mostly via WhatsApp")}
+            {field("wiz-success", "What does a good day look like?", "successDefinition", "Every customer gets an answer; no wrong bookings.")}
+          </>
+        )}
+        {step === 2 && (
+          <>
+            {field("wiz-tone", "How should it speak?", "tone", "Warm, concise, professional; uses the customer's name")}
+            {field("wiz-languages", "Languages", "languages", "English and Spanish, mirror the customer's language")}
+            {field("wiz-rules", "Hard rules", "rules", "Never quote pricing over $500 without a human. Never guess.", true)}
+            {field("wiz-examples", "Example replies", "examples", "Hi! How can I help today?", true)}
+          </>
+        )}
 
-      <div style={{ display: "flex", gap: 8, marginTop: 12, alignItems: "center" }}>
-        {step > 0 && (
-          <button style={secondaryButtonStyle} onClick={() => setStep(step - 1)} disabled={creating}>
-            Back
-          </button>
-        )}
-        {step < steps.length - 1 ? (
-          <button
-            style={primaryButtonStyle}
-            onClick={() => setStep(step + 1)}
-            disabled={step === 0 && !brief.name.trim()}
-          >
-            Next
-          </button>
-        ) : (
-          <button
-            style={primaryButtonStyle}
-            onClick={() => onCreate(brief)}
-            disabled={creating || !brief.name.trim()}
-          >
-            {creating ? "Creating…" : `Create '${slug || "agent"}'`}
-          </button>
-        )}
-        <span style={subtleTextStyle}>The persona is written on the server — free and instant.</span>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            marginTop: 12,
+            alignItems: "center",
+            flexWrap: "wrap",
+          }}
+        >
+          {step > 0 && (
+            <button className="ghost" onClick={() => setStep(step - 1)} disabled={creating}>
+              Back
+            </button>
+          )}
+          {step < steps.length - 1 ? (
+            <button
+              className="primary"
+              onClick={() => setStep(step + 1)}
+              disabled={step === 0 && !brief.name.trim()}
+            >
+              Next
+            </button>
+          ) : (
+            <button
+              className="primary"
+              onClick={() => onCreate(brief)}
+              disabled={creating || !brief.name.trim()}
+            >
+              {creating ? "Creating…" : `Create '${slug || "agent"}'`}
+            </button>
+          )}
+          <span className="meta">The persona is written on the server — free and instant.</span>
+        </div>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -846,81 +1005,158 @@ function AgentInsights({ slug }: { slug: string }) {
   if (!open) {
     return (
       <button
-        className="plain"
-        style={{ fontSize: 12, color: "var(--accent)", padding: 0, textAlign: "left" }}
+        className="ghost sm"
+        style={{ alignSelf: "flex-start" }}
         onClick={(e) => { e.stopPropagation(); setOpen(true); void load("curated"); }}
       >
-        ▸ Insights — what it learned & how it&apos;s going
+        Show insights
       </button>
     );
   }
 
   const t = data?.totals;
   const u = data?.usage;
+  const totalTokens = (u?.input_tokens ?? 0) + (u?.output_tokens ?? 0);
+  const metrics: Array<[string, string]> = [
+    ["Messages", (t?.messages ?? 0).toLocaleString()],
+    ["Sessions", (t?.sessions ?? 0).toLocaleString()],
+    ["Model calls", (u?.calls ?? 0).toLocaleString()],
+    ["Tokens", totalTokens.toLocaleString()],
+  ];
   return (
-    <div style={{ border: "1px solid var(--border, #333)", borderRadius: 6, padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>Insights</div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+    <div className="panel-sunk" style={{ display: "flex", flexDirection: "column", gap: 10, padding: 12 }}>
+      <div className="toolbar" style={{ marginBottom: 0 }}>
+        <span className="instrument-label">Insights</span>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button
+            className="ghost sm"
+            onClick={(e) => { e.stopPropagation(); void load(raw ? "raw" : "curated"); }}
+          >
+            Refresh
+          </button>
           {!raw ? (
-            <button className="plain" style={{ fontSize: 11 }} onClick={(e) => { e.stopPropagation(); void load("raw"); }}>raw view</button>
+            <button className="ghost sm" onClick={(e) => { e.stopPropagation(); void load("raw"); }}>Raw view</button>
           ) : (
-            <button className="plain" style={{ fontSize: 11 }} onClick={(e) => { e.stopPropagation(); void load("curated"); }}>back</button>
+            <button className="ghost sm" onClick={(e) => { e.stopPropagation(); void load("curated"); }}>Curated view</button>
           )}
-          <button className="plain" style={{ fontSize: 11 }} onClick={(e) => { e.stopPropagation(); void load(raw ? "raw" : "curated"); }}>↻</button>
         </div>
       </div>
-      {err && <div style={{ color: "#b3261e", fontSize: 12 }}>{err}</div>}
-      {!data && !err && <div style={subtleTextStyle}>Loading…</div>}
+      {err && <div className="field-error">{err}</div>}
+      {!data && !err && <span className="lamp lamp-idle">Loading insights</span>}
 
       {data && raw && (
-        <pre style={{ fontSize: 11, maxHeight: 260, overflow: "auto", background: "var(--surface-2, #1a1a1a)", padding: 8, borderRadius: 4 }}>
+        <pre
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            maxHeight: 260,
+            overflow: "auto",
+            margin: 0,
+            background: "var(--panel)",
+            border: "1px solid var(--line)",
+            borderRadius: "var(--r-xs)",
+            padding: 10,
+          }}
+        >
           {JSON.stringify({ totals: data.totals, usage: data.usage, messages: data.messages, usageRows: data.usageRows }, null, 2)}
         </pre>
       )}
 
       {data && !raw && (
         <>
-          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 12 }}>
-            <span><b>{t?.messages ?? 0}</b> messages</span>
-            <span><b>{t?.sessions ?? 0}</b> sessions</span>
-            <span><b>{u?.calls ?? 0}</b> model calls</span>
-            <span><b>{((u?.input_tokens ?? 0) + (u?.output_tokens ?? 0)).toLocaleString()}</b> tokens</span>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Metric</th>
+                  <th className="num" style={{ textAlign: "right" }}>Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {metrics.map(([label, value]) => (
+                  <tr key={label}>
+                    <td className="meta">{label}</td>
+                    <td className="num" style={{ textAlign: "right" }}>{value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+
           {!!data.daily?.length && (
             <div>
-              <div style={subtleTextStyle}>Activity (last {data.daily.length} days)</div>
+              <div className="meta">Activity, last {data.daily.length} days</div>
               <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 40, marginTop: 4 }}>
                 {data.daily.map((d) => {
                   const max = Math.max(...data.daily!.map((x) => x.n), 1);
                   return (
-                    <div key={d.day} title={`${d.day}: ${d.n}`} style={{ flex: 1, height: `${Math.max(8, (d.n / max) * 100)}%`, background: "var(--accent, #5b6cff)", borderRadius: 2 }} />
+                    <div
+                      key={d.day}
+                      title={`${d.day}: ${d.n}`}
+                      style={{
+                        flex: 1,
+                        height: `${Math.max(8, (d.n / max) * 100)}%`,
+                        background: "var(--machine)",
+                        opacity: 0.55,
+                        borderRadius: "var(--r-xs)",
+                      }}
+                    />
                   );
                 })}
               </div>
             </div>
           )}
+
           {!!data.skills?.length && (
             <div>
-              <div style={subtleTextStyle}>Skills loaded ({data.skills.length})</div>
-              <div style={{ fontSize: 11.5, display: "flex", flexWrap: "wrap", gap: 4 }}>
+              <div className="meta">
+                Skills loaded <span className="data">{data.skills.length}</span>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
                 {data.skills.map((s) => (
-                  <span key={`${s.category}/${s.name}`} style={{ background: "var(--surface-2, #222)", padding: "2px 6px", borderRadius: 3 }}>
+                  <span
+                    key={`${s.category}/${s.name}`}
+                    className="data"
+                    style={{
+                      fontSize: 11,
+                      background: "var(--panel)",
+                      border: "1px solid var(--line)",
+                      padding: "2px 6px",
+                      borderRadius: "var(--r-xs)",
+                    }}
+                  >
                     {s.name}
                   </span>
                 ))}
               </div>
             </div>
           )}
+
           {!!data.memory && (
             <div>
-              <div style={subtleTextStyle}>What it learned (MEMORY.md)</div>
-              <pre style={{ fontSize: 11, whiteSpace: "pre-wrap", maxHeight: 160, overflow: "auto", background: "var(--surface-2, #1a1a1a)", padding: 8, borderRadius: 4 }}>{data.memory}</pre>
+              <div className="meta">What it learned (MEMORY.md)</div>
+              <pre
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  whiteSpace: "pre-wrap",
+                  maxHeight: 160,
+                  overflow: "auto",
+                  margin: "4px 0 0",
+                  background: "var(--panel)",
+                  border: "1px solid var(--line)",
+                  borderRadius: "var(--r-xs)",
+                  padding: 10,
+                }}
+              >
+                {data.memory}
+              </pre>
             </div>
           )}
+
           {!!data.lastUserMessages?.length && (
             <div>
-              <div style={subtleTextStyle}>Recent questions</div>
+              <div className="meta">Recent questions</div>
               <ul style={{ margin: "4px 0 0", paddingLeft: 16, fontSize: 11.5 }}>
                 {data.lastUserMessages.map((m, i) => <li key={i}>{m.content}</li>)}
               </ul>
@@ -965,31 +1201,59 @@ function TrainLanguagePanel({ slug }: { slug: string }) {
   }
 
   return (
-    <div style={{ border: "1px solid var(--border, #333)", borderRadius: 6, padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-      <div style={{ fontSize: 13, fontWeight: 600 }}>Language trainer</div>
-      <div style={subtleTextStyle}>
-        On demand and hard-capped (6 pages / 12k chars / 120s). Reads curated public sources; add your own
-        URLs below. Teaches the agent a reusable language pack — one model call, then it&apos;s cached.
-      </div>
-      <input
-        style={inputStyle}
-        placeholder="language, e.g. Brazilian Portuguese or Tagalog"
-        value={language}
-        onChange={(e) => setLanguage(e.target.value)}
-      />
-      <textarea
-        style={{ ...inputStyle, minHeight: 48 }}
-        placeholder="optional extra source URLs (one per line, https only)"
-        value={urls}
-        onChange={(e) => setUrls(e.target.value)}
-      />
-      <div>
-        <button style={primaryButtonStyle} onClick={train} disabled={busy || !language.trim()}>
+    <div className="panel-sunk" style={{ display: "flex", flexDirection: "column", gap: 10, padding: 12 }}>
+      <div className="toolbar" style={{ marginBottom: 0 }}>
+        <span className="instrument-label">Language trainer</span>
+        <button className="machine sm" onClick={train} disabled={busy || !language.trim()}>
           {busy ? "Training…" : "Train language"}
         </button>
       </div>
-      {err && <div style={{ color: "#b3261e", fontSize: 12 }}>{err}</div>}
-      {result && <pre style={{ fontSize: 11, whiteSpace: "pre-wrap", maxHeight: 180, overflow: "auto", background: "var(--surface-2, #1a1a1a)", padding: 8, borderRadius: 4 }}>{result}</pre>}
+      <p className="meta" style={{ margin: 0 }}>
+        On demand and hard-capped (6 pages / 12k chars / 120s). Reads curated public sources; add
+        your own URLs below. Teaches the agent a reusable language pack — one model call, then
+        it&apos;s cached.
+      </p>
+      <div className="field">
+        <label className="field-label" htmlFor={`train-lang-${slug}`}>
+          Language
+        </label>
+        <input
+          id={`train-lang-${slug}`}
+          placeholder="Brazilian Portuguese or Tagalog"
+          value={language}
+          onChange={(e) => setLanguage(e.target.value)}
+        />
+      </div>
+      <div className="field">
+        <label className="field-label" htmlFor={`train-urls-${slug}`}>
+          Extra sources
+        </label>
+        <textarea
+          id={`train-urls-${slug}`}
+          style={{ minHeight: 48 }}
+          placeholder="Optional. One https URL per line."
+          value={urls}
+          onChange={(e) => setUrls(e.target.value)}
+        />
+        <span className="field-hint">First five URLs are used.</span>
+      </div>
+      {err && <div className="field-error">{err}</div>}
+      {result && (
+        <div className="machine-block">
+          <pre
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              whiteSpace: "pre-wrap",
+              maxHeight: 180,
+              overflow: "auto",
+              margin: 0,
+            }}
+          >
+            {result}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }

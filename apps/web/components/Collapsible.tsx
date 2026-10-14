@@ -24,50 +24,49 @@ export function Collapsible({
   }, [open]);
 
   return (
-    <div style={{
-      background: "var(--surface)",
-      border: "1px solid var(--border)",
-      borderRadius: "var(--radius-md, 12px)",
-      overflow: "hidden",
-    }}>
+    <section className="panel">
       <button
+        type="button"
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
         style={{
           width: "100%",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "14px 16px",
+          gap: 10,
+          padding: "10px 14px",
+          minHeight: 40,
           background: "transparent",
           border: "none",
-          cursor: "pointer",
-          color: "var(--text)",
-          fontSize: 14,
-          fontWeight: 500,
+          borderRadius: 0,
+          boxShadow: "none",
           textAlign: "left",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span className="instrument-label" style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
           <svg
-            width="16"
-            height="16"
+            width="14"
+            height="14"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
+            aria-hidden="true"
             style={{
-              color: "var(--text-muted)",
+              color: "var(--ink-3)",
+              flexShrink: 0,
               transform: open ? "rotate(90deg)" : "none",
-              transition: "transform 0.2s ease",
+              transition: "transform var(--dur-panel) var(--ease-out)",
             }}
           >
             <path d="m9 18 6-6-6-6" />
           </svg>
-          <span>{title}</span>
-          {badge && <span style={{ marginLeft: 4 }}>{badge}</span>}
-        </div>
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</span>
+          {badge && <span style={{ marginLeft: 2, flexShrink: 0 }}>{badge}</span>}
+        </span>
       </button>
       <div
         ref={contentRef}
@@ -78,10 +77,8 @@ export function Collapsible({
           transition: "max-height 0.3s ease",
         }}
       >
-        <div style={{ padding: "0 16px 16px" }}>
-          {children}
-        </div>
+        <div className="panel-body" style={{ paddingTop: 0 }}>{children}</div>
       </div>
-    </div>
+    </section>
   );
 }

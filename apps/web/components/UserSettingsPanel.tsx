@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import { cardStyle, subtleTextStyle, primaryButtonStyle } from "./dashboard-styles";
 
 interface Account {
   id: string;
@@ -47,44 +46,54 @@ function AccountRow({ account, label, onSaved }: { account: Account; label: stri
   }
 
   return (
-    <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 14, marginBottom: 12 }}>
-      <div style={{ fontSize: 12, fontWeight: 650, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>
-        {label}
+    <section className="panel">
+      <div className="panel-head">
+        <span className="instrument-label">{label}</span>
       </div>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
-          Username
-          <input value={username} onChange={(e) => setUsername(e.target.value)} style={{ padding: 8, minWidth: 160 }} />
-        </label>
-        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
-          Current password
-          <div style={{ display: "flex", gap: 6 }}>
+      <div className="panel-body">
+        <div className="toolbar" style={{ marginBottom: 0, alignItems: "flex-end" }}>
+          <label className="field" style={{ flex: 1, minWidth: 160 }}>
+            <span className="instrument-label">Username</span>
+            <input value={username} onChange={(e) => setUsername(e.target.value)} />
+          </label>
+          <label className="field" style={{ flex: 1, minWidth: 170 }}>
+            <span className="instrument-label">Current password</span>
+            <div style={{ display: "flex", gap: 6 }}>
+              <input
+                value={showPassword ? (account.password ?? "(unavailable — reset to see it)") : "••••••••"}
+                readOnly
+                aria-label="Current password"
+                style={{ color: showPassword ? undefined : "var(--ink-4)" }}
+              />
+              <button type="button" className="ghost sm" onClick={() => setShowPassword((s) => !s)}>
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
+          </label>
+          <label className="field" style={{ flex: 1, minWidth: 200 }}>
+            <span className="instrument-label">New password</span>
             <input
-              value={showPassword ? (account.password ?? "(unavailable — reset to see it)") : "••••••••"}
-              readOnly
-              style={{ padding: 8, minWidth: 160, color: showPassword ? undefined : "var(--text-faint)" }}
+              type="text"
+              placeholder="Optional — blank keeps current"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
-            <button type="button" onClick={() => setShowPassword((s) => !s)} style={{ fontSize: 12, padding: "6px 10px" }}>
-              {showPassword ? "Hide" : "Show"}
-            </button>
+          </label>
+          <button onClick={save} disabled={saving} className="primary">
+            {saving ? "Saving…" : "Save login"}
+          </button>
+        </div>
+        {message && (
+          <div style={{ marginTop: 10 }}>
+            {message === "Saved." ? (
+              <span className="lamp lamp-ok">{message}</span>
+            ) : (
+              <span className="lamp lamp-err">{message}</span>
+            )}
           </div>
-        </label>
-        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
-          New password (optional)
-          <input
-            type="text"
-            placeholder="Leave blank to keep current"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={{ padding: 8, minWidth: 200 }}
-          />
-        </label>
-        <button onClick={save} disabled={saving} style={{ ...primaryButtonStyle, alignSelf: "flex-end" }}>
-          {saving ? "Saving…" : "Save"}
-        </button>
+        )}
       </div>
-      {message && <p style={{ ...subtleTextStyle, marginTop: 8, marginBottom: 0 }}>{message}</p>}
-    </div>
+    </section>
   );
 }
 
@@ -183,19 +192,21 @@ function TimezoneSetting({ businessId }: { businessId: string }) {
   if (!timezone) return null;
 
   return (
-    <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 14, marginBottom: 12 }}>
-      <div style={{ fontSize: 12, fontWeight: 650, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>
-        Timezone
+    <section className="panel">
+      <div className="panel-head">
+        <span className="instrument-label">Timezone</span>
+        {clock && (
+          <span className="data" style={{ fontSize: 14, color: "var(--ink)" }}>{clock}</span>
+        )}
       </div>
-      <p style={{ ...subtleTextStyle, marginTop: 0 }}>
-        Every date/time shown in this dashboard, and every AI-booked repair appointment, is interpreted in this timezone. Stays set until you change it again.
-      </p>
-      <select
-        value={timezone}
-        disabled={saving}
-        onChange={(e) => save(e.target.value)}
-        style={{ padding: 8, minWidth: 260 }}
-      >
+      <div className="panel-body">
+        <p className="meta" style={{ marginTop: 0 }}>
+          Every date/time shown in this dashboard, and every AI-booked repair appointment, is
+          interpreted in this timezone. Stays set until you change it again.
+        </p>
+        <label className="field" style={{ maxWidth: 300 }}>
+          <span className="instrument-label">GMT offset</span>
+          <select value={timezone} disabled={saving} onChange={(e) => save(e.target.value)}>
         {/* The saved zone might not be the one TIMEZONE_LABELS kept as the
             representative for its offset -- inject it so the dropdown
             never silently shows the wrong selection for a zone actually
@@ -206,14 +217,19 @@ function TimezoneSetting({ businessId }: { businessId: string }) {
         {TIMEZONE_LABELS.map(([tz, label]) => (
           <option key={tz} value={tz}>{label}</option>
         ))}
-      </select>
-      {clock && (
-        <p style={{ marginTop: 10, marginBottom: 0, fontSize: 20, fontWeight: 650, fontVariantNumeric: "tabular-nums" }}>
-          {clock}
-        </p>
-      )}
-      {message && <p style={{ ...subtleTextStyle, marginTop: 8, marginBottom: 0 }}>{message}</p>}
-    </div>
+          </select>
+        </label>
+        {message && (
+          <div style={{ marginTop: 10 }}>
+            {message === "Saved." ? (
+              <span className="lamp lamp-ok">{message}</span>
+            ) : (
+              <span className="lamp lamp-err">{message}</span>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -243,25 +259,42 @@ export function UserSettingsPanel({ active = true, businessId }: { active?: bool
   }, [active]);
 
   return (
-    <section style={cardStyle}>
-      <h2 style={{ marginTop: 0 }}>User Settings</h2>
-      <p style={subtleTextStyle}>
-        Change your own login here. Changing a password signs that login out everywhere — you&apos;ll need the new one next time.
-      </p>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <section className="panel">
+        <div className="panel-head">
+          <span className="instrument-label">User settings</span>
+        </div>
+        <div className="panel-body">
+          <p className="meta" style={{ marginTop: 0 }}>
+            Change your own login here. Changing a password signs that login out everywhere —
+            you&apos;ll need the new one next time.
+          </p>
+          {!loaded && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div className="skeleton" style={{ height: 28 }} />
+              <div className="skeleton" style={{ height: 28 }} />
+            </div>
+          )}
+        </div>
+      </section>
 
       {businessId && <TimezoneSetting businessId={businessId} />}
 
-      {!loaded && <p style={subtleTextStyle}>Loading…</p>}
       {self && <AccountRow account={self} label="Your login" onSaved={refresh} />}
 
       {staff.length > 0 && (
-        <>
-          <h3 style={{ marginBottom: 4 }}>Staff logins</h3>
-          {staff.map((s) => (
-            <AccountRow key={s.id} account={s} label={s.username} onSaved={refresh} />
-          ))}
-        </>
+        <section className="panel">
+          <div className="panel-head">
+            <span className="instrument-label">Staff logins</span>
+            <span className="data" style={{ fontSize: 11 }}>{staff.length} total</span>
+          </div>
+          <div className="panel-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {staff.map((s) => (
+              <AccountRow key={s.id} account={s} label={s.username} onSaved={refresh} />
+            ))}
+          </div>
+        </section>
       )}
-    </section>
+    </div>
   );
 }

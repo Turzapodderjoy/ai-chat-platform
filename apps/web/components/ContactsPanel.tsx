@@ -1,8 +1,9 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 
-import { cardStyle, cellStyle, subtleTextStyle, shortId, badgeStyle, type BadgeTone } from "./dashboard-styles";
+import { shortId } from "./dashboard-styles";
 import { useCurrencySymbol } from "../lib/currency";
 import { showConfirm } from "../lib/app-dialog";
 
@@ -25,8 +26,6 @@ interface ContactRecord {
   invoices: { id: string; invoiceNumber: string; status: string; total: number; balanceDue: number; currency: string }[];
   lifetimeValue: number;
 }
-
-const INVOICE_TONE: Record<string, BadgeTone> = { draft: "neutral", issued: "info", partially_paid: "warn", paid: "ok", overdue: "error", void: "neutral" };
 
 /** A real customer record, unifying what used to be resolved fresh per
  * conversation (see ConversationService.namesForConversations) — a
@@ -121,178 +120,334 @@ export function ContactsPanel({ businessId, active = true }: { businessId?: stri
     }
   }
 
-  return (
-    <section style={cardStyle}>
-      <h2 style={{ marginTop: 0 }}>Customer Database</h2>
-      <p style={subtleTextStyle}>
-        Every customer who has ordered, booked a repair, or messaged in — merged into one record per
-        person (matched by phone or email) instead of scattered across separate chats. Click a row to
-        see their full history.
-      </p>
+const INVOICE_LAMP: Record<string, string> = {
+  draft: "lamp lamp-idle",
+  issued: "lamp lamp-info",
+  partially_paid: "lamp lamp-warn",
+  paid: "lamp lamp-ok",
+  overdue: "lamp lamp-err",
+  void: "lamp lamp-idle",
+};
 
-      <input
-        type="search"
-        name="aiva-search-contacts"
-        autoComplete="off"
-        style={{ padding: 8, width: "100%", maxWidth: 320, marginBottom: 12 }}
-        placeholder="Search by name, phone, email, ID…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+const INVOICE_LABEL: Record<string, string> = {
+  draft: "Draft",
+  issued: "Issued",
+  partially_paid: "Part paid",
+  paid: "Paid",
+  overdue: "Overdue",
+  void: "Void",
+};
 
-      {!contacts && <p style={subtleTextStyle}>Loading…</p>}
-      {contacts && contacts.length === 0 && <p style={subtleTextStyle}>No contacts yet — they're created automatically from orders, repairs, and conversations.</p>}
-      {contacts && contacts.length > 0 && filtered?.length === 0 && <p style={subtleTextStyle}>No contacts match that search.</p>}
+const REPAIR_STATUS_LAMP: Record<string, string> = {
+  booked: "lamp lamp-info",
+  received: "lamp lamp-idle",
+  in_repair: "lamp lamp-warn",
+  ready: "lamp lamp-ok",
+  completed: "lamp lamp-ok",
+  cancelled: "lamp lamp-err",
+};
 
-      {filtered && filtered.length > 0 && (
-        <div className="table-scroll">
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={cellStyle}>ID</th>
-                <th style={cellStyle}>Name</th>
-                <th style={cellStyle}>Phone</th>
-                <th style={{ ...cellStyle, whiteSpace: "nowrap" }}>Email</th>
-                <th style={cellStyle}>Company</th>
-                <th style={cellStyle}>CLV</th>
-                <th style={cellStyle}>Updated</th>
-                <th style={cellStyle}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((c) => (
-                <Fragment key={c.id}>
-                  <tr onClick={() => toggleRecord(c)} style={{ cursor: "pointer" }}>
-                    <td style={{ ...cellStyle, fontSize: 11, color: "var(--text-faint)" }}>{shortId(c.id)}</td>
-                    <td style={cellStyle}>{c.name}</td>
-                    <td style={cellStyle}>{c.phone ?? "—"}</td>
-                    <td style={cellStyle}>{c.email ?? "—"}</td>
-                    <td style={cellStyle} onClick={(e) => e.stopPropagation()}>
-                      {(() => {
-                        const draft = companyDraft[c.id] ?? { name: c.companyName ?? "", domain: c.companyDomain ?? "" };
-                        const dirty = draft.name !== (c.companyName ?? "") || draft.domain !== (c.companyDomain ?? "");
-                        return (
-                          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                            <input
-                              value={draft.name}
-                              onChange={(e) => setCompanyDraft((prev) => ({ ...prev, [c.id]: { ...draft, name: e.target.value } }))}
-                              placeholder="Company"
-                              style={{ padding: 4, fontSize: 12, minWidth: 90, flex: 1 }}
-                            />
-                            <input
-                              value={draft.domain}
-                              onChange={(e) => setCompanyDraft((prev) => ({ ...prev, [c.id]: { ...draft, domain: e.target.value } }))}
-                              placeholder="Domain"
-                              style={{ padding: 4, fontSize: 12, minWidth: 90, flex: 1 }}
-                            />
+const REPAIR_STATUS_TEXT: Record<string, string> = {
+  booked: "Booked",
+  received: "Received",
+  in_repair: "In repair",
+  ready: "Ready",
+  completed: "Completed",
+  cancelled: "Cancelled",
+};
+
+const PRIORITY_LAMP: Record<string, string> = {
+  normal: "lamp lamp-idle",
+  high: "lamp lamp-warn",
+  urgent: "lamp lamp-err",
+};
+
+const METRIC: CSSProperties = { minWidth: 120 };
+
+const METRIC_LABEL: CSSProperties = { display: "block", marginBottom: 3 };
+
+const METRIC_VALUE: CSSProperties = { fontSize: 17, fontWeight: 600, color: "var(--ink)" };
+
+const EXPANDED_CELL: CSSProperties = { padding: 14, background: "var(--panel-sunk)" };
+
+const SUBHEAD: CSSProperties = { display: "block", marginBottom: 8 };
+
+return (
+    <section className="panel">
+      <div className="panel-head">
+        <span className="instrument-label">Customer database</span>
+        <span className="data" style={{ fontSize: 11, color: "var(--ink-3)" }}>
+          {contacts ? `${filtered?.length ?? 0} contacts` : "—"}
+        </span>
+      </div>
+
+      <div className="panel-body">
+        <p className="meta" style={{ marginTop: 0, marginBottom: 14, maxWidth: "68ch" }}>
+          Every customer who has ordered, booked a repair, or messaged in — merged into one record per
+          person (matched by phone or email) instead of scattered across separate chats. Open a row to
+          see their full history.
+        </p>
+
+        <div className="field" style={{ maxWidth: 340, marginBottom: 14 }}>
+          <label className="field-label" htmlFor="aiva-search-contacts">Search</label>
+          <input
+            id="aiva-search-contacts"
+            type="search"
+            name="aiva-search-contacts"
+            autoComplete="off"
+            placeholder="Name, phone, email, or ID"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ fontSize: 13 }}
+          />
+        </div>
+
+        {!contacts && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="skeleton" style={{ height: 40 }} />
+            <div className="skeleton" style={{ height: 40 }} />
+            <div className="skeleton" style={{ height: 40 }} />
+          </div>
+        )}
+
+        {contacts && contacts.length === 0 && (
+          <div className="empty-state">
+            <div className="empty-state-title">No contacts yet</div>
+            <div className="empty-state-description">
+              Contacts are created automatically from orders, repairs and conversations — the first one
+              appears as soon as this business gets one.
+            </div>
+          </div>
+        )}
+
+        {contacts && contacts.length > 0 && filtered?.length === 0 && (
+          <div className="empty-state">
+            <div className="empty-state-title">No contacts match</div>
+            <div className="empty-state-description">Clear the search to see the whole customer database.</div>
+          </div>
+        )}
+
+        {filtered && filtered.length > 0 && (
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Email</th>
+                  <th>Company</th>
+                  <th className="num">CLV</th>
+                  <th>Updated</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((c) => {
+                  const draft = companyDraft[c.id] ?? { name: c.companyName ?? "", domain: c.companyDomain ?? "" };
+                  const dirty = draft.name !== (c.companyName ?? "") || draft.domain !== (c.companyDomain ?? "");
+                  const open = expandedId === c.id;
+                  return (
+                    <Fragment key={c.id}>
+                      <tr
+                        onClick={() => toggleRecord(c)}
+                        style={{ cursor: "pointer", background: open ? "var(--accent-subtle)" : undefined }}
+                      >
+                        <td><span className="data" style={{ fontSize: 11.5, color: "var(--ink-4)" }}>{shortId(c.id)}</span></td>
+                        <td style={{ color: "var(--ink)", fontWeight: 600 }}>{c.name}</td>
+                        <td><span className="data" style={{ fontSize: 12 }}>{c.phone ?? "—"}</span></td>
+                        <td style={{ whiteSpace: "nowrap" }}>
+                          <span className="data" style={{ fontSize: 12 }}>{c.email ?? "—"}</span>
+                        </td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
+                            <div className="field" style={{ minWidth: 100 }}>
+                              <label className="field-label" htmlFor={`company-name-${c.id}`}>Name</label>
+                              <input
+                                id={`company-name-${c.id}`}
+                                value={draft.name}
+                                onChange={(e) => setCompanyDraft((prev) => ({ ...prev, [c.id]: { ...draft, name: e.target.value } }))}
+                                style={{ fontSize: 12 }}
+                              />
+                            </div>
+                            <div className="field" style={{ minWidth: 100 }}>
+                              <label className="field-label" htmlFor={`company-domain-${c.id}`}>Domain</label>
+                              <input
+                                id={`company-domain-${c.id}`}
+                                value={draft.domain}
+                                onChange={(e) => setCompanyDraft((prev) => ({ ...prev, [c.id]: { ...draft, domain: e.target.value } }))}
+                                style={{ fontSize: 12 }}
+                              />
+                            </div>
                             {dirty && (
-                              <button onClick={() => saveCompany(c)} disabled={busyId === c.id} style={{ fontSize: 11, padding: "3px 6px" }}>
+                              <button onClick={() => saveCompany(c)} disabled={busyId === c.id} className="primary sm">
                                 Save
                               </button>
                             )}
                           </div>
-                        );
-                      })()}
-                    </td>
-                    <td style={{ ...cellStyle, fontFamily: "monospace", fontSize: 12 }}>
-                      {expandedId === c.id && record ? (
-                        <span style={{ color: computeCLV(record) > 0 ? "var(--success)" : "var(--text-faint)" }}>
-                          {currency}{computeCLV(record).toLocaleString()}
-                        </span>
-                      ) : (
-                        <span style={{ color: "var(--text-faint)" }}>—</span>
+                        </td>
+                        <td className="num">
+                          {open && record ? (
+                            <span style={{ color: computeCLV(record) > 0 ? "var(--success)" : "var(--ink-4)" }}>
+                              {currency}{computeCLV(record).toLocaleString()}
+                            </span>
+                          ) : (
+                            <span style={{ color: "var(--ink-4)" }}>—</span>
+                          )}
+                        </td>
+                        <td><span className="data" style={{ fontSize: 12 }}>{new Date(c.updatedAt).toLocaleDateString()}</span></td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <button onClick={() => deleteContact(c)} disabled={busyId === c.id} className="danger sm">
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+
+                      {open && (
+                        <tr>
+                          <td colSpan={8} style={EXPANDED_CELL}>
+                            {loadingRecord && <p className="meta">Loading history…</p>}
+
+                            {record && (
+                              <>
+                                <div className="panel-sunk" style={{ padding: "12px 14px", marginBottom: 14, display: "flex", gap: 24, flexWrap: "wrap" }}>
+                                  <div style={METRIC}>
+                                    <span className="instrument-label" style={METRIC_LABEL}>Customer lifetime value</span>
+                                    <div className="data" style={{ ...METRIC_VALUE, color: "var(--success)" }}>
+                                      {currency}{computeCLV(record).toLocaleString()}
+                                    </div>
+                                  </div>
+                                  <div style={METRIC}>
+                                    <span className="instrument-label" style={METRIC_LABEL}>Orders</span>
+                                    <div className="data" style={METRIC_VALUE}>{record.orders.length}</div>
+                                  </div>
+                                  <div style={METRIC}>
+                                    <span className="instrument-label" style={METRIC_LABEL}>Repairs</span>
+                                    <div className="data" style={METRIC_VALUE}>{record.repairs.length}</div>
+                                  </div>
+                                  <div style={METRIC}>
+                                    <span className="instrument-label" style={METRIC_LABEL}>Outstanding</span>
+                                    <div
+                                      className="data"
+                                      style={{
+                                        ...METRIC_VALUE,
+                                        color: record.invoices.reduce((s, i) => s + i.balanceDue, 0) > 0 ? "var(--danger)" : "var(--ink)",
+                                      }}
+                                    >
+                                      {currency}{record.invoices.reduce((s, i) => s + i.balanceDue, 0).toLocaleString()}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 18 }}>
+                                  <div>
+                                    <span className="instrument-label" style={SUBHEAD}>
+                                      Invoices ({record.invoices.length})
+                                    </span>
+                                    {record.invoices.length === 0 && (
+                                      <div className="empty-state">
+                                        <div className="empty-state-title">No invoices</div>
+                                        <div className="empty-state-description">Nothing billed to this customer yet.</div>
+                                      </div>
+                                    )}
+                                    {record.invoices.map((inv) => (
+                                      <div key={inv.id} style={{ marginBottom: 7 }}>
+                                        <span className={INVOICE_LAMP[inv.status] ?? "lamp lamp-idle"}>
+                                          {INVOICE_LABEL[inv.status] ?? inv.status}
+                                        </span>
+                                        <div className="data" style={{ fontSize: 12, marginTop: 3, color: "var(--ink-2)" }}>
+                                          {inv.invoiceNumber}
+                                          {" — "}
+                                          {currency}{inv.total.toLocaleString()}
+                                        </div>
+                                        {inv.balanceDue > 0 && (
+                                          <div className="data" style={{ fontSize: 11.5, color: "var(--danger)" }}>
+                                            {currency}{inv.balanceDue.toLocaleString()} due
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  <div>
+                                    <span className="instrument-label" style={SUBHEAD}>
+                                      Orders ({record.orders.length})
+                                    </span>
+                                    {record.orders.length === 0 && (
+                                      <div className="empty-state">
+                                        <div className="empty-state-title">No orders</div>
+                                        <div className="empty-state-description">No purchases recorded for this customer.</div>
+                                      </div>
+                                    )}
+                                    {record.orders.map((o) => (
+                                      <div key={o.id} style={{ marginBottom: 7 }}>
+                                        <span className="data" style={{ fontSize: 11.5, color: "var(--ink-4)" }}>
+                                          {new Date(o.createdAt).toLocaleDateString()}
+                                        </span>
+                                        <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginTop: 2 }}>{o.products}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  <div>
+                                    <span className="instrument-label" style={SUBHEAD}>
+                                      Issue history ({record.repairs.length})
+                                    </span>
+                                    {record.repairs.length === 0 && (
+                                      <div className="empty-state">
+                                        <div className="empty-state-title">No repairs</div>
+                                        <div className="empty-state-description">This customer has never booked a repair.</div>
+                                      </div>
+                                    )}
+                                    {record.repairs.map((r) => (
+                                      <div
+                                        key={r.id}
+                                        className="panel-sunk"
+                                        style={{
+                                          padding: "9px 11px",
+                                          marginBottom: 8,
+                                          opacity: r.status === "cancelled" ? 0.6 : 1,
+                                        }}
+                                      >
+                                        <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
+                                          <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>{r.deviceType}</span>
+                                          {r.deviceModel && (
+                                            <span className="data" style={{ fontSize: 11.5, color: "var(--ink-3)" }}>{r.deviceModel}</span>
+                                          )}
+                                        </div>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap", marginTop: 5 }}>
+                                          <span className={REPAIR_STATUS_LAMP[r.status] ?? "lamp lamp-idle"}>
+                                            {REPAIR_STATUS_TEXT[r.status] ?? r.status}
+                                          </span>
+                                          {r.priority !== "normal" && (
+                                            <span className={PRIORITY_LAMP[r.priority] ?? "lamp lamp-idle"}>{r.priority}</span>
+                                          )}
+                                        </div>
+                                        <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 6, lineHeight: 1.5 }}>
+                                          {r.issueDescription}
+                                        </div>
+                                        <div className="data" style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 5 }}>
+                                          {new Date(r.appointmentDate).toLocaleDateString()}
+                                          {" · "}
+                                          {r.trackingToken}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </td>
+                        </tr>
                       )}
-                    </td>
-                    <td style={cellStyle}>{new Date(c.updatedAt).toLocaleDateString()}</td>
-                    <td style={cellStyle} onClick={(e) => e.stopPropagation()}>
-                      <button onClick={() => deleteContact(c)} disabled={busyId === c.id}>Delete</button>
-                    </td>
-                  </tr>
-                  {expandedId === c.id && (
-                    <tr>
-                      <td colSpan={8} style={{ ...cellStyle, background: "var(--surface)", padding: 14 }}>
-                        {loadingRecord && <p style={subtleTextStyle}>Loading history…</p>}
-                        {record && (
-                          <div style={{ marginBottom: 14, fontSize: 13 }}>
-                            <span style={{ fontWeight: 650 }}>Lifetime value: </span>
-                            <span style={{ fontWeight: 700, color: "var(--success, var(--text))" }}>{currency}{record.lifetimeValue.toLocaleString()}</span>
-                            <span style={{ ...subtleTextStyle, marginLeft: 8 }}>(real amount paid, across every invoice)</span>
-                          </div>
-                        )}
-                        {record && (
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, fontSize: 12.5 }}>
-                            {/* CLV Summary */}
-                            <div style={{ gridColumn: "1 / -1", padding: "8px 12px", background: "var(--bg)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                <div>
-                                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Customer Lifetime Value</span>
-                                  <div style={{ fontSize: 18, fontWeight: 700, color: "var(--success)" }}>{currency}{computeCLV(record).toLocaleString()}</div>
-                                </div>
-                                <div>
-                                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Total Orders</span>
-                                  <div style={{ fontSize: 18, fontWeight: 700 }}>{record.orders.length}</div>
-                                </div>
-                                <div>
-                                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Total Repairs</span>
-                                  <div style={{ fontSize: 18, fontWeight: 700 }}>{record.repairs.length}</div>
-                                </div>
-                                <div>
-                                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Outstanding</span>
-                                  <div style={{ fontSize: 18, fontWeight: 700, color: record.invoices.reduce((s, i) => s + i.balanceDue, 0) > 0 ? "var(--danger)" : "var(--text)" }}>
-                                    {currency}{record.invoices.reduce((s, i) => s + i.balanceDue, 0).toLocaleString()}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            <div>
-                              <div style={{ fontWeight: 650, marginBottom: 6 }}>Invoices ({record.invoices.length})</div>
-                              {record.invoices.length === 0 && <span style={{ color: "var(--text-faint)" }}>None</span>}
-                              {record.invoices.map((inv) => (
-                                <div key={inv.id} style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
-                                  <span style={badgeStyle(INVOICE_TONE[inv.status] ?? "neutral")}>{inv.status}</span>
-                                  {inv.invoiceNumber} — {currency}{inv.total.toLocaleString()}
-                                  {inv.balanceDue > 0 && <span style={{ color: "var(--danger)" }}>({currency}{inv.balanceDue.toLocaleString()} due)</span>}
-                                </div>
-                              ))}
-                            </div>
-                            <div>
-                              <div style={{ fontWeight: 650, marginBottom: 6 }}>Orders ({record.orders.length})</div>
-                              {record.orders.length === 0 && <span style={{ color: "var(--text-faint)" }}>None</span>}
-                              {record.orders.map((o) => (
-                                <div key={o.id} style={{ marginBottom: 4 }}>
-                                  <span style={{ color: "var(--text-faint)" }}>{new Date(o.createdAt).toLocaleDateString()}</span> — {o.products}
-                                </div>
-                              ))}
-                            </div>
-                            <div>
-                              <div style={{ fontWeight: 650, marginBottom: 6 }}>Issue history ({record.repairs.length})</div>
-                              {record.repairs.length === 0 && <span style={{ color: "var(--text-faint)" }}>None</span>}
-                              {record.repairs.map((r) => (
-                                <div key={r.id} style={{ marginBottom: 6, padding: "6px 8px", background: "var(--bg)", borderRadius: "var(--radius-xs)", border: "1px solid var(--border)", opacity: r.status === "cancelled" ? 0.5 : 1, textDecoration: r.status === "cancelled" ? "line-through" : "none" }}>
-                                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                                    <span style={{ fontWeight: 600 }}>{r.deviceType}</span>
-                                    {r.deviceModel && <span style={{ color: "var(--text-muted)" }}>{r.deviceModel}</span>}
-                                    <span style={badgeStyle(r.status === "completed" ? "ok" : r.status === "cancelled" ? "error" : "info")}>{r.status}</span>
-                                    {r.priority !== "normal" && <span style={badgeStyle(r.priority === "urgent" ? "error" : "warn")}>{r.priority}</span>}
-                                  </div>
-                                  <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{r.issueDescription}</div>
-                                  <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 2 }}>
-                                    {new Date(r.appointmentDate).toLocaleDateString()} • {r.trackingToken}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

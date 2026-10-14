@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { cardStyle, cellStyle, subtleTextStyle, badgeStyle, primaryButtonStyle } from "./dashboard-styles";
+import { dataStyle } from "./dashboard-styles";
 import { useCurrencySymbol } from "../lib/currency";
 import { showConfirm } from "../lib/app-dialog";
 import { RefillDialog, LotsDialog } from "./RefillDialog";
@@ -80,6 +80,7 @@ export function InventoryPanel({ businessId, active = true }: { businessId: stri
   // without refetching on becoming active, stock consumed by an order
   // in a different tab would never show up here until a full page
   // reload, even though the write itself is correct in the database.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (active) refresh(); }, [businessId, search, offset, active]);
 
   // Also keep polling while this tab stays the visible one -- an order
@@ -188,208 +189,380 @@ export function InventoryPanel({ businessId, active = true }: { businessId: stri
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <section style={cardStyle}>
-      <h2 style={{ marginTop: 0 }}>Inventory</h2>
-      <p style={subtleTextStyle}>
-        Your own stock record — add items by hand or import a CSV/XLSX file. Separate from Product Catalog
-        (which only shows what&apos;s been found by crawling your site).
-      </p>
-
-      {lowStockCount > 0 && (
-        <div style={{ background: "var(--warning-subtle, #fff3cd)", border: "1px solid var(--warning, #f59e0b)", borderRadius: 6, padding: "10px 14px", marginBottom: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 18 }}>⚠️</span>
-          <strong style={{ fontSize: 14, color: "var(--warning)" }}>{lowStockCount} item{lowStockCount === 1 ? "" : "s"} low on stock</strong>
-          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Set min stock per item; auto-refreshes every 10s</span>
+    <section className="panel" style={{ marginBottom: 14 }}>
+      <div className="panel-head" style={{ flexWrap: "wrap" }}>
+        <div style={{ minWidth: 0 }}>
+          <span className="instrument-label">Inventory</span>
+          <div className="meta">
+            Your own stock record, added by hand or imported from a file. The Product Catalog tab is separate and only shows what the crawler found on your site.
+          </div>
         </div>
-      )}
-
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
-        <button onClick={() => setShowAdd((s) => !s)} style={primaryButtonStyle}>
-          {showAdd ? "Cancel" : "+ Add product"}
-        </button>
-        <button onClick={() => fileInputRef.current?.click()} disabled={importing} style={{ fontSize: 12, padding: "6px 10px" }}>
-          {importing ? "Importing…" : "Import CSV / XLSX"}
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".csv,.xlsx,.xls"
-          style={{ display: "none" }}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) importFile(file);
-          }}
-        />
-      </div>
-      {importMsg && <p style={{ ...subtleTextStyle, marginTop: 0 }}>{importMsg}</p>}
-
-      {showAdd && (
-        <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 14, marginBottom: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input placeholder="Name *" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} style={{ padding: 8, minWidth: 160 }} />
-          <input placeholder="Price" value={draft.price} onChange={(e) => setDraft({ ...draft, price: e.target.value })} style={{ padding: 8, width: 100 }} />
-          <input placeholder="Unit cost price" value={draft.costPrice} onChange={(e) => setDraft({ ...draft, costPrice: e.target.value })} style={{ padding: 8, width: 110 }} />
-          <select value={draft.tier} onChange={(e) => setDraft({ ...draft, tier: e.target.value })} style={{ padding: 8 }}>
-            <option value="regular">Regular</option>
-            <option value="premium">Premium</option>
-          </select>
-          <input placeholder="Stock qty" value={draft.stock} onChange={(e) => setDraft({ ...draft, stock: e.target.value })} style={{ padding: 8, width: 100 }} />
-          <input placeholder="Min stock" value={draft.minStock} onChange={(e) => setDraft({ ...draft, minStock: e.target.value })} style={{ padding: 8, width: 80 }} />
-          <input placeholder="Category" value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })} style={{ padding: 8, width: 120 }} />
-          <input placeholder="SKU" value={draft.sku} onChange={(e) => setDraft({ ...draft, sku: e.target.value })} style={{ padding: 8, width: 120 }} />
-          <input placeholder="Description" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} style={{ padding: 8, flex: 1, minWidth: 180 }} />
-          <button onClick={addProduct} disabled={saving || !draft.name.trim()} style={primaryButtonStyle}>
-            {saving ? "Saving…" : "Save"}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button type="button" className="sm" onClick={() => fileInputRef.current?.click()} disabled={importing}>
+            {importing ? "Importing file" : "Import CSV or XLSX"}
           </button>
+          <button type="button" className="primary sm" onClick={() => setShowAdd((s) => !s)}>
+            {showAdd ? "Close new part" : "Add part"}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) importFile(file);
+            }}
+            aria-label="Inventory import file"
+          />
         </div>
-      )}
-
-      <div style={{ display: "flex", gap: 8, margin: "16px 0" }}>
-        <input
-          type="search"
-          name="aiva-search-inventory"
-          autoComplete="off"
-          placeholder="Search by name, SKU, or description…"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setOffset(0);
-          }}
-          style={{ padding: 8, flex: 1, maxWidth: 420 }}
-        />
-        <span style={{ ...subtleTextStyle, alignSelf: "center", marginTop: 0 }}>
-          {total} product{total === 1 ? "" : "s"}
-        </span>
       </div>
 
-      {!products && <p style={subtleTextStyle}>Loading…</p>}
-      {products && products.length === 0 && (
-        <p style={subtleTextStyle}>{search ? "No products match that search." : "No inventory yet — add one or import a file."}</p>
-      )}
+      <div className="panel-body">
+        {lowStockCount > 0 && (
+          <div className="panel-sunk" style={{ padding: "10px 14px", marginBottom: 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span className="lamp lamp-warn">{lowStockCount} parts low</span>
+            <span className="meta">Set a minimum stock per part to catch this automatically. The count refreshes every 10 seconds.</span>
+          </div>
+        )}
 
-      {products && products.length > 0 && (
-        <div className="table-scroll">
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={cellStyle}></th>
-                <th style={cellStyle}>Name</th>
-                <th style={cellStyle}>SKU</th>
-                <th style={cellStyle}>Category</th>
-                <th style={cellStyle}>Tier</th>
-                <th style={cellStyle}>Price</th>
-                <th style={cellStyle}>Cost</th>
-                <th style={cellStyle}>Stock</th>
-                <th style={cellStyle}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((p) =>
-                editId === p.id ? (
-                  <tr key={p.id} style={{ background: "var(--surface)" }}>
-                    <td style={cellStyle} colSpan={9}>
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                        <input placeholder="Name" value={editDraft.name} onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })} style={{ padding: 6, minWidth: 140 }} />
-                        <input placeholder="Price" value={editDraft.price} onChange={(e) => setEditDraft({ ...editDraft, price: e.target.value })} style={{ padding: 6, width: 90 }} />
-                        <input placeholder="Unit cost price" value={editDraft.costPrice} onChange={(e) => setEditDraft({ ...editDraft, costPrice: e.target.value })} style={{ padding: 6, width: 100 }} />
-                        <select value={editDraft.tier} onChange={(e) => setEditDraft({ ...editDraft, tier: e.target.value })} style={{ padding: 6 }}>
-                          <option value="regular">Regular</option>
-                          <option value="premium">Premium</option>
-                        </select>
-                        <input placeholder="Stock qty" value={editDraft.stock} onChange={(e) => setEditDraft({ ...editDraft, stock: e.target.value })} style={{ padding: 6, width: 90 }} />
-                        <input placeholder="Min stock" value={editDraft.minStock} onChange={(e) => setEditDraft({ ...editDraft, minStock: e.target.value })} style={{ padding: 6, width: 80 }} />
-                        <input placeholder="Category" value={editDraft.category} onChange={(e) => setEditDraft({ ...editDraft, category: e.target.value })} style={{ padding: 6, width: 110 }} />
-                        <input placeholder="SKU" value={editDraft.sku} onChange={(e) => setEditDraft({ ...editDraft, sku: e.target.value })} style={{ padding: 6, width: 110 }} />
-                        <input placeholder="Description" value={editDraft.description} onChange={(e) => setEditDraft({ ...editDraft, description: e.target.value })} style={{ padding: 6, flex: 1, minWidth: 160 }} />
-                        <button onClick={() => saveEdit(p.id)} disabled={busyId === p.id} style={{ ...primaryButtonStyle, fontSize: 12 }}>
-                          {busyId === p.id ? "Saving…" : "Save"}
-                        </button>
-                        <button onClick={() => setEditId(null)} style={{ fontSize: 12 }}>Cancel</button>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  <tr key={p.id}>
-                    <td style={cellStyle}>
-                      {p.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={p.imageUrl} alt={p.name} style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, background: "var(--surface)" }} />
-                      ) : (
-                        <div style={{ width: 40, height: 40, borderRadius: 6, background: "var(--surface)" }} />
-                      )}
-                    </td>
-                    <td style={cellStyle}>
-                      <strong>{p.name}</strong>
-                      {p.description && (
-                        <div style={{ fontSize: 11, color: "var(--text-faint)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {p.description}
-                        </div>
-                      )}
-                    </td>
-                    <td style={{ ...cellStyle, fontSize: 11, color: "var(--text-faint)" }}>{p.sku ?? "—"}</td>
-                    <td style={cellStyle}>{p.category ?? "—"}</td>
-                    <td style={cellStyle}>{p.tier === "premium" && <span style={badgeStyle("info")}>Premium</span>}</td>
-                    <td style={cellStyle}>{p.price ? `${currency} ${p.price}` : "—"}</td>
-                    <td style={{ ...cellStyle, color: "var(--text-faint)" }}>{p.costPrice ? `${currency} ${p.costPrice}` : "—"}</td>
-                    <td style={cellStyle}>
-                      {p.stock ? <span style={badgeStyle(/out/i.test(p.stock) ? "error" : "ok")}>{p.stock}</span> : "—"}
-                      {p.stock && p.minStock > 0 && !/out/i.test(p.stock) && (() => {
-                        const qty = parseInt(p.stock, 10);
-                        if (!isNaN(qty) && qty <= p.minStock) {
-                          return <div style={{ fontSize: 11, color: "var(--warning)", fontWeight: 500 }}>Low ({qty}/{p.minStock})</div>;
-                        }
-                        return null;
-                      })()}
-                    </td>
-                    <td style={cellStyle}>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        {(() => {
-                          // Exhausted: nothing left (or "out of stock") -- the Refill button is the primary action.
-                          const qty = p.stock !== null ? Number(p.stock) : NaN;
-                          const exhausted = (Number.isFinite(qty) && qty <= 0) || (p.stock !== null && /out/i.test(p.stock));
-                          return (
-                            <button
-                              onClick={() => setRefillFor(p)}
-                              disabled={busyId === p.id}
-                              title="Add a new lot: quantity, cost price and sell price"
-                              style={{ fontSize: 11, padding: "6px 12px", fontWeight: 600, ...(exhausted ? { background: "var(--accent, #635bff)", color: "#fff", border: "1px solid var(--accent, #635bff)", borderRadius: 6 } : {}) }}
-                            >
-                              Refill
-                            </button>
-                          );
-                        })()}
-                        <button onClick={() => setLotsFor(p)} style={{ fontSize: 11, padding: "6px 12px" }} title="Every restock with its cost and sell price">
-                          Lots
-                        </button>
-                        <button onClick={() => startEdit(p)} disabled={busyId === p.id} style={{ fontSize: 11, padding: "6px 12px" }}>
-                          Edit
-                        </button>
-                        <button onClick={() => deleteProduct(p)} disabled={busyId === p.id} style={{ fontSize: 11, padding: "6px 12px" }}>
-                          {busyId === p.id ? "…" : "Delete"}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+        {importMsg && <div className="meta" style={{ marginBottom: 12 }}>{importMsg}</div>}
 
-      {products && total > PAGE_SIZE && (
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12, marginTop: 20 }}>
-          <button onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))} disabled={offset === 0}>
-            ← Previous 25
-          </button>
-          <span style={subtleTextStyle}>
-            Page {page} of {pageCount}
+        {showAdd && (
+          <div className="panel-sunk" style={{ padding: 14, marginBottom: 14 }}>
+            <div className="instrument-label" style={{ marginBottom: 10 }}>New part</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 170px), 1fr))", gap: 10 }}>
+              <div className="field">
+                <label className="field-label" htmlFor="inv-add-name">Name</label>
+                <input id="inv-add-name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+              </div>
+              <div className="field">
+                <label className="field-label" htmlFor="inv-add-price">Sell price</label>
+                <input
+                  id="inv-add-price"
+                  className="data"
+                  type="number"
+                  inputMode="decimal"
+                  value={draft.price}
+                  onChange={(e) => setDraft({ ...draft, price: e.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label className="field-label" htmlFor="inv-add-cost">Unit cost price</label>
+                <input
+                  id="inv-add-cost"
+                  className="data"
+                  type="number"
+                  inputMode="decimal"
+                  value={draft.costPrice}
+                  onChange={(e) => setDraft({ ...draft, costPrice: e.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label className="field-label" htmlFor="inv-add-tier">Tier</label>
+                <select id="inv-add-tier" value={draft.tier} onChange={(e) => setDraft({ ...draft, tier: e.target.value })}>
+                  <option value="regular">Regular</option>
+                  <option value="premium">Premium</option>
+                </select>
+              </div>
+              <div className="field">
+                <label className="field-label" htmlFor="inv-add-stock">Stock on hand</label>
+                <input
+                  id="inv-add-stock"
+                  className="data"
+                  type="number"
+                  inputMode="numeric"
+                  value={draft.stock}
+                  onChange={(e) => setDraft({ ...draft, stock: e.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label className="field-label" htmlFor="inv-add-min">Minimum stock</label>
+                <input
+                  id="inv-add-min"
+                  className="data"
+                  type="number"
+                  inputMode="numeric"
+                  value={draft.minStock}
+                  onChange={(e) => setDraft({ ...draft, minStock: e.target.value })}
+                />
+                <div className="field-hint">Flags the part as low</div>
+              </div>
+              <div className="field">
+                <label className="field-label" htmlFor="inv-add-category">Category</label>
+                <input id="inv-add-category" value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })} />
+              </div>
+              <div className="field">
+                <label className="field-label" htmlFor="inv-add-sku">SKU</label>
+                <input
+                  id="inv-add-sku"
+                  className="data"
+                  value={draft.sku}
+                  onChange={(e) => setDraft({ ...draft, sku: e.target.value })}
+                />
+              </div>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label className="field-label" htmlFor="inv-add-description">Description</label>
+                <input
+                  id="inv-add-description"
+                  value={draft.description}
+                  onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                />
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+              <button type="button" className="primary" onClick={addProduct} disabled={saving || !draft.name.trim()}>
+                {saving ? "Saving part" : "Save part"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="toolbar" style={{ marginBottom: 10 }}>
+          <div className="field" style={{ flex: "1 1 220px", maxWidth: 420, minWidth: 0 }}>
+            <label className="field-label" htmlFor="inv-search">Search parts</label>
+            <input
+              id="inv-search"
+              type="search"
+              name="aiva-search-inventory"
+              autoComplete="off"
+              placeholder="Name, SKU, description"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setOffset(0);
+              }}
+            />
+          </div>
+          <span className="meta" style={{ alignSelf: "flex-end", paddingBottom: 9 }}>
+            {total} part{total === 1 ? "" : "s"}, amounts in {currency}
           </span>
-          <button onClick={() => setOffset(offset + PAGE_SIZE)} disabled={offset + PAGE_SIZE >= total}>
-            Next 25 →
-          </button>
         </div>
-      )}
-    
+
+        {!products && <p className="meta">Loading inventory</p>}
+
+        {products && products.length === 0 && (
+          <div className="empty-state">
+            <span className="empty-state-title">
+              {search ? "No parts match that search" : "No inventory yet"}
+            </span>
+            <span className="empty-state-description">
+              {search ? "Clear the search box to see every part." : "Add your first part above, or import a CSV or XLSX file."}
+            </span>
+          </div>
+        )}
+
+        {products && products.length > 0 && (
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th />
+                  <th>Part</th>
+                  <th>SKU</th>
+                  <th>Category</th>
+                  <th>Tier</th>
+                  <th className="num" style={{ textAlign: "right" }}>Price</th>
+                  <th className="num" style={{ textAlign: "right" }}>Cost</th>
+                  <th>Stock</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {products.map((p) =>
+                  editId === p.id ? (
+                    <tr key={p.id}>
+                      <td colSpan={9} style={{ background: "var(--panel-sunk)", padding: 14 }}>
+                        <div className="instrument-label" style={{ marginBottom: 10 }}>
+                          Edit {p.name}
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 170px), 1fr))", gap: 10 }}>
+                          <div className="field">
+                            <label className="field-label" htmlFor="inv-edit-name">Name</label>
+                            <input id="inv-edit-name" value={editDraft.name} onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })} />
+                          </div>
+                          <div className="field">
+                            <label className="field-label" htmlFor="inv-edit-price">Sell price</label>
+                            <input
+                              id="inv-edit-price"
+                              className="data"
+                              type="number"
+                              inputMode="decimal"
+                              value={editDraft.price}
+                              onChange={(e) => setEditDraft({ ...editDraft, price: e.target.value })}
+                            />
+                          </div>
+                          <div className="field">
+                            <label className="field-label" htmlFor="inv-edit-cost">Unit cost price</label>
+                            <input
+                              id="inv-edit-cost"
+                              className="data"
+                              type="number"
+                              inputMode="decimal"
+                              value={editDraft.costPrice}
+                              onChange={(e) => setEditDraft({ ...editDraft, costPrice: e.target.value })}
+                            />
+                          </div>
+                          <div className="field">
+                            <label className="field-label" htmlFor="inv-edit-tier">Tier</label>
+                            <select id="inv-edit-tier" value={editDraft.tier} onChange={(e) => setEditDraft({ ...editDraft, tier: e.target.value })}>
+                              <option value="regular">Regular</option>
+                              <option value="premium">Premium</option>
+                            </select>
+                          </div>
+                          <div className="field">
+                            <label className="field-label" htmlFor="inv-edit-stock">Stock on hand</label>
+                            <input
+                              id="inv-edit-stock"
+                              className="data"
+                              type="number"
+                              inputMode="numeric"
+                              value={editDraft.stock}
+                              onChange={(e) => setEditDraft({ ...editDraft, stock: e.target.value })}
+                            />
+                          </div>
+                          <div className="field">
+                            <label className="field-label" htmlFor="inv-edit-min">Minimum stock</label>
+                            <input
+                              id="inv-edit-min"
+                              className="data"
+                              type="number"
+                              inputMode="numeric"
+                              value={editDraft.minStock}
+                              onChange={(e) => setEditDraft({ ...editDraft, minStock: e.target.value })}
+                            />
+                          </div>
+                          <div className="field">
+                            <label className="field-label" htmlFor="inv-edit-category">Category</label>
+                            <input id="inv-edit-category" value={editDraft.category} onChange={(e) => setEditDraft({ ...editDraft, category: e.target.value })} />
+                          </div>
+                          <div className="field">
+                            <label className="field-label" htmlFor="inv-edit-sku">SKU</label>
+                            <input
+                              id="inv-edit-sku"
+                              className="data"
+                              value={editDraft.sku}
+                              onChange={(e) => setEditDraft({ ...editDraft, sku: e.target.value })}
+                            />
+                          </div>
+                          <div className="field" style={{ gridColumn: "1 / -1" }}>
+                            <label className="field-label" htmlFor="inv-edit-description">Description</label>
+                            <input
+                              id="inv-edit-description"
+                              value={editDraft.description}
+                              onChange={(e) => setEditDraft({ ...editDraft, description: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
+                          <button type="button" className="ghost" onClick={() => setEditId(null)}>Cancel</button>
+                          <button type="button" className="primary" onClick={() => saveEdit(p.id)} disabled={busyId === p.id}>
+                            {busyId === p.id ? "Saving part" : "Save part"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={p.id}>
+                      <td style={{ width: 56 }}>
+                        {p.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={p.imageUrl} alt={p.name} style={{ width: 36, height: 36, objectFit: "cover", borderRadius: "var(--r-xs)", border: "1px solid var(--line)", background: "var(--panel-sunk)" }} />
+                        ) : (
+                          <div style={{ width: 36, height: 36, borderRadius: "var(--r-xs)", background: "var(--panel-sunk)" }} />
+                        )}
+                      </td>
+                      <td>
+                        <span style={{ color: "var(--ink)", fontWeight: 600 }}>{p.name}</span>
+                        {p.description && (
+                          <div className="meta" style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {p.description}
+                          </div>
+                        )}
+                      </td>
+                      <td className="data" style={{ fontSize: 12 }}>{p.sku ?? <span className="meta">—</span>}</td>
+                      <td>{p.category ?? <span className="meta">Uncategorised</span>}</td>
+                      <td>
+                        {p.tier === "premium" ? (
+                          <span style={{ fontSize: 12.5, color: "var(--ink-2)" }}>Premium</span>
+                        ) : (
+                          <span className="meta">Regular</span>
+                        )}
+                      </td>
+                      <td className="num" style={{ textAlign: "right", fontWeight: 600, color: "var(--ink)" }}>
+                        {p.price ? `${currency}${p.price}` : <span className="meta">—</span>}
+                      </td>
+                      <td className="num" style={{ textAlign: "right", color: "var(--ink-3)" }}>
+                        {p.costPrice ? `${currency}${p.costPrice}` : <span className="meta">—</span>}
+                      </td>
+                      <td>
+                        <StockLamp stock={p.stock} minStock={p.minStock} />
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {(() => {
+                            // Exhausted: nothing left (or "out of stock") -- the Refill button is the primary action.
+                            const qty = p.stock !== null ? Number(p.stock) : NaN;
+                            const exhausted = (Number.isFinite(qty) && qty <= 0) || (p.stock !== null && /out/i.test(p.stock));
+                            return (
+                              <button
+                                type="button"
+                                className={exhausted ? "primary sm" : "sm"}
+                                onClick={() => setRefillFor(p)}
+                                disabled={busyId === p.id}
+                                title="Add a new lot: quantity, cost price and sell price"
+                              >
+                                Refill stock
+                              </button>
+                            );
+                          })()}
+                          <button
+                            type="button"
+                            className="sm"
+                            onClick={() => setLotsFor(p)}
+                            title="Every restock with its cost and sell price"
+                          >
+                            Restock lots
+                          </button>
+                          <button type="button" className="sm" onClick={() => startEdit(p)} disabled={busyId === p.id}>Edit</button>
+                          <button
+                            type="button"
+                            className="ghost sm"
+                            onClick={() => deleteProduct(p)}
+                            disabled={busyId === p.id}
+                            aria-label={`Delete ${p.name}`}
+                            title={`Delete ${p.name}`}
+                            style={{ color: "var(--danger)" }}
+                          >
+                            {busyId === p.id ? "Deleting" : (
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {products && total > PAGE_SIZE && (
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12, marginTop: 14 }}>
+            <button type="button" className="sm" onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))} disabled={offset === 0}>
+              Previous 25
+            </button>
+            <span className="meta">
+              Page <span className="data">{page}</span> of <span className="data">{pageCount}</span>
+            </span>
+            <button type="button" className="sm" onClick={() => setOffset(offset + PAGE_SIZE)} disabled={offset + PAGE_SIZE >= total}>
+              Next 25
+            </button>
+          </div>
+        )}
+      </div>
+
       {refillFor && (
         <RefillDialog
           product={refillFor}
@@ -401,4 +574,17 @@ export function InventoryPanel({ businessId, active = true }: { businessId: stri
       {lotsFor && <LotsDialog product={lotsFor} currency={currency} onClose={() => setLotsFor(null)} />}
     </section>
   );
+}
+
+/** Stock level as a lamp: out is err, at or under the minimum is warn,
+ * anything else is ok. `stock` is free text upstream, so "out of stock"
+ * counts as out. */
+function StockLamp({ stock, minStock }: { stock: string | null; minStock: number }) {
+  if (!stock) return <span className="meta">Not tracked</span>;
+  if (/out/i.test(stock)) return <span className="lamp lamp-err">Out of stock</span>;
+  const qty = Number(stock);
+  if (Number.isFinite(qty) && minStock > 0 && qty <= minStock) {
+    return <span className="lamp lamp-warn">{qty} left, minimum {minStock}</span>;
+  }
+  return <span className="lamp lamp-ok" style={dataStyle}>{stock} in stock</span>;
 }

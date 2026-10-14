@@ -2,8 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { inputStyle, subtleTextStyle } from "./dashboard-styles";
-
 interface ModelCapabilities {
   fast?: boolean;
   reasoning?: boolean;
@@ -185,33 +183,54 @@ export function ModelSelector({
       <button
         type="button"
         name={`aiva-model-selector-${slug}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`Model for agent ${slug}`}
         onClick={() => setOpen((o) => !o)}
         style={{
-          ...inputStyle,
+          width: "100%",
           textAlign: "left",
           cursor: "pointer",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           gap: 8,
-          padding: "9px 12px",
+          padding: "8px 11px",
+          background: "var(--panel)",
+          border: "1px solid var(--line)",
+          borderRadius: "var(--r-sm)",
+          color: value ? "var(--ink)" : "var(--ink-3)",
         }}
       >
-        <span
-          style={{
-            fontFamily: "monospace",
-            fontSize: 12.5,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            color: value ? "var(--text)" : "var(--text-muted)",
-          }}
+        <span style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
+          <span
+            className="data"
+            style={{
+              fontSize: 12.5,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {value ?? "gateway default"}
+          </span>
+          {value && provider && (
+            <span className="meta" style={{ flexShrink: 0 }}>{provider}</span>
+          )}
+        </span>
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ color: "var(--ink-3)", flexShrink: 0 }}
         >
-          {value ?? "gateway default"}
-        </span>
-        <span style={{ color: "var(--text-muted)", fontSize: 11, flexShrink: 0 }}>
-          {value && provider ? `${provider} · ` : ""}▾
-        </span>
+          <path d="m6 9 6 6 6-6" />
+        </svg>
       </button>
 
       {open && (
@@ -222,98 +241,99 @@ export function ModelSelector({
             left: 0,
             zIndex: 40,
             width: "min(520px, 90vw)",
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-md, 12px)",
-            boxShadow: "0 8px 30px rgba(0,0,0,0.25)",
+            background: "var(--panel)",
+            border: "1px solid var(--line)",
+            borderRadius: "var(--r-md)",
+            boxShadow: "var(--shadow-pop)",
             padding: 10,
             display: "flex",
             flexDirection: "column",
             gap: 8,
           }}
         >
+          <label
+            htmlFor={`model-search-${slug}`}
+            style={{
+              position: "absolute",
+              width: 1,
+              height: 1,
+              overflow: "hidden",
+              clipPath: "inset(50%)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Search models
+          </label>
           <input
+            id={`model-search-${slug}`}
+            aria-label="Search models"
             autoFocus
-            placeholder="Search models…"
+            placeholder="Search models"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Escape") setOpen(false);
             }}
-            style={{ ...inputStyle, padding: "8px 10px", fontSize: 13 }}
+            style={{ fontSize: 13 }}
           />
 
-          {error && <div style={{ ...subtleTextStyle, color: "var(--danger, #d64545)", fontSize: 12 }}>{error}</div>}
+          {error && <div className="field-error">{error}</div>}
 
-          {nous?.warning && !guestLimited && (
-            <div style={{ ...subtleTextStyle, fontSize: 12 }}>{nous.warning}</div>
-          )}
+          {nous?.warning && !guestLimited && <div className="meta">{nous.warning}</div>}
           {!nous?.warning && nous?.pricing_pending && (
-            <div style={{ ...subtleTextStyle, fontSize: 12 }}>
+            <div className="meta">
               Refreshing model prices — everything stays locked until pricing arrives.
             </div>
           )}
 
           {guestLimited && sign.phase !== "waiting" && (
-            <div
-              style={{
-                fontSize: 12,
-                color: "var(--text-muted)",
-                background: "rgba(42,109,244,0.07)",
-                border: "1px solid rgba(42,109,244,0.18)",
-                borderRadius: 8,
-                padding: "8px 10px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 8,
-              }}
-            >
-              <span>Guest tier: only the welcome model. Sign in for the full free catalog.</span>
+            <div className="machine-block" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 12 }}>
+              <span>
+                <span className="lamp lamp-machine">Guest tier</span> only the welcome model. Sign
+                in for the full free catalog.
+              </span>
               <button
                 type="button"
+                className="machine sm"
                 onClick={() => void startSignIn()}
-                style={{
-                  background: "var(--accent)",
-                  borderColor: "var(--accent)",
-                  color: "#fff",
-                  fontSize: 12,
-                  padding: "4px 10px",
-                  borderRadius: 6,
-                  whiteSpace: "nowrap",
-                }}
+                style={{ whiteSpace: "nowrap" }}
               >
-                {sign.phase === "done" && !sign.message ? "Signed in ✓" : "Sign in"}
+                {sign.phase === "done" && !sign.message ? "Signed in" : "Sign in"}
               </button>
             </div>
           )}
 
           {sign.phase === "waiting" && (
-            <div style={{ fontSize: 12.5, display: "flex", flexDirection: "column", gap: 4 }}>
+            <div className="machine-block" style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12.5 }}>
               {sign.link ? (
                 <>
-                  <a href={sign.link} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
+                  <a href={sign.link} target="_blank" rel="noreferrer" className="data">
                     {sign.link}
                   </a>
                   <span>
-                    Enter code: <strong style={{ fontFamily: "monospace", fontSize: 15 }}>{sign.code}</strong>
+                    Enter code{" "}
+                    <strong className="data" style={{ fontSize: 15 }}>
+                      {sign.code}
+                    </strong>
                   </span>
-                  <span style={subtleTextStyle}>Waiting for approval…</span>
+                  <span className="lamp lamp-machine">Waiting for approval</span>
                 </>
               ) : (
-                <span style={subtleTextStyle}>Starting sign-in…</span>
+                <span className="lamp lamp-machine">Starting sign-in</span>
               )}
             </div>
           )}
 
-          {sign.phase === "done" && sign.message && (
-            <div style={{ ...subtleTextStyle, fontSize: 12 }}>{sign.message}</div>
-          )}
+          {sign.phase === "done" && sign.message && <div className="meta">{sign.message}</div>}
 
-          <div style={{ maxHeight: 300, overflowY: "auto", display: "flex", flexDirection: "column" }}>
-            {loading && rows.length === 0 && <div style={subtleTextStyle}>Loading models…</div>}
+          <div
+            role="listbox"
+            aria-label="Available models"
+            style={{ maxHeight: 300, overflowY: "auto", display: "flex", flexDirection: "column" }}
+          >
+            {loading && rows.length === 0 && <div className="meta">Loading models…</div>}
             {!loading && filtered.length === 0 && !currentMissing && (
-              <div style={subtleTextStyle}>No models match “{query}”.</div>
+              <div className="meta">Nothing matches “{query}”.</div>
             )}
             {currentMissing && value && (
               <Row
@@ -346,45 +366,40 @@ export function ModelSelector({
             })}
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <span style={{ ...subtleTextStyle, fontSize: 11.5, marginTop: 0 }}>
-              {loading ? "Loading…" : `${total} models`}
-              {q ? ` · ${filtered.length} shown` : ""}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+              borderTop: "1px solid var(--line-soft)",
+              paddingTop: 8,
+            }}
+          >
+            <span className="meta">
+              <span className="data">{loading ? "—" : total}</span> models
+              {q ? ` / ${filtered.length} shown` : ""}
             </span>
             <div style={{ display: "flex", gap: 6 }}>
               {value && (
                 <button
                   type="button"
+                  className="ghost sm"
                   onClick={() => {
                     onChange(null, null);
                     setOpen(false);
                   }}
-                  style={{
-                    background: "transparent",
-                    borderColor: "var(--border)",
-                    color: "var(--text-muted)",
-                    fontSize: 12,
-                    padding: "4px 10px",
-                    borderRadius: 6,
-                  }}
                 >
-                  Gateway default
+                  Use gateway default
                 </button>
               )}
               <button
                 type="button"
+                className="sm"
                 onClick={() => void load(true)}
                 disabled={refreshing}
-                style={{
-                  background: "var(--surface)",
-                  borderColor: "var(--border)",
-                  color: "var(--text)",
-                  fontSize: 12,
-                  padding: "4px 10px",
-                  borderRadius: 6,
-                }}
               >
-                {refreshing ? "Refreshing…" : "↻ Refresh models"}
+                {refreshing ? "Refreshing…" : "Refresh models"}
               </button>
             </div>
           </div>
@@ -409,9 +424,12 @@ function Row({
   onClick: () => void;
   title?: string;
 }) {
+  const priced = row.pricing?.free !== true && (row.pricing?.input || row.pricing?.output);
   return (
     <button
       type="button"
+      role="option"
+      aria-selected={current}
       data-model={row.model}
       title={title ?? (dim ? `${row.provider} is not configured` : undefined)}
       onClick={() => {
@@ -423,48 +441,53 @@ function Row({
         alignItems: "center",
         gap: 8,
         padding: "7px 8px",
-        background: current ? "rgba(42,109,244,0.12)" : "transparent",
+        background: current ? "var(--accent-subtle)" : "transparent",
         border: "none",
-        borderRadius: 6,
         cursor: blocked ? "not-allowed" : "pointer",
         textAlign: "left",
         width: "100%",
-        opacity: dim && !current ? 0.5 : 1,
-      }}
-      onMouseEnter={(e) => {
-        if (!current) e.currentTarget.style.background = "var(--surface-hover, rgba(127,127,127,0.1))";
-      }}
-      onMouseLeave={(e) => {
-        if (!current) e.currentTarget.style.background = "transparent";
+        opacity: dim && !current ? 0.55 : 1,
       }}
     >
-      <span style={{ width: 14, flexShrink: 0, color: "var(--accent)", fontSize: 12 }}>
-        {current ? "✓" : ""}
+      <span style={{ width: 14, flexShrink: 0, color: "var(--accent)", display: "inline-flex" }}>
+        {current && (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m20 6-11 11-5-5" />
+          </svg>
+        )}
       </span>
       <span
+        className="data"
         style={{
-          fontFamily: "monospace",
           fontSize: 12.5,
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
           flex: 1,
+          minWidth: 0,
         }}
       >
         {row.model}
       </span>
-      {row.caps?.reasoning && <Chip>think</Chip>}
-      {row.caps?.fast && <Chip>fast</Chip>}
-      {row.pricing?.free === true && <Chip tone="ok">free</Chip>}
-      {row.pricing?.free === false && (
-        <Chip title={`Paid — ${row.pricing?.input ?? "?"}/M in, ${row.pricing?.output ?? "?"}/M out`}>$</Chip>
+      {row.caps?.reasoning && <Flag>think</Flag>}
+      {row.caps?.fast && <Flag>fast</Flag>}
+      {row.pricing?.free === true && <span className="lamp lamp-ok">Free</span>}
+      {priced && (
+        <span
+          className="data"
+          style={{ fontSize: 10.5, color: "var(--ink-3)", flexShrink: 0 }}
+          title={`Paid — ${row.pricing?.input ?? "?"} in, ${row.pricing?.output ?? "?"} out, per million tokens`}
+        >
+          {row.pricing?.input ?? "?"}/{row.pricing?.output ?? "?"}
+        </span>
       )}
+      {row.authenticated === false && !blocked && <span className="lamp lamp-idle">No auth</span>}
+      {blocked && <span className="lamp lamp-warn">Needs credits</span>}
       <span
+        className="meta"
         style={{
-          fontSize: 11,
-          color: "var(--text-muted)",
           flexShrink: 0,
-          maxWidth: 130,
+          maxWidth: 110,
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
@@ -476,30 +499,16 @@ function Row({
   );
 }
 
-function Chip({
-  children,
-  tone,
-  title,
-}: {
-  children: React.ReactNode;
-  tone?: "ok";
-  title?: string;
-}) {
+// A capability note, not a status: quiet hairline chip, sentence case.
+function Flag({ children }: { children: React.ReactNode }) {
   return (
     <span
-      title={title}
       style={{
-        fontSize: 10,
-        fontWeight: 600,
-        textTransform: "uppercase",
-        letterSpacing: "0.04em",
-        padding: "2px 6px",
-        borderRadius: 999,
-        background:
-          tone === "ok"
-            ? "rgba(52,168,83,0.16)"
-            : "var(--surface-hover, rgba(127,127,127,0.15))",
-        color: tone === "ok" ? "var(--success, #34a853)" : "var(--text-muted)",
+        fontSize: 10.5,
+        color: "var(--ink-3)",
+        border: "1px solid var(--line)",
+        padding: "1px 5px",
+        borderRadius: "var(--r-xs)",
         flexShrink: 0,
       }}
     >

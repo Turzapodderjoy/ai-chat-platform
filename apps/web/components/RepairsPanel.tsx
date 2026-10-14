@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 
-import { cardStyle, subtleTextStyle, primaryButtonStyle, badgeStyle, shortId, type BadgeTone } from "./dashboard-styles";
 import { MarkdownMessage } from "./MarkdownMessage";
 import { OrderItemsEditor } from "./OrderManagementPanel";
 import { isNewAppointment, dismissNotification, onNotificationsChanged } from "../lib/appointment-notifications";
@@ -63,38 +63,23 @@ const STATUS_OPTIONS = ["booked", "received", "in_repair", "ready", "completed",
 const STATUS_LABEL: Record<string, string> = {
   booked: "New",
   received: "Received",
-  in_repair: "In Repair",
+  in_repair: "In repair",
   ready: "Ready",
   completed: "Completed",
   cancelled: "Cancelled",
 };
 
-const STATUS_TONE: Record<string, BadgeTone> = {
-  booked: "info",
-  received: "info",
-  in_repair: "warn",
-  ready: "warn",
-  completed: "ok",
-  cancelled: "error",
+// Repair status is a bay lamp, never a badge or a coloured pill.
+const STATUS_LAMP: Record<string, string> = {
+  booked: "lamp-info",
+  received: "lamp-idle",
+  in_repair: "lamp-warn",
+  ready: "lamp-ok",
+  completed: "lamp-ok",
+  cancelled: "lamp-err",
 };
 
 const KANBAN_STATUSES = ["booked", "received", "in_repair", "ready", "completed"] as const;
-
-const KANBAN_COLORS: Record<string, string> = {
-  booked: "#2dd4bf",
-  received: "#0ea5e9",
-  in_repair: "#f59e0b",
-  ready: "#10b981",
-  completed: "#6b7280",
-};
-
-const KANBAN_ICONS: Record<string, string> = {
-  booked: "📥",
-  received: "📦",
-  in_repair: "🔧",
-  ready: "✅",
-  completed: "🏁",
-};
 
 const PRIORITY_OPTIONS = ["low", "normal", "high", "urgent"] as const;
 
@@ -105,25 +90,304 @@ const PRIORITY_LABEL: Record<string, string> = {
   urgent: "Urgent",
 };
 
-const PRIORITY_TONE: Record<string, BadgeTone> = {
-  low: "neutral",
-  normal: "info",
-  high: "warn",
-  urgent: "error",
+const PRIORITY_LAMP: Record<string, string> = {
+  low: "lamp-idle",
+  normal: "lamp-idle",
+  high: "lamp-warn",
+  urgent: "lamp-err",
 };
 
-const PRIORITY_BORDER: Record<string, string> = {
-  low: "#6b7280",
-  normal: "#2dd4bf",
-  high: "#f59e0b",
-  urgent: "#ef4444",
+// The card's left accent bar carries priority, so urgency is legible at a
+// glance across the whole board. Semantic only — neutral tones for the
+// default priorities, never a colour for its own sake.
+const PRIORITY_EDGE: Record<string, string> = {
+  low: "var(--line)",
+  normal: "var(--line)",
+  high: "var(--warning)",
+  urgent: "var(--danger)",
 };
 
-const PRIORITY_DOT: Record<string, string> = {
-  low: "#6b7280",
-  normal: "#2dd4bf",
-  high: "#f59e0b",
-  urgent: "#ef4444",
+// ——— shared layout constants ———————————————————————————————————————
+
+const listStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  flex: 1,
+  minHeight: 0,
+  background: "var(--canvas)",
+  overflow: "hidden",
+  position: "relative",
+};
+
+const headRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  flexWrap: "wrap",
+};
+
+const headTitleStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "baseline",
+  gap: 10,
+  minWidth: 0,
+};
+
+const cardStyle: CSSProperties = {
+  padding: "12px 14px",
+  marginBottom: 8,
+  borderRadius: "var(--r-sm)",
+  border: "1px solid var(--line)",
+  cursor: "pointer",
+  background: "var(--panel)",
+  transition: "background var(--dur-state) ease, border-color var(--dur-state) ease",
+};
+
+const cardSelectedStyle: CSSProperties = {
+  ...cardStyle,
+  background: "var(--accent-subtle)",
+  borderColor: "var(--accent)",
+  boxShadow: "inset 2px 0 0 var(--accent)",
+};
+
+const chipRowStyle: CSSProperties = {
+  display: "flex",
+  gap: 8,
+  alignItems: "center",
+  marginBottom: 8,
+  flexWrap: "wrap",
+};
+
+// Source markers (walk-in, website, counter) are facts, not statuses —
+// quiet ink on a sunk well rather than three competing colours.
+const chipStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 5,
+  padding: "1px 7px",
+  borderRadius: "var(--r-xs)",
+  background: "var(--panel-sunk)",
+  border: "1px solid var(--line-soft)",
+  color: "var(--ink-2)",
+  fontSize: 11,
+  fontWeight: 500,
+};
+
+const cardTitleStyle: CSSProperties = {
+  fontWeight: 600,
+  fontSize: 13.5,
+  color: "var(--ink)",
+  marginBottom: 2,
+};
+
+const cardIssueStyle: CSSProperties = {
+  fontSize: 12,
+  color: "var(--ink-3)",
+  marginBottom: 10,
+  lineHeight: 1.45,
+  display: "-webkit-box",
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: "vertical",
+  overflow: "hidden",
+};
+
+const cardFootStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 8,
+  flexWrap: "wrap",
+};
+
+const cardActionsStyle: CSSProperties = {
+  display: "flex",
+  gap: 6,
+  marginTop: 10,
+  paddingTop: 10,
+  borderTop: "1px solid var(--line-soft)",
+};
+
+const cardActionStyle: CSSProperties = { flex: 1 };
+
+const calendarGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(7, 1fr)",
+  gap: 3,
+};
+
+const dayCellStyle: CSSProperties = {
+  aspectRatio: "1",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: "var(--r-xs)",
+  border: "1px solid transparent",
+  color: "var(--ink)",
+};
+
+const boardScrollStyle: CSSProperties = {
+  display: "flex",
+  gap: 12,
+  overflowX: "auto",
+  paddingBottom: 8,
+  flex: 1,
+  minHeight: 0,
+};
+
+const columnStyle: CSSProperties = {
+  minWidth: 280,
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+};
+
+const columnHeadStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  marginBottom: 10,
+  paddingBottom: 8,
+  borderBottom: "1px solid var(--line)",
+};
+
+const columnBodyStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  flex: 1,
+  overflowY: "auto",
+  background: "var(--panel-sunk)",
+  borderRadius: "var(--r-sm)",
+  padding: 6,
+  border: "1px solid var(--line-soft)",
+  minHeight: 100,
+};
+
+// Segmented control — the selected segment is unmistakable: cobalt fill,
+// white label, hairline lifted off its neighbours.
+const segmentGroupStyle: CSSProperties = {
+  display: "inline-flex",
+  padding: 2,
+  gap: 2,
+  background: "var(--panel-sunk)",
+  border: "1px solid var(--line)",
+  borderRadius: "var(--r-sm)",
+};
+
+const segmentOnStyle: CSSProperties = {
+  background: "var(--accent)",
+  borderColor: "var(--accent)",
+  color: "var(--accent-ink)",
+  fontWeight: 600,
+};
+
+const segmentOffStyle: CSSProperties = {
+  background: "transparent",
+  borderColor: "transparent",
+  color: "var(--ink-2)",
+};
+
+const iconButtonStyle: CSSProperties = {
+  width: 32,
+  height: 32,
+  padding: 0,
+  flexShrink: 0,
+};
+
+const drawerStyle: CSSProperties = {
+  position: "fixed",
+  top: 0,
+  right: 0,
+  bottom: 0,
+  width: "60%",
+  minWidth: 500,
+  maxWidth: 800,
+  zIndex: 100,
+  background: "var(--canvas)",
+  borderLeft: "1px solid var(--line)",
+  display: "flex",
+  flexDirection: "column",
+  boxShadow: "var(--shadow-pop)",
+};
+
+const drawerBodyStyle: CSSProperties = { flex: 1, overflowY: "auto", padding: 16 };
+
+const specGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 190px), 1fr))",
+  gap: 1,
+  marginBottom: 18,
+  background: "var(--line-soft)",
+  border: "1px solid var(--line)",
+  borderRadius: "var(--r-sm)",
+  overflow: "hidden",
+};
+
+const specCellStyle: CSSProperties = {
+  padding: "9px 12px",
+  background: "var(--panel)",
+  minWidth: 0,
+};
+
+const threadStyle: CSSProperties = {
+  border: "1px solid var(--line)",
+  borderRadius: "var(--r-sm)",
+  overflow: "hidden",
+};
+
+const threadScrollStyle: CSSProperties = {
+  minHeight: 200,
+  maxHeight: 400,
+  overflowY: "auto",
+  padding: 12,
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+  background: "var(--canvas)",
+};
+
+const bubbleShellStyle: CSSProperties = { maxWidth: "80%", display: "flex", flexDirection: "column", gap: 4 };
+
+// Customer = sunk well. Staff = raised panel with a cobalt edge. AI/agent =
+// the amber machine block. Three authors, three signatures.
+const bubbleCustomerStyle: CSSProperties = {
+  background: "var(--panel-sunk)",
+  border: "1px solid var(--line)",
+  borderRadius: "var(--r-sm)",
+  padding: "8px 11px",
+  fontSize: 13,
+  color: "var(--ink)",
+};
+
+const bubbleStaffStyle: CSSProperties = {
+  background: "var(--panel)",
+  border: "1px solid var(--accent-line)",
+  borderRadius: "var(--r-sm)",
+  padding: "8px 11px",
+  fontSize: 13,
+  color: "var(--ink)",
+};
+
+const bubbleMachineStyle: CSSProperties = {
+  ...bubbleStaffStyle,
+  background: "var(--machine-subtle)",
+  borderColor: "var(--machine-line)",
+  color: "var(--ink)",
+};
+
+const bubbleMetaStyle: CSSProperties = { fontSize: 11, color: "var(--ink-4)" };
+
+const toastStyle: CSSProperties = {
+  position: "fixed",
+  bottom: 24,
+  right: 24,
+  zIndex: 200,
+  width: 320,
+  background: "var(--panel)",
+  border: "1px solid var(--line)",
+  borderRadius: "var(--r-md)",
+  boxShadow: "var(--shadow-pop)",
+  padding: 16,
 };
 
 function dateKey(iso: string): string {
@@ -529,117 +793,88 @@ export function RepairsPanel({ businessId, active = true, accountRole }: { busin
   function renderAppointmentCard(a: Appointment) {
     const isNew = !!businessId && isNewAppointment(businessId, a.id);
     const tech = a.technicianId ? staffMap.get(a.technicianId) : null;
+    const isSelected = selectedId === a.id;
+    const priorityEdge = isSelected ? "var(--accent)" : PRIORITY_EDGE[a.priority] ?? "var(--line)";
+    const sourceLabel =
+      a.isWalkIn && a.source?.startsWith("walk-in (")
+        ? `Walk-in (${a.source.slice(9, -1)})`
+        : a.source === "website"
+          ? "Website"
+          : a.source && !a.source.startsWith("walk-in")
+            ? a.source
+            : a.isWalkIn
+              ? "Walk-in"
+              : null;
     return (
       <div
         key={a.id}
+        role="button"
+        tabIndex={0}
+        aria-pressed={isSelected}
         onClick={() => openAppointment(a)}
-        style={{
-          padding: "12px 14px",
-          marginBottom: 8,
-          borderRadius: "var(--radius-sm)",
-          border: `1px solid ${selectedId === a.id ? "var(--accent)" : "var(--border)"}`,
-          borderLeft: `3px solid ${PRIORITY_BORDER[a.priority] ?? "#2dd4bf"}`,
-          cursor: "pointer",
-          background: selectedId === a.id ? "var(--surface-hover)" : isNew ? "rgba(99,102,241,0.05)" : "var(--surface)",
-          transition: "all 0.15s",
-          boxShadow: selectedId === a.id ? "0 0 0 1px var(--accent)" : "none",
-        }}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openAppointment(a); } }}
+        style={{ ...(isSelected ? cardSelectedStyle : cardStyle), boxShadow: isSelected ? "inset 2px 0 0 var(--accent)" : `inset 2px 0 0 ${priorityEdge}` }}
       >
-        {/* Top row: badges */}
-        <div style={{ display: "flex", gap: 4, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
-          {a.isWalkIn && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "#f97316", color: "#fff", fontSize: 10, fontWeight: 600 }}>
-              🚶 Walk-in{a.source?.startsWith("walk-in (") ? ` — ${a.source.slice(9, -1)}` : ""}
-            </span>
+        {/* Status lamp + provenance */}
+        <div style={chipRowStyle}>
+          <span className={`lamp ${STATUS_LAMP[a.status] ?? "lamp-idle"}`}>{STATUS_LABEL[a.status] ?? a.status}</span>
+          {isNew && <span className="lamp lamp-info">New</span>}
+          {a.rescheduleRequested && <span className="lamp lamp-warn">Reschedule requested</span>}
+          {a.cancelRequested && <span className="lamp lamp-err">Cancel requested</span>}
+          {a.priority && a.priority !== "normal" && (
+            <span className={`lamp ${PRIORITY_LAMP[a.priority] ?? "lamp-idle"}`}>{PRIORITY_LABEL[a.priority]} priority</span>
           )}
-           {!a.isWalkIn && a.source === "website" && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "#0d9488", color: "#fff", fontSize: 10, fontWeight: 600 }}>
-              🌐 Website
-            </span>
-          )}
-          {!a.isWalkIn && a.source && a.source !== "website" && !a.source.startsWith("walk-in") && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "#0d9488", color: "#fff", fontSize: 10, fontWeight: 600 }}>
-              👤 {a.source}
-            </span>
-          )}
-          {a.serialNumber && <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)" }}>{a.serialNumber}</span>}
-          {isNew && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "var(--accent)", color: "#fff", fontSize: 10, fontWeight: 600 }}>New</span>}
-          {a.rescheduleRequested && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "var(--warning)", color: "#fff", fontSize: 10, fontWeight: 600 }}>Reschedule</span>}
-          {a.cancelRequested && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 4, background: "var(--danger)", color: "#fff", fontSize: 10, fontWeight: 600 }}>Cancel</span>}
         </div>
 
-        {/* Title */}
-        <div style={{ fontWeight: 600, fontSize: 13, color: "var(--text)", marginBottom: 4 }}>
-          {a.customerName}
+        {/* Customer + device */}
+        <div style={cardTitleStyle}>{a.customerName}</div>
+        <div className="meta" style={{ marginBottom: 6 }}>
+          {a.deviceType}
+          {a.deviceModel ? ` ${a.deviceModel}` : ""}
         </div>
-
-        {/* Device info */}
-        <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 6 }}>
-          {a.deviceType}{a.deviceModel ? ` — ${a.deviceModel}` : ""}
-        </div>
+        {a.serialNumber && (
+          <div className="data" style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 6 }}>
+            {a.serialNumber}
+          </div>
+        )}
+        {sourceLabel && (
+          <div style={{ marginBottom: 6 }}>
+            <span style={chipStyle}>{sourceLabel}</span>
+          </div>
+        )}
 
         {/* Issue preview */}
-        <div style={{ fontSize: 11.5, color: "var(--text-secondary)", marginBottom: 8, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-          {a.issueDescription}
+        <div style={cardIssueStyle}>{a.issueDescription}</div>
+
+        {/* Footer: technician + age */}
+        <div style={cardFootStyle}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flexWrap: "wrap" }}>
+            {tech ? <span className="meta">{tech.name}</span> : <span className="meta">Unassigned</span>}
+          </div>
+          <span className="data meta" title={a.appointmentDate}>{timeAgo(a.appointmentDate)}</span>
         </div>
 
-        {/* Bottom row: meta */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--text-faint)" }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-              {KANBAN_ICONS[a.status] ?? "📋"}
-              {STATUS_LABEL[a.status]}
-            </span>
-            {tech && (
-              <span style={{ display: "flex", alignItems: "center", gap: 3, padding: "1px 6px", borderRadius: 4, background: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--accent)" }} />
-                {tech.name}
-              </span>
-            )}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            {a.priority && a.priority !== "normal" && (
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: PRIORITY_DOT[a.priority] }} title={PRIORITY_LABEL[a.priority]} />
-            )}
-            <span style={{ fontSize: 10, color: "var(--text-faint)" }}>
-              {timeAgo(a.appointmentDate)}
-            </span>
-          </div>
-        </div>
-
-        {/* Quick action buttons */}
+        {/* Quick actions — one button per column, labelled for what happens */}
         {a.status !== "completed" && a.status !== "cancelled" && (
-          <div style={{ display: "flex", gap: 4, marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border-subtle)" }}>
+          <div style={cardActionsStyle}>
             {a.status === "booked" && (
-              <button
-                onClick={(e) => { e.stopPropagation(); updateStatus(a.id, "received"); }}
-                style={{ flex: 1, fontSize: 11, padding: "6px 12px", border: "1px solid var(--accent)", borderRadius: 4, background: "var(--accent-subtle)", cursor: "pointer", color: "var(--accent)", fontWeight: 600, fontFamily: "inherit" }}
-              >
-                Mark Received
+              <button className="primary sm" style={cardActionStyle} onClick={(e) => { e.stopPropagation(); updateStatus(a.id, "received"); }}>
+                Mark received
               </button>
             )}
             {a.status === "received" && (
-              <button
-                onClick={(e) => { e.stopPropagation(); updateStatus(a.id, "in_repair"); }}
-                style={{ flex: 1, fontSize: 11, padding: "6px 12px", border: "1px solid var(--accent)", borderRadius: 4, background: "var(--accent-subtle)", cursor: "pointer", color: "var(--accent)", fontWeight: 600, fontFamily: "inherit" }}
-              >
-                Start Repair
+              <button className="primary sm" style={cardActionStyle} onClick={(e) => { e.stopPropagation(); updateStatus(a.id, "in_repair"); }}>
+                Start repair
               </button>
             )}
             {a.status === "in_repair" && (
-              <button
-                onClick={(e) => { e.stopPropagation(); updateStatus(a.id, "ready"); }}
-                style={{ flex: 1, fontSize: 11, padding: "6px 12px", border: "1px solid #10b981", borderRadius: 4, background: "rgba(16,185,129,0.1)", cursor: "pointer", color: "#10b981", fontWeight: 600, fontFamily: "inherit" }}
-              >
-                Mark Ready
+              <button className="primary sm" style={cardActionStyle} onClick={(e) => { e.stopPropagation(); updateStatus(a.id, "ready"); }}>
+                Mark ready
               </button>
             )}
             {a.status === "ready" && (
-              <button
-                onClick={(e) => { e.stopPropagation(); updateStatus(a.id, "completed"); }}
-                style={{ flex: 1, fontSize: 11, padding: "6px 12px", border: "1px solid #6b7280", borderRadius: 4, background: "rgba(107,114,128,0.1)", cursor: "pointer", color: "#6b7280", fontWeight: 600, fontFamily: "inherit" }}
-              >
-                Complete
+              <button className="primary sm" style={cardActionStyle} onClick={(e) => { e.stopPropagation(); updateStatus(a.id, "completed"); }}>
+                Complete repair
               </button>
             )}
           </div>
@@ -649,165 +884,201 @@ export function RepairsPanel({ businessId, active = true, accountRole }: { busin
   }
 
   return (
-    <section style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, background: "var(--bg)", overflow: "hidden", position: "relative" }}>
-      {/* Header */}
-      <div style={{ padding: "16px 20px 0", flexShrink: 0 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--text)" }}>Repairs</h2>
-            <p style={{ margin: 0, fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Track repairs from intake to completion</p>
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {businessId && (
-              <button
-                onClick={() => setWalkInOpen(true)}
-                style={{ padding: "6px 12px", fontSize: 12, border: "1px solid #f97316", borderRadius: "var(--radius-sm)", background: "#f97316", color: "#fff", cursor: "pointer", fontWeight: 600, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5 }}
-              >
-                🚶 Walk-in
-              </button>
-            )}
+    <section style={listStyle}>
+      {/* Panel head — instrument label plus the board controls */}
+      <div className="panel-head" style={{ flexWrap: "wrap", rowGap: 8 }}>
+        <div style={headTitleStyle}>
+          <span className="instrument-label">Repairs</span>
+          <span className="meta">
+            {appointments === null ? "Loading work orders" : `${visibleAppointments.length} of ${appointments.length} shown`}
+          </span>
+        </div>
+        <div style={headRowStyle}>
+          {businessId && (
+            <button className="sm" onClick={() => setWalkInOpen(true)}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="5.4" r="1.8" />
+                <path d="M9 20.2 10.6 15l2.6 2.6M9 20.2h4.3M14 15.2 15.2 13l-1-3.3" />
+                <path d="M6.4 12.2 4 15.6l3.4 1.4M17.6 12.2 20 15.6l-3.4 1.4" />
+              </svg>
+              Walk-in
+            </button>
+          )}
+          <div style={segmentGroupStyle} role="group" aria-label="Repairs view">
             <button
+              className="sm"
               onClick={() => setViewMode("kanban")}
-              style={{
-                padding: "6px 12px",
-                fontSize: 12,
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius-sm)",
-                background: viewMode === "kanban" ? "var(--accent-subtle)" : "var(--surface)",
-                cursor: "pointer",
-                color: viewMode === "kanban" ? "var(--accent)" : "var(--text-muted)",
-                fontWeight: viewMode === "kanban" ? 600 : 400,
-                fontFamily: "inherit",
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-              }}
+              aria-pressed={viewMode === "kanban"}
+              style={viewMode === "kanban" ? segmentOnStyle : segmentOffStyle}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="6" height="10" x="3" y="2" rx="1"/><rect width="6" height="10" x="15" y="2" rx="1"/><rect width="6" height="10" x="9" y="8" rx="1"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect width="6" height="10" x="3" y="2" rx="1" /><rect width="6" height="10" x="15" y="2" rx="1" /><rect width="6" height="10" x="9" y="8" rx="1" />
+              </svg>
               Board
             </button>
             <button
+              className="sm"
               onClick={() => setViewMode("list")}
-              style={{
-                padding: "6px 12px",
-                fontSize: 12,
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius-sm)",
-                background: viewMode === "list" ? "var(--accent-subtle)" : "var(--surface)",
-                cursor: "pointer",
-                color: viewMode === "list" ? "var(--accent)" : "var(--text-muted)",
-                fontWeight: viewMode === "list" ? 600 : 400,
-                fontFamily: "inherit",
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-              }}
+              aria-pressed={viewMode === "list"}
+              style={viewMode === "list" ? segmentOnStyle : segmentOffStyle}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <line x1="8" x2="21" y1="6" y2="6" /><line x1="8" x2="21" y1="12" y2="12" /><line x1="8" x2="21" y1="18" y2="18" />
+                <line x1="3" x2="3.01" y1="6" y2="6" /><line x1="3" x2="3.01" y1="12" y2="12" /><line x1="3" x2="3.01" y1="18" y2="18" />
+              </svg>
               List
             </button>
-            {businessId && (
-              <button
-                onClick={() => setEmailSettingsOpen((o) => !o)}
-                style={{ padding: "6px 8px", fontSize: 12, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--surface)", cursor: "pointer", color: "var(--text-muted)", fontFamily: "inherit" }}
-                title="Email Settings"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-              </button>
-            )}
           </div>
+          {businessId && (
+            <button
+              className="ghost sm"
+              onClick={() => setEmailSettingsOpen((o) => !o)}
+              aria-expanded={emailSettingsOpen}
+              aria-label="Booking email settings"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Email Settings */}
+      {/* Email settings */}
       {emailSettingsOpen && businessId && (
-        <div style={{ marginBottom: 16, padding: 14, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--surface)" }}>
-          <p style={{ ...subtleTextStyle, marginBottom: 8 }}>
-            Booking-confirmation emails are sent through a shared service but shown as coming from this business.
+        <div className="panel-sunk" style={{ margin: "12px 16px 0", padding: 14 }}>
+          <p className="meta" style={{ margin: "0 0 12px" }}>
+            Booking confirmations go out through a shared service and arrive in your business name.
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10, marginBottom: 10 }}>
-            <input placeholder="From name (e.g. PhoneRepairZoneAZ)" value={fromName} onChange={(e) => setFromName(e.target.value)} style={{ padding: 8, fontSize: 12 }} />
-            <input placeholder="From email (e.g. noreply@yourdomain.com)" value={fromEmail} onChange={(e) => setFromEmail(e.target.value)} style={{ padding: 8, fontSize: 12 }} />
-            <input placeholder="Tracking page URL (optional)" value={trackingPageUrl} onChange={(e) => setTrackingPageUrl(e.target.value)} style={{ padding: 8, fontSize: 12 }} />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 210px), 1fr))", gap: 12, marginBottom: 12 }}>
+            <div className="field">
+              <label className="field-label" htmlFor="repair-from-name">From name</label>
+              <input id="repair-from-name" placeholder="PhoneRepairZoneAZ" value={fromName} onChange={(e) => setFromName(e.target.value)} />
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="repair-from-email">From email</label>
+              <input id="repair-from-email" type="email" placeholder="noreply@yourdomain.com" value={fromEmail} onChange={(e) => setFromEmail(e.target.value)} />
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="repair-tracking-url">Tracking page URL</label>
+              <input id="repair-tracking-url" type="url" placeholder="Optional" value={trackingPageUrl} onChange={(e) => setTrackingPageUrl(e.target.value)} />
+            </div>
           </div>
-          <button onClick={saveEmailSettings} disabled={savingEmailSettings || !fromName.trim() || !fromEmail.trim()} style={{ ...primaryButtonStyle, fontSize: 12 }}>
-            {savingEmailSettings ? "Saving…" : "Save"}
+          <button className="primary sm" onClick={saveEmailSettings} disabled={savingEmailSettings || !fromName.trim() || !fromEmail.trim()}>
+            {savingEmailSettings ? "Saving" : "Save email settings"}
           </button>
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        <input
-          type="search"
-          name="aiva-search-repairs"
-          autoComplete="off"
-          // minWidth: 0 overrides the flex item default of min-width: auto
-          // (an input's own min-content floor) -- without it, a sibling
-          // with no flex-basis of its own (the sort <select>) can end up
-          // claiming nearly all the row's width and squeezing this down
-          // to ~18px, confirmed live: the search box was rendering as a
-          // near-invisible sliver next to a huge dropdown.
-          style={{ padding: 8, flex: 1, minWidth: 0, fontSize: 12 }}
-          placeholder="Search by name, phone, device, issue, serial/order ID…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <select
-          value={sortOrder}
-          onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")}
-          style={{ padding: 8, fontSize: 12, flexShrink: 0, width: "auto" }}
-        >
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
-        </select>
+      {/* Toolbar — search, sort, and the board date window */}
+      <div className="toolbar" style={{ margin: 0, padding: "12px 16px" }}>
+        <div style={{ display: "flex", gap: 8, flex: 1, minWidth: 0 }}>
+          <input
+            type="search"
+            name="aiva-search-repairs"
+            autoComplete="off"
+            aria-label="Search work orders"
+            // minWidth: 0 overrides the flex item default of min-width: auto
+            // (an input's own min-content floor) -- without it, a sibling
+            // with no flex-basis of its own (the sort <select>) can end up
+            // claiming nearly all the row's width and squeezing this down
+            // to ~18px, confirmed live: the search box was rendering as a
+            // near-invisible sliver next to a huge dropdown.
+            style={{ flex: 1, minWidth: 0 }}
+            placeholder="Name, phone, device, issue, serial or order ID"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <select
+            aria-label="Sort work orders"
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")}
+            style={{ flexShrink: 0, width: "auto" }}
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+          </select>
+        </div>
+        {viewMode === "kanban" && (
+          <div style={segmentGroupStyle} role="group" aria-label="Board date window">
+            <button
+              className="sm"
+              onClick={() => setBoardDateFilter("3day")}
+              aria-pressed={boardDateFilter === "3day"}
+              style={boardDateFilter === "3day" ? segmentOnStyle : segmentOffStyle}
+            >
+              Yesterday to tomorrow
+            </button>
+            <button
+              className="sm"
+              onClick={() => setBoardDateFilter("all")}
+              aria-pressed={boardDateFilter === "all"}
+              style={boardDateFilter === "all" ? segmentOnStyle : segmentOffStyle}
+            >
+              All dates
+            </button>
+          </div>
+        )}
       </div>
 
+      {/* Board body */}
+      <div style={{ padding: "0 16px 16px", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       {!viewMode.includes("kanban") && (
-        <div style={{ display: "flex", gap: 20, marginBottom: 20, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 20, flex: 1, minHeight: 0, flexWrap: "wrap" }}>
           <div style={{ width: isMobile ? "100%" : 280, flexShrink: isMobile ? 1 : 0, minWidth: isMobile ? 0 : 280 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <button onClick={() => setMonthOffset((m) => m - 1)}>‹</button>
-              <strong style={{ fontSize: 13 }}>{calendarMonth.label}</strong>
-              <button onClick={() => setMonthOffset((m) => m + 1)}>›</button>
+            <div className="panel-head" style={{ minHeight: 36, padding: "0 0 8px", borderBottom: "1px solid var(--line-soft)" }}>
+              <button className="ghost sm" onClick={() => setMonthOffset((m) => m - 1)} aria-label="Previous month">&lsaquo;</button>
+              <span className="instrument-label" style={{ margin: 0 }}>{calendarMonth.label}</span>
+              <button className="ghost sm" onClick={() => setMonthOffset((m) => m + 1)} aria-label="Next month">&rsaquo;</button>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3, fontSize: 10.5 }}>
+            <div style={{ ...calendarGridStyle, marginTop: 8 }}>
               {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-                <div key={i} style={{ textAlign: "center", color: "var(--text-faint)", fontWeight: 600 }}>{d}</div>
+                <div key={i} className="data meta" style={{ textAlign: "center" }}>{d}</div>
               ))}
               {calendarMonth.cells.map((c, i) => (
-                <div
+                <button
                   key={i}
+                  type="button"
+                  disabled={!c.day}
                   onClick={() => c.key && setCalendarDay(calendarDay === c.key ? null : c.key)}
+                  aria-pressed={c.key === calendarDay}
+                  aria-label={`${c.day ?? ""}${c.count ? `, ${c.count} booked` : ""}`}
                   style={{
-                    aspectRatio: "1",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderRadius: 6,
+                    ...dayCellStyle,
                     cursor: c.day ? "pointer" : "default",
-                    background: c.key === calendarDay ? "var(--accent-soft)" : "transparent",
-                    border: c.key === calendarMonth.todayKey ? "1px solid var(--accent)" : c.count > 0 ? "1px solid var(--border)" : "1px solid transparent",
-                    color: c.day ? "var(--text)" : "transparent",
+                    background: c.key === calendarDay ? "var(--accent-subtle)" : c.count > 0 ? "var(--panel-sunk)" : "transparent",
+                    borderColor: c.key === calendarDay ? "var(--accent)" : c.key === calendarMonth.todayKey ? "var(--line-strong)" : "transparent",
+                    color: c.day ? "var(--ink)" : "transparent",
                     fontWeight: c.key === calendarMonth.todayKey ? 700 : 400,
                   }}
                 >
-                  <span>{c.day ?? ""}</span>
-                  {c.count > 0 && <span style={{ width: 4, height: 4, borderRadius: 999, background: "var(--accent)", marginTop: 1 }} />}
-                </div>
+                  <span className="data" style={{ fontSize: 11.5 }}>{c.day ?? ""}</span>
+                  {c.count > 0 && <span className="data" style={{ fontSize: 9.5, color: "var(--ink-3)", lineHeight: 1 }}>{c.count}</span>}
+                </button>
               ))}
             </div>
             {calendarDay && (
-              <button onClick={() => setCalendarDay(null)} style={{ marginTop: 8, fontSize: 11, width: "100%" }}>
-                Clear date filter ({calendarDay})
+              <button className="ghost sm" onClick={() => setCalendarDay(null)} style={{ marginTop: 8, width: "100%" }}>
+                Clear date filter <span className="data">{calendarDay}</span>
               </button>
             )}
           </div>
 
           <div style={{ flex: 1, minWidth: isMobile ? 0 : 280 }}>
-            <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", maxHeight: 400, overflowY: "auto", padding: 6 }}>
-              {!appointments && <p style={{ padding: 10, ...subtleTextStyle }}>Loading…</p>}
-              {appointments && visibleAppointments.length === 0 && <p style={{ padding: 10, ...subtleTextStyle }}>No appointments match.</p>}
+            <div className="panel-scroll" style={{ maxHeight: 460, padding: 6, background: "var(--panel-sunk)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-sm)" }}>
+              {!appointments && (
+                <div style={{ padding: 12, background: "var(--panel)", borderRadius: "var(--r-sm)", border: "1px solid var(--line)" }}>
+                  <div className="skeleton skeleton-text" style={{ width: "45%" }} />
+                  <div className="skeleton skeleton-text" style={{ width: "70%" }} />
+                  <div className="skeleton skeleton-text" />
+                </div>
+              )}
+              {appointments && visibleAppointments.length === 0 && (
+                <div className="empty-state">
+                  <span className="empty-state-title">No work orders match this view</span>
+                  <span className="empty-state-description">Clear the search or the date filter, or switch the board to all dates to see the whole queue.</span>
+                </div>
+              )}
               {visibleAppointments.map((a) => renderAppointmentCard(a))}
             </div>
           </div>
@@ -815,128 +1086,59 @@ export function RepairsPanel({ businessId, active = true, accountRole }: { busin
       )}
 
       {viewMode === "kanban" && (
-        <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-          <div style={{ display: "flex", gap: 6, marginBottom: 10, flexShrink: 0 }}>
-            <button
-              onClick={() => setBoardDateFilter("3day")}
-              style={{
-                fontSize: 12,
-                padding: "6px 12px",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius-sm)",
-                background: boardDateFilter === "3day" ? "var(--accent-subtle)" : "var(--surface)",
-                color: boardDateFilter === "3day" ? "var(--accent)" : "var(--text-muted)",
-                fontWeight: boardDateFilter === "3day" ? 600 : 400,
-                cursor: "pointer",
-              }}
-              title="Yesterday, today, and tomorrow only"
-            >
-              Last 3 days
-            </button>
-            <button
-              onClick={() => setBoardDateFilter("all")}
-              style={{
-                fontSize: 12,
-                padding: "6px 12px",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius-sm)",
-                background: boardDateFilter === "all" ? "var(--accent-subtle)" : "var(--surface)",
-                color: boardDateFilter === "all" ? "var(--accent)" : "var(--text-muted)",
-                fontWeight: boardDateFilter === "all" ? 600 : 400,
-                cursor: "pointer",
-              }}
-            >
-              All
-            </button>
-          </div>
-          <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, marginBottom: 20, flex: 1 }}>
+        <div style={boardScrollStyle}>
           {KANBAN_STATUSES.map((s) => (
             // No maxWidth here on purpose -- flex:1 with only a minWidth
             // floor means the columns actually fill whatever width the
             // screen has (confirmed live: the previous 320px cap left a
             // dead gap on anything wider than 5*320px, with a pointless
             // horizontal scrollbar to reach it).
-            <div key={s} style={{ minWidth: isMobile ? 260 : 280, flex: isMobile ? "0 0 260" : 1, display: "flex", flexDirection: "column" }}>
-              {/* Column header */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, paddingBottom: 8, borderBottom: `2px solid ${KANBAN_COLORS[s]}` }}>
-                <span style={{ fontSize: 14 }}>{KANBAN_ICONS[s]}</span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{STATUS_LABEL[s]}</span>
-                <span style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: KANBAN_COLORS[s],
-                  background: `${KANBAN_COLORS[s]}15`,
-                  padding: "2px 8px",
-                  borderRadius: 10,
-                  marginLeft: "auto",
-                }}>
-                  {kanbanColumns[s]?.length ?? 0}
-                </span>
+            <div key={s} style={{ ...columnStyle, ...(isMobile ? { minWidth: 260, flex: "0 0 260" } : null) }}>
+              {/* Column header — the column's lamp doubles as the rule beneath it */}
+              <div style={columnHeadStyle}>
+                <span className={`lamp ${STATUS_LAMP[s] ?? "lamp-idle"}`} style={{ fontWeight: 600 }}>{STATUS_LABEL[s]}</span>
+                <span className="data meta" style={{ marginLeft: "auto" }}>{kanbanColumns[s]?.length ?? 0}</span>
               </div>
               {/* Column body */}
-              <div style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 0,
-                flex: 1,
-                overflowY: "auto",
-                background: "var(--bg-elevated)",
-                borderRadius: "var(--radius-sm)",
-                padding: 6,
-                border: "1px solid var(--border-subtle)",
-                minHeight: 100,
-              }}>
+              <div className="panel-scroll" style={columnBodyStyle}>
                 {(kanbanColumns[s] ?? []).map((a) => renderAppointmentCard(a))}
                 {(kanbanColumns[s]?.length ?? 0) === 0 && (
-                  <div style={{ padding: 20, textAlign: "center", fontSize: 12, color: "var(--text-faint)", border: "1px dashed var(--border)", borderRadius: "var(--radius-sm)", background: "var(--surface)" }}>
-                    No items
+                  <div className="empty-state" style={{ padding: "16px 14px", background: "transparent" }}>
+                    <span className="empty-state-description">Nothing here right now.</span>
                   </div>
                 )}
               </div>
             </div>
           ))}
-          </div>
         </div>
       )}
+      </div>
 
       {selected && (
-        <div id="repair-detail-panel" style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: isMobile ? "100%" : "60%", minWidth: isMobile ? 0 : 500, maxWidth: isMobile ? "none" : 800, zIndex: 100, background: "var(--bg)", borderLeft: isMobile ? "none" : "1px solid var(--border)", display: "flex", flexDirection: "column", boxShadow: "-4px 0 20px rgba(0,0,0,0.15)" }}>
+        <div id="repair-detail-panel" className="panel" style={{ ...drawerStyle, ...(isMobile ? { width: "100%", minWidth: 0, maxWidth: "none", borderLeft: "none" } : null) }}>
           {/* Header bar */}
-          <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, background: "var(--surface)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <button
-                onClick={() => setSelectedId(null)}
-                style={{
-                  width: 32,
-                  height: 32,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: "var(--radius-sm)",
-                  border: "1px solid var(--border)",
-                  background: "var(--bg)",
-                  cursor: "pointer",
-                  color: "var(--text)",
-                  fontFamily: "inherit",
-                }}
-                title="Close"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <div className="panel-head" style={{ alignItems: "flex-start", flexWrap: "wrap", rowGap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+              <button className="ghost sm" style={iconButtonStyle} onClick={() => setSelectedId(null)} aria-label="Close work order">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M18 6 6 18" /><path d="m6 6 12 12" />
                 </svg>
               </button>
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>{selected.customerName}</div>
-                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  {selected.phone}{selected.email ? ` · ${selected.email}` : ""} · <span style={{ color: KANBAN_COLORS[selected.status] }}>{STATUS_LABEL[selected.status]}</span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>{selected.customerName}</div>
+                <div className="meta" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span className={`lamp ${STATUS_LAMP[selected.status] ?? "lamp-idle"}`}>{STATUS_LABEL[selected.status] ?? selected.status}</span>
+                  <span className="data">{selected.phone}</span>
+                  {selected.email && <span>{selected.email}</span>}
                 </div>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <select
+                aria-label="Repair status"
                 value={selected.status}
                 onChange={(e) => updateStatus(selected.id, e.target.value)}
-                style={{ padding: "6px 12px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontFamily: "inherit" }}
+                style={{ width: "auto", fontSize: 12.5 }}
               >
                 {STATUS_OPTIONS.map((s) => (
                   <option key={s} value={s}>{STATUS_LABEL[s]}</option>
@@ -944,86 +1146,110 @@ export function RepairsPanel({ businessId, active = true, accountRole }: { busin
               </select>
               <AuditHistoryButton entityType="repair" entityId={selected.id} />
               <select
+                aria-label="Assigned technician"
                 value={selected.technicianId || ""}
                 onChange={(e) => assignTechnician(selected.id, e.target.value)}
-                style={{ padding: "6px 12px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontFamily: "inherit" }}
+                style={{ width: "auto", fontSize: 12.5 }}
               >
                 <option value="">Unassigned</option>
                 {staff.filter((s) => s.active).map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
-              <button onClick={() => setOrderOpen((o) => !o)} style={{ padding: "6px 12px", fontSize: 12, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: orderOpen ? "var(--accent-subtle)" : "var(--bg)", cursor: "pointer", color: "var(--text)", fontFamily: "inherit" }}>
-                {orderOpen ? "Close Order" : "Create Order"}
+              <button className={orderOpen ? "sm" : "primary sm"} aria-expanded={orderOpen} onClick={() => setOrderOpen((o) => !o)}>
+                {orderOpen ? "Close order" : "Create order"}
               </button>
               {canDelete && (
                 <button
+                  className="ghost sm"
+                  style={{ ...iconButtonStyle, color: "var(--danger)" }}
                   onClick={() => deleteAppointment(selected)}
-                  title="Delete appointment"
-                  style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--bg)", cursor: "pointer", color: "var(--danger, #e5484d)", fontFamily: "inherit" }}
+                  aria-label="Delete work order"
+                  title="Delete work order"
                 >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M4 7h16M9.5 7V5a1.5 1.5 0 0 1 1.5-1.5h2A1.5 1.5 0 0 1 14.5 5v2M6.5 7l.8 12a1.6 1.6 0 0 0 1.6 1.5h6.2a1.6 1.6 0 0 0 1.6-1.5l.8-12" />
+                  </svg>
                 </button>
               )}
             </div>
           </div>
 
           {/* Content */}
-          <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
-            {/* Quick info row */}
-            <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-              <div style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 12 }}>
-                <span style={{ color: "var(--text-faint)" }}>Appt #:</span> <strong>{selected.serialNumber ?? "—"}</strong>
+          <div className="panel-scroll" style={drawerBodyStyle}>
+            {/* Work-order facts */}
+            <div style={specGridStyle}>
+              <div style={specCellStyle}>
+                <div className="instrument-label" style={{ marginBottom: 4 }}>Order number</div>
+                <div className="data" style={{ color: "var(--ink)", fontWeight: 600 }}>{selected.serialNumber ?? "Not assigned"}</div>
               </div>
-              <div style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 12 }}>
-                <span style={{ color: "var(--text-faint)" }}>Device:</span> {selected.deviceType}{selected.deviceModel ? ` — ${selected.deviceModel}` : ""}
+              <div style={specCellStyle}>
+                <div className="instrument-label" style={{ marginBottom: 4 }}>Device</div>
+                <div style={{ color: "var(--ink)", fontSize: 13 }}>
+                  {selected.deviceType}{selected.deviceModel ? ` ${selected.deviceModel}` : ""}
+                </div>
               </div>
-              <div style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 12 }}>
-                <span style={{ color: "var(--text-faint)" }}>Slot booked:</span>{" "}
-                {(() => {
-                  const fmt = (iso: string) => new Date(iso).toLocaleString("en-US", { timeZone: timezone, dateStyle: "medium", timeStyle: "short" });
-                  if (selected.isWalkIn) return "Walk-in";
-                  // An order made from the dashboard (no customer-picked slot)
-                  // stamps appointmentDate = "now", i.e. within moments of
-                  // createdAt -- a real booked slot is never that close.
-                  const noSlot = Math.abs(new Date(selected.appointmentDate).getTime() - new Date(selected.createdAt).getTime()) < 60_000;
-                  return noSlot ? "No slot chosen" : fmt(selected.appointmentDate);
-                })()}
+              <div style={specCellStyle}>
+                <div className="instrument-label" style={{ marginBottom: 4 }}>Slot booked</div>
+                <div className="data" style={{ color: "var(--ink)", fontSize: 12.5 }}>
+                  {(() => {
+                    const fmt = (iso: string) => new Date(iso).toLocaleString("en-US", { timeZone: timezone, dateStyle: "medium", timeStyle: "short" });
+                    if (selected.isWalkIn) return "Walk-in";
+                    // An order made from the dashboard (no customer-picked slot)
+                    // stamps appointmentDate = "now", i.e. within moments of
+                    // createdAt -- a real booked slot is never that close.
+                    const noSlot = Math.abs(new Date(selected.appointmentDate).getTime() - new Date(selected.createdAt).getTime()) < 60_000;
+                    return noSlot ? "No slot chosen" : fmt(selected.appointmentDate);
+                  })()}
+                </div>
               </div>
-              <div style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 12 }}>
-                <span style={{ color: "var(--text-faint)" }}>Created:</span>{" "}
-                {new Date(selected.createdAt).toLocaleString("en-US", { timeZone: timezone, dateStyle: "medium", timeStyle: "short" })}
+              <div style={specCellStyle}>
+                <div className="instrument-label" style={{ marginBottom: 4 }}>Created</div>
+                <div className="data" style={{ color: "var(--ink)", fontSize: 12.5 }}>
+                  {new Date(selected.createdAt).toLocaleString("en-US", { timeZone: timezone, dateStyle: "medium", timeStyle: "short" })}
+                </div>
               </div>
-              <div style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 12 }}>
-                <span style={{ color: "var(--text-faint)" }}>Source:</span> {selected.source === "website" ? "🌐 Website" : selected.source?.startsWith("walk-in") ? `🚶 ${selected.source}` : selected.source ? `👤 ${selected.source}` : selected.isWalkIn ? "🚶 Walk-in" : "📅 Scheduled"}
+              <div style={specCellStyle}>
+                <div className="instrument-label" style={{ marginBottom: 4 }}>Source</div>
+                <div style={{ color: "var(--ink)", fontSize: 13 }}>
+                  {selected.source === "website" ? "Website booking" : selected.source?.startsWith("walk-in") ? selected.source : selected.source ? selected.source : selected.isWalkIn ? "Walk-in" : "Scheduled"}
+                </div>
               </div>
-              <button
-                onClick={() => { navigator.clipboard.writeText(selected.trackingToken); }}
-                style={{ padding: "6px 10px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 12, color: "var(--text)", fontFamily: "inherit", cursor: "pointer" }}
-                title="Click to copy tracking code"
-              >
-                <span style={{ color: "var(--text-faint)" }}>Tracking code:</span> {selected.trackingToken}
-              </button>
+              <div style={specCellStyle}>
+                <div className="instrument-label" style={{ marginBottom: 4 }}>Tracking code</div>
+                <button
+                  className="ghost sm"
+                  style={{ marginLeft: -9, fontFamily: "var(--font-mono)", fontSize: 12 }}
+                  onClick={() => { navigator.clipboard.writeText(selected.trackingToken); }}
+                  aria-label="Copy tracking code"
+                  title="Copy tracking code"
+                >
+                  {selected.trackingToken}
+                </button>
+              </div>
             </div>
 
             {/* Issue */}
             <div style={{ marginBottom: 20 }}>
-              <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", margin: "0 0 8px" }}>Issue Description</h3>
-              <div style={{ padding: 12, background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+              <div className="panel-head" style={{ minHeight: 36, padding: "0 0 8px", borderBottom: "1px solid var(--line-soft)", marginBottom: 12 }}>
+                <span className="instrument-label">Reported issue</span>
+              </div>
+              <div style={{ padding: 12, background: "var(--panel-sunk)", borderRadius: "var(--r-sm)", border: "1px solid var(--line)", fontSize: 13, color: "var(--ink-2)", lineHeight: 1.6 }}>
                 {selected.issueDescription}
               </div>
             </div>
 
-            {/* Device Photos */}
+            {/* Device photos */}
             <div style={{ marginBottom: 20 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", margin: 0 }}>Device Photos</h3>
-                <label style={{ fontSize: 11, padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", cursor: "pointer", color: "var(--text-muted)", background: "var(--surface)", fontFamily: "inherit" }}>
-                  + Upload
+              <div className="panel-head" style={{ minHeight: 36, padding: "0 0 8px", borderBottom: "1px solid var(--line-soft)", marginBottom: 12 }}>
+                <span className="instrument-label">Device photos</span>
+                <label className="sm" style={{ cursor: "pointer" }}>
+                  Upload photos
                   <input
                     type="file"
                     accept="image/*"
                     multiple
+                    aria-label="Upload device photos"
                     style={{ display: "none" }}
                     onChange={async (e) => {
                       const files = e.target.files;
@@ -1053,8 +1279,9 @@ export function RepairsPanel({ businessId, active = true, accountRole }: { busin
                   {selected.deviceImages.map((url, i) => (
                     <div key={i} style={{ position: "relative" }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={url} alt={`Device photo ${i + 1}`} style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)" }} />
+                      <img src={url} alt={`Device photo ${i + 1}`} style={{ width: 100, height: 100, objectFit: "cover", borderRadius: "var(--r-sm)", border: "1px solid var(--line)" }} />
                       <button
+                        className="sm"
                         onClick={async () => {
                           if (!selected) return;
                           const newImages = selected.deviceImages.filter((_, idx) => idx !== i);
@@ -1065,38 +1292,44 @@ export function RepairsPanel({ businessId, active = true, accountRole }: { busin
                           });
                           refresh();
                         }}
-                        style={{ position: "absolute", top: -4, right: -4, width: 28, height: 28, borderRadius: "50%", background: "var(--danger)", color: "white", border: "none", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                        aria-label={`Remove device photo ${i + 1}`}
+                        style={{ position: "absolute", top: -6, right: -6, width: 24, height: 24, padding: 0, borderRadius: "var(--r-pill)", background: "var(--panel)", borderColor: "var(--line-strong)" }}
                       >
-                        ✕
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                          <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                        </svg>
                       </button>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div style={{ fontSize: 12, color: "var(--text-faint)", fontStyle: "italic" }}>No photos uploaded yet</div>
+                <div className="empty-state" style={{ padding: "18px 16px" }}>
+                  <span className="empty-state-title">No photos yet</span>
+                  <span className="empty-state-description">Upload the intake photos so whoever picks up the repair can see the damage.</span>
+                </div>
               )}
             </div>
 
-            {/* Reschedule/Cancel requests */}
+            {/* Reschedule / cancel requests */}
             {(selected.rescheduleRequested || selected.cancelRequested) && (
-              <div style={{ marginBottom: 20, display: "flex", gap: 10 }}>
+              <div style={{ marginBottom: 20, display: "flex", gap: 12, flexWrap: "wrap" }}>
                 {selected.rescheduleRequested && (
-                  <div style={{ padding: 12, background: "rgba(245,158,11,0.1)", borderRadius: "var(--radius-sm)", border: "1px solid var(--warning)", flex: 1 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--warning)", marginBottom: 6 }}>Reschedule Requested</div>
-                    {selected.rescheduleNewDate && <div style={{ fontSize: 12, color: "var(--text-muted)" }}>New date: {new Date(selected.rescheduleNewDate).toLocaleString()}</div>}
-                    <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                      <button onClick={() => handleRescheduleRequest(selected.id, "approve")} style={{ padding: "8px 14px", fontSize: 12, background: "var(--success)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontFamily: "inherit" }}>Approve</button>
-                      <button onClick={() => handleRescheduleRequest(selected.id, "reject")} style={{ padding: "8px 14px", fontSize: 12, background: "var(--danger)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontFamily: "inherit" }}>Reject</button>
+                  <div style={{ ...specCellStyle, background: "var(--warning-subtle)", border: "1px solid var(--machine-line)", borderRadius: "var(--r-sm)", padding: 12, flex: 1, minWidth: 240 }}>
+                    <div style={{ marginBottom: 6 }}><span className="lamp lamp-warn">Reschedule requested</span></div>
+                    {selected.rescheduleNewDate && <div className="meta" style={{ marginBottom: 10 }}>Asked for <span className="data">{new Date(selected.rescheduleNewDate).toLocaleString()}</span></div>}
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button className="primary sm" onClick={() => handleRescheduleRequest(selected.id, "approve")}>Approve new time</button>
+                      <button className="danger sm" onClick={() => handleRescheduleRequest(selected.id, "reject")}>Keep current slot</button>
                     </div>
                   </div>
                 )}
                 {selected.cancelRequested && (
-                  <div style={{ padding: 12, background: "rgba(239,68,68,0.1)", borderRadius: "var(--radius-sm)", border: "1px solid var(--danger)", flex: 1 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--danger)", marginBottom: 6 }}>Cancel Requested</div>
-                    {selected.cancelReason && <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Reason: {selected.cancelReason}</div>}
-                    <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                      <button onClick={() => handleCancelRequest(selected.id, "approve")} style={{ padding: "8px 14px", fontSize: 12, background: "var(--success)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontFamily: "inherit" }}>Approve</button>
-                      <button onClick={() => handleCancelRequest(selected.id, "reject")} style={{ padding: "8px 14px", fontSize: 12, background: "var(--danger)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer", fontFamily: "inherit" }}>Reject</button>
+                  <div style={{ ...specCellStyle, background: "var(--danger-subtle)", border: "1px solid var(--danger)", borderRadius: "var(--r-sm)", padding: 12, flex: 1, minWidth: 240 }}>
+                    <div style={{ marginBottom: 6 }}><span className="lamp lamp-err">Cancel requested</span></div>
+                    {selected.cancelReason && <div className="meta" style={{ marginBottom: 10 }}>{selected.cancelReason}</div>}
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button className="danger sm" onClick={() => handleCancelRequest(selected.id, "approve")}>Approve cancellation</button>
+                      <button className="sm" onClick={() => handleCancelRequest(selected.id, "reject")}>Keep the repair</button>
                     </div>
                   </div>
                 )}
@@ -1106,57 +1339,73 @@ export function RepairsPanel({ businessId, active = true, accountRole }: { busin
             {/* Order items */}
             {orderOpen && (
               <div style={{ marginBottom: 20 }}>
-                <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", margin: "0 0 8px" }}>Order Items</h3>
-                <div style={{ padding: 12, background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
+                <div className="panel-head" style={{ minHeight: 36, padding: "0 0 8px", borderBottom: "1px solid var(--line-soft)", marginBottom: 12 }}>
+                  <span className="instrument-label">Order items</span>
+                </div>
+                <div style={{ padding: 12, background: "var(--panel)", borderRadius: "var(--r-sm)", border: "1px solid var(--line)" }}>
                   <OrderItemsEditor order={selected} products={products} onChanged={refresh} />
                 </div>
               </div>
             )}
 
-            {/* Conversation */}
+            {/* Conversation — customer, staff and AI each get their own signature */}
             <div>
-              <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", margin: "0 0 8px" }}>Conversation</h3>
-              <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
-                <div style={{ minHeight: 200, maxHeight: 400, overflowY: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 10, background: "var(--bg)" }}>
-                  {!messages && <p style={{ fontSize: 12, color: "var(--text-faint)" }}>Loading messages…</p>}
-                  {messages?.length === 0 && <p style={{ fontSize: 12, color: "var(--text-faint)" }}>No messages yet from the customer.</p>}
+              <div className="panel-head" style={{ minHeight: 36, padding: "0 0 8px", borderBottom: "1px solid var(--line-soft)", marginBottom: 12 }}>
+                <span className="instrument-label">Conversation</span>
+              </div>
+              <div style={threadStyle}>
+                <div className="panel-scroll" style={threadScrollStyle}>
+                  {!messages && (
+                    <div>
+                      <div className="skeleton skeleton-text" style={{ width: "40%" }} />
+                      <div className="skeleton skeleton-text" style={{ width: "65%" }} />
+                    </div>
+                  )}
+                  {messages?.length === 0 && (
+                    <div className="empty-state" style={{ padding: "18px 16px" }}>
+                      <span className="empty-state-title">No messages yet</span>
+                      <span className="empty-state-description">Write the first reply to confirm the intake details with the customer.</span>
+                    </div>
+                  )}
                   {messages?.map((m) => {
                     if (m.role === "system") {
                       return (
-                        <div key={m.id} style={{ alignSelf: "center", fontSize: 11, color: "var(--text-faint)", textAlign: "center" }}>
-                          {m.content} · {new Date(m.createdAt).toLocaleString()}
+                        <div key={m.id} className="data meta" style={{ alignSelf: "center", textAlign: "center", maxWidth: "80%" }}>
+                          {m.content} <span style={{ opacity: 0.7 }}>{new Date(m.createdAt).toLocaleString()}</span>
                         </div>
                       );
                     }
                     const isCustomer = m.role === "user";
+                    const isMachine = m.role === "assistant" || m.role === "agent";
+                    const shell: CSSProperties = {
+                      ...bubbleShellStyle,
+                      alignSelf: isCustomer ? "flex-start" : "flex-end",
+                    };
                     return (
-                      <div key={m.id} style={{ maxWidth: "80%", alignSelf: isCustomer ? "flex-start" : "flex-end" }}>
-                        <div
-                          style={{
-                            background: isCustomer ? "var(--surface)" : "var(--accent)",
-                            color: isCustomer ? "var(--text)" : "var(--bg)",
-                            border: isCustomer ? "1px solid var(--border)" : "none",
-                            borderRadius: isCustomer ? "12px 12px 12px 3px" : "12px 12px 3px 12px",
-                            padding: "8px 11px",
-                            fontSize: 13,
-                          }}
-                        >
+                      <div key={m.id} style={shell}>
+                        <div style={isCustomer ? bubbleCustomerStyle : isMachine ? bubbleMachineStyle : bubbleStaffStyle}>
                           {isCustomer ? m.content : <MarkdownMessage text={m.content} />}
                         </div>
+                        <span className="data" style={bubbleMetaStyle}>
+                          {isCustomer ? "Customer" : isMachine ? "Assistant" : "Staff"}
+                          {" "}
+                          {new Date(m.createdAt).toLocaleTimeString("en-US", { timeZone: timezone, hour: "2-digit", minute: "2-digit" })}
+                        </span>
                       </div>
                     );
                   })}
                 </div>
-                <div style={{ display: "flex", gap: 8, padding: 12, borderTop: "1px solid var(--border)", background: "var(--surface)" }}>
+                <div style={{ display: "flex", gap: 8, padding: 12, borderTop: "1px solid var(--line)", background: "var(--panel)" }}>
                   <input
-                    style={{ flex: 1, padding: 8, fontSize: 12, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--bg)", color: "var(--text)", fontFamily: "inherit" }}
-                    placeholder="Reply to the customer…"
+                    aria-label="Reply to the customer"
+                    style={{ flex: 1, minWidth: 0 }}
+                    placeholder="Write a reply to the customer"
                     value={reply}
                     onChange={(e) => setReply(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") sendReply(); }}
                   />
-                  <button onClick={sendReply} disabled={sending || !reply.trim()} style={{ padding: "8px 14px", fontSize: 12, background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", cursor: sending ? "default" : "pointer", opacity: sending || !reply.trim() ? 0.5 : 1, fontFamily: "inherit" }}>
-                    {sending ? "Sending…" : "Send"}
+                  <button className="primary" onClick={sendReply} disabled={sending || !reply.trim()}>
+                    {sending ? "Sending" : "Send reply"}
                   </button>
                 </div>
               </div>
@@ -1169,17 +1418,17 @@ export function RepairsPanel({ businessId, active = true, accountRole }: { busin
         const apt = appointments?.find((a) => a.id === completedPromptId);
         if (!apt) return null;
         return (
-          <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 200, width: 320, background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "var(--radius-md, 12px)", boxShadow: "var(--shadow-lg)", padding: 16 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>Repair completed 🎉</div>
-            <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 12 }}>
-              {apt.customerName}'s {apt.deviceType} is marked completed — create an order to bill it?
+          <div className="panel" style={toastStyle}>
+            <div className="instrument-label" style={{ marginBottom: 6 }}>Repair completed</div>
+            <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 14 }}>
+              {apt.customerName}&apos;s {apt.deviceType} is marked completed. Create an order to bill it.
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              <button onClick={() => setCompletedPromptId(null)} style={{ fontSize: 12, padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--surface)", color: "var(--text)", fontFamily: "inherit", cursor: "pointer" }}>
-                Dismiss
+              <button className="sm" onClick={() => setCompletedPromptId(null)}>
+                Not now
               </button>
-              <button onClick={openOrderForCompleted} style={primaryButtonStyle}>
-                Create Order
+              <button className="primary sm" onClick={openOrderForCompleted}>
+                Create order
               </button>
             </div>
           </div>

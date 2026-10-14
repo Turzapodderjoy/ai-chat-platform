@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 
 import { StatCard, StatCardRow } from "./StatCard";
-import { subtleTextStyle } from "./dashboard-styles";
 
 /**
  * Per-client dashboard's landing tab — high-level pulse for this one
@@ -28,8 +27,8 @@ export function ClientOverviewPanel({ businessId, active = true }: { businessId:
 
   return (
     <section>
-      <h1 style={{ marginBottom: 4 }}>Overview</h1>
-      <p style={subtleTextStyle}>This client&apos;s snapshot — use the sidebar to drill into any section.</p>
+      <h1 style={{ margin: "0 0 4px", color: "var(--ink)" }}>Overview</h1>
+      <p className="meta" style={{ marginTop: 0 }}>This client&apos;s snapshot — use the sidebar to drill into any section.</p>
 
       <StatCardRow>
         <StatCard

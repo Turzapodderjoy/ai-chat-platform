@@ -298,6 +298,82 @@ offers: (p) => (
   ),
   hermesAgents: (p) => <AgentMark {...p} />,
   hermesControl: (p) => <AgentMark {...p} />,
+  partsusage: (p) => (
+    <Svg {...p}>
+      <path d="M12 21a9 9 0 1 1 9-9" />
+      <path d="M12 12l5-5" />
+    </Svg>
+  ),
+  purchaseorders: (p) => (
+    <Svg {...p}>
+      <rect x="6" y="4" width="12" height="17" rx="2" />
+      <path d="M9 4h6v3H9z" />
+      <path d="M9 11h6M9 15h4" />
+    </Svg>
+  ),
+  locations: (p) => (
+    <Svg {...p}>
+      <path d="M12 21s-7-5.6-7-11a7 7 0 0 1 14 0c0 5.4-7 11-7 11Z" />
+      <circle cx="12" cy="10" r="2.6" />
+    </Svg>
+  ),
+  shifts: (p) => (
+    <Svg {...p}>
+      <rect x="4" y="5" width="16" height="16" rx="2" />
+      <path d="M9 5V3M15 5V3M4 10h16M12 10v11" />
+    </Svg>
+  ),
+  teamchat: (p) => (
+    <Svg {...p}>
+      <path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5c-1.6 0-3.1-.4-4.4-1.2L3 20l1.2-5.1A8.5 8.5 0 1 1 21 11.5Z" />
+      <path d="M8.5 10.5h7M8.5 14h4.5" />
+    </Svg>
+  ),
+  metrics: (p) => (
+    <Svg {...p}>
+      <path d="M4 20V10M12 20V4M20 20v-7" />
+    </Svg>
+  ),
+  kpi: (p) => (
+    <Svg {...p}>
+      <path d="M12 21a9 9 0 1 1 9-9" />
+      <path d="M12 14l4-4" />
+    </Svg>
+  ),
+  lms: (p) => (
+    <Svg {...p}>
+      <path d="m22 10-10-5L2 10l10 5 10-5Z" />
+      <path d="M6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5" />
+      <path d="M22 10v6" />
+    </Svg>
+  ),
+  multiloc: (p) => (
+    <Svg {...p}>
+      <path d="M8 21s-6-5.6-6-10a6 6 0 0 1 12 0c0 4.4-6 10-6 10Z" />
+      <path d="M16 8a5.5 5.5 0 0 1 5.5 5.5c0 3-3 7.5-5.5 9.5" />
+    </Svg>
+  ),
+  checklist: (p) => (
+    <Svg {...p}>
+      <rect x="6" y="4" width="12" height="17" rx="2" />
+      <path d="M9 4h6v3H9z" />
+      <path d="m9 14 2 2 4-4" />
+    </Svg>
+  ),
+  replysettings: (p) => (
+    <Svg {...p}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 3" />
+    </Svg>
+  ),
+  deleted: (p) => (
+    <Svg {...p}>
+      <path d="M3 6h18" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </Svg>
+  ),
 };
 
 // Agent mark — generic AI agent symbol for navigation. Clean geometric

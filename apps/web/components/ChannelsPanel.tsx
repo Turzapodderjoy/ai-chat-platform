@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import { cardStyle, inputStyle } from "./dashboard-styles";
 import { WidgetCustomizerPanel } from "./WidgetCustomizerPanel";
 
 interface CatalogEntry {
@@ -130,113 +129,117 @@ function GmailSenderBox({ businessId, onMessage }: { businessId: string; onMessa
   if (!sender) return null;
 
   return (
-    <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 16, marginTop: 16 }}>
-      <h3 style={{ margin: "0 0 8px 0", fontSize: 16 }}>Email (Gmail)</h3>
-      <p style={{ opacity: 0.6, fontSize: 13, marginBottom: 12 }}>
-        Send automated status emails through your Gmail account.
-      </p>
-      
-      {sender.connected && !editing ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 13 }}>
-              Sending as <strong>{sender.gmailAddress}</strong>
-              {sender.oauthConnected && <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.6 }}>(Google OAuth)</span>}
-              {!sender.oauthConnected && <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.6 }}>(App Password)</span>}
-            </span>
-            {!sender.oauthConnected && <button onClick={() => setEditing(true)} style={{ fontSize: 12, padding: "6px 12px" }}>Change</button>}
-            <button onClick={disconnect} style={{ fontSize: 12, padding: "6px 12px" }}>Disconnect</button>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <label style={{ fontSize: 12, opacity: 0.7 }}>Email timezone:</label>
-            <select
-              value={timezoneDraft}
-              onChange={(e) => saveTimezone(e.target.value)}
-              style={{ ...inputStyle, width: "auto", minWidth: 200, fontSize: 12, padding: "5px 8px" }}
-            >
-              {TIMEZONES.map((tz) => (
-                <option key={tz} value={tz}>{tz.replace("_", " ")}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {/* Step-by-step guide */}
-          <div style={{ background: "var(--surface)", borderRadius: 8, padding: 14, fontSize: 13 }}>
-            <div style={{ fontWeight: 600, marginBottom: 8 }}>Quick Setup (2 minutes):</div>
-            <ol style={{ margin: 0, paddingLeft: 20, lineHeight: 1.8 }}>
-              <li>Go to <a href="https://myaccount.google.com/security" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>Google Account Security</a></li>
-              <li>Enable <strong>2-Step Verification</strong> (required for App Passwords)</li>
-              <li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>App Passwords</a></li>
-              <li>Select <strong>Mail</strong> and <strong>Other (Custom name)</strong></li>
-              <li>Type <strong>AIVA</strong> and click <strong>Generate</strong></li>
-              <li>Copy the 16-character password (looks like: <code>abcd efgh ijkl mnop</code>)</li>
-              <li>Paste it below with your Gmail address</li>
-            </ol>
-            <button
-              onClick={() => window.open("https://myaccount.google.com/apppasswords", "_blank")}
-              style={{
-                marginTop: 10,
-                padding: "8px 16px",
-                background: "var(--accent)",
-                color: "#fff",
-                border: "none",
-                borderRadius: 6,
-                cursor: "pointer",
-                fontSize: 13,
-                fontWeight: 500,
-              }}
-            >
-              Open App Passwords Page
-            </button>
-          </div>
+    <div className="panel" style={{ marginTop: 16 }}>
+      <div className="panel-head">
+        <span style={{ fontWeight: 600, fontSize: 13.5 }}>Email (Gmail)</span>
+        <span className={sender.connected ? "lamp lamp-ok" : "lamp lamp-idle"}>
+          {sender.connected ? "Connected" : "Not connected"}
+        </span>
+      </div>
+      <div className="panel-body">
+        <p className="meta" style={{ marginTop: 0 }}>
+          Send automated status emails through your Gmail account.
+        </p>
 
-          {/* Input fields */}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
-            <div style={{ flex: "1 1 200px", minWidth: 0 }}>
-              <label style={{ fontSize: 12, opacity: 0.7, display: "block", marginBottom: 4 }}>Gmail Address</label>
-              <input
-                type="email"
-                placeholder="you@gmail.com"
-                value={emailDraft}
-                onChange={(e) => setEmailDraft(e.target.value)}
-                style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
-              />
+        {sender.connected && !editing ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 13 }}>
+                Sending as <span className="data">{sender.gmailAddress}</span>
+              </span>
+              <span className="data" style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                {sender.oauthConnected ? "Google OAuth" : "App Password"}
+              </span>
+              {!sender.oauthConnected && (
+                <button onClick={() => setEditing(true)} className="ghost sm">Change</button>
+              )}
+              <button onClick={disconnect} className="danger sm">Disconnect</button>
             </div>
-            <div style={{ flex: "1 1 200px", minWidth: 0 }}>
-              <label style={{ fontSize: 12, opacity: 0.7, display: "block", marginBottom: 4 }}>App Password</label>
-              <input
-                type="password"
-                placeholder="16-character password"
-                value={passwordDraft}
-                onChange={(e) => setPasswordDraft(e.target.value)}
-                style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
-              />
-            </div>
-            <div style={{ flex: "1 1 200px", minWidth: 0 }}>
-              <label style={{ fontSize: 12, opacity: 0.7, display: "block", marginBottom: 4 }}>Timezone</label>
+            <div className="field" style={{ maxWidth: 280 }}>
+              <label className="field-label" htmlFor="aiva-gmail-tz">Email timezone</label>
               <select
+                id="aiva-gmail-tz"
                 value={timezoneDraft}
-                onChange={(e) => setTimezoneDraft(e.target.value)}
-                style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
+                onChange={(e) => saveTimezone(e.target.value)}
+                style={{ fontSize: 12 }}
               >
                 {TIMEZONES.map((tz) => (
                   <option key={tz} value={tz}>{tz.replace("_", " ")}</option>
                 ))}
               </select>
             </div>
-            <button
-              onClick={save}
-              disabled={saving || !emailDraft.trim() || !passwordDraft.trim()}
-              className="primary"
-              style={{ fontSize: 13, padding: "8px 20px", height: 38 }}
-            >
-              {saving ? "Saving..." : "Connect Gmail"}
-            </button>
           </div>
-        </div>
-      )}
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div className="machine-block">
+              <span className="instrument-label">Quick setup</span>
+              <ol style={{ margin: "8px 0 0", paddingLeft: 20, lineHeight: 1.8, fontSize: 12.5, color: "var(--ink-2)" }}>
+                <li>
+                  Open <a href="https://myaccount.google.com/security" target="_blank" rel="noopener noreferrer">Google Account Security</a> and enable <strong>2-Step Verification</strong> (required for App Passwords)
+                </li>
+                <li>
+                  Open <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer">App Passwords</a>
+                </li>
+                <li>Select <strong>Mail</strong> and <strong>Other (Custom name)</strong></li>
+                <li>Type <strong>AIVA</strong> and click <strong>Generate</strong></li>
+                <li>Copy the 16-character password (looks like <code>abcd efgh ijkl mnop</code>)</li>
+                <li>Paste it below with your Gmail address</li>
+              </ol>
+              <button
+                onClick={() => window.open("https://myaccount.google.com/apppasswords", "_blank")}
+                className="ghost sm"
+                style={{ marginTop: 10 }}
+              >
+                Open App Passwords page
+              </button>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+              <div className="field" style={{ flex: "1 1 200px", minWidth: 0 }}>
+                <label className="field-label" htmlFor="aiva-gmail-address">Gmail address</label>
+                <input
+                  id="aiva-gmail-address"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@gmail.com"
+                  value={emailDraft}
+                  onChange={(e) => setEmailDraft(e.target.value)}
+                />
+              </div>
+              <div className="field" style={{ flex: "1 1 200px", minWidth: 0 }}>
+                <label className="field-label" htmlFor="aiva-gmail-app-password">App password</label>
+                <input
+                  id="aiva-gmail-app-password"
+                  type="password"
+                  autoComplete="off"
+                  placeholder="16-character password"
+                  value={passwordDraft}
+                  onChange={(e) => setPasswordDraft(e.target.value)}
+                />
+              </div>
+              <div className="field" style={{ flex: "1 1 200px", minWidth: 0 }}>
+                <label className="field-label" htmlFor="aiva-gmail-tz-setup">Timezone</label>
+                <select
+                  id="aiva-gmail-tz-setup"
+                  value={timezoneDraft}
+                  onChange={(e) => setTimezoneDraft(e.target.value)}
+                >
+                  {TIMEZONES.map((tz) => (
+                    <option key={tz} value={tz}>{tz.replace("_", " ")}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={save}
+                disabled={saving || !emailDraft.trim() || !passwordDraft.trim()}
+                className="primary sm"
+              >
+                {saving ? "Saving…" : "Connect Gmail"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -366,9 +369,17 @@ export function ChannelsPanel({ businessId }: { businessId: string }) {
 
   if (!data) {
     return (
-      <section style={cardStyle}>
-        <h2 style={{ marginTop: 0 }}>Integrations</h2>
-        <p>Loading…</p>
+      <section className="panel">
+        <div className="panel-head">
+          <span className="instrument-label">Integrations</span>
+        </div>
+        <div className="panel-body">
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="skeleton" style={{ height: 40 }} />
+            <div className="skeleton" style={{ height: 40 }} />
+            <div className="skeleton" style={{ height: 40 }} />
+          </div>
+        </div>
       </section>
     );
   }
@@ -380,146 +391,185 @@ export function ChannelsPanel({ businessId }: { businessId: string }) {
   }
 
   return (
-    <section style={cardStyle}>
-      <h2 style={{ marginTop: 0 }}>Integrations</h2>
-      <p style={{ opacity: 0.6 }}>
-        Connect your website, Facebook Messenger,
-        Instagram, WhatsApp, and Email to your AI chatbot.
-      </p>
+    <section className="panel">
+      <div className="panel-head">
+        <span className="instrument-label">Integrations</span>
+        <span className="data" style={{ fontSize: 11, color: "var(--ink-3)" }}>
+          {data.connections.length} connected
+        </span>
+      </div>
+      <div className="panel-body">
+        <p className="meta" style={{ marginTop: 0, marginBottom: 14, maxWidth: "68ch" }}>
+          Connect your website, Facebook Messenger, Instagram, WhatsApp and Email to your AI chatbot.
+        </p>
 
-      {message && <p style={{ fontSize: 13, opacity: 0.8 }}>{message}</p>}
+        {message && (
+          <p className="meta" role="status" style={{ marginBottom: 12 }}>{message}</p>
+        )}
 
-      {/* Email */}
-      {isIntegrationEnabled("email") && <GmailSenderBox businessId={businessId} onMessage={setMessage} />}
+        {isIntegrationEnabled("email") && <GmailSenderBox businessId={businessId} onMessage={setMessage} />}
 
-      {/* Channel catalog */}
-      {data.catalog.filter((entry) => isIntegrationEnabled(entry.id)).map((entry) => {
-        const connection = connectionFor(entry.id);
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 16 }}>
+          {data.catalog.filter((entry) => isIntegrationEnabled(entry.id)).map((entry) => {
+            const connection = connectionFor(entry.id);
 
-        return (
-          <div key={entry.id} style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 16, marginTop: 16 }}>
-            <h3 style={{ margin: 0 }}>{entry.label}</h3>
+            return (
+              <div key={entry.id} className="panel-sunk" style={{ padding: 14 }}>
+                <div className="panel-head" style={{ marginBottom: 10 }}>
+                  <span style={{ fontWeight: 600, fontSize: 13.5 }}>{entry.label}</span>
+                  <span className={connection ? "lamp lamp-ok" : "lamp lamp-idle"}>
+                    {connection ? "Connected" : "Not connected"}
+                  </span>
+                </div>
 
-            {entry.id === "website" && (
-              <>
-                <p style={{ opacity: 0.6, fontSize: 13 }}>
-                  Paste this snippet just before the closing <code>&lt;/body&gt;</code>{" "}
-                  tag on your site — a chat button appears immediately,
-                  no further setup needed.
-                </p>
-                <pre style={{ background: "var(--surface)", color: "#eee", padding: 12, borderRadius: 6, fontSize: 12, overflowX: "auto" }}>
-                  {data.embedSnippet}
-                </pre>
-                <button onClick={copySnippet}>Copy snippet</button>
-
-                <h3 style={{ marginTop: 20 }}>Customize the widget</h3>
-                <p style={{ opacity: 0.6, fontSize: 13 }}>
-                  Everything below is plug-and-play — change it any time and it goes live on your
-                  site immediately. The embed snippet above never changes.
-                </p>
-                <WidgetCustomizerPanel businessId={businessId} />
-              </>
-            )}
-
-            {entry.id !== "website" && entry.id !== "whatsapp" && entry.id !== "whatsapp-test" && (
-              <>
-                {connection ? (
+                {entry.id === "website" && (
                   <>
-                    <p style={{ fontSize: 13 }}>
-                      🟢 Connected as <strong>{connection.externalLabel}</strong>
+                    <p className="meta">
+                      Paste this snippet just before the closing <code>&lt;/body&gt;</code> tag on your
+                      site — a chat button appears immediately, no further setup needed.
                     </p>
-                    <button onClick={() => disconnect(entry.id)}>Disconnect</button>
-                  </>
-                ) : entry.supportsOAuth ? (
-                  <a href={`/api/oauth/${entry.id}/start?businessId=${encodeURIComponent(businessId)}`}>
-                    <button>Connect {entry.label}</button>
-                  </a>
-                ) : (
-                  <p style={{ opacity: 0.6, fontSize: 13 }}>
-                    Not configured yet — ask your administrator to set up the {entry.label}
-                    integration first.
-                  </p>
-                )}
-              </>
-            )}
+                    <pre className="machine-block" style={{ margin: 0 }}>{data.embedSnippet}</pre>
+                    <button onClick={copySnippet} className="ghost sm" style={{ marginTop: 10 }}>
+                      Copy snippet
+                    </button>
 
-            {entry.id === "whatsapp" && (
-              <>
-                {connection ? (
-                  <>
-                    <p style={{ fontSize: 13 }}>
-                      🟢 Connected — phone number ID <strong>{connection.externalId}</strong>
-                    </p>
-                    <button onClick={() => disconnect("whatsapp")}>Disconnect</button>
-                  </>
-                ) : (
-                  <>
-                    <p style={{ opacity: 0.6, fontSize: 13 }}>
-                      Paste the Phone Number ID and a permanent access token generated
-                      in Meta Business Suite for your WhatsApp Business number.
-                    </p>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <input
-                        placeholder="Phone Number ID"
-                        value={waPhoneId}
-                        onChange={(e) => setWaPhoneId(e.target.value)}
-                        style={{ padding: 8, flex: 1, minWidth: 160 }}
-                      />
-                      <input
-                        placeholder="Access token"
-                        type="password"
-                        value={waToken}
-                        onChange={(e) => setWaToken(e.target.value)}
-                        style={{ padding: 8, flex: 1, minWidth: 160 }}
-                      />
-                      <input
-                        placeholder="Business Account ID (optional)"
-                        value={waBusinessAccountId}
-                        onChange={(e) => setWaBusinessAccountId(e.target.value)}
-                        style={{ padding: 8, flex: 1, minWidth: 160 }}
-                      />
-                      <button onClick={connectWhatsapp} disabled={waSaving}>
-                        {waSaving ? "Saving…" : "Save"}
-                      </button>
+                    <div style={{ marginTop: 18 }}>
+                      <span className="instrument-label">Customize the widget</span>
+                      <p className="meta">
+                        Everything below is plug-and-play — change it any time and it goes live on your
+                        site immediately. The embed snippet above never changes.
+                      </p>
+                      <WidgetCustomizerPanel businessId={businessId} />
                     </div>
                   </>
                 )}
-              </>
-            )}
-            {entry.id === "whatsapp-test" && (
-              <>
-                <p style={{ opacity: 0.6, fontSize: 13 }}>
-                  Unofficial, testing-only — links via an Evolution API gateway instead of the
-                  Meta Business API. Real ban risk on the linked number; use a disposable/spare
-                  WhatsApp number, not your production one.
-                </p>
-                {connection ? (
-                  <>
-                    <p style={{ fontSize: 13 }}>
-                      🟢 Connected — <strong>{connection.externalLabel}</strong>
+
+                {entry.id !== "website" && entry.id !== "whatsapp" && entry.id !== "whatsapp-test" && (
+                  connection ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 13 }}>
+                        Connected as <span className="data">{connection.externalLabel}</span>
+                      </span>
+                      <button onClick={() => disconnect(entry.id)} className="danger sm">Disconnect</button>
+                    </div>
+                  ) : entry.supportsOAuth ? (
+                    <a href={`/api/oauth/${entry.id}/start?businessId=${encodeURIComponent(businessId)}`}>
+                      Connect {entry.label}
+                    </a>
+                  ) : (
+                    <p className="meta">
+                      Not configured yet — ask your administrator to set up the {entry.label} integration
+                      first.
                     </p>
-                    <button onClick={() => disconnect("whatsapp-test")}>Disconnect</button>
-                  </>
-                ) : waTestQr ? (
+                  )
+                )}
+
+                {entry.id === "whatsapp" && (
+                  connection ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 13 }}>
+                        Connected — phone number ID <span className="data">{connection.externalId}</span>
+                      </span>
+                      <button onClick={() => disconnect("whatsapp")} className="danger sm">Disconnect</button>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="meta">
+                        Paste the Phone Number ID and a permanent access token generated in Meta
+                        Business Suite for your WhatsApp Business number.
+                      </p>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+                        <div className="field" style={{ flex: "1 1 180px", minWidth: 0 }}>
+                          <label className="field-label" htmlFor="aiva-wa-phone-id">Phone Number ID</label>
+                          <input
+                            id="aiva-wa-phone-id"
+                            value={waPhoneId}
+                            onChange={(e) => setWaPhoneId(e.target.value)}
+                          />
+                        </div>
+                        <div className="field" style={{ flex: "1 1 180px", minWidth: 0 }}>
+                          <label className="field-label" htmlFor="aiva-wa-token">Access token</label>
+                          <input
+                            id="aiva-wa-token"
+                            type="password"
+                            autoComplete="off"
+                            value={waToken}
+                            onChange={(e) => setWaToken(e.target.value)}
+                          />
+                        </div>
+                        <div className="field" style={{ flex: "1 1 180px", minWidth: 0 }}>
+                          <label className="field-label" htmlFor="aiva-wa-business-id">Business Account ID (optional)</label>
+                          <input
+                            id="aiva-wa-business-id"
+                            value={waBusinessAccountId}
+                            onChange={(e) => setWaBusinessAccountId(e.target.value)}
+                          />
+                        </div>
+                        <button onClick={connectWhatsapp} disabled={waSaving} className="primary sm">
+                          {waSaving ? "Saving…" : "Save"}
+                        </button>
+                      </div>
+                    </>
+                  )
+                )}
+
+                {entry.id === "whatsapp-test" && (
                   <>
-                    <p style={{ fontSize: 13 }}>Scan with WhatsApp → Linked devices → Link a device.</p>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={waTestQr} alt="WhatsApp QR code" width={220} height={220} />
-                    <p style={{ opacity: 0.6, fontSize: 12 }}>Status: {waTestStatus ?? "waiting…"}</p>
-                  </>
-                ) : (
-                  <>
-                    <button onClick={startTestWhatsappLink} disabled={waTestLoading}>
-                      {waTestLoading ? "Starting…" : "Link WhatsApp (testing)"}
-                    </button>
-                    {waTestStatus && <p style={{ opacity: 0.6, fontSize: 12 }}>Status: {waTestStatus}</p>}
+                    <div className="machine-block" style={{ marginBottom: 12 }}>
+                      <span className="instrument-label">Ban risk — testing only</span>
+                      <p className="meta" style={{ margin: "6px 0 0" }}>
+                        Unofficial, testing-only — links via an Evolution API gateway instead of the
+                        Meta Business API. Real ban risk on the linked number; use a disposable or
+                        spare WhatsApp number, not your production one.
+                      </p>
+                    </div>
+                    {connection ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 13 }}>
+                          Connected — <span className="data">{connection.externalLabel}</span>
+                        </span>
+                        <button onClick={() => disconnect("whatsapp-test")} className="danger sm">
+                          Disconnect
+                        </button>
+                      </div>
+                    ) : waTestQr ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-start" }}>
+                        <p className="meta" style={{ margin: 0 }}>
+                          Scan with WhatsApp → Linked devices → Link a device.
+                        </p>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={waTestQr} alt="WhatsApp QR code" width={220} height={220} />
+                        <span
+                          className={
+                            waTestStatus === "ready"
+                              ? "lamp lamp-ok"
+                              : waTestStatus === "failed"
+                                ? "lamp lamp-err"
+                                : "lamp lamp-warn"
+                          }
+                        >
+                          {waTestStatus ?? "waiting"}
+                        </span>
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                        <button onClick={startTestWhatsappLink} disabled={waTestLoading} className="primary sm">
+                          {waTestLoading ? "Starting…" : "Link WhatsApp (testing)"}
+                        </button>
+                        {waTestStatus && (
+                          <span className={waTestStatus === "failed" ? "lamp lamp-err" : "lamp lamp-warn"}>
+                            {waTestStatus}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </>
                 )}
-              </>
-            )}
-          </div>
-        );
-      })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </section>
   );
 }

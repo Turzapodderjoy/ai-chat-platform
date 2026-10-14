@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useMemo } from "react";
 
-import { cardStyle, subtleTextStyle, badgeStyle, type BadgeTone } from "./dashboard-styles";
 import { StatCard, StatCardRow } from "./StatCard";
 import { SubscriptionStatus } from "./SubscriptionStatus";
 import { NavIcon } from "./nav-icons";
@@ -67,24 +66,6 @@ function timeAgo(iso: string): string {
   const days = Math.floor(hrs / 24);
   return `${days}d ago`;
 }
-
-const STATUS_TONE: Record<string, BadgeTone> = {
-  booked: "info",
-  received: "info",
-  in_repair: "warn",
-  ready: "warn",
-  completed: "ok",
-  cancelled: "error",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  booked: "Booked",
-  received: "Received",
-  in_repair: "In Repair",
-  ready: "Ready",
-  completed: "Completed",
-  cancelled: "Cancelled",
-};
 
 /** The landing page for a real client login -- a quick "how's the shop
  * doing right now" snapshot, the same subscription info Overview used
@@ -168,131 +149,168 @@ export function ClientHomePanel({
   }, [appointments, todayKey, timezone]);
 
   return (
-    <section>
-      <div
-        style={{
-          ...cardStyle,
-          background: "linear-gradient(135deg, var(--accent-subtle), var(--surface))",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: 12,
-        }}
-      >
-        <div>
-          <h2 style={{ margin: 0, marginBottom: 4, fontSize: 22 }}>
-            {now ? greetingFor(Number(new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", hourCycle: "h23" }).format(now))) : "Welcome"}{username ? `, ${username}` : ""} 👋
-          </h2>
-          <p style={{ ...subtleTextStyle, margin: 0 }}>{clientName}</p>
+    <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div className="panel">
+        <div className="panel-head">
+          <span className="instrument-label">Shop today</span>
+          {now && (
+            <span className="data" style={{ fontSize: 11.5, color: "var(--ink-3)" }}>
+              {new Intl.DateTimeFormat("en-US", { timeZone: timezone, weekday: "long", month: "long", day: "numeric" }).format(now)}
+            </span>
+          )}
         </div>
-        {now && (
-          <div style={{ fontSize: 13, color: "var(--text-faint)" }}>
-            {new Intl.DateTimeFormat("en-US", { timeZone: timezone, weekday: "long", month: "long", day: "numeric" }).format(now)} ·{" "}
-            {new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", minute: "2-digit" }).format(now)}
-          </div>
-        )}
+        <div className="panel-body">
+          <h2 style={{ margin: 0, fontSize: 19, color: "var(--ink)" }}>
+            {now
+              ? greetingFor(
+                  Number(
+                    new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", hourCycle: "h23" }).format(now),
+                  ),
+                )
+              : "Welcome"}
+            {username ? `, ${username}` : ""}
+          </h2>
+          <p className="meta" style={{ margin: "4px 0 0" }}>{clientName}</p>
+          {now && (
+            <div className="data" style={{ fontSize: 12.5, color: "var(--ink-2)", marginTop: 8 }}>
+              {new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", minute: "2-digit" }).format(now)}
+            </div>
+          )}
+        </div>
       </div>
 
       <StatCardRow>
-        <StatCard label="Today's Appointments" value={stats?.todayCount ?? "…"} tone="info" />
-        <StatCard label="Active Repairs" value={stats?.activeCount ?? "…"} tone="accent" />
-        <StatCard label="Urgent" value={stats?.urgentCount ?? "…"} tone={stats?.urgentCount && stats.urgentCount > 0 ? "danger" : "neutral"} />
-        <StatCard label="Needs Attention" value={stats?.needsAttentionCount ?? "…"} tone={stats?.needsAttentionCount && stats.needsAttentionCount > 0 ? "warning" : "neutral"} />
-        <StatCard label="Completed Today" value={stats?.completedTodayCount ?? "…"} tone="success" />
+        <StatCard label="Todays appointments" value={stats?.todayCount ?? "…"} tone="info" />
+        <StatCard label="Active repairs" value={stats?.activeCount ?? "…"} tone="accent" />
+        <StatCard
+          label="Urgent"
+          value={stats?.urgentCount ?? "…"}
+          tone={stats?.urgentCount && stats.urgentCount > 0 ? "danger" : "neutral"}
+        />
+        <StatCard
+          label="Needs attention"
+          value={stats?.needsAttentionCount ?? "…"}
+          tone={stats?.needsAttentionCount && stats.needsAttentionCount > 0 ? "warning" : "neutral"}
+        />
+        <StatCard label="Completed today" value={stats?.completedTodayCount ?? "…"} tone="success" />
       </StatCardRow>
 
       {stats && (
-        <div style={{ display: "flex", gap: 16, marginBottom: 16, fontSize: 12, color: "var(--text-secondary)", flexWrap: "wrap" }}>
-          <span>📅 Booked: <strong>{stats.bookedTodayCount ?? 0}</strong></span>
-          <span>🚶 Walk-ins: <strong>{stats.walkinsTodayCount ?? 0}</strong></span>
-          <span>✅ Completed: <strong>{stats.completedTodayCount ?? 0}</strong></span>
+        <div className="toolbar" style={{ marginBottom: 0 }}>
+          <span className="data" style={{ fontSize: 12, color: "var(--ink-2)" }}>
+            Booked {stats.bookedTodayCount}
+          </span>
+          <span className="data" style={{ fontSize: 12, color: "var(--ink-2)" }}>
+            Walk-ins {stats.walkinsTodayCount}
+          </span>
+          <span className="data" style={{ fontSize: 12, color: "var(--ink-2)" }}>
+            Completed {stats.completedTodayCount}
+          </span>
         </div>
       )}
 
       {stats && stats.needsAttention.length > 0 && (
-        <div style={cardStyle}>
-          <h3 style={{ marginTop: 0, marginBottom: 12, fontSize: 14 }}>Needs Attention</h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {stats.needsAttention.slice(0, 5).map((a) => (
-              <div
-                key={a.id}
-                onClick={() => onNavigate("repairs")}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "10px 12px",
-                  borderRadius: "var(--radius-sm)",
-                  border: "1px solid var(--border)",
-                  cursor: "pointer",
-                  background: "var(--surface)",
-                  transition: "border-color 0.15s",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
-              >
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{a.customerName}</div>
-                  <div style={{ fontSize: 11.5, color: "var(--text-muted)" }}>{a.deviceType}{a.deviceModel ? ` — ${a.deviceModel}` : ""}</div>
-                </div>
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  {a.rescheduleRequested && <span style={badgeStyle("warn")}>Reschedule</span>}
-                  {a.cancelRequested && <span style={badgeStyle("error")}>Cancel</span>}
-                  <span style={{ fontSize: 11, color: "var(--text-faint)" }}>{timeAgo(a.createdAt)}</span>
-                </div>
-              </div>
-            ))}
+        <div className="panel">
+          <div className="panel-head">
+            <span className="instrument-label">Needs attention</span>
+            <span className="lamp lamp-warn">{stats.needsAttention.length}</span>
+          </div>
+          <div className="panel-body">
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {stats.needsAttention.slice(0, 5).map((a) => (
+                <button
+                  key={a.id}
+                  onClick={() => onNavigate("repairs")}
+                  className="plain"
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 12,
+                    width: "100%",
+                    padding: "10px 12px",
+                    background: "var(--panel-sunk)",
+                    border: "1px solid var(--line-soft)",
+                    borderRadius: "var(--r-sm)",
+                    textAlign: "left",
+                  }}
+                >
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: "block", fontWeight: 600, fontSize: 13, color: "var(--ink)" }}>
+                      {a.customerName}
+                    </span>
+                    <span className="meta" style={{ display: "block", fontSize: 11.5 }}>
+                      {a.deviceType}{a.deviceModel ? ` — ${a.deviceModel}` : ""}
+                    </span>
+                  </span>
+                  <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    {a.rescheduleRequested && <span className="lamp lamp-warn">Reschedule</span>}
+                    {a.cancelRequested && <span className="lamp lamp-err">Cancel</span>}
+                    <span className="data" style={{ fontSize: 11, color: "var(--ink-4)" }}>
+                      {timeAgo(a.createdAt)}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
 
       <SubscriptionStatus businessId={businessId} />
 
-      <div style={cardStyle}>
-        <h3 style={{ marginTop: 0, marginBottom: 14 }}>Quick links</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
-          {quickLinks(businessType === "repair").map((link) => (
-            <button
-              key={link.tab}
-              onClick={() => onNavigate(link.tab)}
-              className="plain"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: 14,
-                background: "var(--bg)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius-sm, 8px)",
-                textAlign: "left",
-                cursor: "pointer",
-                transition: "border-color 0.15s ease",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
-            >
-              <div
+      <div className="panel">
+        <div className="panel-head">
+          <span className="instrument-label">Quick links</span>
+        </div>
+        <div className="panel-body">
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+              gap: 10,
+            }}
+          >
+            {quickLinks(businessType === "repair").map((link) => (
+              <button
+                key={link.tab}
+                onClick={() => onNavigate(link.tab)}
+                className="plain"
                 style={{
-                  width: 36,
-                  height: 36,
-                  flexShrink: 0,
-                  borderRadius: "var(--radius-sm, 8px)",
-                  background: "var(--accent-subtle)",
-                  color: "var(--accent)",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
+                  gap: 12,
+                  padding: 12,
+                  background: "var(--panel-sunk)",
+                  border: "1px solid var(--line-soft)",
+                  borderRadius: "var(--r-sm)",
+                  textAlign: "left",
                 }}
               >
-                <NavIcon id={link.tab} />
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 13.5 }}>{link.label}</div>
-                <div style={{ fontSize: 11.5, color: "var(--text-faint)" }}>{link.hint}</div>
-              </div>
-            </button>
-          ))}
+                <span
+                  style={{
+                    width: 34,
+                    height: 34,
+                    flexShrink: 0,
+                    borderRadius: "var(--r-sm)",
+                    background: "var(--accent-subtle)",
+                    color: "var(--accent)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <NavIcon id={link.tab} />
+                </span>
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: "block", fontWeight: 600, fontSize: 13.5, color: "var(--ink)" }}>
+                    {link.label}
+                  </span>
+                  <span className="meta" style={{ display: "block", fontSize: 11.5 }}>{link.hint}</span>
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </section>

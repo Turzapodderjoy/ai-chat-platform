@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { cardStyle, subtleTextStyle, primaryButtonStyle, secondaryButtonStyle, dangerButtonStyle, labelTextStyle } from "./dashboard-styles";
 import { showAlert, showConfirm, showPrompt } from "../lib/app-dialog";
 
 // Wave B #11 - Locations panel. Business-scoped physical locations as a simple
@@ -97,54 +96,75 @@ export function LocationsPanel({ businessId, active = true }: { businessId: stri
   const activeCount = locations.filter((l) => l.isActive).length;
 
   return (
-    <div style={cardStyle}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <div>
-          <h3 style={{ margin: 0 }}>Locations</h3>
-          <p style={subtleTextStyle}>Physical storefronts and stock locations — used by shifts and reporting.</p>
-        </div>
+    <section className="panel">
+      <div className="panel-head">
+        <span className="instrument-label">Locations</span>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <span style={{ ...labelTextStyle, color: "#6b7280" }}>
-            {activeCount} active · {locations.length} total
-          </span>
-          <button style={primaryButtonStyle} onClick={handleCreate}>
-            + Add Location
+          <span className="data" style={{ fontSize: 11 }}>{activeCount} active</span>
+          <span className="data" style={{ fontSize: 11 }}>{locations.length} total</span>
+          <button className="primary" onClick={handleCreate}>
+            Add location
           </button>
         </div>
       </div>
 
-      {loading ? (
-        <p style={subtleTextStyle}>Loading locations…</p>
-      ) : locations.length === 0 ? (
-        <p style={subtleTextStyle}>No locations yet. Add your first storefront.</p>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {locations.map((loc) => (
-            <div key={loc.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: loc.isActive ? "#f9fafb" : "#f3f4f6", borderRadius: 8 }}>
-              <div>
-                <div style={{ fontWeight: 600 }}>
-                  {loc.name}
-                  {!loc.isActive && <span style={{ ...subtleTextStyle, marginLeft: 8 }}>(inactive)</span>}
-                </div>
-                <p style={{ ...subtleTextStyle, margin: "2px 0 0" }}>
-                  {[loc.city, loc.address].filter(Boolean).join(" · ") || "No address"}
-                </p>
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button style={secondaryButtonStyle} onClick={() => handleToggle(loc)}>
-                  {loc.isActive ? "Deactivate" : "Activate"}
-                </button>
-                <button style={secondaryButtonStyle} onClick={() => handleEdit(loc)}>
-                  Edit
-                </button>
-                <button style={dangerButtonStyle} onClick={() => handleDelete(loc)}>
-                  Delete
-                </button>
-              </div>
+      <div className="panel-body">
+        {loading ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="skeleton" style={{ height: 44 }} />
+            <div className="skeleton" style={{ height: 44 }} />
+          </div>
+        ) : locations.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state-title">No locations yet</div>
+            <div className="empty-state-description">
+              Add your first storefront so shifts, reporting and multi-location orders can point at it.
             </div>
-          ))}
-        </div>
-      )}
-    </div>
+            <div className="empty-state-actions">
+              <button className="primary" onClick={handleCreate}>Add location</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {locations.map((loc) => (
+              <div
+                key={loc.id}
+                className="panel-sunk"
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "10px 12px",
+                }}
+              >
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span className={loc.isActive ? "lamp lamp-ok" : "lamp lamp-idle"}>
+                      {loc.isActive ? "Active" : "Inactive"}
+                    </span>
+                    <span style={{ fontWeight: 600, color: "var(--ink)" }}>{loc.name}</span>
+                  </div>
+                  <p className="meta" style={{ margin: "3px 0 0", fontSize: 12 }}>
+                    {[loc.city, loc.address].filter(Boolean).join(", ") || "No address on file"}
+                  </p>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button className="ghost sm" onClick={() => handleToggle(loc)}>
+                    {loc.isActive ? "Deactivate" : "Activate"}
+                  </button>
+                  <button className="ghost sm" onClick={() => handleEdit(loc)}>
+                    Edit
+                  </button>
+                  <button className="danger sm" onClick={() => handleDelete(loc)}>
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }

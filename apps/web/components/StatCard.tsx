@@ -2,15 +2,21 @@
 
 export type StatTone = "neutral" | "success" | "warning" | "danger" | "info" | "accent";
 
-const TONE_CONFIG: Record<StatTone, { color: string; bg: string }> = {
-  neutral: { color: "var(--text-muted)", bg: "var(--surface-hover)" },
-  success: { color: "var(--success)", bg: "var(--success-subtle)" },
-  warning: { color: "var(--warning)", bg: "var(--warning-subtle)" },
-  danger: { color: "var(--danger)", bg: "var(--danger-subtle)" },
-  info: { color: "var(--info)", bg: "var(--info-subtle)" },
-  accent: { color: "var(--accent)", bg: "var(--accent-subtle)" },
+// The tone only tints the delta line. The reading itself is always --ink:
+// a metric that changes colour with its own value is decoration, not
+// information, and status colour is reserved for status.
+const DELTA_COLOR: Record<StatTone, string> = {
+  neutral: "var(--ink-3)",
+  success: "var(--success)",
+  warning: "var(--warning)",
+  danger: "var(--danger)",
+  info: "var(--info)",
+  accent: "var(--accent)",
 };
 
+/** One instrument reading: a quiet label, a large monospace number in
+ * --ink, and an optional delta underneath in the tone's colour. Hairline
+ * container, no hover state -- a metric does not respond to a cursor. */
 export function StatCard({
   label,
   value,
@@ -22,65 +28,34 @@ export function StatCard({
   hint?: string;
   tone?: StatTone;
 }) {
-  const config = TONE_CONFIG[tone];
-
   return (
-    <div
-      style={{
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--radius-md, 12px)",
-        padding: "20px",
-        position: "relative",
-        overflow: "hidden",
-        transition: "all 0.2s ease",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = "var(--border-strong)";
-        e.currentTarget.style.transform = "translateY(-2px)";
-        e.currentTarget.style.boxShadow = "var(--shadow-md)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = "var(--border)";
-        e.currentTarget.style.transform = "none";
-        e.currentTarget.style.boxShadow = "none";
-      }}
-    >
-      {hint && (
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-          <span style={{ fontSize: 11, color: config.color, fontWeight: 500 }}>{hint}</span>
-        </div>
-      )}
-      <div style={{
-        fontSize: 28,
-        fontWeight: 700,
-        color: "var(--text)",
-        letterSpacing: "-0.02em",
-        lineHeight: 1,
-        marginBottom: 6,
-        fontVariantNumeric: "tabular-nums",
-      }}>
+    <div className="panel" style={{ padding: "12px 14px" }}>
+      <div className="meta">{label}</div>
+      <div
+        className="data"
+        style={{ fontSize: 22, fontWeight: 600, color: "var(--ink)", lineHeight: 1.15, marginTop: 4 }}
+      >
         {value}
       </div>
-      <div style={{
-        fontSize: 13,
-        color: "var(--text-muted)",
-        fontWeight: 500,
-      }}>
-        {label}
-      </div>
+      {hint && (
+        <div className="meta" style={{ marginTop: 3, fontWeight: 500, color: DELTA_COLOR[tone] }}>
+          {hint}
+        </div>
+      )}
     </div>
   );
 }
 
 export function StatCardRow({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 180px), 1fr))",
-      gap: 16,
-      marginBottom: 24,
-    }}>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 170px), 1fr))",
+        gap: 10,
+        marginBottom: 14,
+      }}
+    >
       {children}
     </div>
   );

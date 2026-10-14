@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-import { cardStyle, subtleTextStyle, primaryButtonStyle, badgeStyle } from "./dashboard-styles";
+import type { CSSProperties } from "react";
 
 interface StaffMember {
   id: string;
@@ -104,108 +103,149 @@ export function TimeClockPanel({ businessId }: { businessId: string }) {
     return `${hrs}h ${mins}m`;
   }
 
-  return (
-    <section style={{ padding: 0 }}>
-      <div style={{ marginBottom: 16 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Time Clock</h2>
-        <p style={{ ...subtleTextStyle, fontSize: 13 }}>
-          Staff clock in/out with optional notes. Entries auto-refresh every 30s.
+const CARD: CSSProperties = {
+  padding: 13,
+  border: "1px solid var(--line)",
+  borderRadius: "var(--r-md)",
+  background: "var(--panel)",
+  boxShadow: "var(--edge-light)",
+};
+
+const CONTROL_ROW: CSSProperties = { display: "flex", alignItems: "flex-end", gap: 10, flexWrap: "wrap" };
+
+return (
+    <section className="panel">
+      <div className="panel-head">
+        <span className="instrument-label">Time clock</span>
+        <span className="data" style={{ fontSize: 11, color: "var(--ink-3)" }}>
+          {entries.length} entries
+        </span>
+      </div>
+
+      <div className="panel-body">
+        <p className="meta" style={{ marginTop: 0, marginBottom: 14 }}>
+          Staff clock in and out with optional notes. Entries refresh every 30 seconds.
         </p>
-      </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
-        <select
-          value={selectedStaffId}
-          onChange={(e) => setSelectedStaffId(e.target.value)}
-          style={{ padding: 8, minWidth: 200 }}
-        >
-          <option value="">Select staff member</option>
-          {staff.filter((s) => s.active).map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name} ({s.role})
-            </option>
-          ))}
-        </select>
-
-        <input
-          type="date"
-          value={fromDate}
-          onChange={(e) => setFromDate(e.target.value)}
-          style={{ padding: 8, width: 160 }}
-        />
-        <input
-          type="date"
-          value={toDate}
-          onChange={(e) => setToDate(e.target.value)}
-          style={{ padding: 8, width: 160 }}
-        />
-      </div>
-
-      {selectedStaffId && (
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
-          <div style={{ ...cardStyle, padding: 12, flex: 1, minWidth: 220 }}>
-            <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 4 }}>Current Shift</div>
-            {currentShift ? (
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>Clocked in: {fmtDateTime(currentShift.clockIn)}</div>
-                {currentShift.note && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>{currentShift.note}</div>}
-                <div style={{ fontSize: 12, color: "var(--accent)", marginTop: 6 }}>Running: {durationMs(currentShift.clockIn)}</div>
-              </div>
-            ) : (
-              <div style={{ color: "var(--text-muted)" }}>Not clocked in</div>
-            )}
+        <div className="toolbar">
+          <div className="field" style={{ minWidth: 220 }}>
+            <label className="field-label" htmlFor="timeclock-staff">Staff member</label>
+            <select
+              id="timeclock-staff"
+              value={selectedStaffId}
+              onChange={(e) => setSelectedStaffId(e.target.value)}
+              style={{ fontSize: 13 }}
+            >
+              <option value="">Select staff member</option>
+              {staff.filter((s) => s.active).map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.role})
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-            <input
-              placeholder="Optional note"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              style={{ padding: 8, width: 200 }}
-            />
-            <button onClick={() => handleClock("in")} disabled={clocking || !!currentShift} style={primaryButtonStyle}>
-              {clocking ? "Clocking…" : "Clock In"}
-            </button>
-            <button onClick={() => handleClock("out")} disabled={clocking || !currentShift} style={{ ...primaryButtonStyle, background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)" }}>
-              {clocking ? "Clocking…" : "Clock Out"}
-            </button>
+          <div className="field" style={{ width: 160 }}>
+            <label className="field-label" htmlFor="timeclock-from">From</label>
+            <input id="timeclock-from" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="data" />
+          </div>
+
+          <div className="field" style={{ width: 160 }}>
+            <label className="field-label" htmlFor="timeclock-to">To</label>
+            <input id="timeclock-to" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="data" />
           </div>
         </div>
-      )}
 
-      <div style={{ ...cardStyle, overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-          <thead>
-            <tr style={{ borderBottom: "1px solid var(--border)" }}>
-              <th style={{ padding: "8px 10px", textAlign: "left", color: "var(--text-faint)" }}>Staff</th>
-              <th style={{ padding: "8px 10px", textAlign: "left", color: "var(--text-faint)" }}>Clock In</th>
-              <th style={{ padding: "8px 10px", textAlign: "left", color: "var(--text-faint)" }}>Clock Out</th>
-              <th style={{ padding: "8px 10px", textAlign: "left", color: "var(--text-faint)" }}>Duration</th>
-              <th style={{ padding: "8px 10px", textAlign: "left", color: "var(--text-faint)" }}>Note</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.length === 0 && (
-              <tr>
-                <td colSpan={5} style={{ padding: 16, textAlign: "center", color: "var(--text-muted)" }}>
-                  No time entries found
-                </td>
-              </tr>
-            )}
-            {entries.map((e) => {
-              const member = staff.find((s) => s.id === e.staffId);
-              return (
-                <tr key={e.id} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-                  <td style={{ padding: "8px 10px" }}>{member?.name ?? e.staffId}</td>
-                  <td style={{ padding: "8px 10px" }}>{fmtDateTime(e.clockIn)}</td>
-                  <td style={{ padding: "8px 10px" }}>{e.clockOut ? fmtDateTime(e.clockOut) : <span style={badgeStyle("info")}>Active</span>}</td>
-                  <td style={{ padding: "8px 10px" }}>{durationMs(e.clockIn, e.clockOut)}</td>
-                  <td style={{ padding: "8px 10px", color: "var(--text-muted)" }}>{e.note ?? "—"}</td>
+        {selectedStaffId && (
+          <div style={{ ...CARD, marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+            <div>
+              <span className={currentShift ? "lamp lamp-ok" : "lamp lamp-idle"}>
+                {currentShift ? "Clocked in" : "Not clocked in"}
+              </span>
+              {currentShift ? (
+                <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginTop: 8 }}>
+                  <span className="data" style={{ fontSize: 13, color: "var(--ink)" }}>
+                    Since {fmtDateTime(currentShift.clockIn)}
+                  </span>
+                  <span className="data" style={{ fontSize: 15, color: "var(--accent)" }}>
+                    {durationMs(currentShift.clockIn)}
+                  </span>
+                </div>
+              ) : (
+                <p className="meta" style={{ marginTop: 6, marginBottom: 0 }}>
+                  Clock in to start tracking hours for this person.
+                </p>
+              )}
+              {currentShift?.note && (
+                <p className="meta" style={{ marginTop: 6, marginBottom: 0, maxWidth: "48ch" }}>{currentShift.note}</p>
+              )}
+            </div>
+
+            <div style={CONTROL_ROW}>
+              <div className="field" style={{ width: 200 }}>
+                <label className="field-label" htmlFor="timeclock-note">Note</label>
+                <input
+                  id="timeclock-note"
+                  placeholder="Optional"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  style={{ fontSize: 13 }}
+                />
+              </div>
+              <button onClick={() => handleClock("in")} disabled={clocking || !!currentShift} className="primary">
+                {clocking ? "Clocking" : "Clock in"}
+              </button>
+              <button onClick={() => handleClock("out")} disabled={clocking || !currentShift} className="ghost">
+                {clocking ? "Clocking" : "Clock out"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {entries.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state-title">No time entries</div>
+            <div className="empty-state-description">
+              {selectedStaffId
+                ? "This person has no clock-ins in the selected range. Widen the dates or clear them."
+                : "Pick a staff member, or clear the date range to see every entry."}
+            </div>
+          </div>
+        ) : (
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Staff</th>
+                  <th>Clock in</th>
+                  <th>Clock out</th>
+                  <th className="num">Duration</th>
+                  <th>Note</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {entries.map((e) => {
+                  const member = staff.find((s) => s.id === e.staffId);
+                  return (
+                    <tr key={e.id}>
+                      <td style={{ color: "var(--ink)", fontWeight: 500 }}>{member?.name ?? e.staffId}</td>
+                      <td><span className="data" style={{ fontSize: 12 }}>{fmtDateTime(e.clockIn)}</span></td>
+                      <td>
+                        {e.clockOut ? (
+                          <span className="data" style={{ fontSize: 12 }}>{fmtDateTime(e.clockOut)}</span>
+                        ) : (
+                          <span className="lamp lamp-ok">Running</span>
+                        )}
+                      </td>
+                      <td className="num" style={{ whiteSpace: "nowrap" }}>{durationMs(e.clockIn, e.clockOut)}</td>
+                      <td className="meta">{e.note ?? "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </section>
   );

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import { cardStyle, subtleTextStyle, primaryButtonStyle, labelTextStyle, inputStyle } from "./dashboard-styles";
 
 interface ReviewConfig {
   businessId: string;
@@ -65,116 +64,139 @@ export function ReviewAutomationPanel({ businessId }: { businessId: string }) {
 
   function Header() {
     return (
-      <div style={{ marginBottom: 16 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Review Request Automation</h2>
-        <p style={{ ...subtleTextStyle, fontSize: 13 }}>
-          Auto-send review requests when a repair/order reaches a target status.
-          Provide your Google Review link and/or a WhatsApp deep-link.
-        </p>
+      <div className="toolbar" style={{ marginBottom: 14 }}>
+        <div>
+          <h1 style={{ margin: "0 0 4px", fontSize: 20, color: "var(--ink)" }}>Review request automation</h1>
+          <p className="meta" style={{ margin: 0 }}>
+            Auto-send review requests when a repair/order reaches a target status. Provide your Google
+            Review link and/or a WhatsApp deep-link.
+          </p>
+        </div>
       </div>
     );
   }
 
   function LinksCard() {
     return (
-      <div style={{ ...cardStyle, padding: 16, marginBottom: 16 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Review Links</h3>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div>
-            <label style={labelTextStyle}>Google Review URL</label>
+      <section className="panel">
+        <div className="panel-head">
+          <span className="instrument-label">Review links</span>
+        </div>
+        <div className="panel-body" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <label className="field">
+            <span className="instrument-label">Google review URL</span>
             <input
               type="url"
               placeholder="https://g.page/yourbusiness/review"
               value={config?.googleReviewUrl ?? ""}
               onChange={(e) => updateConfig("googleReviewUrl", e.target.value)}
-              style={inputStyle}
             />
-            <p style={subtleTextStyle}>Get it from Google Business Profile → Get more reviews → Copy link</p>
-          </div>
-          <div>
-            <label style={labelTextStyle}>WhatsApp Review URL (optional)</label>
+            <span className="field-hint">
+              Google Business Profile &rarr; Get more reviews &rarr; Copy link
+            </span>
+          </label>
+          <label className="field">
+            <span className="instrument-label">WhatsApp review URL</span>
             <input
               type="url"
               placeholder="https://wa.me/15551234567?text=Please%20review%20us..."
               value={config?.whatsAppReviewUrl ?? ""}
               onChange={(e) => updateConfig("whatsAppReviewUrl", e.target.value)}
-              style={inputStyle}
             />
-            <p style={subtleTextStyle}>Format: https://wa.me/PHONE?text=MESSAGE — customer clicks, message pre-filled</p>
-          </div>
+            <span className="field-hint">
+              Format https://wa.me/PHONE?text=MESSAGE — customer clicks, message pre-filled
+            </span>
+          </label>
         </div>
-      </div>
+      </section>
     );
   }
 
   function TriggerCard() {
     return (
-      <div style={{ ...cardStyle, padding: 16, marginBottom: 16 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Trigger & Timing</h3>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-end" }}>
-          <div style={{ flex: 1, minWidth: 180 }}>
-            <label style={labelTextStyle}>Trigger on status</label>
-            <select value={config?.triggerStatus ?? "completed"} onChange={(e) => updateConfig("triggerStatus", e.target.value)} style={inputStyle}>
-              <option value="completed">Completed</option>
-              <option value="ready">Ready for Pickup</option>
-              <option value="delivered">Delivered</option>
-              <option value="paid">Paid</option>
-            </select>
-          </div>
-          <div style={{ flex: 1, minWidth: 120 }}>
-            <label style={labelTextStyle}>Delay (hours)</label>
-            <input
-              type="number"
-              min="0"
-              max="168"
-              value={config?.delayHours ?? 0}
-              onChange={(e) => updateConfig("delayHours", Number(e.target.value))}
-              style={inputStyle}
-            />
-            <p style={subtleTextStyle}>0 = send immediately</p>
-          </div>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
-            <input type="checkbox" checked={config?.autoSend ?? false} onChange={(e) => updateConfig("autoSend", e.target.checked)} style={{ width: 16, height: 16, accentColor: "var(--accent)" }} />
-            Auto-send (no manual click)
-          </label>
+      <section className="panel">
+        <div className="panel-head">
+          <span className="instrument-label">Trigger &amp; timing</span>
         </div>
-      </div>
+        <div className="panel-body">
+          <div className="toolbar" style={{ marginBottom: 0, alignItems: "flex-end" }}>
+            <label className="field" style={{ flex: 1, minWidth: 180 }}>
+              <span className="instrument-label">Trigger on status</span>
+              <select value={config?.triggerStatus ?? "completed"} onChange={(e) => updateConfig("triggerStatus", e.target.value)}>
+                <option value="completed">Completed</option>
+                <option value="ready">Ready for pickup</option>
+                <option value="delivered">Delivered</option>
+                <option value="paid">Paid</option>
+              </select>
+            </label>
+            <label className="field" style={{ flex: 1, minWidth: 120 }}>
+              <span className="instrument-label">Delay (hours)</span>
+              <input
+                type="number"
+                min={0}
+                max={168}
+                value={config?.delayHours ?? 0}
+                onChange={(e) => updateConfig("delayHours", Number(e.target.value))}
+              />
+              <span className="field-hint">0 sends immediately</span>
+            </label>
+            <label className="field" style={{ flex: "0 0 auto" }}>
+              <span className="instrument-label">Delivery</span>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, height: 34, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={config?.autoSend ?? false}
+                  onChange={(e) => updateConfig("autoSend", e.target.checked)}
+                />
+                Auto-send, no manual click
+              </label>
+            </label>
+          </div>
+        </div>
+      </section>
     );
   }
 
   function TemplateCard() {
     const emailBody = "Hi {{customerName}},<br><br>Thanks for choosing {{businessName}}! Your repair <strong>{{trackingToken}}</strong> is now complete.<br><br>Could you spare a minute to leave a review?<br><a href=\"{{reviewUrl}}\">{{reviewUrl}}</a><br><br>Thanks,<br>{{businessName}}";
-    const whatsappBody = "Hi {{customerName}}! Your repair {{trackingToken}} is complete. 🙏 Please leave a quick review: {{reviewUrl}}";
-    
+    const whatsappBody =
+      "Hi {{customerName}}! Your repair {{trackingToken}} is complete. Please leave a quick review: {{reviewUrl}}";
+
     return (
-      <div style={{ ...cardStyle, padding: 16, marginBottom: 16 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Message Templates</h3>
-        <p style={{ ...subtleTextStyle, fontSize: 12, marginBottom: 12 }}>
-          Placeholders: {"\u007B\u007BcustomerName\u007D\u007D"}, {"\u007B\u007BbusinessName\u007D\u007D"}, {"\u007B\u007BtrackingToken\u007D\u007D"}, {"\u007B\u007BreviewUrl\u007D\u007D"}
-        </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div>
-            <label style={labelTextStyle}>Email Subject</label>
-            <input value="We'd love your feedback!" style={inputStyle} />
-          </div>
-          <div>
-            <label style={labelTextStyle}>Email Body (HTML)</label>
-            <textarea rows={4} style={{ ...inputStyle, fontFamily: "var(--font-mono)" }} defaultValue={emailBody} />
-          </div>
-          <div>
-            <label style={labelTextStyle}>WhatsApp Body</label>
-            <textarea rows={3} style={{ ...inputStyle, fontFamily: "var(--font-mono)" }} defaultValue={whatsappBody} />
-          </div>
+      <section className="panel">
+        <div className="panel-head">
+          <span className="instrument-label">Message templates</span>
         </div>
-      </div>
+        <div className="panel-body" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <p className="meta" style={{ margin: 0, fontSize: 11.5 }}>
+            Placeholders: {"{{customerName}}"}, {"{{businessName}}"}, {"{{trackingToken}}"}, {"{{reviewUrl}}"}
+          </p>
+          <label className="field">
+            <span className="instrument-label">Email subject</span>
+            <input value="We'd love your feedback!" readOnly />
+          </label>
+          <label className="field">
+            <span className="instrument-label">Email body (HTML)</span>
+            <textarea rows={4} defaultValue={emailBody} style={{ fontFamily: "var(--font-mono)" }} />
+          </label>
+          <label className="field">
+            <span className="instrument-label">WhatsApp body</span>
+            <textarea rows={3} defaultValue={whatsappBody} style={{ fontFamily: "var(--font-mono)" }} />
+          </label>
+        </div>
+      </section>
     );
   }
 
   function Actions() {
     return (
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
-        <button onClick={save} disabled={saving} style={primaryButtonStyle}> {saving ? "Saving…" : "Save Settings"} </button>
-        <button onClick={testSend} style={{ ...primaryButtonStyle, background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)" }}> Test Send </button>
+      <div className="toolbar" style={{ marginBottom: 14 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button onClick={save} disabled={saving} className="primary">
+            {saving ? "Saving…" : "Save settings"}
+          </button>
+          <button onClick={testSend} className="ghost">Test send</button>
+        </div>
       </div>
     );
   }
@@ -182,17 +204,24 @@ export function ReviewAutomationPanel({ businessId }: { businessId: string }) {
   function PreviewCard() {
     if (!preview) return null;
     return (
-      <div style={{ ...cardStyle, padding: 16, marginBottom: 16 }}>
-        <h4 style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Test Preview</h4>
-        <pre style={{ fontSize: 11, overflow: "auto", background: "var(--surface)", padding: 12, borderRadius: 4, whiteSpace: "pre-wrap" }}>
-          {JSON.stringify(preview, null, 2)}
-        </pre>
-      </div>
+      <section className="panel">
+        <div className="panel-head">
+          <span className="instrument-label">Test preview</span>
+          <span className="lamp lamp-machine">{preview.channel}</span>
+        </div>
+        <div className="panel-body">
+          <div className="machine-block">
+            <pre style={{ margin: 0, fontSize: 11, overflow: "auto", whiteSpace: "pre-wrap" }}>
+              {JSON.stringify(preview, null, 2)}
+            </pre>
+          </div>
+        </div>
+      </section>
     );
   }
 
   return (
-    <div style={{ padding: 0 }}>
+    <div>
       <Header />
       <LinksCard />
       <TriggerCard />

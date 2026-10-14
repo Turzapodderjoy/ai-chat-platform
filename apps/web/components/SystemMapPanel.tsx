@@ -17,7 +17,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { cardStyle, subtleTextStyle } from "./dashboard-styles";
+import { dataStrongStyle as dataStrong } from "./dashboard-styles";
+import { NavIcon } from "./nav-icons";
 
 interface MapNode {
   id: string;
@@ -91,12 +92,25 @@ const QH = 58;
 const WS_KEY = "aiva.systemmap.ws";
 
 const STATUS_COLOR: Record<string, string> = {
-  ok: "#22c55e",
-  degraded: "#f59e0b",
-  warning: "#f59e0b",
-  down: "#ef4444",
-  unknown: "#9ca3af",
+  ok: "var(--success)",
+  degraded: "var(--warning)",
+  warning: "var(--warning)",
+  down: "var(--danger)",
+  unknown: "var(--ink-4)",
 };
+
+// The halo behind each node's status lamp — same tone, one step softer.
+const STATUS_SUBTLE: Record<string, string> = {
+  ok: "var(--success-subtle)",
+  degraded: "var(--warning-subtle)",
+  warning: "var(--warning-subtle)",
+  down: "var(--danger-subtle)",
+  unknown: "var(--panel-sunk)",
+};
+
+function statusColor(status: string | undefined): string {
+  return STATUS_COLOR[status ?? "unknown"] ?? "var(--ink-4)";
+}
 
 const FIXED_POS: Record<string, { x: number; y: number }> = {
   "ch-web": { x: 20, y: 30 },
@@ -133,11 +147,11 @@ const ADD_TYPES: Array<{ kind: string; hint: string }> = [
 ];
 
 const KIND_ICON: Record<string, string> = {
-  channel: "📬",
-  app: "🖧",
-  agent: "🤖",
-  provider: "☁",
-  net: "🔀",
+  channel: "channels",
+  app: "overview",
+  agent: "brain",
+  provider: "ai",
+  net: "systemMap",
 };
 
 interface StoredWs {
@@ -476,11 +490,15 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
 
   if (!snap || !layout) {
     return (
-      <div style={{ ...cardStyle, padding: 24 }}>
-        <div style={{ color: "var(--muted, #8b93a7)" }}>
-          {error ? `System map unavailable: ${error}` : "Fetching system map…"}
+      <section className="panel">
+        <div className="panel-body">
+          {error ? (
+            <span className="lamp lamp-err">System map unavailable: {error}</span>
+          ) : (
+            <span className="lamp lamp-idle">Fetching system map</span>
+          )}
         </div>
-      </div>
+      </section>
     );
   }
 
@@ -498,40 +516,51 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
   const mapBody = (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+      <div className="toolbar" style={{ marginBottom: 0 }}>
         <h2 style={{ margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ width: 26, height: 26, borderRadius: 8, background: "linear-gradient(135deg,#0d9488,#2dd4bf)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🗺️</span>
-          System Map
+          <NavIcon id="systemMap" style={{ color: "var(--machine)" }} />
+          System map
         </h2>
-        <div style={{ display: "flex", gap: 14, alignItems: "center", fontSize: 12.5, color: "var(--muted, #8b93a7)", flexWrap: "wrap" }}>
-          <span title="Messages, last hour">
-            💬 <b style={{ color: "var(--fg,#e8eaf0)" }}>{snap.activity.messagesLastHour}</b> msg/1h
+        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <span className="meta" title="Messages, last hour">
+            msg/1h <span className="data" style={dataStrong}>{snap.activity.messagesLastHour}</span>
           </span>
-          <span title="Conversations started today">
-            🗂️ <b style={{ color: "var(--fg,#e8eaf0)" }}>{snap.activity.conversationsToday}</b> conv today
+          <span className="meta" title="Conversations started today">
+            conv today <span className="data" style={dataStrong}>{snap.activity.conversationsToday}</span>
           </span>
-          <span title="Total storage now">
-            📦 <b style={{ color: "var(--fg,#e8eaf0)" }}>{fmtBytes(snap.storage.dbBytes)}</b>
+          <span className="meta" title="Total storage now">
+            storage <span className="data" style={dataStrong}>{fmtBytes(snap.storage.dbBytes)}</span>
           </span>
           {snap.os && (
             <>
-              <span title="Memory">
-                RAM {snap.os.diskUsedPercent === null ? "—" : `${Math.round((snap.os.totalMem - snap.os.freeMem) / 1073741824)}/${Math.round(snap.os.totalMem / 1073741824)}GB`}
-              </span>
-              {snap.os.diskUsedPercent !== null && (
-                <span style={snap.os.diskUsedPercent > 85 ? { color: "#f59e0b" } : undefined} title="Disk">
-                  DISK {snap.os.diskUsedPercent}%
+              <span className="meta" title="Memory in use">
+                RAM{" "}
+                <span className="data" style={dataStrong}>
+                  {snap.os.diskUsedPercent === null
+                    ? "—"
+                    : `${Math.round((snap.os.totalMem - snap.os.freeMem) / 1073741824)}/${Math.round(snap.os.totalMem / 1073741824)}GB`}
                 </span>
-              )}
+              </span>
+              {snap.os.diskUsedPercent !== null &&
+                (snap.os.diskUsedPercent > 85 ? (
+                  <span className="lamp lamp-warn">Disk {snap.os.diskUsedPercent}%</span>
+                ) : (
+                  <span className="meta" title="Disk used">
+                    disk <span className="data" style={dataStrong}>{snap.os.diskUsedPercent}%</span>
+                  </span>
+                ))}
             </>
           )}
-          <span>probes every 5s</span>
-          <span>{new Date(snap.generatedAt).toLocaleTimeString()}</span>
+          <span className="meta">probes every 5s</span>
+          <span className="data meta" title="Snapshot generated at">
+            {new Date(snap.generatedAt).toLocaleTimeString()}
+          </span>
           <button
-            className="ghost"
+            className="ghost sm"
             onClick={() => setFull((f) => !f)}
             title={full ? "Exit fullscreen (Esc)" : "Fullscreen"}
-            style={{ width: 32, height: 32, padding: 0, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)" }}
+            aria-label={full ? "Exit fullscreen" : "Fullscreen"}
+            style={{ width: 30, height: 30, padding: 0 }}
           >
             {full ? (
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -547,50 +576,79 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
       </div>
 
       {/* Editor toolbar */}
-      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+      <div className="toolbar" style={{ marginBottom: 0 }}>
         <div style={{ position: "relative" }}>
-          <button
-            className="ghost"
-            onClick={() => setAddOpen((o) => !o)}
-            style={{ fontSize: 12.5, padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", fontWeight: 600 }}
-          >
-            ➕ Add node
+          <button className="sm" onClick={() => setAddOpen((o) => !o)}>
+            Add node
           </button>
           {addOpen && (
-            <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 30, background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "var(--shadow-lg)", padding: 6, minWidth: 180 }}>
+            <div
+              style={{
+                position: "absolute",
+                top: "calc(100% + 6px)",
+                left: 0,
+                zIndex: 30,
+                background: "var(--panel)",
+                border: "1px solid var(--line)",
+                borderRadius: "var(--r-md)",
+                boxShadow: "var(--shadow-pop)",
+                padding: 6,
+                minWidth: 200,
+              }}
+            >
               {ADD_TYPES.map((t) => (
                 <button
                   key={t.kind}
-                  className="ghost"
+                  className="ghost sm"
                   onClick={() => addNode(t.kind)}
-                  style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 10px", borderRadius: 8, fontSize: 12.5, textAlign: "left" }}
+                  style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left" }}
                 >
-                  <span>{KIND_ICON[t.kind] ?? "▫️"}</span>
+                  <NavIcon id={KIND_ICON[t.kind] ?? "systemMap"} />
                   {t.hint}
                 </button>
               ))}
-              <div style={{ borderTop: "1px solid var(--border-subtle)", margin: "4px 0" }} />
-              <div style={{ fontSize: 11, color: "var(--text-muted)", padding: "4px 10px" }}>
-                drag between port dots to wire nodes
+              <div style={{ borderTop: "1px solid var(--line-soft)", margin: "4px 0" }} />
+              <div className="meta" style={{ padding: "4px 10px" }}>
+                Drag between port dots to wire nodes.
               </div>
             </div>
           )}
         </div>
-        <span style={{ fontSize: 11.5, color: "var(--text-muted)" }}>
-          scale {(transform.scale * 100).toFixed(0)}%
+        <span className="meta">
+          scale <span className="data">{(transform.scale * 100).toFixed(0)}%</span>
         </span>
-        <button className="ghost" onClick={() => zoomBy(1.15)} title="Zoom in" style={{ width: 30, height: 30, padding: 0, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)" }}>
+        <button
+          className="ghost sm"
+          onClick={() => zoomBy(1.15)}
+          title="Zoom in"
+          aria-label="Zoom in"
+          style={{ width: 30, height: 30, padding: 0 }}
+        >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
         </button>
-        <button className="ghost" onClick={() => zoomBy(1 / 1.15)} title="Zoom out" style={{ width: 30, height: 30, padding: 0, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)" }}>
+        <button
+          className="ghost sm"
+          onClick={() => zoomBy(1 / 1.15)}
+          title="Zoom out"
+          aria-label="Zoom out"
+          style={{ width: 30, height: 30, padding: 0 }}
+        >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M5 12h14" /></svg>
         </button>
-        <button className="ghost" onClick={resetWorkspace} title="Reset layout" style={{ fontSize: 12.5, padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)" }}>
-          ⟳ Reset
+        <button className="ghost sm" onClick={resetWorkspace} title="Reset layout">
+          Reset layout
         </button>
         <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 11.5, color: "var(--text-muted)" }}>
-          {visibleNodes.length} nodes · {edges.length} connections{hiddenIds.length ? ` · ${hiddenIds.length} hidden` : ""}
+        <span className="meta">
+          <span className="data">{visibleNodes.length}</span> nodes
+          {" / "}
+          <span className="data">{edges.length}</span> connections
+          {hiddenIds.length ? (
+            <>
+              {" / "}
+              <span className="data">{hiddenIds.length}</span> hidden
+            </>
+          ) : null}
         </span>
       </div>
 
@@ -636,9 +694,9 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
           overflow: "hidden",
           position: "relative",
           height: 560,
-          border: "1px solid var(--border-subtle)",
-          borderRadius: 12,
-          background: "rgba(0,0,0,0.18)",
+          border: "1px solid var(--line)",
+          borderRadius: "var(--r-md)",
+          background: "var(--panel-sunk)",
           cursor: connActive.current ? "crosshair" : "grab",
           touchAction: "none",
         }}
@@ -650,15 +708,22 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
               const b = nodeCenter(allPos[e.to]);
               if (!a || !b) return null;
               const key = `${e.from}->${e.to}`;
-              const color = STATUS_COLOR[statusOf[e.from] ?? "unknown"] ?? "#9ca3af";
+              const color = statusColor(statusOf[e.from]);
               const isSel = selected?.type === "edge" && selected.id === key;
               const label = edgeLabel(e, snap.activity);
               return (
                 <g key={key}>
                   <line x1={a.cx} y1={a.cy} x2={b.cx} y2={b.cy} stroke="transparent" strokeWidth={14} style={{ cursor: "pointer" }} onClick={() => setSelected({ type: "edge", id: key })} />
-                  <line x1={a.cx} y1={a.cy} x2={b.cx} y2={b.cy} stroke={color} strokeWidth={isSel ? 2.6 : 1.6} strokeOpacity={isSel ? 1 : 0.5} pointerEvents="none" />
+                  <line x1={a.cx} y1={a.cy} x2={b.cx} y2={b.cy} strokeWidth={isSel ? 2.6 : 1.6} strokeOpacity={isSel ? 1 : 0.5} pointerEvents="none" style={{ stroke: color }} />
                   {label && (
-                    <text x={(a.cx + b.cx) / 2} y={(a.cy + b.cy) / 2 - 6} fill={isSel ? "#e8eaf0" : "#8b93a7"} fontSize={11} textAnchor="middle" pointerEvents="none">
+                    <text
+                      x={(a.cx + b.cx) / 2}
+                      y={(a.cy + b.cy) / 2 - 6}
+                      fontSize={11}
+                      textAnchor="middle"
+                      pointerEvents="none"
+                      style={{ fill: isSel ? "var(--ink)" : "var(--ink-3)", fontFamily: "var(--font-mono)" }}
+                    >
                       {label}
                     </text>
                   )}
@@ -669,7 +734,7 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
               const a = nodeCenter(allPos[conn.from])!;
               return (
                 <g pointerEvents="none">
-                  <line x1={a.cx} y1={a.cy} x2={conn.x} y2={conn.y} stroke="#ffd166" strokeWidth={2} strokeDasharray="5 4" />
+                  <line x1={a.cx} y1={a.cy} x2={conn.x} y2={conn.y} strokeWidth={2} strokeDasharray="5 4" style={{ stroke: "var(--machine-bright)" }} />
                 </g>
               );
             })()}
@@ -680,7 +745,8 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
             const p = allPos[n.id];
             if (!p) return null;
             const status = n.status ?? "unknown";
-            const color = STATUS_COLOR[status] ?? "#9ca3af";
+            const color = statusColor(status);
+            const halo = STATUS_SUBTLE[status] ?? "var(--panel-sunk)";
             const isSel = selected?.type === "node" && selected.id === n.id;
             const act = n.kind === "agent" ? activityBySlug[n.id.replace(/^agt-/, "")] : undefined;
             const live = Boolean(act && act.messages24h > 0);
@@ -688,7 +754,23 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
             return (
               <div
                 key={n.id}
-                style={{ position: "absolute", left: p.x, top: p.y, width: Q, minHeight: QH, background: "rgba(255,255,255,0.05)", border: isSel ? `2px solid ${color}` : `1px solid ${color}55`, borderRadius: 10, padding: "8px 10px", cursor: "grab", boxSizing: "border-box", userSelect: "none", touchAction: "none", boxShadow: isSel ? "0 2px 14px rgba(0,0,0,0.35)" : undefined }}
+                style={{
+                  position: "absolute",
+                  left: p.x,
+                  top: p.y,
+                  width: Q,
+                  minHeight: QH,
+                  background: "var(--panel)",
+                  border: `1px solid ${isSel ? "var(--accent)" : "var(--line-strong)"}`,
+                  borderRadius: "var(--r-sm)",
+                  padding: "8px 10px",
+                  cursor: "grab",
+                  boxSizing: "border-box",
+                  userSelect: "none",
+                  touchAction: "none",
+                  boxShadow: isSel ? "inset 2px 0 0 var(--accent)" : undefined,
+                }}
+
                 onPointerDown={(e) => {
                   e.stopPropagation();
                   if (e.button !== 0) return;
@@ -750,7 +832,7 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
                     if (!connActive.current) return;
                     commitConnTo(n.id);
                   }}
-                  style={{ position: "absolute", left: -5, top: "50%", transform: "translateY(-50%)", width: 11, height: 11, borderRadius: "50%", background: "#1e293b", border: `2px solid ${color}`, cursor: "crosshair" }}
+                  style={{ position: "absolute", left: -5, top: "50%", transform: "translateY(-50%)", width: 11, height: 11, borderRadius: "50%", background: "var(--panel)", border: `2px solid ${color}`, cursor: "crosshair" }}
                   onPointerEnter={() => (hoverNodeRef.current = n.id)}
                   onPointerLeave={() => {
                     if (hoverNodeRef.current === n.id) hoverNodeRef.current = null;
@@ -769,7 +851,7 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
                     if (!connActive.current) return;
                     commitConnTo(n.id);
                   }}
-                  style={{ position: "absolute", left: Q - 6, top: "50%", transform: "translateY(-50%)", width: 11, height: 11, borderRadius: "50%", background: "#1e293b", border: `2px solid ${color}`, cursor: "crosshair" }}
+                  style={{ position: "absolute", left: Q - 6, top: "50%", transform: "translateY(-50%)", width: 11, height: 11, borderRadius: "50%", background: "var(--panel)", border: `2px solid ${color}`, cursor: "crosshair" }}
                   onPointerEnter={() => (hoverNodeRef.current = n.id)}
                   onPointerLeave={() => {
                     if (hoverNodeRef.current === n.id) hoverNodeRef.current = null;
@@ -782,16 +864,29 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
                       removeNode(n.id);
                     }}
                     title="Remove from map"
-                    style={{ position: "absolute", top: -8, right: -8, width: 20, height: 20, borderRadius: "50%", border: "1px solid var(--border)", background: "var(--bg-elevated)", color: "#f87171", fontSize: 12, lineHeight: 1, padding: 0, cursor: "pointer", zIndex: 5 }}
+                    aria-label={`Remove ${n.label} from map`}
+                    style={{ position: "absolute", top: -8, right: -8, width: 20, height: 20, borderRadius: "var(--r-sm)", border: "1px solid var(--line)", background: "var(--panel)", color: "var(--danger)", padding: 0, zIndex: 5, boxShadow: "none" }}
                   >
-                    ✕
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <path d="M18 6 6 18M6 6l12 12" />
+                    </svg>
                   </button>
                 )}
                 <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: color,
+                      boxShadow: `0 0 0 3px ${halo}`,
+                      flexShrink: 0,
+                    }}
+                  />
                   {editingId === n.id && isCustom ? (
                     <input
                       autoFocus
+                      aria-label={`Rename ${n.label}`}
                       defaultValue={n.label}
                       onChange={(e) => {
                         const v = e.target.value;
@@ -809,24 +904,42 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
                           setEditingId(null);
                         }
                       }}
-                      style={{ width: 96, fontSize: 12, padding: "2px 4px", borderRadius: 6, border: "1px solid var(--accent)", background: "var(--surface)", color: "var(--text)", boxSizing: "border-box" }}
+                      style={{ width: 96, fontSize: 12, padding: "2px 4px", boxSizing: "border-box" }}
                     />
                   ) : (
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", maxWidth: 116 }}>
-                      {KIND_ICON[n.kind] ?? ""} {n.label}
+                    <span style={{ display: "flex", alignItems: "center", gap: 5, overflow: "hidden", textOverflow: "ellipsis", maxWidth: 116 }}>
+                      <NavIcon id={KIND_ICON[n.kind] ?? "systemMap"} style={{ width: 13, height: 13, color: "var(--ink-3)", flexShrink: 0 }} />
+                      {n.label}
                     </span>
                   )}
                   {live && (
-                    <span style={{ flexShrink: 0, width: 6, height: 6, borderRadius: "50%", background: "#22c55e", animation: "aiva-pulse 1.6s infinite" }}>
+                    <span style={{ flexShrink: 0, width: 6, height: 6, borderRadius: "50%", background: "var(--success)", animation: "aiva-pulse 1.6s infinite" }}>
                       <style>{"@keyframes aiva-pulse{0%,100%{opacity:1}50%{opacity:.25}}"}</style>
                     </span>
                   )}
                 </div>
-                <div style={{ fontSize: 10.5, color: "var(--muted, #8b93a7)", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {status.toUpperCase()}
-                  {typeof n.latency === "number" ? ` · ${n.latency}ms` : ""}
-                  {act && live ? ` · ${act.messages24h} msg · ${ageLabel(act.lastActiveAt)}` : n.kind === "agent" ? " · idle" : ""}
-                  {isCustom ? " · custom" : ""}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 6,
+                    marginTop: 3,
+                    fontSize: 10.5,
+                    color: "var(--ink-3)",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                  }}
+                >
+                  <span>{status}</span>
+                  {typeof n.latency === "number" && <span className="data">{n.latency}ms</span>}
+                  {act && live ? (
+                    <>
+                      <span className="data">{act.messages24h} msg</span>
+                      <span className="data">{ageLabel(act.lastActiveAt)}</span>
+                    </>
+                  ) : n.kind === "agent" ? (
+                    <span className="lamp lamp-idle">idle</span>
+                  ) : null}
+                  {isCustom && <span className="lamp lamp-info">custom</span>}
                 </div>
               </div>
             );
@@ -835,157 +948,249 @@ export function SystemMapPanel({ onGotoItGuy }: { onGotoItGuy?: () => void }) {
       </div>
 
       {/* Traffic strip + help */}
-      <div style={{ display: "flex", gap: 14, alignItems: "center", fontSize: 12.5, color: "var(--muted, #8b93a7)", flexWrap: "wrap" }}>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span style={{ fontWeight: 600, color: "var(--fg,#e8eaf0)" }}>Channels:</span>
-          {channelCounts.map((c) => (
-            <span key={c.id} title={`${c.label} — inbound messages, last 24h`} style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid var(--border)", background: "var(--surface)", color: c.n ? "var(--fg,#e8eaf0)" : "var(--muted,#8b93a7)" }}>
-              {c.label} {c.n}
-            </span>
-          ))}
+      <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+        <div className="table-scroll" style={{ minWidth: 220, flex: "0 0 auto" }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Channel</th>
+                <th className="num" style={{ textAlign: "right" }}>msgs/24h</th>
+              </tr>
+            </thead>
+            <tbody>
+              {channelCounts.map((c) => (
+                <tr key={c.id} title={`${c.label} — inbound messages, last 24h`}>
+                  <td style={{ color: "var(--ink)" }}>{c.label}</td>
+                  <td className="num" style={{ textAlign: "right" }}>{c.n}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <span style={{ flex: 1 }} />
-        <span>
+        <span style={{ flex: 1, minWidth: 200 }}>
           {sel ? (
             <>
-              <b style={{ color: "var(--fg, #e8eaf0)" }}>{sel.label}</b> — {sel.detail || "custom box"}
+              <span style={{ color: "var(--ink)", fontWeight: 600 }}>{sel.label}</span>
+              {" — "}
+              {sel.detail || "custom box"}
               {isSelNodeCustom(selected)}
             </>
           ) : (
-            <span>drag nodes · scroll to zoom · drag background to pan · drag between ports to wire · Del removes</span>
+            <span className="meta">
+              Drag nodes to move them. Scroll to zoom, drag the background to pan, drag between
+              port dots to wire, Delete removes the selection.
+            </span>
           )}
         </span>
       </div>
 
       {/* Command box */}
-      <div style={{ ...cardStyle, padding: 14, background: "linear-gradient(180deg, rgba(13,148,136,0.08), rgba(13,148,136,0.02))" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 10, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ width: 22, height: 22, borderRadius: 7, background: "linear-gradient(135deg,#0d9488,#2dd4bf)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#fff" }}>🛠️</span>
-            Tell the AI &amp; opencode what to change or fix
-          </div>
+      <section className="panel">
+        <div className="panel-head">
+          <span className="instrument-label" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <NavIcon id="itguy" style={{ color: "var(--machine)" }} />
+            Tell the AI what to change or fix
+          </span>
           {pendingOps.length > 0 && (
-            <button className="ghost" onClick={onGotoItGuy} title="Jump to IT Guy console" style={{ fontSize: 12, color: "#f59e0b", padding: "4px 10px", borderRadius: 999, border: "1px solid #f59e0b55", background: "rgba(245,158,11,0.08)" }}>
-              {pendingOps.length} change{pendingOps.length > 1 ? "s" : ""} waiting for approval →
+            <button className="machine sm" onClick={onGotoItGuy} title="Jump to IT Guy console">
+              {pendingOps.length} change{pendingOps.length > 1 ? "s" : ""} waiting for approval
             </button>
           )}
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            value={cmd}
-            onChange={(e) => setCmd(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && sendCmd()}
-            placeholder={`e.g. "Fix anything that's down now" or "Revert the AI override for aiva-portal"`}
-            disabled={cmdBusy}
-            style={{ flex: 1, minWidth: 0, padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }}
-          />
-          <button onClick={() => sendCmd()} disabled={cmdBusy} className="ghost" style={{ padding: "10px 18px", borderRadius: 10, background: "linear-gradient(135deg,#0d9488,#2dd4bf)", color: "#fff", fontWeight: 600, fontSize: 13, opacity: cmdBusy ? 0.7 : 1, border: "none" }}>
-            {cmdBusy ? "Working…" : "Send"}
-          </button>
-        </div>
-        <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-          {SUGGESTIONS.map((s) => (
-            <button key={s} className="ghost" onClick={() => sendCmd(s)} disabled={cmdBusy} style={{ fontSize: 11.5, padding: "4px 10px", borderRadius: 999, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text-secondary)" }}>
-              {s}
+        <div className="panel-body" style={{ background: "var(--machine-subtle)" }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <label
+              htmlFor="system-map-cmd"
+              style={{
+                position: "absolute",
+                width: 1,
+                height: 1,
+                overflow: "hidden",
+                clipPath: "inset(50%)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Instruction for the AI
+            </label>
+            <input
+              id="system-map-cmd"
+              aria-label="Instruction for the AI"
+              value={cmd}
+              onChange={(e) => setCmd(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && sendCmd()}
+              placeholder="Fix anything that is down right now"
+              disabled={cmdBusy}
+              style={{ flex: 1, minWidth: 0 }}
+            />
+            <button onClick={() => sendCmd()} disabled={cmdBusy} className="machine">
+              {cmdBusy ? "Working…" : "Send to AI"}
             </button>
-          ))}
-        </div>
-        {cmdError && <div style={{ marginTop: 8, fontSize: 12.5, color: "#ef4444" }}>{cmdError}</div>}
-        {cmdReply && !cmdError && (
-          <div style={{ marginTop: 10, fontSize: 13, color: "var(--fg,#e8eaf0)", background: "rgba(255,255,255,0.06)", borderRadius: 10, padding: "10px 14px", whiteSpace: "pre-wrap" }}>
-            {cmdReply.answer}
-            {cmdReply.actions && cmdReply.actions.length > 0 && (
-              <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
-                {cmdReply.actions.map((a, i) => (
-                  <div key={i} style={{ fontSize: 12, color: "#2dd4bf" }}>
-                    • {a}
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
-        )}
-      </div>
+          <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+            {SUGGESTIONS.map((s) => (
+              <button key={s} className="ghost sm" onClick={() => sendCmd(s)} disabled={cmdBusy}>
+                {s}
+              </button>
+            ))}
+          </div>
+          {cmdError && <div className="field-error" style={{ marginTop: 8 }}>{cmdError}</div>}
+          {cmdReply && !cmdError && (
+            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ fontSize: 13, color: "var(--ink)", whiteSpace: "pre-wrap" }}>
+                {cmdReply.answer}
+              </div>
+              {cmdReply.actions && cmdReply.actions.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {cmdReply.actions.map((a, i) => (
+                    <div key={i} className="data" style={{ fontSize: 12, color: "var(--machine)" }}>
+                      {a}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* Storage band */}
-      <div>
-        <h3 style={{ margin: "6px 0 8px", fontSize: 14 }}>
-          <span style={{ marginRight: 8 }}>📦</span>Storage — how the platform actually stores data
-        </h3>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
-          <div style={{ ...cardStyle, padding: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>PostgreSQL database</div>
-            <div style={{ ...subtleTextStyle, marginTop: 2 }}>
-              {fmtBytes(snap.storage.dbBytes)} total · {totalRows.toLocaleString()} rows
+      <section className="panel">
+        <div className="panel-head">
+          <span className="instrument-label" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <NavIcon id="storage" style={{ color: "var(--ink-3)" }} />
+            Storage
+          </span>
+          <span className="meta">How the platform stores data</span>
+        </div>
+        <div className="panel-body">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
+            <div className="panel-sunk" style={{ padding: 12 }}>
+              <div className="instrument-label">PostgreSQL database</div>
+              <div className="meta" style={{ marginTop: 2 }}>
+                <span className="data">{fmtBytes(snap.storage.dbBytes)}</span> total
+                {" / "}
+                <span className="data">{totalRows.toLocaleString()}</span> rows
+              </div>
+              {snap.storage.tables.length > 0 ? (
+                <div className="table-scroll" style={{ marginTop: 10 }}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Table</th>
+                        <th className="num" style={{ textAlign: "right" }}>Size</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {snap.storage.tables.map((t) => (
+                        <tr key={t.name}>
+                          <td className="data" style={{ color: "var(--ink)" }}>{t.name}</td>
+                          <td className="num" style={{ textAlign: "right" }}>{fmtBytes(t.bytes)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div style={{ marginTop: 10 }}>
+                  <span className="lamp lamp-err">Postgres unreachable</span>
+                </div>
+              )}
             </div>
-            <table style={{ width: "100%", marginTop: 8, fontSize: 12, borderCollapse: "collapse" }}>
-              <tbody>
-                {snap.storage.tables.map((t) => (
-                  <tr key={t.name}>
-                    <td style={{ padding: "2px 0", color: "var(--fg,#e8eaf0)" }}>{t.name}</td>
-                    <td style={{ padding: "2px 0", textAlign: "right", color: "var(--muted,#8b93a7)" }}>{fmtBytes(t.bytes)}</td>
-                  </tr>
+
+            <div className="panel-sunk" style={{ padding: 12 }}>
+              <div className="instrument-label">Agent storage</div>
+              <div className="meta" style={{ marginTop: 2 }}>
+                One folder per agent under <code>data/hermes/profiles/</code>
+              </div>
+              <div style={{ marginTop: 10 }}>
+                {snap.storage.profiles.map((p) => (
+                  <div
+                    key={p.slug}
+                    title={`SOUL.md ${fmtBytes(p.soulBytes)}, state.db ${fmtBytes(p.stateDbBytes)}`}
+                    style={{ marginBottom: 6 }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12 }}>
+                      <span className="data" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "65%" }}>
+                        {p.slug}
+                      </span>
+                      <span className="data">{fmtBytes(p.bytes)}</span>
+                    </div>
+                    <div style={{ height: 5, background: "var(--line-soft)", borderRadius: "var(--r-xs)", marginTop: 2, overflow: "hidden" }}>
+                      <div
+                        style={{
+                          height: "100%",
+                          width: `${Math.min(100, (p.bytes / Math.max(1, Math.max(...snap.storage.profiles.map((x) => x.bytes)))) * 100)}%`,
+                          background: "var(--machine)",
+                          borderRadius: "var(--r-xs)",
+                        }}
+                      />
+                    </div>
+                  </div>
                 ))}
-                {snap.storage.tables.length === 0 && (
-                  <tr>
-                    <td style={{ color: "#ef4444" }}>Postgres unreachable</td>
-                  </tr>
+                {snap.storage.profiles.length === 0 && (
+                  <div className="empty-state" style={{ padding: 16 }}>
+                    <span className="empty-state-title">No agent profiles on disk</span>
+                    <span className="empty-state-description">
+                      Create an agent to give it a persona folder.
+                    </span>
+                  </div>
                 )}
-              </tbody>
-            </table>
-          </div>
-
-          <div style={{ ...cardStyle, padding: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>Agent storage</div>
-            <div style={{ ...subtleTextStyle, marginTop: 2 }}>one folder per agent under data/hermes/profiles/</div>
-            <div style={{ marginTop: 8 }}>
-              {snap.storage.profiles.map((p) => (
-                <div key={p.slug} title={`SOUL.md ${fmtBytes(p.soulBytes)} · state.db ${fmtBytes(p.stateDbBytes)}`} style={{ marginBottom: 6 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", maxWidth: "65%" }}>{p.slug}</span>
-                    <span style={{ color: "var(--muted,#8b93a7)" }}>{fmtBytes(p.bytes)}</span>
-                  </div>
-                  <div style={{ height: 5, background: "rgba(127,127,127,0.18)", borderRadius: 3, marginTop: 2, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${Math.min(100, (p.bytes / Math.max(1, Math.max(...snap.storage.profiles.map((x) => x.bytes)))) * 100)}%`, background: "#2a6df4", borderRadius: 3 }} />
-                  </div>
-                </div>
-              ))}
-              {snap.storage.profiles.length === 0 && <div style={{ fontSize: 12, color: "var(--muted,#8b93a7)" }}>no agent profiles</div>}
+              </div>
             </div>
-          </div>
 
-          <div style={{ ...cardStyle, padding: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>Logs &amp; secrets</div>
-            <div style={{ ...subtleTextStyle, marginTop: 2 }}>data/hermes/logs · data/ops ledger · profile .env keys</div>
-            <div style={{ marginTop: 8, fontSize: 12 }}>
-              {Object.entries(snap.storage.logsBytes).map(([name, bytes]) => (
-                <div key={name} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span>{name}</span>
-                  <span style={{ color: "var(--muted,#8b93a7)" }}>{fmtBytes(bytes)}</span>
-                </div>
-              ))}
-              <div style={{ marginTop: 6, color: "var(--muted,#8b93a7)" }}>
-                API keys stored: <b style={{ color: snap.storage.secretPresent ? "#22c55e" : "#ef4444" }}>{snap.storage.secretPresent ? "present (per-agent .env)" : "missing"}</b>
+            <div className="panel-sunk" style={{ padding: 12 }}>
+              <div className="instrument-label">Logs and secrets</div>
+              <div className="meta" style={{ marginTop: 2 }}>
+                <code>data/hermes/logs</code>, <code>data/ops</code> ledger, profile <code>.env</code> keys
+              </div>
+              <div className="table-scroll" style={{ marginTop: 10 }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Store</th>
+                      <th className="num" style={{ textAlign: "right" }}>Size</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(snap.storage.logsBytes).map(([name, bytes]) => (
+                      <tr key={name}>
+                        <td className="data" style={{ color: "var(--ink)" }}>{name}</td>
+                        <td className="num" style={{ textAlign: "right" }}>{fmtBytes(bytes)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ marginTop: 10 }}>
+                {snap.storage.secretPresent ? (
+                  <span className="lamp lamp-ok">API keys stored per agent</span>
+                ) : (
+                  <span className="lamp lamp-err">No API key file found</span>
+                )}
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 
   if (full) {
     return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 400, background: "var(--bg, #0b0e14)", padding: "18px 22px 32px", overflow: "auto", boxSizing: "border-box" }}>
+      <div style={{ position: "fixed", inset: 0, zIndex: 400, background: "var(--canvas)", padding: "18px 22px 32px", overflow: "auto", boxSizing: "border-box" }}>
         {mapBody}
       </div>
     );
   }
 
-  return <div style={{ ...cardStyle, padding: 20, position: "relative" }}>{mapBody}</div>;
+  return (
+    <section className="panel">
+      <div className="panel-body">{mapBody}</div>
+    </section>
+  );
 }
 
 function isSelNodeCustom(selected: { type: "node" | "edge"; id: string } | null): string | null {
   if (selected?.type !== "node") return null;
-  return /^c-/.test(selected.id) ? " · double-click to rename" : null;
+  return /^c-/.test(selected.id) ? ". Double-click to rename." : null;
 }

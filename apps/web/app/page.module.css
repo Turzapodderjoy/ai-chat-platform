@@ -1,389 +1,286 @@
-/* Completely new login - split-screen modern design */
-.page {
-  --bg: #0b100e;
-  --bg-alt: #101613;
-  --surface: #151d19;
-  --surface-hover: #1c2622;
-  --border: #23312b;
-  --text: #e9efec;
-  --text-muted: #a4b4ac;
-  --text-faint: #6f8178;
-  --accent: #2dd4bf;
-  --accent-light: #5eead4;
-  --accent-dark: #0d9488;
-  --accent-glow: rgba(45, 212, 191, 0.35);
-  --success: #34d399;
-  --danger: #f87171;
-  --gradient-1: linear-gradient(135deg, #0d9488 0%, #134e4a 100%);
-  --gradient-2: linear-gradient(135deg, #0f766e 0%, #14b8a6 45%, #2dd4bf 100%);
+/* ===================================================================
+   Sign-in — Bay Console public surface
+   An instrument card on the blueprint canvas: identity rail on the
+   left (what the agent does), credentials on the right.
+   =================================================================== */
 
-  font-family: var(--font-geist-sans, -apple-system), BlinkMacSystemFont, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  color-scheme: dark;
+.page {
   min-height: 100vh;
-  width: 100%;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  place-items: center;
+  padding: 32px 20px;
 }
 
-/* Left panel - branding */
-.leftPanel {
-  flex: 1;
-  background: var(--gradient-2);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  padding: 48px;
-  position: relative;
+.card {
+  width: 100%;
+  max-width: 940px;
+  display: grid;
+  grid-template-columns: 1fr;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-pop), var(--edge-light);
   overflow: hidden;
 }
 
-.leftPanel::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 50%);
-  animation: pulse 8s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); opacity: 0.5; }
-  50% { transform: scale(1.1); opacity: 0.8; }
-}
-
-.brandContent {
-  position: relative;
-  z-index: 1;
-  text-align: center;
-  max-width: 400px;
-}
-
-.brandIcon {
-  width: 80px;
-  height: 80px;
-  background: rgba(255,255,255,0.2);
-  border-radius: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 32px;
-  backdrop-filter: blur(10px);
-}
-
-.brandIcon svg {
-  width: 40px;
-  height: 40px;
-  fill: white;
-}
-
-.brandTitle {
-  font-size: 32px;
-  font-weight: 700;
-  color: white;
-  margin-bottom: 16px;
-  letter-spacing: -0.02em;
-}
-
-.brandSubtitle {
-  font-size: 16px;
-  color: rgba(255,255,255,0.8);
-  line-height: 1.6;
-  margin-bottom: 48px;
-}
-
-.features {
+/* ---- Identity rail ---- */
+.rail {
+  background: var(--canvas);
+  border-bottom: 1px solid var(--line);
+  padding: 30px 28px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  text-align: left;
+  gap: 22px;
 }
 
-.feature {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: rgba(255,255,255,0.9);
-  font-size: 14px;
-}
-
-.featureIcon {
-  width: 32px;
-  height: 32px;
-  background: rgba(255,255,255,0.15);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.featureIcon svg {
-  width: 16px;
-  height: 16px;
-  stroke: white;
-  fill: none;
-}
-
-/* Right panel - form */
-.rightPanel {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 48px;
-  background: var(--bg);
-}
-
-.formContainer {
-  width: 100%;
-  max-width: 400px;
-  animation: slideUp 0.5s ease-out;
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.formHeader {
-  margin-bottom: 40px;
-}
-
-.formTitle {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--text);
-  margin-bottom: 8px;
-  letter-spacing: -0.02em;
-}
-
-.formSubtitle {
-  font-size: 15px;
-  color: var(--text-muted);
-}
-
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.label {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-
-.input {
-  width: 100%;
-  padding: 14px 16px;
-  font-size: 15px;
-  font-family: inherit;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  color: var(--text);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  outline: none;
-}
-
-.input:hover:not(:focus) {
-  border-color: var(--border-strong);
-}
-
-.input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-glow), 0 4px 12px rgba(99, 102, 241, 0.15);
-  transform: translateY(-1px);
-}
-
-.input::placeholder {
-  color: var(--text-faint);
-}
-
-.formOptions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.checkboxGroup {
+.mark {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
+.markGlyph {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-sm);
+  background: var(--accent);
+  color: var(--accent-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.markName {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  line-height: 1.1;
+}
+
+.markSub {
+  font-size: 10.5px;
+  letter-spacing: 0.09em;
+  color: var(--ink-3);
+}
+
+.pitch {
+  font-size: 19px;
+  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: -0.028em;
+  color: var(--ink);
+  max-width: 26ch;
+}
+
+.pitchBody {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  max-width: 44ch;
+  margin: 0;
+}
+
+/* Instrument rows: what the agent is doing, as labelled readings */
+.readings {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+}
+
+.reading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+.readingKey {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+  width: 92px;
+  flex-shrink: 0;
+}
+
+.readingValue {
+  color: var(--ink);
+}
+
+.readingValueAmber {
+  color: var(--machine);
+}
+
+/* ---- Form side ---- */
+.formSide {
+  padding: 30px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.formTitle {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.028em;
+  color: var(--ink);
+}
+
+.formSub {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  margin: -12px 0 0;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+
+.input {
+  width: 100%;
+  padding: 9px 11px;
+  font-size: 13.5px;
+  font-family: inherit;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: var(--r-sm);
+  outline: none;
+  transition: border-color var(--dur-state) ease, box-shadow var(--dur-state) ease;
+}
+
+.input:hover { border-color: var(--line-strong); }
+
+.input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+.options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.checkboxLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 24px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
 .checkbox {
-  width: 18px;
-  height: 18px;
+  width: 15px;
+  height: 15px;
   accent-color: var(--accent);
   cursor: pointer;
 }
 
-.checkboxLabel {
-  font-size: 14px;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.forgotLink {
-  font-size: 14px;
-  color: var(--accent-light);
-  text-decoration: none;
-  font-weight: 500;
-  transition: color 0.2s;
-}
-
-.forgotLink:hover {
-  color: var(--accent);
-  text-decoration: underline;
-}
-
-.submitBtn {
-  width: 100%;
-  padding: 14px 24px;
-  font-size: 15px;
-  font-weight: 600;
+.forgot {
   font-family: inherit;
-  background: var(--accent);
-  color: white;
+  font-size: 12.5px;
+  color: var(--ink-3);
+  background: none;
   border: none;
-  border-radius: 12px;
+  padding: 0;
   cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.submitBtn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%);
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.submitBtn:hover:not(:disabled) {
-  background: var(--accent-dark);
-  transform: translateY(-1px);
-  box-shadow: 0 8px 20px -8px var(--accent-glow);
-}
-
-.submitBtn:hover:not(:disabled)::before {
-  opacity: 1;
-}
-
-.submitBtn:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.submitBtn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.errorMessage {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 10px;
-  padding: 12px 16px;
-  font-size: 14px;
-  color: #fca5a5;
-  animation: shake 0.3s ease;
-}
-
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-5px); }
-  75% { transform: translateX(5px); }
-}
-
-.divider {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin: 24px 0;
-}
-
-.dividerLine {
-  flex: 1;
-  height: 1px;
-  background: var(--border);
-}
-
-.dividerText {
-  font-size: 13px;
-  color: var(--text-faint);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.footer {
-  margin-top: 32px;
-  text-align: center;
-  font-size: 13px;
-  color: var(--text-faint);
-  line-height: 1.6;
-}
-
-.footer a {
-  color: var(--text-muted);
-  text-decoration: none;
-  transition: color 0.2s;
-}
-
-.footer a:hover {
-  color: var(--text);
   text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
-/* Responsive */
-@media (max-width: 1100px) {
-  .page {
-    flex-direction: column;
-  }
-  
-  .leftPanel {
-    display: none;
-  }
-  
-  .rightPanel {
-    padding: 32px 24px;
-  }
+.forgot:hover { color: var(--ink); }
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 11px;
+  border-radius: var(--r-sm);
+  font-size: 12.5px;
+  line-height: 1.45;
+  border: 1px solid;
 }
 
-@media (max-width: 480px) {
-  .formContainer {
-    max-width: 100%;
-  }
-  
-  .formTitle {
-    font-size: 24px;
-  }
+.noticeError {
+  background: var(--danger-subtle);
+  border-color: var(--danger);
+  color: var(--danger);
+}
 
-  .formOptions {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
+.noticeInfo {
+  background: var(--accent-subtle);
+  border-color: var(--accent-line);
+  color: var(--accent-hover);
+}
+
+.submit {
+  width: 100%;
+  padding: 10px 16px;
+  font-size: 13.5px;
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  cursor: pointer;
+  transition: background var(--dur-state) ease, border-color var(--dur-state) ease;
+}
+
+.submit:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+.submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.submit:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.legal {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  line-height: 1.5;
+  border-top: 1px solid var(--line-soft);
+  padding-top: 14px;
+}
+
+.legal a { color: var(--ink-3); }
+
+@media (min-width: 860px) {
+  .card { grid-template-columns: 1.05fr 1fr; }
+  .rail { border-bottom: none; border-right: 1px solid var(--line); }
+}
+
+@media (max-width: 560px) {
+  .page { padding: 16px 12px; }
+  .rail { padding: 22px 18px; }
+  .formSide { padding: 22px 18px; }
+  .pitch { font-size: 17px; }
 }

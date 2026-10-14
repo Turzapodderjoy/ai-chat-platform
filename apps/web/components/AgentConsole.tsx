@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 
 import { DashboardShell, type NavGroup } from "./DashboardShell";
-import { cardStyle, subtleTextStyle, badgeStyle, primaryButtonStyle } from "./dashboard-styles";
 import { showAlert } from "../lib/app-dialog";
 
 type Tab = "inbox" | "team";
@@ -208,70 +207,98 @@ export function AgentConsole({
 
   return (
     <DashboardShell
-      sidebarLabel={
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "var(--accent)", textTransform: "uppercase" }}>AIVA</div>
-          <div style={{ fontSize: 14, fontWeight: 700 }}>Agent Console</div>
-        </div>
-      }
+      sidebarLabel="Agent console"
       groups={NAV_GROUPS}
       activeTab={tab}
       onSelect={setTab}
       username={username}
       onLogout={onLogout}
     >
-      <div style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 16, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
         <button
+          type="button"
+          className="sm"
           onClick={togglePresence}
-          style={{
-            ...primaryButtonStyle,
-            background: online ? "var(--success)" : "var(--surface)",
-            color: online ? "#08111f" : "var(--text)",
-            border: online ? "none" : "1px solid var(--border)",
-          }}
+          aria-label={online ? "Set yourself offline" : "Set yourself online"}
         >
-          {online ? "● Online" : "○ Offline"}
+          {online ? <span className="lamp lamp-ok">Online</span> : <span className="lamp lamp-idle">Offline</span>}
         </button>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
           {agents.map((a) => (
-            <span key={a.id} style={badgeStyle(a.online ? "ok" : "neutral")}>
-              {a.online ? "●" : "○"} {a.username}
-              {a.id === accountId ? " (you)" : ""}
+            <span key={a.id} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span className={a.online ? "lamp lamp-ok" : "lamp lamp-idle"}>
+                {a.online ? "Online" : "Offline"}
+              </span>
+              <span className="data" style={{ fontSize: 11.5 }}>
+                {a.username}
+                {a.id === accountId ? " (you)" : ""}
+              </span>
             </span>
           ))}
-          {agents.length === 0 && <span style={subtleTextStyle}>No teammates yet.</span>}
+          {agents.length === 0 && <span className="meta">No teammates on this roster yet.</span>}
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
-        <section style={{ ...cardStyle, width: "100%", maxWidth: 320, flexShrink: 0, padding: 0, overflow: "hidden" }}>
-          <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", fontSize: 13, fontWeight: 600 }}>
-            {tab === "team" ? "Every chat in this business" : "Chats assigned to you"}
+      <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+        <section className="panel" style={{ width: "100%", maxWidth: 320, flexShrink: 0 }}>
+          <div className="panel-head">
+            <span className="instrument-label">
+              {tab === "team" ? "Every chat in this business" : "Chats assigned to you"}
+            </span>
+            {conversations && (
+              <span className="meta">
+                <span className="data">{conversations.length}</span>
+              </span>
+            )}
           </div>
-          {!conversations && <p style={{ padding: 16 }}>Loading…</p>}
-          {conversations?.length === 0 && <p style={{ padding: 16, ...subtleTextStyle }}>Nothing here right now.</p>}
+          {!conversations && <div className="panel-body"><span className="meta">Loading chats…</span></div>}
+          {conversations?.length === 0 && (
+            <div className="panel-body">
+              <div className="empty-state">
+                <span className="empty-state-title">
+                  {tab === "team" ? "No chats in this business yet" : "Nothing assigned to you"}
+                </span>
+                <span className="empty-state-description">
+                  {tab === "team"
+                    ? "Chats appear here as soon as a customer messages the business."
+                    : "Switch to Team to pick up a chat that is waiting on an agent."}
+                </span>
+              </div>
+            </div>
+          )}
           {conversations?.map((c) => (
             <button
               key={c.id}
+              type="button"
               onClick={() => setSelectedId(c.id)}
               className="plain"
+              aria-label={`Open chat with ${c.customerName ?? c.id.slice(0, 10)}`}
+              aria-current={selectedId === c.id}
               style={{
                 display: "block",
                 width: "100%",
                 textAlign: "left",
-                padding: "10px 16px",
-                borderBottom: "1px solid var(--border)",
-                background: selectedId === c.id ? "var(--accent-soft)" : "transparent",
+                padding: "10px 14px",
+                borderTop: "1px solid var(--line-soft)",
+                borderLeft: selectedId === c.id ? "2px solid var(--accent)" : "2px solid transparent",
+                background: selectedId === c.id ? "var(--accent-subtle)" : "transparent",
               }}
             >
-              <div style={{ fontSize: 13, fontWeight: 600 }}>{c.customerName ?? c.id.slice(0, 10)}</div>
-              <div style={{ fontSize: 12, color: "var(--text-faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {c.lastMessage ?? ""}
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>
+                {c.customerName ?? c.id.slice(0, 10)}
               </div>
-              <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                <span style={badgeStyle(c.handoffStatus === "human" ? "ok" : "warn")}>{c.handoffStatus}</span>
+              <div
+                className="meta"
+                style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 }}
+              >
+                {c.lastMessage ?? "No messages yet"}
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 5, alignItems: "center", flexWrap: "wrap" }}>
+                <span className={c.handoffStatus === "human" ? "lamp lamp-info" : "lamp lamp-machine"}>
+                  {c.handoffStatus}
+                </span>
                 {tab === "team" && (
-                  <span style={{ fontSize: 11, color: "var(--text-faint)" }}>
+                  <span className="data" style={{ fontSize: 11 }}>
                     {c.assignedAgentId
                       ? agents.find((a) => a.id === c.assignedAgentId)?.username ?? "assigned"
                       : "unassigned"}
@@ -282,92 +309,187 @@ export function AgentConsole({
           ))}
         </section>
 
-        <section style={{ ...cardStyle, flex: 1, minWidth: 0 }}>
-          {!selected && <p style={subtleTextStyle}>Select a chat to view it.</p>}
+        <section className="panel" style={{ flex: 1, minWidth: 0 }}>
+          {!selected && (
+            <div className="panel-body">
+              <div className="empty-state">
+                <span className="empty-state-title">No chat open</span>
+                <span className="empty-state-description">
+                  Pick a conversation on the left to read its history and reply.
+                </span>
+              </div>
+            </div>
+          )}
           {selected && (
             <>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <h3 style={{ margin: 0 }}>{selected.customerName ?? selected.id.slice(0, 10)}</h3>
-                {canReply && aiEnabled && (
-                  <button onClick={markResolved} style={{ fontSize: 12 }}>
-                    Mark resolved
-                  </button>
+              <div className="panel-head">
+                <span className="instrument-label">{selected.customerName ?? selected.id.slice(0, 10)}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span className={canReply ? "lamp lamp-ok" : "lamp lamp-idle"}>
+                    {canReply ? "Assigned to you" : "View only"}
+                  </span>
+                  {canReply && aiEnabled && (
+                    <button type="button" className="ghost sm" onClick={markResolved}>
+                      Mark resolved
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="panel-body">
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                    maxHeight: 420,
+                    overflowY: "auto",
+                    marginBottom: 12,
+                  }}
+                >
+                  {messages === null && <span className="meta">Loading messages…</span>}
+                  {messages?.length === 0 && (
+                    <span className="meta">No messages in this conversation yet.</span>
+                  )}
+                  {messages?.map((m) => {
+                    const fromCustomer = m.role === "user";
+                    const fromMachine = m.role === "assistant" || m.role === "system";
+                    const speaker =
+                      m.role === "agent" ? "Agent" : m.role === "assistant" ? "AI" : m.role === "system" ? "System" : null;
+                    return (
+                      <div
+                        key={m.id}
+                        style={{
+                          alignSelf: fromCustomer ? "flex-start" : fromMachine && m.role === "system" ? "stretch" : "flex-end",
+                          maxWidth: fromMachine && m.role === "system" ? "100%" : "78%",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 3,
+                        }}
+                      >
+                        {speaker && (
+                          <span
+                            className="meta"
+                            style={{ fontSize: 10.5, textAlign: fromCustomer ? "left" : "right" }}
+                          >
+                            {speaker}
+                          </span>
+                        )}
+                        <div
+                          className={fromMachine ? "machine-block" : undefined}
+                          style={
+                            fromMachine
+                              ? undefined
+                              : {
+                                  padding: "8px 12px",
+                                  borderRadius: "var(--r-sm)",
+                                  background: fromCustomer ? "var(--panel-sunk)" : "var(--panel)",
+                                  border: `1px solid ${fromCustomer ? "var(--line)" : "var(--line-strong)"}`,
+                                  fontSize: 13,
+                                  color: "var(--ink)",
+                                }
+                          }
+                        >
+                          <span style={{ fontSize: 13 }}>{m.content}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {canReply ? (
+                  <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+                    <input
+                      aria-label="Reply to customer"
+                      style={{ flex: 1 }}
+                      placeholder="Type a reply"
+                      value={reply}
+                      onChange={(e) => setReply(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") sendReply();
+                      }}
+                    />
+                    <button type="button" className="primary" onClick={sendReply} disabled={sending || !reply.trim()}>
+                      {sending ? "Sending…" : "Send"}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="meta">
+                    {selected.assignedAgentId
+                      ? "Assigned to a teammate — view only."
+                      : "Not assigned to an agent yet — view only."}
+                  </p>
                 )}
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 420, overflowY: "auto", marginBottom: 12 }}>
-                {messages?.map((m) => (
-                  <div
-                    key={m.id}
-                    style={{
-                      alignSelf: m.role === "user" ? "flex-start" : "flex-end",
-                      maxWidth: "75%",
-                      padding: "8px 12px",
-                      borderRadius: 10,
-                      background: m.role === "user" ? "var(--surface)" : "var(--accent-soft)",
-                      fontSize: 13,
-                    }}
-                  >
-                    {m.content}
-                  </div>
-                ))}
-              </div>
-              {canReply ? (
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input
-                    style={{ flex: 1, padding: 8 }}
-                    placeholder="Type a reply…"
-                    value={reply}
-                    onChange={(e) => setReply(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") sendReply();
-                    }}
-                  />
-                  <button onClick={sendReply} disabled={sending || !reply.trim()} style={primaryButtonStyle}>
-                    {sending ? "Sending…" : "Send"}
-                  </button>
-                </div>
-              ) : (
-                <p style={subtleTextStyle}>
-                  {selected.assignedAgentId
-                    ? "Assigned to a teammate — view only."
-                    : "Not assigned to an agent yet — view only."}
-                </p>
-              )}
             </>
           )}
         </section>
 
         {selected && (
-          <section style={{ ...cardStyle, width: "100%", maxWidth: 260, flexShrink: 0 }}>
-            <div style={{ fontSize: 10.5, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 10 }}>
-              Notes
+          <section className="panel" style={{ width: "100%", maxWidth: 260, flexShrink: 0 }}>
+            <div className="panel-head">
+              <span className="instrument-label">Notes</span>
+              <span className="meta">Team only</span>
             </div>
-            <p style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 0, marginBottom: 8 }}>
-              Visible to your whole team, never sent to the customer.
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
-              {notes === null && <span style={{ fontSize: 12, color: "var(--text-faint)" }}>Loading…</span>}
-              {notes !== null && notes.length === 0 && <span style={{ fontSize: 12, color: "var(--text-faint)" }}>No notes yet.</span>}
-              {notes?.map((n) => (
-                <div key={n.id} style={{ background: "var(--warning-soft, rgba(210,153,34,0.12))", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: 8, fontSize: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                    <span style={{ fontWeight: 650 }}>{n.author}</span>
-                    <button onClick={() => deleteNote(n.id)} className="plain" style={{ opacity: 0.5, fontSize: 11, padding: "4px 8px" }}>✕</button>
+            <div className="panel-body">
+              <p className="meta" style={{ marginTop: 0, marginBottom: 10 }}>
+                Visible to your whole team, never sent to the customer.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
+                {notes === null && <span className="meta">Loading notes…</span>}
+                {notes !== null && notes.length === 0 && (
+                  <div className="empty-state" style={{ padding: 14 }}>
+                    <span className="empty-state-title">No notes yet</span>
+                    <span className="empty-state-description">
+                      Leave context for whoever picks this chat up next.
+                    </span>
                   </div>
-                  <div style={{ whiteSpace: "pre-wrap" }}>{n.body}</div>
-                  <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 4 }}>{new Date(n.createdAt).toLocaleString()}</div>
-                </div>
-              ))}
+                )}
+                {notes?.map((n) => (
+                  <div
+                    key={n.id}
+                    className="panel-sunk"
+                    style={{ padding: 9, fontSize: 12 }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <span className="data" style={{ fontWeight: 600, fontSize: 11.5 }}>{n.author}</span>
+                      <button
+                        type="button"
+                        className="ghost sm"
+                        onClick={() => deleteNote(n.id)}
+                        aria-label={`Delete note by ${n.author}`}
+                        style={{ padding: "2px 7px" }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                    <div style={{ whiteSpace: "pre-wrap", color: "var(--ink-2)" }}>{n.body}</div>
+                    <div className="meta" style={{ fontSize: 10.5, marginTop: 4 }}>
+                      {new Date(n.createdAt).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="field">
+                <label className="field-label" htmlFor="agent-console-note">
+                  New note
+                </label>
+                <textarea
+                  id="agent-console-note"
+                  value={newNote}
+                  onChange={(e) => setNewNote(e.target.value)}
+                  placeholder="Leave a note for your team"
+                  style={{ minHeight: 50, resize: "vertical", fontSize: 12 }}
+                />
+              </div>
+              <button
+                type="button"
+                className="ghost sm"
+                onClick={addNote}
+                disabled={savingNote || !newNote.trim()}
+                style={{ marginTop: 6 }}
+              >
+                {savingNote ? "Saving…" : "Add note"}
+              </button>
             </div>
-            <textarea
-              value={newNote}
-              onChange={(e) => setNewNote(e.target.value)}
-              placeholder="Leave a note for your team…"
-              style={{ width: "100%", padding: 6, fontSize: 12, boxSizing: "border-box", minHeight: 50, resize: "vertical" }}
-            />
-            <button onClick={addNote} disabled={savingNote || !newNote.trim()} style={{ fontSize: 11, padding: "6px 12px", marginTop: 4 }}>
-              {savingNote ? "Saving…" : "+ Add note"}
-            </button>
           </section>
         )}
       </div>

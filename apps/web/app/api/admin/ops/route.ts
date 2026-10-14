@@ -4,22 +4,46 @@ import { checkAdminCredentials } from "@ai-chat-platform/client-auth";
 
 import { getApp } from "../../../../lib/app";
 import { isAdminRequest } from "../../../../lib/admin-auth";
+import { swr } from "../../../../lib/swr-cache";
 
 export const dynamic = "force-dynamic";
 
-/** Live ops status (checks, pending approvals, recent ledger). Admin-only. */
+const EMPTY_SNAPSHOT = {
+  now: new Date().toISOString(),
+  checks: [] as unknown[],
+  pending: [] as unknown[],
+  activities: [] as unknown[],
+  os: null,
+};
+
+/** Live ops status (checks, pending approvals, recent ledger). Admin-only.
+ *
+ * The underlying monitor runs live TCP probes, reads logs and can spawn
+ * remediation processes -- it regularly takes tens of seconds. A dashboard
+ * banner polling this on every page load was saturating the single server
+ * process. We serve the last good snapshot instantly (stale-while-
+ * revalidate) and refresh in the background; pass `?fresh=1` from a panel
+ * a human explicitly opened to await the live value. */
 export async function GET(req: NextRequest) {
   if (!(await isAdminRequest(req))) {
     return NextResponse.json({ error: "Not authorized." }, { status: 401 });
   }
+  const fresh = req.nextUrl.searchParams.get("fresh") === "1";
   try {
-    const app = await getApp();
-    const snapshot = await app.container.router.ops.status();
-    return NextResponse.json(snapshot);
+    const snapshot = await swr(
+      "admin:ops",
+      45_000,
+      async () => {
+        const app = await getApp();
+        return app.container.router.ops.status();
+      },
+      fresh,
+    );
+    return NextResponse.json(snapshot ?? EMPTY_SNAPSHOT);
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 }
+      { ...EMPTY_SNAPSHOT, error: err instanceof Error ? err.message : String(err) },
+      { status: 200 }
     );
   }
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { cardStyle, subtleTextStyle, labelTextStyle, badgeStyle, type BadgeTone } from "./dashboard-styles";
 import { currencySymbol } from "../lib/currency";
 
 interface SubscriptionStatus {
@@ -13,26 +12,28 @@ interface SubscriptionStatus {
   subscriptionActive: boolean;
 }
 
-function getStatus(subscription: SubscriptionStatus): { label: string; tone: BadgeTone } {
-  if (!subscription.subscriptionActive) return { label: "Disabled", tone: "neutral" };
-  if (!subscription.subscriptionEndDate) return { label: "Active", tone: "ok" };
+function getStatus(subscription: SubscriptionStatus): { label: string; lamp: string } {
+  if (!subscription.subscriptionActive) return { label: "Disabled", lamp: "lamp lamp-idle" };
+  if (!subscription.subscriptionEndDate) return { label: "Active", lamp: "lamp lamp-ok" };
 
   const end = new Date(subscription.subscriptionEndDate);
   const now = new Date();
   const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
-  if (end.getTime() < now.getTime() - twoDaysMs) return { label: "Expired", tone: "error" };
-  if (end.getTime() < now.getTime()) return { label: "Grace Period", tone: "warn" };
+  if (end.getTime() < now.getTime() - twoDaysMs) return { label: "Expired", lamp: "lamp lamp-err" };
+  if (end.getTime() < now.getTime()) return { label: "Grace period", lamp: "lamp lamp-warn" };
 
   const daysLeft = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  if (daysLeft <= 7) return { label: `Expiring in ${daysLeft}d`, tone: "warn" };
-  return { label: "Active", tone: "ok" };
+  if (daysLeft <= 7) return { label: `Expiring in ${daysLeft}d`, lamp: "lamp lamp-warn" };
+  return { label: "Active", lamp: "lamp lamp-ok" };
 }
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 3 }}>{label}</div>
-      <div style={{ fontSize: 14, fontWeight: 600 }}>{value}</div>
+      <span className="instrument-label" style={{ display: "block", marginBottom: 3 }}>{label}</span>
+      <span className="data" style={{ display: "block", fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>
+        {value}
+      </span>
     </div>
   );
 }
@@ -51,7 +52,18 @@ export function SubscriptionStatus({ businessId }: { businessId: string }) {
       .catch(() => setLoading(false));
   }, [businessId]);
 
-  if (loading) return <div style={{ ...cardStyle, ...subtleTextStyle }}>Loading subscription…</div>;
+  if (loading) {
+    return (
+      <section className="panel">
+        <div className="panel-head">
+          <span className="instrument-label">Subscription</span>
+        </div>
+        <div className="panel-body">
+          <div className="skeleton" style={{ height: 34 }} />
+        </div>
+      </section>
+    );
+  }
   if (!subscription) return null;
 
   const status = getStatus(subscription);
@@ -65,22 +77,33 @@ export function SubscriptionStatus({ businessId }: { businessId: string }) {
   const hasAnyDetail = subscription.subscriptionPlanName || hasFee || subscription.subscriptionStartDate || subscription.subscriptionEndDate;
 
   return (
-    <section style={cardStyle}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: hasAnyDetail ? 16 : 0 }}>
-        <div style={labelTextStyle}>Subscription</div>
-        <span style={badgeStyle(status.tone)}>{status.label}</span>
+    <section className="panel">
+      <div className="panel-head">
+        <span className="instrument-label">Subscription</span>
+        <span className={status.lamp}>{status.label}</span>
       </div>
 
-      {hasAnyDetail ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 16 }}>
-          {subscription.subscriptionPlanName && <Field label="Plan" value={subscription.subscriptionPlanName} />}
-          {feeText && <Field label="Fee" value={feeText} />}
-          {subscription.subscriptionStartDate && <Field label="Start Date" value={new Date(subscription.subscriptionStartDate).toLocaleDateString()} />}
-          {subscription.subscriptionEndDate && <Field label="End Date" value={new Date(subscription.subscriptionEndDate).toLocaleDateString()} />}
-        </div>
-      ) : (
-        <p style={{ ...subtleTextStyle, margin: 0 }}>No subscription configured.</p>
-      )}
+      <div className="panel-body">
+        {hasAnyDetail ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 16 }}>
+            {subscription.subscriptionPlanName && <Field label="Plan" value={subscription.subscriptionPlanName} />}
+            {feeText && <Field label="Fee" value={feeText} />}
+            {subscription.subscriptionStartDate && (
+              <Field label="Start date" value={new Date(subscription.subscriptionStartDate).toLocaleDateString()} />
+            )}
+            {subscription.subscriptionEndDate && (
+              <Field label="End date" value={new Date(subscription.subscriptionEndDate).toLocaleDateString()} />
+            )}
+          </div>
+        ) : (
+          <div className="empty-state">
+            <div className="empty-state-title">No subscription configured</div>
+            <div className="empty-state-description">
+              This business has no plan attached, so status emails and automations stay paused.
+            </div>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

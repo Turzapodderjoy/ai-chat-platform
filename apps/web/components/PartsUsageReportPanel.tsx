@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { cardStyle, cellStyle, subtleTextStyle, badgeStyle, type BadgeTone } from "./dashboard-styles";
 import { StatCard, StatCardRow } from "./StatCard";
 import { useCurrencySymbol } from "../lib/currency";
 import { showConfirm } from "../lib/app-dialog";
@@ -105,6 +104,7 @@ export function PartsUsageReportPanel({ businessId, accountRole, active = true }
     refresh();
     const interval = setInterval(refresh, 5000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [businessId, active, range, customFrom, customTo]);
 
   const filtered = useMemo(() => {
@@ -123,152 +123,197 @@ export function PartsUsageReportPanel({ businessId, accountRole, active = true }
   const paged = useMemo(() => filtered.slice(offset, offset + PAGE_SIZE), [filtered, offset]);
 
   if (!report) {
-    return <div style={{ padding: 20, color: "var(--text-muted)" }}>Loading parts usage...</div>;
+    return (
+      <section className="panel">
+        <div className="panel-head">
+          <span className="instrument-label">Parts usage</span>
+        </div>
+        <div className="panel-body">
+          <p className="meta">Loading parts usage</p>
+        </div>
+      </section>
+    );
   }
 
-  const KIND_TONE: Record<string, BadgeTone> = { part: "info", service: "neutral" };
+  const margin = report.totalSelling - report.totalCost;
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2 style={{ fontSize: 18, fontWeight: 600, color: "var(--text)", margin: "0 0 16px" }}>Parts Usage Report</h2>
+    <section className="panel">
+      <div className="panel-head">
+        <div style={{ minWidth: 0 }}>
+          <span className="instrument-label">Parts usage</span>
+          <div className="meta">
+            Every part and service booked to a repair order, with the cost and the price charged. Amounts in {currency}.
+          </div>
+        </div>
+      </div>
 
-      {/* Summary cards */}
-      <StatCardRow>
-        <StatCard label="Total Items Used" value={report.items.length} />
-        <StatCard label="Total Cost" value={`${currency}${report.totalCost.toFixed(2)}`} tone={report.totalCost > 0 ? "warning" : undefined} />
-        <StatCard label="Total Selling" value={`${currency}${report.totalSelling.toFixed(2)}`} tone="success" />
-        <StatCard label="Profit" value={`${currency}${(report.totalSelling - report.totalCost).toFixed(2)}`} tone={report.totalSelling - report.totalCost >= 0 ? "success" : "danger"} />
-      </StatCardRow>
+      <div className="panel-body">
+        <StatCardRow>
+          <StatCard label="Items used" value={report.items.length} />
+          <StatCard label="Cost total" value={`${currency}${report.totalCost.toFixed(2)}`} />
+          <StatCard label="Selling total" value={`${currency}${report.totalSelling.toFixed(2)}`} />
+          <StatCard label="Margin" value={`${currency}${margin.toFixed(2)}`} tone={margin >= 0 ? "success" : "danger"} />
+        </StatCardRow>
 
-      {/* Filters */}
-      <div style={{ ...cardStyle, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 16 }}>
-        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-          {RANGE_OPTIONS.map((r) => (
-            <button
-              key={r.id}
-              onClick={() => { setRange(r.id); setOffset(0); }}
-              style={{
-                padding: "5px 12px",
-                fontSize: 12,
-                borderRadius: 6,
-                border: "1px solid var(--border)",
-                background: range === r.id ? "var(--accent)" : "var(--surface)",
-                color: range === r.id ? "#fff" : "var(--text)",
-                cursor: "pointer",
-                fontFamily: "inherit",
+        <div className="toolbar" style={{ marginTop: 16 }}>
+          <div className="field" style={{ width: 170 }}>
+            <label className="field-label" htmlFor="pu-range">Period</label>
+            <select
+              id="pu-range"
+              value={range}
+              onChange={(e) => {
+                setRange(e.target.value as RangeId);
+                setOffset(0);
               }}
             >
-              {r.label}
-            </button>
-          ))}
-        </div>
-        {range === "custom" && (
-          <>
-            <input type="date" value={customFrom} onChange={(e) => { setCustomFrom(e.target.value); setOffset(0); }} style={{ padding: "5px 8px", fontSize: 12, border: "1px solid var(--border)", borderRadius: 6, background: "var(--surface)", color: "var(--text)" }} />
-            <span style={{ color: "var(--text-muted)", fontSize: 12 }}>to</span>
-            <input type="date" value={customTo} onChange={(e) => { setCustomTo(e.target.value); setOffset(0); }} style={{ padding: "5px 8px", fontSize: 12, border: "1px solid var(--border)", borderRadius: 6, background: "var(--surface)", color: "var(--text)" }} />
-          </>
-        )}
-        <input
-          type="text"
-          placeholder="Search items, orders, customers..."
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setOffset(0); }}
-          style={{ padding: "5px 10px", fontSize: 12, border: "1px solid var(--border)", borderRadius: 6, background: "var(--surface)", color: "var(--text)", minWidth: 200, marginLeft: "auto" }}
-        />
-      </div>
-
-      {/* Table */}
-      <div style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                <th style={{ ...cellStyle, padding: "10px 12px", fontWeight: 600, color: "var(--text-muted)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>Item</th>
-                <th style={{ ...cellStyle, padding: "10px 12px", fontWeight: 600, color: "var(--text-muted)", fontSize: 11, textTransform: "uppercase" }}>Type</th>
-                <th style={{ ...cellStyle, padding: "10px 12px", fontWeight: 600, color: "var(--text-muted)", fontSize: 11, textTransform: "uppercase" }}>Qty</th>
-                <th style={{ ...cellStyle, padding: "10px 12px", fontWeight: 600, color: "var(--text-muted)", fontSize: 11, textTransform: "uppercase" }}>Order</th>
-                <th style={{ ...cellStyle, padding: "10px 12px", fontWeight: 600, color: "var(--text-muted)", fontSize: 11, textTransform: "uppercase" }}>Cost</th>
-                <th style={{ ...cellStyle, padding: "10px 12px", fontWeight: 600, color: "var(--text-muted)", fontSize: 11, textTransform: "uppercase" }}>Selling</th>
-                <th style={{ ...cellStyle, padding: "10px 12px", fontWeight: 600, color: "var(--text-muted)", fontSize: 11, textTransform: "uppercase" }}>Date</th>
-                <th style={{ ...cellStyle, padding: "10px 12px", fontWeight: 600, color: "var(--text-muted)", fontSize: 11, textTransform: "uppercase" }}>Used By</th>
-                {canDelete && <th style={{ ...cellStyle, padding: "10px 12px", fontWeight: 600, color: "var(--text-muted)", fontSize: 11, textTransform: "uppercase" }}></th>}
-              </tr>
-            </thead>
-            <tbody>
-              {paged.length === 0 && (
-                <tr>
-                  <td colSpan={canDelete ? 9 : 8} style={{ padding: 24, textAlign: "center", color: "var(--text-muted)" }}>
-                    {report.items.length === 0 ? "No parts or services used yet." : "No results match your search."}
-                  </td>
-                </tr>
-              )}
-              {paged.map((item) => (
-                <tr key={item.id} style={{ borderBottom: "1px solid var(--border-subtle, var(--border))" }}>
-                  <td style={{ ...cellStyle, padding: "8px 12px", color: "var(--text)" }}>{item.name}</td>
-                  <td style={{ ...cellStyle, padding: "8px 12px" }}>
-                    <span style={badgeStyle(KIND_TONE[item.kind] ?? "neutral")}>{item.kind}</span>
-                  </td>
-                  <td style={{ ...cellStyle, padding: "8px 12px", color: "var(--text)" }}>{item.quantity}</td>
-                  <td style={{ ...cellStyle, padding: "8px 12px", color: "var(--text)" }}>
-                    <span title={item.orderId} style={{ fontFamily: "monospace", fontSize: 11 }}>{item.trackingToken}</span>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{item.customerName}</div>
-                  </td>
-                  <td style={{ ...cellStyle, padding: "8px 12px", color: "var(--text)" }}>
-                    {item.costPrice != null ? `${currency}${item.costPrice.toFixed(2)}` : "—"}
-                  </td>
-                  <td style={{ ...cellStyle, padding: "8px 12px", color: "var(--text)", fontWeight: 500 }}>
-                    {currency}{item.sellingPrice.toFixed(2)}
-                  </td>
-                  <td style={{ ...cellStyle, padding: "8px 12px", color: "var(--text-muted)", fontSize: 12 }}>
-                    {new Date(item.date).toLocaleDateString()}
-                  </td>
-                  <td style={{ ...cellStyle, padding: "8px 12px", color: "var(--text-muted)", fontSize: 12 }}>
-                    {item.usedBy ?? "—"}
-                  </td>
-                  {canDelete && (
-                    <td style={{ ...cellStyle, padding: "8px 12px" }}>
-                      <button
-                        onClick={() => deleteItem(item)}
-                        disabled={busyId === item.id}
-                        style={{ background: "none", border: "none", cursor: busyId === item.id ? "default" : "pointer", color: "var(--danger, #ef4444)", fontSize: 14, padding: "2px 6px", opacity: busyId === item.id ? 0.4 : 0.7, fontFamily: "inherit" }}
-                        title="Delete this item"
-                      >
-                        ✕
-                      </button>
-                    </td>
-                  )}
-                </tr>
+              {RANGE_OPTIONS.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.label}
+                </option>
               ))}
-            </tbody>
-          </table>
+            </select>
+          </div>
+          {range === "custom" && (
+            <>
+              <div className="field" style={{ width: 150 }}>
+                <label className="field-label" htmlFor="pu-from">From</label>
+                <input
+                  id="pu-from"
+                  type="date"
+                  value={customFrom}
+                  onChange={(e) => {
+                    setCustomFrom(e.target.value);
+                    setOffset(0);
+                  }}
+                />
+              </div>
+              <div className="field" style={{ width: 150 }}>
+                <label className="field-label" htmlFor="pu-to">To</label>
+                <input
+                  id="pu-to"
+                  type="date"
+                  value={customTo}
+                  onChange={(e) => {
+                    setCustomTo(e.target.value);
+                    setOffset(0);
+                  }}
+                />
+              </div>
+            </>
+          )}
+          <div className="field" style={{ flex: "1 1 220px", maxWidth: 420, minWidth: 0, marginLeft: "auto" }}>
+            <label className="field-label" htmlFor="pu-search">Search usage</label>
+            <input
+              id="pu-search"
+              type="search"
+              name="aiva-search-parts-usage"
+              autoComplete="off"
+              placeholder="Item, order, customer, staff"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setOffset(0);
+              }}
+            />
+          </div>
         </div>
+
+        {paged.length === 0 ? (
+          <div className="empty-state">
+            <span className="empty-state-title">
+              {report.items.length === 0 ? "No parts or services used yet" : "No usage matches that search"}
+            </span>
+            <span className="empty-state-description">
+              {report.items.length === 0
+                ? "Parts and services booked to a repair order show up here."
+                : "Clear the search box to see every booked line."}
+            </span>
+          </div>
+        ) : (
+          <div className="table-scroll" style={{ marginTop: 14 }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Type</th>
+                  <th className="num" style={{ textAlign: "right" }}>Qty</th>
+                  <th>Order</th>
+                  <th className="num" style={{ textAlign: "right" }}>Cost</th>
+                  <th className="num" style={{ textAlign: "right" }}>Selling</th>
+                  <th>Date</th>
+                  <th>Used by</th>
+                  {canDelete && <th />}
+                </tr>
+              </thead>
+              <tbody>
+                {paged.map((item) => (
+                  <tr key={item.id}>
+                    <td style={{ color: "var(--ink)" }}>{item.name}</td>
+                    <td>
+                      <span className="meta">{item.kind === "part" ? "Part" : "Service"}</span>
+                    </td>
+                    <td className="data num" style={{ textAlign: "right" }}>{item.quantity}</td>
+                    <td>
+                      <span className="data" style={{ fontSize: 12 }}>{item.trackingToken}</span>
+                      <div className="meta">{item.customerName}</div>
+                    </td>
+                    <td className="data num" style={{ textAlign: "right", color: "var(--ink-3)" }}>
+                      {item.costPrice != null ? `${currency}${item.costPrice.toFixed(2)}` : <span className="meta">Not set</span>}
+                    </td>
+                    <td className="data num" style={{ textAlign: "right", color: "var(--ink)" }}>
+                      {currency}{item.sellingPrice.toFixed(2)}
+                    </td>
+                    <td className="data" style={{ fontSize: 12, color: "var(--ink-3)" }}>
+                      {new Date(item.date).toLocaleDateString()}
+                    </td>
+                    <td>
+                      {item.usedBy ?? <span className="meta">Not recorded</span>}
+                    </td>
+                    {canDelete && (
+                      <td>
+                        <button
+                          type="button"
+                          className="ghost sm"
+                          onClick={() => deleteItem(item)}
+                          disabled={busyId === item.id}
+                          aria-label={`Delete ${item.name} from this repair order`}
+                          title="Delete this item"
+                          style={{ color: "var(--danger)" }}
+                        >
+                          {busyId === item.id ? "Deleting" : (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                          )}
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {filtered.length > PAGE_SIZE && (
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12, marginTop: 14 }}>
+            <button type="button" className="sm" onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))} disabled={offset === 0}>
+              Previous 25
+            </button>
+            <span className="meta">
+              <span className="data">{offset + 1}</span> to{" "}
+              <span className="data">{Math.min(offset + PAGE_SIZE, filtered.length)}</span> of{" "}
+              <span className="data">{filtered.length}</span>
+            </span>
+            <button type="button" className="sm" onClick={() => setOffset(offset + PAGE_SIZE)} disabled={offset + PAGE_SIZE >= filtered.length}>
+              Next 25
+            </button>
+          </div>
+        )}
+
+        <p className="meta" style={{ marginTop: 12 }}>
+          Last refreshed <span className="data">{new Date(report.generatedAt).toLocaleTimeString()}</span>
+        </p>
       </div>
-
-      {/* Pagination */}
-      {filtered.length > PAGE_SIZE && (
-        <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 12 }}>
-          <button
-            onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
-            disabled={offset === 0}
-            style={{ padding: "6px 14px", fontSize: 12, borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", cursor: offset === 0 ? "default" : "pointer", opacity: offset === 0 ? 0.5 : 1, fontFamily: "inherit" }}
-          >
-            Previous
-          </button>
-          <span style={{ padding: "6px 10px", fontSize: 12, color: "var(--text-muted)" }}>
-            {offset + 1}–{Math.min(offset + PAGE_SIZE, filtered.length)} of {filtered.length}
-          </span>
-          <button
-            onClick={() => setOffset(offset + PAGE_SIZE)}
-            disabled={offset + PAGE_SIZE >= filtered.length}
-            style={{ padding: "6px 14px", fontSize: 12, borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", cursor: offset + PAGE_SIZE >= filtered.length ? "default" : "pointer", opacity: offset + PAGE_SIZE >= filtered.length ? 0.5 : 1, fontFamily: "inherit" }}
-          >
-            Next
-          </button>
-        </div>
-      )}
-
-      <p style={{ ...subtleTextStyle, marginTop: 12 }}>Last refreshed: {new Date(report.generatedAt).toLocaleTimeString()}</p>
-    </div>
+    </section>
   );
 }

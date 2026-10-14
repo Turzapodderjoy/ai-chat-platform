@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { cardStyle, subtleTextStyle, primaryButtonStyle } from "./dashboard-styles";
 
 interface ChecklistItem {
   id: string;
@@ -33,11 +32,11 @@ const DEFAULT_ITEMS: Omit<ChecklistItem, "completed" | "completedAt" | "complete
 ];
 
 const CATEGORY_LABELS: Record<string, string> = {
-  cash: "💰 Cash",
-  repairs: "🔧 Repairs",
-  inventory: "📦 Inventory",
-  admin: "📋 Admin",
-  security: "🔒 Security",
+  cash: "Cash",
+  repairs: "Repairs",
+  inventory: "Inventory",
+  admin: "Admin",
+  security: "Security",
 };
 
 export function ClosingChecklistPanel({ businessId }: { businessId: string }) {
@@ -93,57 +92,184 @@ export function ClosingChecklistPanel({ businessId }: { businessId: string }) {
   const totalRequired = allRequired.length;
 
   return (
-    <section style={{ padding: 0 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <div>
-          <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Closing Checklist</h2>
-          <p style={{ ...subtleTextStyle, fontSize: 13 }}>
-            End-of-day tasks. {completedRequired}/{totalRequired} required done.
-            {completedRequired === totalRequired && totalRequired > 0 && <span style={{ marginLeft: 8, color: "var(--success)", fontWeight: 600 }}>✓ All required complete</span>}
-          </p>
-          {error && <p style={{ fontSize: 12, color: "var(--danger)", marginTop: 4 }}>Failed to save. Check connection and retry.</p>}
+    <section className="panel">
+      <div className="panel-head">
+        <span className="instrument-label">Closing checklist</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span
+            className={
+              completedRequired === totalRequired && totalRequired > 0
+                ? "lamp lamp-ok"
+                : completedRequired > 0
+                  ? "lamp lamp-warn"
+                  : "lamp lamp-idle"
+            }
+          >
+            {completedRequired}/{totalRequired} required
+          </span>
+          <button onClick={() => setShowAdd(!showAdd)} className="primary sm">
+            {showAdd ? "Cancel" : "Add custom task"}
+          </button>
         </div>
-        <button onClick={() => setShowAdd(!showAdd)} style={primaryButtonStyle}> {showAdd ? "Cancel" : "+ Add custom task"} </button>
       </div>
 
-      {showAdd && (
-        <div style={{ ...cardStyle, display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-          <input placeholder="Task name *" value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} style={{ padding: 8, flex: 1, minWidth: 200 }} />
-          <select value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value as ChecklistItem["category"] })} style={{ padding: 8, width: 140 }}>
-            <option value="cash">Cash</option><option value="repairs">Repairs</option><option value="inventory">Inventory</option><option value="admin">Admin</option><option value="security">Security</option>
-          </select>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, padding: 8 }}>
-            <input type="checkbox" checked={draft.required} onChange={(e) => setDraft({ ...draft, required: e.target.checked })} /> Required
-          </label>
-          <button onClick={addCustom} disabled={saving || !draft.label.trim()} style={primaryButtonStyle}> {saving ? "Saving…" : "Add"} </button>
-        </div>
-      )}
+      <div className="panel-body">
+        <p className="meta" style={{ marginTop: 0, marginBottom: 14, maxWidth: "68ch" }}>
+          End-of-day tasks for closing the shop. Required tasks have to be ticked off before you leave.
+        </p>
 
-      {categories.map((cat) => {
-        const catItems = items.filter((i) => i.category === cat);
-        return (
-          <div key={cat} style={{ marginBottom: 16 }}>
-            <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>{CATEGORY_LABELS[cat]}</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {catItems.map((item) => (
-                <div key={item.id} style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px" }}>
-                  <input type="checkbox" checked={item.completed} onChange={() => toggle(item.id)} style={{ width: 18, height: 18, accentColor: "var(--accent)", flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: item.completed ? "var(--text-muted)" : "var(--text)", textDecoration: item.completed ? "line-through" : "none" }}> {item.label} </div>
-                    {item.completed && <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 2 }}> Completed {fmtTime(item.completedAt)} by {item.completedBy ?? "—"} </div>}
-                    {item.required && <span style={{ fontSize: 9, fontWeight: 600, color: "var(--warning)", marginLeft: 8, padding: "1px 5px", borderRadius: 3, background: "rgba(245,158,11,0.15)" }}> Required </span>}
-                  </div>
-                  {item.note && <span style={{ fontSize: 11, color: "var(--text-muted)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.note}</span>}
-                </div>
-              ))}
+        {error && (
+          <p className="field-error" style={{ marginTop: 0 }}>Failed to save. Check connection and retry.</p>
+        )}
+
+        {showAdd && (
+          <div
+            className="panel-sunk"
+            style={{
+              display: "flex",
+              gap: 10,
+              flexWrap: "wrap",
+              alignItems: "flex-end",
+              padding: 14,
+              marginBottom: 16,
+            }}
+          >
+            <div className="field" style={{ flex: 1, minWidth: 200 }}>
+              <label className="field-label" htmlFor="aiva-closing-task">Task name</label>
+              <input
+                id="aiva-closing-task"
+                value={draft.label}
+                onChange={(e) => setDraft({ ...draft, label: e.target.value })}
+              />
             </div>
+            <div className="field" style={{ width: 160 }}>
+              <label className="field-label" htmlFor="aiva-closing-category">Category</label>
+              <select
+                id="aiva-closing-category"
+                value={draft.category}
+                onChange={(e) => setDraft({ ...draft, category: e.target.value as ChecklistItem["category"] })}
+              >
+                <option value="cash">Cash</option>
+                <option value="repairs">Repairs</option>
+                <option value="inventory">Inventory</option>
+                <option value="admin">Admin</option>
+                <option value="security">Security</option>
+              </select>
+            </div>
+            <div className="field" style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+              <input
+                type="checkbox"
+                id="aiva-closing-required"
+                checked={draft.required}
+                onChange={(e) => setDraft({ ...draft, required: e.target.checked })}
+              />
+              <label className="field-label" htmlFor="aiva-closing-required" style={{ margin: 0 }}>Required</label>
+            </div>
+            <button onClick={addCustom} disabled={saving || !draft.label.trim()} className="primary sm">
+              {saving ? "Saving…" : "Add"}
+            </button>
           </div>
-        );
-      })}
+        )}
 
-      <div style={{ ...cardStyle, padding: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <div style={{ fontSize: 12, color: "var(--text-muted)" }}> {items.filter((i) => i.completed).length} / {items.length} tasks done </div>
-        <button onClick={() => setItems((prev) => prev.map((i) => ({ ...i, completed: false, completedAt: undefined, completedBy: undefined })))} style={{ ...primaryButtonStyle, fontSize: 11, padding: "6px 12px" }}> Reset All </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {categories.map((cat) => {
+            const catItems = items.filter((i) => i.category === cat);
+            const catDone = catItems.filter((i) => i.completed).length;
+            return (
+              <div key={cat} className="panel-sunk" style={{ padding: 14 }}>
+                <div className="panel-head" style={{ marginBottom: 10 }}>
+                  <span className="instrument-label">{CATEGORY_LABELS[cat]}</span>
+                  <span
+                    className={catDone === catItems.length ? "lamp lamp-ok" : catDone > 0 ? "lamp lamp-warn" : "lamp lamp-idle"}
+                  >
+                    {catDone}/{catItems.length}
+                  </span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {catItems.map((item) => (
+                    <div
+                      key={item.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "9px 10px",
+                        background: "var(--panel)",
+                        border: "1px solid var(--line-soft)",
+                        borderRadius: "var(--r-sm)",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={item.completed}
+                        onChange={() => toggle(item.id)}
+                        aria-label={item.label}
+                        style={{ flexShrink: 0 }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 500,
+                            color: item.completed ? "var(--ink-3)" : "var(--ink)",
+                            textDecoration: item.completed ? "line-through" : "none",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          {item.label}
+                          <span
+                            className={
+                              item.completed ? "lamp lamp-ok" : item.required ? "lamp lamp-warn" : "lamp lamp-idle"
+                            }
+                          >
+                            {item.completed ? "Done" : item.required ? "Required" : "Optional"}
+                          </span>
+                        </div>
+                        {item.completed && (
+                          <div className="data" style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 3 }}>
+                            Completed {fmtTime(item.completedAt)} by {item.completedBy ?? "—"}
+                          </div>
+                        )}
+                      </div>
+                      {item.note && (
+                        <span
+                          className="meta"
+                          style={{
+                            fontSize: 11.5,
+                            maxWidth: 200,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {item.note}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div
+          className="panel-sunk"
+          style={{ padding: 12, marginTop: 16, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}
+        >
+          <span className="data" style={{ fontSize: 12, color: "var(--ink-2)" }}>
+            {items.filter((i) => i.completed).length} of {items.length} tasks done
+          </span>
+          <button
+            onClick={() => setItems((prev) => prev.map((i) => ({ ...i, completed: false, completedAt: undefined, completedBy: undefined })))}
+            className="ghost sm"
+          >
+            Reset all
+          </button>
+        </div>
       </div>
     </section>
   );

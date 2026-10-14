@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import { cardStyle, labelTextStyle, subtleTextStyle, inputStyle } from "./dashboard-styles";
 
 type Kind = "repair_status" | "order_status" | "general";
 
@@ -79,33 +78,43 @@ function WhatsAppSenderBox({ businessId }: { businessId: string }) {
   if (!sender) return null;
 
   return (
-    <div style={{ ...cardStyle, padding: 14, marginBottom: 20 }}>
-      <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>WhatsApp sender</h3>
-      {sender.connected && !editing ? (
-        <>
-          <p style={{ fontSize: 13 }}>🟢 Connected {sender.phoneNumberId ? `• ${sender.phoneNumberId}` : ""}</p>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setEditing(true)} style={{ fontSize: 12, padding: "4px 10px" }}>Change</button>
-            <button onClick={disconnect} style={{ fontSize: 12, padding: "4px 10px" }}>Disconnect</button>
+    <div className="panel" style={{ marginBottom: 16 }}>
+      <div className="panel-head">
+        <span style={{ fontWeight: 600, fontSize: 13.5 }}>WhatsApp sender</span>
+        <span className={sender.connected ? "lamp lamp-ok" : "lamp lamp-idle"}>
+          {sender.connected ? "Connected" : "Not connected"}
+        </span>
+      </div>
+      <div className="panel-body">
+        {sender.connected && !editing ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            {sender.phoneNumberId && (
+              <span className="data" style={{ fontSize: 12, color: "var(--ink-2)" }}>
+                {sender.phoneNumberId}
+              </span>
+            )}
+            <button onClick={() => setEditing(true)} className="ghost sm">Change</button>
+            <button onClick={disconnect} className="danger sm">Disconnect</button>
           </div>
-        </>
-      ) : (
-        <>
-          <p style={{ ...subtleTextStyle, fontSize: 12, marginBottom: 8 }}>
-            Connect your WhatsApp Business API (Meta Developer Portal → WhatsApp → API Setup).
-          </p>
-          <div style={{ background: "var(--surface)", borderRadius: 6, padding: 10, marginBottom: 10, fontSize: 12, lineHeight: 1.6 }}>
-            <strong>Quick steps:</strong> Go to{" "}
-            <a href="https://developers.facebook.com/apps/" target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
-              Meta Developer Portal
-            </a>{" "}
-            → Select app → WhatsApp → API Setup → Get Phone Number ID + Access Token.
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
-            <button onClick={() => setEditing(true)} style={{ fontSize: 12, padding: "6px 12px" }}>Configure</button>
-          </div>
-        </>
-      )}
+        ) : (
+          <>
+            <p className="meta" style={{ marginTop: 0 }}>
+              Connect your WhatsApp Business API (Meta Developer Portal → WhatsApp → API Setup).
+            </p>
+            <div className="machine-block" style={{ marginBottom: 12 }}>
+              <span className="instrument-label">Quick steps</span>
+              <p className="meta" style={{ margin: "6px 0 0" }}>
+                Open the{" "}
+                <a href="https://developers.facebook.com/apps/" target="_blank" rel="noreferrer">
+                  Meta Developer Portal
+                </a>{" "}
+                → Select app → WhatsApp → API Setup → get Phone Number ID and Access Token.
+              </p>
+            </div>
+            <button onClick={() => setEditing(true)} className="primary sm">Configure</button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -169,60 +178,72 @@ export function WhatsAppTemplatesPanel({ businessId }: { businessId: string }) {
   function renderSection(kind: Kind, statuses: { value: string; label: string }[], placeholders: string[], title: string) {
     const examples = PLACEHOLDER_EXAMPLES[kind] ?? PLACEHOLDER_EXAMPLES.general;
     return (
-      <div style={{ marginBottom: 24 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>{title}</h3>
-        <p style={{ ...subtleTextStyle, fontSize: 12, marginBottom: 4 }}>
-          WhatsApp template placeholders: {placeholders.join(", ")}
-        </p>
-        <p style={{ ...subtleTextStyle, fontSize: 11, marginBottom: 8, color: "var(--text-muted)" }}>
+      <div className="panel-sunk" style={{ padding: 14, marginBottom: 16 }}>
+        <div className="panel-head" style={{ marginBottom: 8 }}>
+          <span style={{ fontWeight: 600, fontSize: 13.5 }}>{title}</span>
+        </div>
+        <div className="data" style={{ fontSize: 11.5, color: "var(--ink-3)" }}>
+          Placeholders: {placeholders.join(", ")}
+        </div>
+        <div className="data" style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 3 }}>
           Example mapping: {placeholders.map((p, i) => `${p} → ${examples[i] ?? ""}`).join(", ")}
-        </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
           {statuses.map((s) => {
             const key = `${kind}:${s.value}`;
             const existing = templates?.find((t) => t.kind === kind && t.statusValue === s.value);
             const isOpen = openKey === key;
+            const idBase = `aiva-wa-${kind}-${s.value}`;
 
             return (
-              <div key={key} style={{ ...cardStyle, padding: 16 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <strong style={{ fontSize: 14 }}>{s.label}</strong>
+              <div key={key} style={{ background: "var(--panel)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-sm)", padding: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <strong style={{ fontSize: 13.5, color: "var(--ink)" }}>{s.label}</strong>
                     {existing ? (
-                      <span style={{
-                        fontSize: 11,
-                        fontWeight: 500,
-                        padding: "2px 8px",
-                        borderRadius: "var(--radius-full, 9999px)",
-                        background: existing.enabled ? "var(--success-subtle)" : "var(--surface-hover)",
-                        color: existing.enabled ? "var(--success)" : "var(--text-muted)",
-                      }}>
+                      <span className={existing.enabled ? "lamp lamp-ok" : "lamp lamp-idle"}>
                         {existing.enabled ? "Enabled" : "Disabled"}
                       </span>
                     ) : (
-                      <span style={{ fontSize: 12, color: "var(--text-faint)", fontStyle: "italic" }}>No template</span>
+                      <span className="lamp lamp-idle">No template</span>
                     )}
                   </div>
-                  <button onClick={() => toggle(kind, s.value)} className="ghost" style={{ fontSize: 12, padding: "6px 12px" }}>
+                  <button onClick={() => toggle(kind, s.value)} className="ghost sm">
                     {isOpen ? "Close" : existing ? "Edit" : "Add"}
                   </button>
                 </div>
 
                 {isOpen && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border-subtle)" }}>
-                    <div>
-                      <label style={labelTextStyle}>Template Name (Meta dashboard)</label>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 12,
+                      marginTop: 14,
+                      paddingTop: 14,
+                      borderTop: "1px solid var(--line-soft)",
+                    }}
+                  >
+                    <div className="field">
+                      <label className="field-label" htmlFor={`${idBase}-name`}>
+                        Template name (Meta dashboard)
+                      </label>
                       <input
+                        id={`${idBase}-name`}
                         type="text"
                         placeholder="e.g. repair_booked_notification"
                         value={nameDraft}
                         onChange={(e) => setNameDraft(e.target.value)}
-                        style={inputStyle}
                       />
                     </div>
-                    <div>
-                      <label style={labelTextStyle}>Language</label>
-                      <select value={languageDraft} onChange={(e) => setLanguageDraft(e.target.value)} style={inputStyle}>
+                    <div className="field">
+                      <label className="field-label" htmlFor={`${idBase}-language`}>Language</label>
+                      <select
+                        id={`${idBase}-language`}
+                        value={languageDraft}
+                        onChange={(e) => setLanguageDraft(e.target.value)}
+                      >
                         <option value="en_US">English (US)</option>
                         <option value="bn">Bengali</option>
                         <option value="hi">Hindi</option>
@@ -230,53 +251,68 @@ export function WhatsAppTemplatesPanel({ businessId }: { businessId: string }) {
                         <option value="ar">Arabic</option>
                       </select>
                     </div>
-                    <div>
-                      <label style={labelTextStyle}>Header (optional)</label>
+                    <div className="field">
+                      <label className="field-label" htmlFor={`${idBase}-header`}>Header (optional)</label>
                       <input
+                        id={`${idBase}-header`}
                         type="text"
                         placeholder="Short header text"
                         value={headerDraft}
                         onChange={(e) => setHeaderDraft(e.target.value)}
-                        style={inputStyle}
                       />
                     </div>
-                    <div>
-                      <label style={labelTextStyle}>Body *</label>
+                    <div className="field">
+                      <label className="field-label" htmlFor={`${idBase}-body`}>Body</label>
                       <textarea
+                        id={`${idBase}-body`}
                         placeholder="Use {{1}}, {{2}}, etc. for variables"
                         value={bodyDraft}
                         onChange={(e) => setBodyDraft(e.target.value)}
                         rows={4}
-                        style={{ ...inputStyle, fontFamily: "var(--font-mono)", resize: "vertical" }}
+                        style={{ fontFamily: "var(--font-mono)", resize: "vertical" }}
                       />
                     </div>
-                    <div>
-                      <label style={labelTextStyle}>Footer (optional)</label>
+                    <div className="field">
+                      <label className="field-label" htmlFor={`${idBase}-footer`}>Footer (optional)</label>
                       <input
+                        id={`${idBase}-footer`}
                         type="text"
                         placeholder="Footer text"
                         value={footerDraft}
                         onChange={(e) => setFooterDraft(e.target.value)}
-                        style={inputStyle}
                       />
                     </div>
-                    <div>
-                      <label style={labelTextStyle}>Buttons (JSON array, optional)</label>
+                    <div className="field">
+                      <label className="field-label" htmlFor={`${idBase}-buttons`}>
+                        Buttons (JSON array, optional)
+                      </label>
                       <textarea
+                        id={`${idBase}-buttons`}
                         placeholder='[{"type": "QUICK_REPLY", "text": "Track"}, {"type": "URL", "text": "View", "url": "https://example.com/track/{{1}}"}]'
                         value={buttonsDraft}
                         onChange={(e) => setButtonsDraft(e.target.value)}
                         rows={3}
-                        style={{ ...inputStyle, fontFamily: "var(--font-mono)", resize: "vertical" }}
+                        style={{ fontFamily: "var(--font-mono)", resize: "vertical" }}
                       />
                     </div>
-                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-secondary)", cursor: "pointer" }}>
-                      <input type="checkbox" checked={enabledDraft} onChange={(e) => setEnabledDraft(e.target.checked)} style={{ width: 16, height: 16, accentColor: "var(--accent)" }} />
-                      Enabled
-                    </label>
+                    <div className="field" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        id={`${idBase}-enabled`}
+                        checked={enabledDraft}
+                        onChange={(e) => setEnabledDraft(e.target.checked)}
+                      />
+                      <label className="field-label" htmlFor={`${idBase}-enabled`} style={{ margin: 0 }}>
+                        Enabled
+                      </label>
+                    </div>
                     <div>
-                      <button onClick={() => save(kind, s.value)} disabled={saving || !nameDraft.trim() || !bodyDraft.trim()} className="primary" style={{ fontSize: 13, padding: "8px 16px" }}>
-                        {saving ? "Saving..." : "Save Template"}
+                      <button
+                        onClick={() => save(kind, s.value)}
+                        disabled={saving || !nameDraft.trim() || !bodyDraft.trim()}
+                        className="primary sm"
+                      >
+                        {saving ? "Saving…" : "Save template"}
                       </button>
                     </div>
                   </div>
@@ -291,30 +327,36 @@ export function WhatsAppTemplatesPanel({ businessId }: { businessId: string }) {
 
   if (!templates) {
     return (
-      <div style={{ padding: 24, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 200 }}>
-        <div style={{ textAlign: "center", color: "var(--text-muted)" }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginBottom: 8, opacity: 0.5 }}>
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
-          <div style={{ fontSize: 13 }}>Loading templates...</div>
+      <section className="panel">
+        <div className="panel-head">
+          <span className="instrument-label">WhatsApp status templates</span>
         </div>
-      </div>
+        <div className="panel-body">
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="skeleton" style={{ height: 40 }} />
+            <div className="skeleton" style={{ height: 40 }} />
+            <div className="skeleton" style={{ height: 40 }} />
+          </div>
+        </div>
+      </section>
     );
   }
 
   return (
-    <div style={{ padding: 24 }}>
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>WhatsApp Status Templates</h2>
-        <p style={{ ...subtleTextStyle, fontSize: 13 }}>
-          WhatsApp template messages for automated status updates — sent through this business's
+    <section className="panel">
+      <div className="panel-head">
+        <span className="instrument-label">WhatsApp status templates</span>
+      </div>
+      <div className="panel-body">
+        <p className="meta" style={{ marginTop: 0, marginBottom: 16, maxWidth: "68ch" }}>
+          WhatsApp template messages for automated status updates — sent through this business&apos;s
           WhatsApp Business API below. Connect it first; a status change with no template set (or no
           connected WhatsApp account) is silently skipped.
         </p>
+        <WhatsAppSenderBox businessId={businessId} />
+        {renderSection("repair_status", REPAIR_STATUSES, WHATSAPP_PLACEHOLDERS, "Repair status templates")}
+        {renderSection("order_status", ORDER_STATUSES, WHATSAPP_PLACEHOLDERS, "Order status templates")}
       </div>
-      <WhatsAppSenderBox businessId={businessId} />
-      {renderSection("repair_status", REPAIR_STATUSES, WHATSAPP_PLACEHOLDERS, "Repair Status Templates")}
-      {renderSection("order_status", ORDER_STATUSES, WHATSAPP_PLACEHOLDERS, "Order Status Templates")}
-    </div>
+    </section>
   );
 }

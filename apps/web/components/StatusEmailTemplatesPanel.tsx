@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { cardStyle, labelTextStyle, subtleTextStyle, inputStyle } from "./dashboard-styles";
 
 type Kind = "order_status" | "repair_status";
 
@@ -84,58 +83,76 @@ function GmailSenderBox({ businessId }: { businessId: string }) {
   if (!sender) return null;
 
   return (
-    <div style={{ ...cardStyle, padding: 14, marginBottom: 20 }}>
-      <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Gmail sender</h3>
-      {sender.connected && !editing ? (
-        <>
-          <p style={{ fontSize: 13 }}>🟢 Sending as <strong>{sender.gmailAddress}</strong></p>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setEditing(true)} style={{ fontSize: 12, padding: "4px 10px" }}>Change</button>
-            <button onClick={disconnect} style={{ fontSize: 12, padding: "4px 10px" }}>Disconnect</button>
+    <div className="panel" style={{ marginBottom: 16 }}>
+      <div className="panel-head">
+        <span style={{ fontWeight: 600, fontSize: 13.5 }}>Gmail sender</span>
+        <span className={sender.connected ? "lamp lamp-ok" : "lamp lamp-idle"}>
+          {sender.connected ? "Connected" : "Not connected"}
+        </span>
+      </div>
+      <div className="panel-body">
+        {sender.connected && !editing ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13 }}>
+              Sending as <span className="data">{sender.gmailAddress}</span>
+            </span>
+            <button onClick={() => setEditing(true)} className="ghost sm">Change</button>
+            <button onClick={disconnect} className="danger sm">Disconnect</button>
           </div>
-        </>
-      ) : (
-        <>
-          <p style={{ ...subtleTextStyle, fontSize: 12, marginBottom: 8 }}>
-            Connect using a Gmail App Password (no OAuth verification needed).
-          </p>
-          <div style={{ background: "var(--surface)", borderRadius: 6, padding: 10, marginBottom: 10, fontSize: 12, lineHeight: 1.6 }}>
-            <strong>Quick steps:</strong> Go to{" "}
-            <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
-              Google App Passwords
-            </a>{" "}
-            → Enable 2-Step Verification if prompted → Select <strong>Mail</strong> + <strong>Other</strong> → Type <strong>AIVA</strong> → Generate → Copy the 16-character password.
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
-            <div style={{ flex: "1 1 180px", minWidth: 0 }}>
-              <label style={{ fontSize: 11, opacity: 0.7, display: "block", marginBottom: 3 }}>Gmail Address</label>
-              <input
-                type="email"
-                placeholder="you@gmail.com"
-                value={emailDraft}
-                onChange={(e) => setEmailDraft(e.target.value)}
-                style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
-              />
+        ) : (
+          <>
+            <p className="meta" style={{ marginTop: 0 }}>
+              Connect using a Gmail App Password (no OAuth verification needed).
+            </p>
+            <div className="machine-block" style={{ marginBottom: 12 }}>
+              <span className="instrument-label">Quick steps</span>
+              <p className="meta" style={{ margin: "6px 0 0" }}>
+                Open{" "}
+                <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer">
+                  Google App Passwords
+                </a>{" "}
+                → Enable 2-Step Verification if prompted → Select <strong>Mail</strong> +{" "}
+                <strong>Other</strong> → Type <strong>AIVA</strong> → Generate → copy the 16-character
+                password.
+              </p>
             </div>
-            <div style={{ flex: "1 1 180px", minWidth: 0 }}>
-              <label style={{ fontSize: 11, opacity: 0.7, display: "block", marginBottom: 3 }}>App Password</label>
-              <input
-                type="password"
-                placeholder="16-character password"
-                value={passwordDraft}
-                onChange={(e) => setPasswordDraft(e.target.value)}
-                style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
-              />
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+              <div className="field" style={{ flex: "1 1 180px", minWidth: 0 }}>
+                <label className="field-label" htmlFor="aiva-status-email-gmail">Gmail address</label>
+                <input
+                  id="aiva-status-email-gmail"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@gmail.com"
+                  value={emailDraft}
+                  onChange={(e) => setEmailDraft(e.target.value)}
+                />
+              </div>
+              <div className="field" style={{ flex: "1 1 180px", minWidth: 0 }}>
+                <label className="field-label" htmlFor="aiva-status-email-password">App password</label>
+                <input
+                  id="aiva-status-email-password"
+                  type="password"
+                  autoComplete="off"
+                  placeholder="16-character password"
+                  value={passwordDraft}
+                  onChange={(e) => setPasswordDraft(e.target.value)}
+                />
+              </div>
+              <button
+                onClick={save}
+                disabled={saving || !emailDraft.trim() || !passwordDraft.trim()}
+                className="primary sm"
+              >
+                {saving ? "Saving…" : "Connect"}
+              </button>
+              {editing && (
+                <button onClick={() => setEditing(false)} className="ghost sm">Cancel</button>
+              )}
             </div>
-            <button onClick={save} disabled={saving || !emailDraft.trim() || !passwordDraft.trim()} className="primary" style={{ fontSize: 13, padding: "8px 16px" }}>
-              {saving ? "Saving..." : "Connect"}
-            </button>
-            {editing && (
-              <button onClick={() => setEditing(false)} className="ghost" style={{ fontSize: 12, padding: "6px 12px" }}>Cancel</button>
-            )}
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -196,71 +213,92 @@ export function StatusEmailTemplatesPanel({ businessId }: { businessId: string }
 
   function renderSection(kind: Kind, statuses: { value: string; label: string }[], placeholders: string[], title: string) {
     return (
-      <div style={{ marginBottom: 24 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>{title}</h3>
-        <p style={{ ...subtleTextStyle, fontSize: 12, marginBottom: 4 }}>
+      <div className="panel-sunk" style={{ padding: 14, marginBottom: 16 }}>
+        <div className="panel-head" style={{ marginBottom: 8 }}>
+          <span style={{ fontWeight: 600, fontSize: 13.5 }}>{title}</span>
+        </div>
+        <div className="data" style={{ fontSize: 11.5, color: "var(--ink-3)" }}>
           Placeholders: {placeholders.map((p) => `{{${p}}}`).join(", ")}
-        </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
           {statuses.map((s) => {
             const key = `${kind}:${s.value}`;
             const existing = templateFor(kind, s.value);
             const isOpen = openKey === key;
+            const idBase = `aiva-status-email-${kind}-${s.value}`;
 
             return (
-              <div key={key} style={{ ...cardStyle, padding: 16 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <strong style={{ fontSize: 14 }}>{s.label}</strong>
+              <div
+                key={key}
+                style={{ background: "var(--panel)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-sm)", padding: 12 }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <strong style={{ fontSize: 13.5, color: "var(--ink)" }}>{s.label}</strong>
                     {existing ? (
-                      <span style={{
-                        fontSize: 11,
-                        fontWeight: 500,
-                        padding: "2px 8px",
-                        borderRadius: "var(--radius-full, 9999px)",
-                        background: existing.enabled ? "var(--success-subtle)" : "var(--surface-hover)",
-                        color: existing.enabled ? "var(--success)" : "var(--text-muted)",
-                      }}>
+                      <span className={existing.enabled ? "lamp lamp-ok" : "lamp lamp-idle"}>
                         {existing.enabled ? "Enabled" : "Disabled"}
                       </span>
                     ) : (
-                      <span style={{ fontSize: 12, color: "var(--text-faint)", fontStyle: "italic" }}>No template</span>
+                      <span className="lamp lamp-idle">No template</span>
                     )}
                   </div>
-                  <button onClick={() => toggle(kind, s.value)} className="ghost" style={{ fontSize: 12, padding: "6px 12px" }}>
+                  <button onClick={() => toggle(kind, s.value)} className="ghost sm">
                     {isOpen ? "Close" : existing ? "Edit" : "Add"}
                   </button>
                 </div>
 
                 {isOpen && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border-subtle)" }}>
-                    <div>
-                      <label style={labelTextStyle}>Subject</label>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 12,
+                      marginTop: 14,
+                      paddingTop: 14,
+                      borderTop: "1px solid var(--line-soft)",
+                    }}
+                  >
+                    <div className="field">
+                      <label className="field-label" htmlFor={`${idBase}-subject`}>Subject</label>
                       <input
+                        id={`${idBase}-subject`}
                         type="text"
                         placeholder="Email subject line"
                         value={subjectDraft}
                         onChange={(e) => setSubjectDraft(e.target.value)}
-                        style={inputStyle}
                       />
                     </div>
-                    <div>
-                      <label style={labelTextStyle}>Body (HTML)</label>
+                    <div className="field">
+                      <label className="field-label" htmlFor={`${idBase}-body`}>Body (HTML)</label>
                       <textarea
+                        id={`${idBase}-body`}
                         placeholder="Use {{placeholders}} for dynamic content"
                         value={bodyDraft}
                         onChange={(e) => setBodyDraft(e.target.value)}
                         rows={6}
-                        style={{ ...inputStyle, fontFamily: "var(--font-mono)", resize: "vertical" }}
+                        style={{ fontFamily: "var(--font-mono)", resize: "vertical" }}
                       />
                     </div>
-                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-secondary)", cursor: "pointer" }}>
-                      <input type="checkbox" checked={enabledDraft} onChange={(e) => setEnabledDraft(e.target.checked)} style={{ width: 16, height: 16, accentColor: "var(--accent)" }} />
-                      Enabled
-                    </label>
+                    <div className="field" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        id={`${idBase}-enabled`}
+                        checked={enabledDraft}
+                        onChange={(e) => setEnabledDraft(e.target.checked)}
+                      />
+                      <label className="field-label" htmlFor={`${idBase}-enabled`} style={{ margin: 0 }}>
+                        Enabled
+                      </label>
+                    </div>
                     <div>
-                      <button onClick={() => save(kind, s.value)} disabled={saving || !subjectDraft.trim() || !bodyDraft.trim()} className="primary" style={{ fontSize: 13, padding: "8px 16px" }}>
-                        {saving ? "Saving..." : "Save Template"}
+                      <button
+                        onClick={() => save(kind, s.value)}
+                        disabled={saving || !subjectDraft.trim() || !bodyDraft.trim()}
+                        className="primary sm"
+                      >
+                        {saving ? "Saving…" : "Save template"}
                       </button>
                     </div>
                   </div>
@@ -275,31 +313,36 @@ export function StatusEmailTemplatesPanel({ businessId }: { businessId: string }
 
   if (!templates) {
     return (
-      <div style={{ padding: 24, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 200 }}>
-        <div style={{ textAlign: "center", color: "var(--text-muted)" }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginBottom: 8, opacity: 0.5 }}>
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 6v6l4 2" />
-          </svg>
-          <div style={{ fontSize: 13 }}>Loading templates...</div>
+      <section className="panel">
+        <div className="panel-head">
+          <span className="instrument-label">Email notifications</span>
         </div>
-      </div>
+        <div className="panel-body">
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="skeleton" style={{ height: 40 }} />
+            <div className="skeleton" style={{ height: 40 }} />
+            <div className="skeleton" style={{ height: 40 }} />
+          </div>
+        </div>
+      </section>
     );
   }
 
   return (
-    <div style={{ padding: 24 }}>
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Email Notifications</h2>
-        <p style={{ ...subtleTextStyle, fontSize: 13 }}>
-          Automated emails sent when order or repair status changes — sent through this business's own
-          Gmail account below. Connect it first; a status change with no template set (or no connected
-          Gmail account) is silently skipped.
-        </p>
+    <section className="panel">
+      <div className="panel-head">
+        <span className="instrument-label">Email notifications</span>
       </div>
-      <GmailSenderBox businessId={businessId} />
-      {renderSection("order_status", ORDER_STATUSES, ORDER_PLACEHOLDERS, "Order Status Emails")}
-      {renderSection("repair_status", REPAIR_STATUSES, REPAIR_PLACEHOLDERS, "Repair Status Emails")}
-    </div>
+      <div className="panel-body">
+        <p className="meta" style={{ marginTop: 0, marginBottom: 16, maxWidth: "68ch" }}>
+          Automated emails sent when order or repair status changes — sent through this business&apos;s
+          own Gmail account below. Connect it first; a status change with no template set (or no
+          connected Gmail account) is silently skipped.
+        </p>
+        <GmailSenderBox businessId={businessId} />
+        {renderSection("order_status", ORDER_STATUSES, ORDER_PLACEHOLDERS, "Order status emails")}
+        {renderSection("repair_status", REPAIR_STATUSES, REPAIR_PLACEHOLDERS, "Repair status emails")}
+      </div>
+    </section>
   );
 }

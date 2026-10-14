@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 
-import { cardStyle, cellStyle, subtleTextStyle, shortId, badgeStyle, type BadgeTone } from "./dashboard-styles";
+import { shortId } from "./dashboard-styles";
 import { StatCard, StatCardRow } from "./StatCard";
 
 interface Order {
@@ -21,17 +21,24 @@ interface Order {
 const DELIVERY_STATUSES = ["pending", "picked_up", "in_transit", "delivered", "returned"] as const;
 const DELIVERY_LABEL: Record<string, string> = {
   pending: "Pending",
-  picked_up: "Picked Up",
-  in_transit: "In Transit",
+  picked_up: "Picked up",
+  in_transit: "In transit",
   delivered: "Delivered",
   returned: "Returned",
 };
-const DELIVERY_TONE: Record<string, BadgeTone> = {
+const DELIVERY_LAMP: Record<string, string> = {
+  pending: "lamp-idle",
+  picked_up: "lamp-info",
+  in_transit: "lamp-info",
+  delivered: "lamp-ok",
+  returned: "lamp-err",
+};
+const DELIVERY_TONE: Record<string, "neutral" | "info" | "success" | "danger"> = {
   pending: "neutral",
   picked_up: "info",
   in_transit: "info",
-  delivered: "ok",
-  returned: "error",
+  delivered: "success",
+  returned: "danger",
 };
 
 /** Delivery management & tracking — the shipment side of an Order, kept
@@ -122,125 +129,172 @@ export function DeliveryPanel({ businessId }: { businessId: string }) {
   }, [orders]);
 
   return (
-    <section style={cardStyle}>
-      <h2 style={{ marginTop: 0 }}>Delivery Management &amp; Tracking</h2>
-      <p style={subtleTextStyle}>
-        Courier, tracking ID, and shipment status for every order — manual entry (no live courier
-        API wired up yet). Click a row to update it.
-      </p>
-
-      {stats && (
-        <StatCardRow>
-          {DELIVERY_STATUSES.map((s) => (
-            <StatCard
-              key={s}
-              label={DELIVERY_LABEL[s] ?? s}
-              value={String(stats[s] ?? 0)}
-              tone={s === "delivered" ? "success" : s === "returned" ? "danger" : "info"}
-            />
-          ))}
-        </StatCardRow>
-      )}
-
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-        <input
-          type="search"
-          name="aiva-search-delivery"
-          autoComplete="off"
-          style={{ padding: 8, width: "100%", maxWidth: 320 }}
-          placeholder="Search by name, phone, product, courier, tracking ID…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ padding: 8 }}>
-          <option value="">All statuses</option>
-          {DELIVERY_STATUSES.map((s) => (
-            <option key={s} value={s}>{DELIVERY_LABEL[s]}</option>
-          ))}
-        </select>
+    <section className="panel">
+      <div className="panel-head">
+        <div style={{ minWidth: 0 }}>
+          <span className="instrument-label">Delivery</span>
+          <div className="meta">
+            Courier, tracking ID and shipment status for every order, entered by hand. Open a row to edit them.
+          </div>
+        </div>
       </div>
 
-      {!orders && <p style={subtleTextStyle}>Loading…</p>}
-      {orders && orders.length === 0 && <p style={subtleTextStyle}>No orders yet.</p>}
-      {orders && orders.length > 0 && filtered?.length === 0 && <p style={subtleTextStyle}>No orders match that search/filter.</p>}
+      <div className="panel-body">
+        {stats && (
+          <StatCardRow>
+            {DELIVERY_STATUSES.map((s) => (
+              <StatCard
+                key={s}
+                label={DELIVERY_LABEL[s] ?? s}
+                value={String(stats[s] ?? 0)}
+                tone={DELIVERY_TONE[s]}
+              />
+            ))}
+          </StatCardRow>
+        )}
 
-      {filtered && filtered.length > 0 && (
-        <div className="table-scroll">
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={cellStyle}>Order ID</th>
-                <th style={cellStyle}>Customer</th>
-                <th style={cellStyle}>Address</th>
-                <th style={cellStyle}>Courier</th>
-                <th style={cellStyle}>Tracking ID</th>
-                <th style={cellStyle}>Status</th>
-                <th style={cellStyle}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((o) => (
-                <Fragment key={o.id}>
-                  <tr>
-                    <td style={{ ...cellStyle, fontSize: 11, color: "var(--text-faint)" }}>{shortId(o.id)}</td>
-                    <td style={cellStyle}>{o.customerName}</td>
-                    <td style={cellStyle}>{o.deliveryAddress}</td>
-                    <td style={cellStyle}>{o.courier ?? "—"}</td>
-                    <td style={cellStyle}>{o.trackingId ?? "—"}</td>
-                    <td style={cellStyle}>
-                      <select
-                        value={o.deliveryStatus}
-                        onChange={(e) => setDeliveryStatus(o, e.target.value)}
-                        disabled={busyId === o.id}
-                        style={{ padding: "6px 12px", fontSize: 11, marginRight: 6 }}
-                      >
-                        {DELIVERY_STATUSES.map((s) => (
-                          <option key={s} value={s}>{DELIVERY_LABEL[s]}</option>
-                        ))}
-                      </select>
-                      <span style={badgeStyle(DELIVERY_TONE[o.deliveryStatus] ?? "neutral")}>{DELIVERY_LABEL[o.deliveryStatus] ?? o.deliveryStatus}</span>
-                    </td>
-                    <td style={cellStyle}>
-                      <button onClick={() => toggleManage(o)} style={{ fontSize: 11, padding: "6px 12px" }}>
-                        {expandedId === o.id ? "Close" : "Edit"}
-                      </button>
-                    </td>
-                  </tr>
-                  {expandedId === o.id && (
+        <div className="toolbar" style={{ marginTop: 16, marginBottom: 12 }}>
+          <div className="field" style={{ flex: "1 1 220px", maxWidth: 420, minWidth: 0 }}>
+            <label className="field-label" htmlFor="del-search">Search deliveries</label>
+            <input
+              id="del-search"
+              type="search"
+              name="aiva-search-delivery"
+              autoComplete="off"
+              placeholder="Name, phone, product, courier, tracking ID"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="field" style={{ width: 180 }}>
+            <label className="field-label" htmlFor="del-status">Status</label>
+            <select id="del-status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <option value="">All statuses</option>
+              {DELIVERY_STATUSES.map((s) => (
+                <option key={s} value={s}>{DELIVERY_LABEL[s]}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {!orders && <p className="meta">Loading deliveries</p>}
+
+        {orders && orders.length === 0 && (
+          <div className="empty-state">
+            <span className="empty-state-title">No orders yet</span>
+            <span className="empty-state-description">
+              Delivery tracking appears here as soon as the first order exists.
+            </span>
+          </div>
+        )}
+
+        {orders && orders.length > 0 && filtered?.length === 0 && (
+          <div className="empty-state">
+            <span className="empty-state-title">No deliveries match</span>
+            <span className="empty-state-description">
+              Clear the search box or pick a different status.
+            </span>
+          </div>
+        )}
+
+        {filtered && filtered.length > 0 && (
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Customer</th>
+                  <th>Address</th>
+                  <th>Courier</th>
+                  <th>Tracking ID</th>
+                  <th>Status</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((o) => (
+                  <Fragment key={o.id}>
                     <tr>
-                      <td colSpan={7} style={{ ...cellStyle, background: "var(--surface)", padding: 14 }}>
-                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                          <input
-                            style={{ padding: 6, fontSize: 12 }}
-                            placeholder="Courier (e.g. Pathao, Steadfast)"
-                            value={courierDraft}
-                            onChange={(e) => setCourierDraft(e.target.value)}
-                          />
-                          <input
-                            style={{ padding: 6, fontSize: 12 }}
-                            placeholder="Tracking ID"
-                            value={trackingDraft}
-                            onChange={(e) => setTrackingDraft(e.target.value)}
-                          />
-                          <input
-                            style={{ padding: 6, fontSize: 12 }}
-                            placeholder="Customer email (for status update emails)"
-                            value={emailDraft}
-                            onChange={(e) => setEmailDraft(e.target.value)}
-                          />
-                          <button onClick={() => saveDelivery(o)} disabled={busyId === o.id} style={{ fontSize: 11, padding: "5px 10px" }}>
-                            Save
-                          </button>
+                      <td className="data" style={{ fontSize: 12 }}>{shortId(o.id)}</td>
+                      <td style={{ color: "var(--ink)" }}>{o.customerName}</td>
+                      <td>{o.deliveryAddress}</td>
+                      <td>{o.courier ?? <span className="meta">Not set</span>}</td>
+                      <td className="data" style={{ fontSize: 12 }}>{o.trackingId ?? <span className="meta">Not set</span>}</td>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <span className={`lamp ${DELIVERY_LAMP[o.deliveryStatus] ?? "lamp-idle"}`}>
+                            {DELIVERY_LABEL[o.deliveryStatus] ?? o.deliveryStatus}
+                          </span>
+                          <select
+                            value={o.deliveryStatus}
+                            onChange={(e) => setDeliveryStatus(o, e.target.value)}
+                            disabled={busyId === o.id}
+                            aria-label={`Delivery status for order ${shortId(o.id)}`}
+                            style={{ maxWidth: 140 }}
+                          >
+                            {DELIVERY_STATUSES.map((s) => (
+                              <option key={s} value={s}>{DELIVERY_LABEL[s]}</option>
+                            ))}
+                          </select>
                         </div>
                       </td>
+                      <td>
+                        <button type="button" className="sm" onClick={() => toggleManage(o)}>
+                          {expandedId === o.id ? "Close details" : "Edit details"}
+                        </button>
+                      </td>
                     </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                    {expandedId === o.id && (
+                      <tr>
+                        <td colSpan={7} style={{ background: "var(--panel-sunk)", padding: 14 }}>
+                          <div className="instrument-label" style={{ marginBottom: 10 }}>
+                            Delivery details for {o.customerName}
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 190px), 1fr))", gap: 10 }}>
+                            <div className="field">
+                              <label className="field-label" htmlFor={`del-courier-${o.id}`}>Courier</label>
+                              <input
+                                id={`del-courier-${o.id}`}
+                                placeholder="Pathao, Steadfast"
+                                value={courierDraft}
+                                onChange={(e) => setCourierDraft(e.target.value)}
+                              />
+                            </div>
+                            <div className="field">
+                              <label className="field-label" htmlFor={`del-tracking-${o.id}`}>Tracking ID</label>
+                              <input
+                                id={`del-tracking-${o.id}`}
+                                className="data"
+                                value={trackingDraft}
+                                onChange={(e) => setTrackingDraft(e.target.value)}
+                              />
+                            </div>
+                            <div className="field">
+                              <label className="field-label" htmlFor={`del-email-${o.id}`}>Customer email</label>
+                              <input
+                                id={`del-email-${o.id}`}
+                                type="email"
+                                placeholder="Used for status update emails"
+                                value={emailDraft}
+                                onChange={(e) => setEmailDraft(e.target.value)}
+                              />
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+                            <button type="button" className="primary sm" onClick={() => saveDelivery(o)} disabled={busyId === o.id}>
+                              {busyId === o.id ? "Saving delivery details" : "Save delivery details"}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

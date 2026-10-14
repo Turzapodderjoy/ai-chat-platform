@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { cardStyle, cellStyle, subtleTextStyle, badgeStyle, primaryButtonStyle, secondaryButtonStyle, dangerButtonStyle, labelTextStyle, inputStyle, type BadgeTone } from "./dashboard-styles";
+import { dataStrongStyle } from "./dashboard-styles";
 import { useCurrencySymbol } from "../lib/currency";
 import { showConfirm } from "../lib/app-dialog";
 
@@ -41,12 +41,12 @@ interface PurchaseOrder {
   total: string;
 }
 
-const STATUS_LABELS: Record<string, { label: string; tone: BadgeTone }> = {
-  draft: { label: "Draft", tone: "neutral" },
-  sent: { label: "Sent", tone: "info" },
-  partially_received: { label: "Partial Receipt", tone: "warn" },
-  received: { label: "Received", tone: "ok" },
-  cancelled: { label: "Cancelled", tone: "error" },
+const STATUS_LAMPS: Record<string, { label: string; lamp: string }> = {
+  draft: { label: "Draft", lamp: "lamp-idle" },
+  sent: { label: "Sent", lamp: "lamp-info" },
+  partially_received: { label: "Partially received", lamp: "lamp-warn" },
+  received: { label: "Received", lamp: "lamp-ok" },
+  cancelled: { label: "Cancelled", lamp: "lamp-err" },
 };
 
 export function PurchaseOrdersPanel({ businessId, active = true }: { businessId: string; active?: boolean }) {
@@ -130,83 +130,99 @@ export function PurchaseOrdersPanel({ businessId, active = true }: { businessId:
   );
 
   return (
-    <div style={cardStyle}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <div>
-          <h3 style={{ margin: 0 }}>Purchase Orders</h3>
-          <p style={subtleTextStyle}>Restock orders against suppliers — draft, send, and track receipts.</p>
+    <section className="panel">
+      <div className="panel-head" style={{ flexWrap: "wrap" }}>
+        <div style={{ minWidth: 0 }}>
+          <span className="instrument-label">Purchase orders</span>
+          <div className="meta">
+            Restock against a supplier, send it, then record what arrived. Amounts in {currency}.
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <span style={{ ...labelTextStyle, color: "#6b7280" }}>
-            {orders.length} orders · {suppliers.length} suppliers
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <span className="meta">
+            <span className="data">{orders.length}</span> orders,{" "}
+            <span className="data">{suppliers.length}</span> suppliers
           </span>
-          <button style={primaryButtonStyle} onClick={() => setShowCreate(true)}>
-            + New Purchase Order
+          <button type="button" className="primary" onClick={() => setShowCreate(true)}>
+            Issue purchase order
           </button>
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        {Object.entries(statusCounts).map(([status, count]) => {
-          const meta = STATUS_LABELS[status];
-          return (
-            <span key={status} style={badgeStyle(meta?.tone ?? "neutral")}>
-              {meta?.label ?? status}: {count}
-            </span>
-          );
-        })}
-      </div>
-
-      {loading ? (
-        <p style={subtleTextStyle}>Loading purchase orders…</p>
-      ) : orders.length === 0 ? (
-        <p style={subtleTextStyle}>No purchase orders yet. Create your first restock order.</p>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {orders.map((order) => (
-            <div key={order.id} style={{ ...cardStyle, margin: 0, padding: "12px 14px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <div>
-                  <span style={{ fontWeight: 600 }}>{order.orderNumber}</span>
-                  <span style={{ ...subtleTextStyle, marginLeft: 8 }}>{order.supplier?.name ?? "—"}</span>
-                </div>
-                <span style={badgeStyle(STATUS_LABELS[order.status]?.tone ?? "neutral")}>
-                  {STATUS_LABELS[order.status]?.label ?? order.status}
+      <div className="panel-body">
+        {Object.keys(statusCounts).length > 0 && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+            {Object.entries(statusCounts).map(([status, count]) => {
+              const meta = STATUS_LAMPS[status];
+              return (
+                <span key={status} className={`lamp ${meta?.lamp ?? "lamp-idle"}`}>
+                  {meta?.label ?? status}: <span className="data">{count}</span>
                 </span>
-              </div>
+              );
+            })}
+          </div>
+        )}
 
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <tbody>
-                  <tr>
-                    <td style={cellStyle}>Items</td>
-                    <td style={cellStyle} align="right">{order.items.length}</td>
-                    <td style={cellStyle}>Total</td>
-                    <td style={cellStyle} align="right">{currency}{order.total || "0"}</td>
-                  </tr>
-                </tbody>
-              </table>
+        {loading ? (
+          <p className="meta">Loading purchase orders</p>
+        ) : orders.length === 0 ? (
+          <div className="empty-state">
+            <span className="empty-state-title">No purchase orders yet</span>
+            <span className="empty-state-description">
+              Issue a purchase order to restock from a supplier you already have on file.
+            </span>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {orders.map((order) => (
+              <div key={order.id} className="panel-sunk" style={{ padding: "12px 14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 8 }}>
+                  <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", minWidth: 0 }}>
+                    <span className="data" style={{ ...dataStrongStyle, fontSize: 14 }}>{order.orderNumber}</span>
+                    <span style={{ color: "var(--ink-2)" }}>{order.supplier?.name ?? "No supplier"}</span>
+                  </div>
+                  <span className={`lamp ${STATUS_LAMPS[order.status]?.lamp ?? "lamp-idle"}`}>
+                    {STATUS_LAMPS[order.status]?.label ?? order.status}
+                  </span>
+                </div>
 
-              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                {order.status === "draft" && (
-                  <button style={primaryButtonStyle} onClick={() => handleOnDraft(order)}>
-                    Send to Supplier
-                  </button>
-                )}
-                {(order.status === "sent" || order.status === "partially_received") && (
-                  <button style={primaryButtonStyle} onClick={() => handleReceive(order)}>
-                    {order.status === "partially_received" ? "Continue Receiving" : "Receive Items"}
-                  </button>
-                )}
-                {order.status !== "received" && order.status !== "cancelled" && (
-                  <button style={dangerButtonStyle} onClick={() => handleCancel(order)}>
-                    Cancel
-                  </button>
-                )}
+                <div className="table-scroll">
+                  <table>
+                    <tbody>
+                      <tr>
+                        <td className="meta" style={{ border: "none", padding: "4px 0" }}>Line items</td>
+                        <td className="data num" style={{ border: "none", padding: "4px 0", textAlign: "right" }}>{order.items.length}</td>
+                        <td className="meta" style={{ border: "none", padding: "4px 0" }}>Order total</td>
+                        <td className="data num" style={{ border: "none", padding: "4px 0", textAlign: "right", ...dataStrongStyle }}>
+                          {currency}{order.total || "0"}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                  {order.status === "draft" && (
+                    <button type="button" className="primary sm" onClick={() => handleOnDraft(order)}>
+                      Send to supplier
+                    </button>
+                  )}
+                  {(order.status === "sent" || order.status === "partially_received") && (
+                    <button type="button" className="primary sm" onClick={() => handleReceive(order)}>
+                      {order.status === "partially_received" ? "Continue receiving" : "Record receipt"}
+                    </button>
+                  )}
+                  {order.status !== "received" && order.status !== "cancelled" && (
+                    <button type="button" className="danger sm" onClick={() => handleCancel(order)}>
+                      Cancel order
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
 
       {showCreate && (
         <CreatePurchaseOrderDialog
@@ -216,7 +232,7 @@ export function PurchaseOrdersPanel({ businessId, active = true }: { businessId:
           onCreated={refresh}
         />
       )}
-    </div>
+    </section>
   );
 }
 
@@ -271,47 +287,59 @@ function CreatePurchaseOrderDialog({
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.45)",
+        background: "color-mix(in srgb, var(--ink) 45%, transparent)",
+        backdropFilter: "blur(2px)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         zIndex: 50,
+        padding: 16,
       }}
     >
-      <div style={{ ...cardStyle, width: 420, maxWidth: "92vw" }}>
-        <h3 style={{ margin: 0, marginBottom: 12 }}>New Purchase Order</h3>
-        {suppliers.length === 0 ? (
-          <p style={subtleTextStyle}>
-            No suppliers yet. Add suppliers in the database before creating a purchase order.
-          </p>
-        ) : (
-          <select
-            value={supplierId}
-            onChange={(e) => setSupplierId(e.target.value)}
-            style={{ ...inputStyle, width: "100%", marginBottom: 10 }}
-          >
-            <option value="">Select supplier…</option>
-            {suppliers.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        )}
-        <input
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Notes (optional)"
-          style={{ ...inputStyle, width: "100%", marginBottom: 10 }}
-        />
-        {error && <p style={{ ...subtleTextStyle, color: "#dc2626" }}>{error}</p>}
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button style={secondaryButtonStyle} onClick={onClose}>
-            Cancel
-          </button>
-          <button style={primaryButtonStyle} onClick={create} disabled={!supplierId || saving}>
-            {saving ? "Creating…" : "Create"}
-          </button>
+      <div className="panel" style={{ width: 420, maxWidth: "100%", boxShadow: "var(--shadow-pop)" }}>
+        <div className="panel-head">
+          <span className="instrument-label">Issue purchase order</span>
+        </div>
+        <div className="panel-body">
+          {suppliers.length === 0 ? (
+            <p className="meta">
+              No suppliers yet. Add suppliers in the database before creating a purchase order.
+            </p>
+          ) : (
+            <div className="field" style={{ marginBottom: 10 }}>
+              <label className="field-label" htmlFor="po-supplier">Supplier</label>
+              <select id="po-supplier" value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
+                <option value="">Select supplier</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="field">
+            <label className="field-label" htmlFor="po-notes">Notes</label>
+            <input
+              id="po-notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Optional note for this order"
+            />
+          </div>
+          {error && (
+            <div style={{ marginTop: 10 }}>
+              <span className="lamp lamp-err">{error}</span>
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14 }}>
+            <button type="button" className="ghost" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="button" className="primary" onClick={create} disabled={!supplierId || saving}>
+              {saving ? "Creating purchase order" : "Create purchase order"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

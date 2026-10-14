@@ -3,14 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 
 import type { ReplySettings } from "@ai-chat-platform/channel-catalog";
-import {
-  cardStyle,
-  inputStyle,
-  labelTextStyle,
-  primaryButtonStyle,
-  secondaryButtonStyle,
-  subtleTextStyle,
-} from "./dashboard-styles";
 
 /** One place to see and change how the bot's replies are timed on
  * WhatsApp. Every number here used to be a hardcoded constant, so the
@@ -224,7 +216,7 @@ export default function ReplySettingsPanel({ businessId }: { businessId?: string
   }
 
   if (!data) {
-    return <p style={subtleTextStyle}>{error ?? "Loading reply settings…"}</p>;
+    return <p className="meta">{error ?? "Loading reply settings…"}</p>;
   }
 
   const isInstant = draft.minDelayMs === 0 && draft.maxDelayMs === 0;
@@ -234,78 +226,80 @@ export default function ReplySettingsPanel({ businessId }: { businessId?: string
   const dirty = JSON.stringify(draft) !== JSON.stringify(data.override);
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {showBusiness && (
-      <div style={cardStyle}>
-        <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>WhatsApp reply timing</h3>
-        <p style={{ ...subtleTextStyle, marginBottom: 12 }}>
+      <section className="panel">
+        <div className="panel-head">
+          <span className="instrument-label">WhatsApp reply timing</span>
+          <span className="meta">This business</span>
+        </div>
+        <div className="panel-body">
+        <p className="meta" style={{ marginBottom: 12 }}>
           Applies to replies on the unofficial WhatsApp connection. The official WhatsApp Business
           API always sends instantly — it is a bot channel by design and needs no pacing.
         </p>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-          {PRESETS.map((preset) => (
-            <button
-              key={preset.label}
-              type="button"
-              title={preset.description}
-              style={secondaryButtonStyle}
-              onClick={() => setDraft({ ...data.override, ...preset.patch })}
-              disabled={saving}
-            >
-              {preset.label}
-            </button>
-          ))}
+        <div className="field" style={{ marginBottom: 12 }}>
+          <span className="field-label">Presets</span>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                title={preset.description}
+                className="ghost sm"
+                onClick={() => setDraft({ ...data.override, ...preset.patch })}
+                disabled={saving}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {isInstant && Object.keys(draft).length > 0 && (
-          <p
-            style={{
-              ...subtleTextStyle,
-              marginBottom: 12,
-              padding: "8px 12px",
-              borderRadius: "var(--radius-sm, 8px)",
-              background: "var(--warning-subtle, rgba(234, 179, 8, 0.12))",
-              color: "var(--text)",
-            }}
-          >
-            Replies will go out instantly, with no “typing…” indicator. This connection is an unofficial
-            WhatsApp bridge, and instant unbroken replies are exactly the pattern WhatsApp flags —
-            there is a real risk of the number being restricted. If that happens, switch back to
-            Natural.
-          </p>
+          <div className="machine-block" style={{ marginBottom: 14, fontSize: 12.5 }}>
+            <span className="lamp lamp-warn">Risk</span>{" "}
+            <span>
+              Replies will go out instantly, with no “typing…” indicator. This connection is an unofficial
+              WhatsApp bridge, and instant unbroken replies are exactly the pattern WhatsApp flags —
+              there is a real risk of the number being restricted. If that happens, switch back to
+              Natural.
+            </span>
+          </div>
         )}
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
+        <div className="panel-sunk" style={{ padding: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
           {FIELDS.map((field) => {
             const value = shown(field.key);
             return (
               <label key={field.key} style={{ display: "block" }}>
-                <span style={{ ...labelTextStyle, display: "block" }}>{field.label}</span>
+                <span className="field-label" style={{ display: "block", marginBottom: 4 }}>{field.label}</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <input
                     type="range"
+                    aria-label={field.label}
                     min={field.min}
                     max={field.max}
                     step={field.step}
                     value={value}
                     onChange={(e) => setDraft({ ...draft, [field.key]: Number(e.target.value) })}
-                    style={{ flex: 1, accentColor: "var(--accent, #2563eb)" }}
+                    style={{ flex: 1, accentColor: "var(--accent)" }}
                   />
-                  <span style={{ fontSize: 12, minWidth: 96, textAlign: "right", color: "var(--text-muted)" }}>
+                  <span className="data" style={{ minWidth: 96, textAlign: "right", fontSize: 11.5 }}>
                     {formatValue(field.key, value)}
                   </span>
                 </div>
-                <span style={{ ...subtleTextStyle, fontSize: 11, display: "block" }}>{field.help}</span>
+                <span className="field-hint" style={{ display: "block", marginTop: 3 }}>{field.help}</span>
               </label>
             );
           })}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
           <button
             type="button"
-            style={primaryButtonStyle}
+            className="primary"
             onClick={() => save({ businessId: businessId!, settings: draft })}
             disabled={saving || !dirty}
           >
@@ -313,55 +307,61 @@ export default function ReplySettingsPanel({ businessId }: { businessId?: string
           </button>
           <button
             type="button"
-            style={secondaryButtonStyle}
+            className="ghost"
             onClick={() => save({ businessId: businessId!, settings: null })}
             disabled={saving || inherits}
           >
             Use platform default
           </button>
           {dirty && (
-            <button type="button" style={secondaryButtonStyle} onClick={() => setDraft(data.override)} disabled={saving}>
+            <button type="button" className="ghost" onClick={() => setDraft(data.override)} disabled={saving}>
               Discard changes
             </button>
           )}
-          {saved && <span style={{ ...subtleTextStyle, color: "var(--success)" }}>Saved — applies to the next reply.</span>}
-          {error && <span style={{ ...subtleTextStyle, color: "var(--danger)" }}>{error}</span>}
+          {saved && <span className="lamp lamp-ok">Saved — applies to the next reply.</span>}
+          {error && <span className="field-error">{error}</span>}
         </div>
 
-        <p style={{ ...subtleTextStyle, fontSize: 11, marginTop: 10 }}>
+        <p className="meta" style={{ marginTop: 10 }}>
           {inherits
             ? "Currently using the platform default."
             : "Currently using this business's own values."}{" "}
           A 3-bubble reply on these settings takes roughly{" "}
-          {formatDuration(estimateThreeBubbleMs(data.effective))}.
+          <span className="data">{formatDuration(estimateThreeBubbleMs(data.effective))}</span>.
         </p>
-      </div>
+        </div>
+      </section>
       )}
 
       {data.canEditPlatform && (
-        <div style={cardStyle}>
-          <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Platform default</h3>
-          <p style={{ ...subtleTextStyle, marginBottom: 12 }}>
+        <section className="panel">
+          <div className="panel-head">
+            <span className="instrument-label">Platform default</span>
+            <span className="meta">Admin</span>
+          </div>
+          <div className="panel-body">
+          <p className="meta" style={{ marginBottom: 12 }}>
             What every business gets unless it sets its own. Changing this does not touch businesses
             that have already saved their own values.
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
+          <div className="panel-sunk" style={{ padding: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
             {FIELDS.map((field) => {
               const value = platformDraft[field.key] ?? data.platform[field.key] ?? data.defaults[field.key];
               return (
                 <label key={field.key} style={{ display: "block" }}>
-                  <span style={{ ...labelTextStyle, display: "block" }}>{field.label}</span>
+                  <span className="field-label" style={{ display: "block", marginBottom: 4 }}>{field.label}</span>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <input
                       type="range"
+                      aria-label={`Platform default — ${field.label}`}
                       min={field.min}
                       max={field.max}
                       step={field.step}
                       value={value}
                       onChange={(e) => setPlatformDraft({ ...platformDraft, [field.key]: Number(e.target.value) })}
-                      style={{ flex: 1, accentColor: "var(--accent, #2563eb)" }}
+                      style={{ flex: 1, accentColor: "var(--accent)" }}
                     />
-                    <span style={{ fontSize: 12, minWidth: 96, textAlign: "right", color: "var(--text-muted)" }}>
+                    <span className="data" style={{ minWidth: 96, textAlign: "right", fontSize: 11.5 }}>
                       {formatValue(field.key, value)}
                     </span>
                   </div>
@@ -369,20 +369,21 @@ export default function ReplySettingsPanel({ businessId }: { businessId?: string
               );
             })}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
             <button
               type="button"
-              style={primaryButtonStyle}
+              className="primary"
               onClick={() => save({ platform: platformDraft })}
               disabled={saving}
             >
               {saving ? "Saving…" : "Save platform default"}
             </button>
-            <button type="button" style={secondaryButtonStyle} onClick={() => save({ platform: null })} disabled={saving}>
+            <button type="button" className="ghost" onClick={() => save({ platform: null })} disabled={saving}>
               Reset to built-in
             </button>
           </div>
-        </div>
+          </div>
+        </section>
       )}
     </div>
   );

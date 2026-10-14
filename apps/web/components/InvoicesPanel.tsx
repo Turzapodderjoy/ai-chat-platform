@@ -1,10 +1,10 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 
-import { cardStyle, cellStyle, subtleTextStyle, shortId, badgeStyle, primaryButtonStyle, type BadgeTone } from "./dashboard-styles";
+import { dataStyle } from "./dashboard-styles";
 import { StatCard, StatCardRow } from "./StatCard";
-import { currencySymbol, useCurrencySymbol } from "../lib/currency";
+import { useCurrencySymbol } from "../lib/currency";
 import { showAlert, showConfirm } from "../lib/app-dialog";
 import { AuditHistoryButton } from "./AuditHistoryButton";
 
@@ -64,13 +64,30 @@ interface Product {
   price: string | null;
 }
 
-const STATUS_TONE: Record<string, BadgeTone> = { draft: "neutral", issued: "info", partially_paid: "warn", paid: "ok", overdue: "error", void: "neutral" };
+const STATUS_LAMP: Record<string, string> = {
+  draft: "lamp-idle",
+  issued: "lamp-info",
+  partially_paid: "lamp-warn",
+  paid: "lamp-ok",
+  overdue: "lamp-err",
+  void: "lamp-idle",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  draft: "Draft",
+  issued: "Issued",
+  partially_paid: "Part paid",
+  paid: "Paid",
+  overdue: "Overdue",
+  void: "Void",
+};
+
 const EMPTY_ITEM: DraftItem = { name: "", quantity: "1", unitPrice: "" };
 
-function InvoiceStatusBadge({ status, invoiceId }: { status: string; invoiceId: string }) {
+function InvoiceStatusLamp({ status, invoiceId }: { status: string; invoiceId: string }) {
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-      <span style={badgeStyle(STATUS_TONE[status] ?? "neutral")}>{status}</span>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+      <span className={`lamp ${STATUS_LAMP[status] ?? "lamp-idle"}`}>{STATUS_LABEL[status] ?? status}</span>
       <AuditHistoryButton entityType="invoice" entityId={invoiceId} />
     </span>
   );
@@ -98,6 +115,7 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
   const [editingCellValue, setEditingCellValue] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!businessId) return;
@@ -423,281 +441,608 @@ export function InvoicesPanel({ businessId, active = true }: { businessId?: stri
     setInvoices((prev) => prev?.filter((i) => i.id !== inv.id) ?? prev);
   }
 
-  return (
-    <section style={cardStyle}>
-      <h2 style={{ marginTop: 0 }}>Invoices</h2>
-      <p style={subtleTextStyle}>Billed amounts owed by a customer — generated automatically from a repair order, or added by hand below.</p>
-
-      {businessId && (
-        <div style={{ marginBottom: 12, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <button onClick={() => setShowAdd((s) => !s)} style={primaryButtonStyle}>
-            {showAdd ? "Cancel" : "+ Add Invoice"}
-          </button>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+return (
+    <section className="panel" style={{ marginBottom: 14 }}>
+      <div className="panel-head" style={{ flexWrap: "wrap" }}>
+        <div style={{ minWidth: 0 }}>
+          <span className="instrument-label">Invoices</span>
+          <div className="meta">
+            Billed amounts owed by a customer, generated from a repair order or added by hand.
+          </div>
+        </div>
+        {businessId && (
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             {logoUrl && (
               // eslint-disable-next-line @next/next/no-img-element -- a small settings thumbnail, no responsive-image needs
-              <img src={logoUrl} alt="Business logo" style={{ width: 32, height: 32, objectFit: "contain", borderRadius: 4, border: "1px solid var(--border)", background: "#fff" }} />
-            )}
-            <label style={{ fontSize: 12, padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", cursor: uploadingLogo ? "default" : "pointer", color: "var(--text-muted)" }}>
-              {uploadingLogo ? "Uploading…" : logoUrl ? "Change invoice logo" : "Add invoice logo"}
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                disabled={uploadingLogo}
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = ""; }}
-                style={{ display: "none" }}
+              <img
+                src={logoUrl}
+                alt="Business logo"
+                style={{ width: 30, height: 30, objectFit: "contain", borderRadius: "var(--r-xs)", border: "1px solid var(--line)", background: "var(--panel)" }}
               />
-            </label>
+            )}
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={uploadingLogo}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = ""; }}
+              style={{ display: "none" }}
+              aria-label="Invoice logo file"
+            />
+            <button
+              type="button"
+              className="sm"
+              disabled={uploadingLogo}
+              onClick={() => logoInputRef.current?.click()}
+              title="Shown at the top of every printed invoice"
+            >
+              {uploadingLogo ? "Uploading logo" : logoUrl ? "Change invoice logo" : "Add invoice logo"}
+            </button>
+            <button type="button" className="primary sm" onClick={() => setShowAdd((s) => !s)}>
+              {showAdd ? "Close new invoice" : "New invoice"}
+            </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {showAdd && (
-        <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 14, marginBottom: 16 }}>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
-            <select value={draftContactId} onChange={(e) => setDraftContactId(e.target.value)} disabled={!!draftNewName.trim()} style={{ padding: 8, minWidth: 0, flex: "1 1 180px" }}>
-              <option value="">Existing customer…</option>
-              {(contacts ?? []).map((c) => (
-                <option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ""}</option>
-              ))}
-            </select>
-            <span style={{ color: "var(--text-faint)", fontSize: 12 }}>or</span>
-            <input placeholder="New customer name" value={draftNewName} onChange={(e) => setDraftNewName(e.target.value)} style={{ padding: 8, minWidth: 150 }} />
-            <input placeholder="Phone (optional)" value={draftNewPhone} onChange={(e) => setDraftNewPhone(e.target.value)} style={{ padding: 8, width: 130 }} />
-            <input placeholder="Email (optional)" value={draftNewEmail} onChange={(e) => setDraftNewEmail(e.target.value)} style={{ padding: 8, width: 150 }} />
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-            <input placeholder="Discount" type="number" value={draftDiscount} onChange={(e) => setDraftDiscount(e.target.value)} style={{ padding: 8, width: 100 }} />
-            <input placeholder="Tax" type="number" value={draftTax} onChange={(e) => setDraftTax(e.target.value)} style={{ padding: 8, width: 100 }} />
-            <input placeholder="Due date" type="date" value={draftDueDate} onChange={(e) => setDraftDueDate(e.target.value)} style={{ padding: 8 }} />
-          </div>
+      <div className="panel-body">
+        {showAdd && (
+          <div className="panel-sunk" style={{ padding: 14, marginBottom: 14 }}>
+            <div className="instrument-label" style={{ marginBottom: 10 }}>
+              New invoice
+            </div>
 
-          <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 6 }}>
-            Line items — pick from Inventory, or type a custom item
-          </div>
-          {draftItems.map((item, i) => (
-            <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, flexWrap: "wrap", alignItems: "center" }}>
-              <select value={item.productId ?? ""} onChange={(e) => pickItemProduct(setDraftItems, i, e.target.value)} style={{ padding: 8, minWidth: 150 }}>
-                <option value="">Custom item</option>
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}{p.price ? ` (${currency}${p.price})` : ""}</option>
+            <div className="field" style={{ marginBottom: 10 }}>
+              <label className="field-label" htmlFor="inv-draft-contact">Customer</label>
+              <select
+                id="inv-draft-contact"
+                value={draftContactId}
+                onChange={(e) => setDraftContactId(e.target.value)}
+                disabled={!!draftNewName.trim()}
+              >
+                <option value="">Existing customer</option>
+                {(contacts ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ""}</option>
                 ))}
               </select>
-              <input placeholder="Item name" value={item.name} onChange={(e) => updateDraftItem(i, "name", e.target.value)} style={{ padding: 8, flex: "1 1 140px", minWidth: 0 }} />
-              <input placeholder="Qty" type="number" min={1} value={item.quantity} onChange={(e) => updateDraftItem(i, "quantity", e.target.value)} style={{ padding: 8, width: 70, flex: "0 0 70px" }} />
-              <input placeholder="Sell price" type="number" value={item.unitPrice} onChange={(e) => updateDraftItem(i, "unitPrice", e.target.value)} style={{ padding: 8, width: 100 }} />
-              {!item.productId && (
-                <input
-                  placeholder="Cost price (optional)"
-                  type="number"
-                  value={item.costPrice ?? ""}
-                  onChange={(e) => updateDraftItem(i, "costPrice", e.target.value)}
-                  title="What this actually costs the business -- used for profit reporting, never shown to the customer."
-                  style={{ padding: 8, width: 130 }}
-                />
-              )}
-              {draftItems.length > 1 && (
-                <button onClick={() => setDraftItems((prev) => prev.filter((_, idx) => idx !== i))} style={{ fontSize: 11, padding: "6px 12px" }}>✕</button>
-              )}
+              <div className="field-hint">
+                Type a name below to create a new customer instead of picking an existing one.
+              </div>
             </div>
-          ))}
-          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
-            <button onClick={() => setDraftItems((prev) => [...prev, { ...EMPTY_ITEM }])} style={{ fontSize: 12, padding: "6px 10px" }}>
-              + Add item
-            </button>
-            <button onClick={createInvoice} disabled={saving || validDraftItems.length === 0} style={primaryButtonStyle}>
-              {saving ? "Creating…" : "Create Invoice"}
-            </button>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 190px), 1fr))", gap: 10, marginBottom: 12 }}>
+              <div className="field">
+                <label className="field-label" htmlFor="inv-draft-name">New customer name</label>
+                <input id="inv-draft-name" value={draftNewName} onChange={(e) => setDraftNewName(e.target.value)} />
+              </div>
+              <div className="field">
+                <label className="field-label" htmlFor="inv-draft-phone">Phone</label>
+                <input
+                  id="inv-draft-phone"
+                  type="tel"
+                  inputMode="tel"
+                  value={draftNewPhone}
+                  onChange={(e) => setDraftNewPhone(e.target.value)}
+                />
+              </div>
+              <div className="field">
+                <label className="field-label" htmlFor="inv-draft-email">Email</label>
+                <input
+                  id="inv-draft-email"
+                  type="email"
+                  inputMode="email"
+                  value={draftNewEmail}
+                  onChange={(e) => setDraftNewEmail(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="instrument-label" style={{ marginBottom: 8 }}>
+              Line items
+            </div>
+            <div className="field-hint" style={{ marginBottom: 8 }}>
+              Pick a part from Inventory to fill its sell price, or type a custom line.
+            </div>
+
+            {draftItems.map((item, i) => (
+              <div
+                key={i}
+                style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap", alignItems: "flex-end" }}
+              >
+                <div className="field" style={{ flex: "1 1 170px", minWidth: 0 }}>
+                  {i === 0 && <label className="field-label" htmlFor="inv-draft-product-0">Inventory part</label>}
+                  <select
+                    id={i === 0 ? "inv-draft-product-0" : undefined}
+                    aria-label={i === 0 ? undefined : "Inventory part"}
+                    value={item.productId ?? ""}
+                    onChange={(e) => pickItemProduct(setDraftItems, i, e.target.value)}
+                  >
+                    <option value="">Custom line</option>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}{p.price ? ` (${currency}${p.price})` : ""}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="field" style={{ flex: "2 1 170px", minWidth: 0 }}>
+                  {i === 0 && <label className="field-label" htmlFor="inv-draft-name-0">Description</label>}
+                  <input
+                    id={i === 0 ? "inv-draft-name-0" : undefined}
+                    aria-label={i === 0 ? undefined : "Description"}
+                    value={item.name}
+                    onChange={(e) => updateDraftItem(i, "name", e.target.value)}
+                  />
+                </div>
+                <div className="field" style={{ width: 74, flex: "0 0 74px" }}>
+                  {i === 0 && <label className="field-label" htmlFor="inv-draft-qty-0">Qty</label>}
+                  <input
+                    id={i === 0 ? "inv-draft-qty-0" : undefined}
+                    aria-label={i === 0 ? undefined : "Quantity"}
+                    className="data"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    value={item.quantity}
+                    onChange={(e) => updateDraftItem(i, "quantity", e.target.value)}
+                  />
+                </div>
+                <div className="field" style={{ width: 106, flex: "0 0 106px" }}>
+                  {i === 0 && <label className="field-label" htmlFor="inv-draft-price-0">Unit price</label>}
+                  <input
+                    id={i === 0 ? "inv-draft-price-0" : undefined}
+                    aria-label={i === 0 ? undefined : "Unit price"}
+                    className="data"
+                    type="number"
+                    inputMode="decimal"
+                    value={item.unitPrice}
+                    onChange={(e) => updateDraftItem(i, "unitPrice", e.target.value)}
+                  />
+                </div>
+                {!item.productId && (
+                  <div className="field" style={{ width: 128, flex: "0 0 128px" }}>
+                    {i === 0 && <label className="field-label" htmlFor="inv-draft-cost-0">Cost price</label>}
+                    <input
+                      id={i === 0 ? "inv-draft-cost-0" : undefined}
+                      aria-label={i === 0 ? undefined : "Cost price, used for profit reporting only"}
+                      className="data"
+                      type="number"
+                      inputMode="decimal"
+                      value={item.costPrice ?? ""}
+                      onChange={(e) => updateDraftItem(i, "costPrice", e.target.value)}
+                    />
+                  </div>
+                )}
+                {draftItems.length > 1 && (
+                  <button
+                    type="button"
+                    className="ghost sm"
+                    onClick={() => setDraftItems((prev) => prev.filter((_, idx) => idx !== i))}
+                    aria-label={`Remove line ${i + 1}`}
+                    title={`Remove line ${i + 1}`}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                  </button>
+                )}
+              </div>
+            ))}
+            <div className="field-hint" style={{ marginBottom: 10 }}>
+              A custom line&apos;s cost price feeds profit reporting only. It never reaches the printed invoice.
+            </div>
+
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="sm"
+                onClick={() => setDraftItems((prev) => [...prev, { ...EMPTY_ITEM }])}
+              >
+                Add line item
+              </button>
+              <div className="field" style={{ width: 104, flex: "0 0 104px" }}>
+                <label className="field-label" htmlFor="inv-draft-discount">Discount</label>
+                <input
+                  id="inv-draft-discount"
+                  className="data"
+                  type="number"
+                  inputMode="decimal"
+                  value={draftDiscount}
+                  onChange={(e) => setDraftDiscount(e.target.value)}
+                />
+              </div>
+              <div className="field" style={{ width: 104, flex: "0 0 104px" }}>
+                <label className="field-label" htmlFor="inv-draft-tax">Tax</label>
+                <input
+                  id="inv-draft-tax"
+                  className="data"
+                  type="number"
+                  inputMode="decimal"
+                  value={draftTax}
+                  onChange={(e) => setDraftTax(e.target.value)}
+                />
+              </div>
+              <div className="field" style={{ flex: "0 0 150px" }}>
+                <label className="field-label" htmlFor="inv-draft-due">Due date</label>
+                <input
+                  id="inv-draft-due"
+                  type="date"
+                  value={draftDueDate}
+                  onChange={(e) => setDraftDueDate(e.target.value)}
+                />
+              </div>
+              <button
+                type="button"
+                className="primary"
+                style={{ marginLeft: "auto" }}
+                onClick={createInvoice}
+                disabled={saving || validDraftItems.length === 0}
+              >
+                {saving ? "Saving invoice" : "Save invoice"}
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {stats && (
-        <StatCardRow>
-          <StatCard label="Invoices" value={String(stats.count)} tone="info" />
-          <StatCard label="Collected" value={`${currency}${stats.collected.toLocaleString()}`} tone="success" />
-          <StatCard label="Outstanding" value={`${currency}${stats.outstanding.toLocaleString()}`} tone={stats.outstanding > 0 ? "warning" : "success"} />
-        </StatCardRow>
-      )}
+        {stats && (
+          <StatCardRow>
+            <StatCard label="Invoices" value={String(stats.count)} tone="info" />
+            <StatCard label="Collected" value={`${currency}${stats.collected.toLocaleString()}`} tone="success" />
+            <StatCard label="Outstanding" value={`${currency}${stats.outstanding.toLocaleString()}`} tone={stats.outstanding > 0 ? "warning" : "success"} />
+          </StatCardRow>
+        )}
 
-      {!invoices && <p style={subtleTextStyle}>Loading…</p>}
-      {invoices && invoices.length === 0 && <p style={subtleTextStyle}>No invoices yet — generate one from a repair order, or add one by hand above.</p>}
+        {!invoices && <p className="meta">Loading invoices</p>}
 
-      {invoices && invoices.length > 0 && (
-        <div style={{ display: "flex", gap: 8, margin: "8px 0" }}>
-          <input
-            type="search"
-            name="aiva-search-invoices"
-            autoComplete="off"
-            placeholder="Search by number, customer, device, status, amount…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ padding: 8, fontSize: 12, flex: 1, minWidth: 0, maxWidth: 420 }}
-          />
-          <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")} style={{ padding: 8, fontSize: 12, flexShrink: 0, width: "auto" }}>
-            <option value="newest">Newest first</option>
-            <option value="oldest">Oldest first</option>
-          </select>
-        </div>
-      )}
+        {invoices && invoices.length === 0 && (
+          <div className="empty-state">
+            <span className="empty-state-title">No invoices yet</span>
+            <span className="empty-state-description">
+              Generate one from a repair order, or add one by hand above.
+            </span>
+          </div>
+        )}
 
-      {invoices && invoices.length > 0 && (
-        <div className="table-scroll">
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Number</th>
-                <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Contact</th>
-                <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Device / Issue</th>
-                <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Total Amount</th>
-                <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Discount</th>
-                <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Paid Amount</th>
-                <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Due Amount</th>
-                <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 11, color: "var(--text-faint)" }}>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {(visibleInvoices ?? []).map((inv) => (
-                <Fragment key={inv.id}>
-                  <tr>
-                    <td style={{ padding: "6px 8px", fontWeight: 600 }}>{inv.invoiceNumber}</td>
-                    <td style={{ padding: "6px 8px", fontSize: 12 }}>
-                      {inv.contactId && contactById.get(inv.contactId) ? (
-                        <>
-                          {contactById.get(inv.contactId)!.name}
-                          <div style={{ color: "var(--text-faint)" }}>
-                            {[contactById.get(inv.contactId)!.phone, contactById.get(inv.contactId)!.email].filter(Boolean).join(" · ")}
-                          </div>
-                        </>
-                      ) : "—"}
-                    </td>
-                    <td style={{ padding: "6px 8px", fontSize: 12 }}>
-                      {inv.repairAppointmentId && repairById.get(inv.repairAppointmentId) ? (
-                        <>
-                          {repairById.get(inv.repairAppointmentId)!.deviceType}
-                          {repairById.get(inv.repairAppointmentId)!.deviceModel ? ` (${repairById.get(inv.repairAppointmentId)!.deviceModel})` : ""}
-                          <div style={{ color: "var(--text-faint)" }}>{repairById.get(inv.repairAppointmentId)!.issueDescription}</div>
-                        </>
-                      ) : "—"}
-                    </td>
-                    {(["total", "paid", "due"] as const).map((field) => {
-                      const value = field === "total" ? inv.total : field === "paid" ? inv.amountPaid : inv.balanceDue;
-                      const isEditing = editingCell?.id === inv.id && editingCell.field === field;
+        {invoices && invoices.length > 0 && (
+          <div className="toolbar" style={{ marginBottom: 10 }}>
+            <div className="field" style={{ flex: "1 1 240px", maxWidth: 420, minWidth: 0 }}>
+              <label className="field-label" htmlFor="inv-search">Search invoices</label>
+              <input
+                id="inv-search"
+                type="search"
+                name="aiva-search-invoices"
+                autoComplete="off"
+                placeholder="Number, customer, device, status, amount"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="field" style={{ flexShrink: 0 }}>
+              <label className="field-label" htmlFor="inv-sort">Order</label>
+              <select
+                id="inv-sort"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")}
+              >
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+              </select>
+            </div>
+            <span className="meta" style={{ alignSelf: "flex-end", paddingBottom: 9 }}>Amounts in {currency}</span>
+          </div>
+        )}
+
+        {invoices && invoices.length > 0 && visibleInvoices?.length === 0 && (
+          <div className="empty-state">
+            <span className="empty-state-title">Nothing matches that search</span>
+            <span className="empty-state-description">Clear the search box to see all {invoices.length} invoices.</span>
+          </div>
+        )}
+
+        {invoices && invoices.length > 0 && (visibleInvoices ?? []).length > 0 && (
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Invoice</th>
+                  <th>Customer</th>
+                  <th>Device / Issue</th>
+                  <th className="num" style={{ textAlign: "right" }}>Total</th>
+                  <th className="num" style={{ textAlign: "right" }}>Discount</th>
+                  <th className="num" style={{ textAlign: "right" }}>Paid</th>
+                  <th className="num" style={{ textAlign: "right" }}>Due</th>
+                  <th>Status</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {(visibleInvoices ?? []).map((inv) => {
+                  const amountCell = (field: "total" | "paid" | "due", label: string) => {
+                    const value = field === "total" ? inv.total : field === "paid" ? inv.amountPaid : inv.balanceDue;
+                    const isEditing = editingCell?.id === inv.id && editingCell.field === field;
+                    if (isEditing) {
                       return (
-                        <Fragment key={field}>
-                        {field === "paid" && (
-                          <td style={{ padding: "6px 8px", color: inv.discount > 0 ? "var(--warning, #b45309)" : "var(--text-faint)" }}>
-                            {inv.discount > 0 ? `-${currency}${inv.discount.toLocaleString()}` : "—"}
-                          </td>
-                        )}
-                        <td style={{ padding: "6px 8px", color: field === "due" && value > 0 ? "var(--danger)" : field === "due" ? "var(--success)" : undefined }}>
-                          {isEditing ? (
-                            <input
-                              type="number"
-                              autoFocus
-                              value={editingCellValue}
-                              disabled={busyId === inv.id}
-                              onChange={(e) => setEditingCellValue(e.target.value)}
-                              onBlur={(e) => commitAmountEdit(inv, field, e.target.value)}
-                              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditingCell(null); }}
-                              style={{ width: 90, padding: 4, fontSize: 12 }}
-                            />
+                        <td key={field} className="num" style={{ textAlign: "right" }}>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            className="data"
+                            aria-label={`${label} for invoice ${inv.invoiceNumber}`}
+                            autoFocus
+                            value={editingCellValue}
+                            disabled={busyId === inv.id}
+                            onChange={(e) => setEditingCellValue(e.target.value)}
+                            onBlur={(e) => commitAmountEdit(inv, field, e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditingCell(null); }}
+                            style={{ width: 100, textAlign: "right" }}
+                          />
+                        </td>
+                      );
+                    }
+                    return (
+                      <td
+                        key={field}
+                        className="num"
+                        style={{
+                          textAlign: "right",
+                          color:
+                            field === "due" && value > 0
+                              ? "var(--danger)"
+                              : field === "due"
+                                ? "var(--success)"
+                                : "var(--ink)",
+                          fontWeight: 600,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className="plain data"
+                          style={{ fontWeight: 600, textAlign: "right", width: "100%" }}
+                          onClick={() => startCellEdit(inv, field)}
+                          aria-label={`Edit ${label.toLowerCase()} on invoice ${inv.invoiceNumber}, currently ${value}`}
+                          title="Edit this amount"
+                        >
+                          {currency}{value.toLocaleString()}
+                        </button>
+                      </td>
+                    );
+                  };
+
+                  const contact = inv.contactId ? contactById.get(inv.contactId) : undefined;
+                  const repair = inv.repairAppointmentId ? repairById.get(inv.repairAppointmentId) : undefined;
+
+                  return (
+                    <Fragment key={inv.id}>
+                      <tr>
+                        <td className="data" style={{ fontWeight: 600, color: "var(--ink)" }}>{inv.invoiceNumber}</td>
+                        <td>
+                          {contact ? (
+                            <>
+                              {contact.name}
+                              <div className="meta">
+                                {[contact.phone, contact.email].filter(Boolean).join(", ")}
+                              </div>
+                            </>
                           ) : (
-                            <span onClick={() => startCellEdit(inv, field)} style={{ cursor: "pointer" }} title="Click to edit">{currency}{value.toLocaleString()}</span>
+                            <span className="meta">No customer on file</span>
                           )}
                         </td>
-                        </Fragment>
-                      );
-                    })}
-                    <td style={{ padding: "6px 8px" }}>
-                      <InvoiceStatusBadge status={inv.status} invoiceId={inv.id} />
-                    </td>
-                    <td style={{ padding: "6px 8px", display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {inv.amountPaid > 0 && inv.balanceDue > 0 && (
-                        <button
-                          onClick={() => finalizeInvoice(inv)}
-                          disabled={busyId === inv.id}
-                          title="The customer paid less than the total -- record the difference as a discount and close this invoice"
-                          style={{ fontSize: 11, padding: "6px 12px", fontWeight: 600 }}
-                        >
-                          Finalize
-                        </button>
-                      )}
-                      <button onClick={() => printInvoice(inv)} style={{ fontSize: 11, padding: "6px 12px" }}>Print</button>
-                      <button onClick={() => sendInvoice(inv)} disabled={busyId === inv.id} style={{ fontSize: 11, padding: "6px 12px" }}>Send</button>
-                      <button onClick={() => editingId === inv.id ? cancelEdit() : startEdit(inv)} style={{ fontSize: 11, padding: "6px 12px" }}>{editingId === inv.id ? "Cancel" : "Edit"}</button>
-                      <button onClick={() => deleteInvoice(inv)} style={{ fontSize: 11, padding: "6px 12px" }}>✕</button>
-                    </td>
-                  </tr>
-                  {editingId === inv.id && (
-                    <tr>
-                      <td colSpan={9} style={{ ...cellStyle, background: "var(--surface)", padding: 16 }}>
-                        <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 16, background: "var(--bg-elevated)" }}>
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
-                            <select value={editContactId} onChange={(e) => setEditContactId(e.target.value)} style={{ padding: 8, minWidth: 200 }}>
-                              <option value="">— No customer —</option>
-                              {(contacts ?? []).map((c) => (
-                                <option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ""}</option>
-                              ))}
-                            </select>
-                            <span style={{ color: "var(--text-faint)", fontSize: 12 }}>or type new name in Add Invoice form</span>
+                        <td>
+                          {repair ? (
+                            <>
+                              {repair.deviceType}
+                              {repair.deviceModel ? ` ${repair.deviceModel}` : ""}
+                              <div className="meta">{repair.issueDescription}</div>
+                            </>
+                          ) : (
+                            <span className="meta">No repair on file</span>
+                          )}
+                        </td>
+                        {amountCell("total", "Total")}
+                        <td className="num" style={{ textAlign: "right" }}>
+                          {inv.discount > 0 ? (
+                            <span style={dataStyle}>{`-${currency}${inv.discount.toLocaleString()}`}</span>
+                          ) : (
+                            <span className="meta">—</span>
+                          )}
+                        </td>
+                        {amountCell("paid", "Paid")}
+                        {amountCell("due", "Due")}
+                        <td>
+                          <InvoiceStatusLamp status={inv.status} invoiceId={inv.id} />
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                            {inv.amountPaid > 0 && inv.balanceDue > 0 && (
+                              <button
+                                type="button"
+                                className="sm"
+                                onClick={() => finalizeInvoice(inv)}
+                                disabled={busyId === inv.id}
+                                title="Record what the customer did not pay as a discount and close this invoice"
+                              >
+                                Close with discount
+                              </button>
+                            )}
+                            <button type="button" className="sm" onClick={() => printInvoice(inv)}>Print</button>
+                            <button type="button" className="sm" onClick={() => sendInvoice(inv)} disabled={busyId === inv.id}>Send invoice</button>
+                            <button type="button" className="sm" onClick={() => editingId === inv.id ? cancelEdit() : startEdit(inv)}>
+                              {editingId === inv.id ? "Cancel edit" : "Edit invoice"}
+                            </button>
+                            <button
+                              type="button"
+                              className="ghost sm"
+                              onClick={() => deleteInvoice(inv)}
+                              aria-label={`Delete invoice ${inv.invoiceNumber}`}
+                              title={`Delete invoice ${inv.invoiceNumber}`}
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                            </button>
                           </div>
-                          <div style={{ fontSize: 11, fontWeight: 650, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 6 }}>
-                            Line items
-                          </div>
-                          {editItems.map((item, i) => (
-                            <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, flexWrap: "wrap", alignItems: "center" }}>
-                              <select value={item.productId ?? ""} onChange={(e) => pickItemProduct(setEditItems, i, e.target.value)} style={{ padding: 8, minWidth: 150 }}>
-                                <option value="">Custom item</option>
-                                {products.map((p) => (
-                                  <option key={p.id} value={p.id}>{p.name}{p.price ? ` (${currency}${p.price})` : ""}</option>
-                                ))}
-                              </select>
-                              <input placeholder="Item name" value={item.name} onChange={(e) => updateEditItem(i, "name", e.target.value)} style={{ padding: 8, flex: "1 1 140px", minWidth: 0 }} />
-                              <input placeholder="Qty" type="number" min={1} value={item.quantity} onChange={(e) => updateEditItem(i, "quantity", e.target.value)} style={{ padding: 8, width: 70, flex: "0 0 70px" }} />
-                              <input placeholder="Unit price" type="number" value={item.unitPrice} onChange={(e) => updateEditItem(i, "unitPrice", e.target.value)} style={{ padding: 8, width: 100 }} />
-                              {!item.productId && (
+                        </td>
+                      </tr>
+                      {editingId === inv.id && (
+                        <tr>
+                          <td colSpan={9} style={{ background: "var(--panel-sunk)", padding: 14 }}>
+                            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 12 }}>
+                              <div className="field" style={{ flex: "1 1 220px", minWidth: 0 }}>
+                                <label className="field-label" htmlFor="inv-edit-contact">Customer</label>
+                                <select
+                                  id="inv-edit-contact"
+                                  value={editContactId}
+                                  onChange={(e) => setEditContactId(e.target.value)}
+                                >
+                                  <option value="">No customer</option>
+                                  {(contacts ?? []).map((c) => (
+                                    <option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ""}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <span className="meta" style={{ paddingBottom: 9 }}>
+                                To bill someone new, add them in the new invoice form first.
+                              </span>
+                            </div>
+
+                            <div className="instrument-label" style={{ marginBottom: 8 }}>Line items</div>
+                            {editItems.map((item, i) => (
+                              <div
+                                key={i}
+                                style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap", alignItems: "flex-end" }}
+                              >
+                                <div className="field" style={{ flex: "1 1 170px", minWidth: 0 }}>
+                                  {i === 0 && <label className="field-label" htmlFor="inv-edit-product-0">Inventory part</label>}
+                                  <select
+                                    id={i === 0 ? "inv-edit-product-0" : undefined}
+                                    aria-label={i === 0 ? undefined : "Inventory part"}
+                                    value={item.productId ?? ""}
+                                    onChange={(e) => pickItemProduct(setEditItems, i, e.target.value)}
+                                  >
+                                    <option value="">Custom line</option>
+                                    {products.map((p) => (
+                                      <option key={p.id} value={p.id}>{p.name}{p.price ? ` (${currency}${p.price})` : ""}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="field" style={{ flex: "2 1 170px", minWidth: 0 }}>
+                                  {i === 0 && <label className="field-label" htmlFor="inv-edit-name-0">Description</label>}
+                                  <input
+                                    id={i === 0 ? "inv-edit-name-0" : undefined}
+                                    aria-label={i === 0 ? undefined : "Description"}
+                                    value={item.name}
+                                    onChange={(e) => updateEditItem(i, "name", e.target.value)}
+                                  />
+                                </div>
+                                <div className="field" style={{ width: 74, flex: "0 0 74px" }}>
+                                  {i === 0 && <label className="field-label" htmlFor="inv-edit-qty-0">Qty</label>}
+                                  <input
+                                    id={i === 0 ? "inv-edit-qty-0" : undefined}
+                                    aria-label={i === 0 ? undefined : "Quantity"}
+                                    className="data"
+                                    type="number"
+                                    inputMode="numeric"
+                                    min={1}
+                                    value={item.quantity}
+                                    onChange={(e) => updateEditItem(i, "quantity", e.target.value)}
+                                  />
+                                </div>
+                                <div className="field" style={{ width: 106, flex: "0 0 106px" }}>
+                                  {i === 0 && <label className="field-label" htmlFor="inv-edit-price-0">Unit price</label>}
+                                  <input
+                                    id={i === 0 ? "inv-edit-price-0" : undefined}
+                                    aria-label={i === 0 ? undefined : "Unit price"}
+                                    className="data"
+                                    type="number"
+                                    inputMode="decimal"
+                                    value={item.unitPrice}
+                                    onChange={(e) => updateEditItem(i, "unitPrice", e.target.value)}
+                                  />
+                                </div>
+                                {!item.productId && (
+                                  <div className="field" style={{ width: 128, flex: "0 0 128px" }}>
+                                    {i === 0 && <label className="field-label" htmlFor="inv-edit-cost-0">Cost price</label>}
+                                    <input
+                                      id={i === 0 ? "inv-edit-cost-0" : undefined}
+                                      aria-label={i === 0 ? undefined : "Cost price, used for profit reporting only"}
+                                      className="data"
+                                      type="number"
+                                      inputMode="decimal"
+                                      value={item.costPrice ?? ""}
+                                      onChange={(e) => updateEditItem(i, "costPrice", e.target.value)}
+                                    />
+                                  </div>
+                                )}
+                                {editItems.length > 1 && (
+                                  <button
+                                    type="button"
+                                    className="ghost sm"
+                                    onClick={() => setEditItems((prev) => prev.filter((_, idx) => idx !== i))}
+                                    aria-label={`Remove line ${i + 1}`}
+                                    title={`Remove line ${i + 1}`}
+                                  >
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end", marginTop: 10 }}>
+                              <button
+                                type="button"
+                                className="sm"
+                                onClick={() => setEditItems((prev) => [...prev, { ...EMPTY_ITEM }])}
+                              >
+                                Add line item
+                              </button>
+                              <div className="field" style={{ width: 104, flex: "0 0 104px" }}>
+                                <label className="field-label" htmlFor="inv-edit-discount">Discount</label>
                                 <input
-                                  placeholder="Cost price (optional)"
+                                  id="inv-edit-discount"
+                                  className="data"
                                   type="number"
-                                  value={item.costPrice ?? ""}
-                                  onChange={(e) => updateEditItem(i, "costPrice", e.target.value)}
-                                  title="What this actually costs the business -- used for profit reporting, never shown to the customer."
-                                  style={{ padding: 8, width: 130 }}
+                                  inputMode="decimal"
+                                  value={editDiscount}
+                                  onChange={(e) => setEditDiscount(e.target.value)}
                                 />
-                              )}
-                              {editItems.length > 1 && (
-                                <button onClick={() => setEditItems((prev) => prev.filter((_, idx) => idx !== i))} style={{ fontSize: 11, padding: "6px 12px" }}>✕</button>
-                              )}
+                              </div>
+                              <div className="field" style={{ width: 104, flex: "0 0 104px" }}>
+                                <label className="field-label" htmlFor="inv-edit-tax">Tax</label>
+                                <input
+                                  id="inv-edit-tax"
+                                  className="data"
+                                  type="number"
+                                  inputMode="decimal"
+                                  value={editTax}
+                                  onChange={(e) => setEditTax(e.target.value)}
+                                />
+                              </div>
+                              <div className="field" style={{ flex: "0 0 150px" }}>
+                                <label className="field-label" htmlFor="inv-edit-due">Due date</label>
+                                <input
+                                  id="inv-edit-due"
+                                  type="date"
+                                  value={editDueDate}
+                                  onChange={(e) => setEditDueDate(e.target.value)}
+                                />
+                              </div>
+                              <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
+                                <button type="button" className="ghost" onClick={cancelEdit}>Cancel</button>
+                                <button
+                                  type="button"
+                                  className="primary"
+                                  onClick={() => saveEdit(inv)}
+                                  disabled={editSaving || validEditItems.length === 0}
+                                >
+                                  {editSaving ? "Saving invoice" : "Save invoice"}
+                                </button>
+                              </div>
                             </div>
-                          ))}
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 8, marginBottom: 10 }}>
-                            <button onClick={() => setEditItems((prev) => [...prev, { ...EMPTY_ITEM }])} style={{ fontSize: 12, padding: "6px 10px" }}>
-                              + Add item
-                            </button>
-                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginLeft: "auto" }}>
-                              <input placeholder="Discount" type="number" value={editDiscount} onChange={(e) => setEditDiscount(e.target.value)} style={{ padding: 8, width: 100 }} />
-                              <input placeholder="Tax" type="number" value={editTax} onChange={(e) => setEditTax(e.target.value)} style={{ padding: 8, width: 100 }} />
-                              <input placeholder="Due date" type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} style={{ padding: 8 }} />
-                            </div>
-                          </div>
-                          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", paddingTop: 8, borderTop: "1px solid var(--border)" }}>
-                            <button onClick={cancelEdit} style={{ fontSize: 12, padding: "6px 12px" }}>Cancel</button>
-                            <button onClick={() => saveEdit(inv)} disabled={editSaving || validEditItems.length === 0} style={primaryButtonStyle}>
-                              {editSaving ? "Saving…" : "Save Changes"}
-                            </button>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

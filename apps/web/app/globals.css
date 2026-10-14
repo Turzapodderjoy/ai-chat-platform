@@ -1,206 +1,492 @@
-:root {
-  --background: #0b100e;
-  --foreground: #e9efec;
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --font-mono: "SF Mono", SFMono-Regular, ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-}
-
-html, body {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
-
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
+/* ===================================================================
+   NOTHING OS — box model & viewport ground-state
+   =================================================================== */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; padding: 0; }
+body { background: var(--canvas); overflow-x: hidden; }
 
 /* ===================================================================
-   Dashboard Design System - Hermes Teal
-   Nous Research "Hermes" design language: deep teal canvas, teal
-   midground accent, cream foreground. 0.5rem radii. Uppercase brand
-   display type on chrome only (see .text-display).
+   BAY CONSOLE — AIVA design system
+   Ink-on-paper operations console for repair-shop work orders, parts,
+   invoices and the autonomous AI layer.
+
+   Rules the whole app obeys:
+   - Two accents with fixed meaning: cobalt = human action, amber = the
+     machine layer (Hermes, agents, automation). Never decorative.
+   - Data is monospace with tabular figures. Numbers are instruments.
+   - Depth is hairline, not shadow. One shadow token, for things that
+     genuinely float.
+   - No all-caps chrome. Labels are 11px, sentence case, tracked a hair.
    =================================================================== */
+
+:root {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --background: #f4f5f7;
+  --foreground: #10151c;
+}
+
+/* ------------------------------------------------------------------
+   Light (default) — "daylight bay"
+   ------------------------------------------------------------------ */
 .app-shell,
-.app-shell[data-theme="dark"] {
-  /* Core palette - teal-black canvas */
-  --bg: #0b100e;
-  --bg-elevated: #101613;
-  --surface: #151d19;
-  --surface-hover: #1c2622;
-  --surface-active: #24312b;
-  --border: #23312b;
-  --border-subtle: #17221c;
-  --border-strong: #37524a;
+.app-shell[data-theme="light"],
+.public-shell,
+.public-shell[data-theme="light"] {
+  /* Surfaces */
+  --canvas: #f2f2f2;
+  --panel: #ffffff;
+  --panel-sunk: #e9e9e9;
+  --line: #dcdcdc;
+  --line-soft: #eaeaea;
+  --line-strong: #c4c4c4;
 
-  /* Text hierarchy - cream foreground */
-  --text: #e9efec;
-  --text-secondary: #a4b4ac;
-  --text-muted: #6f8178;
-  --text-faint: #5b6c63;
+  /* Ink */
+  --ink: #111111;
+  --ink-2: #3f3f3f;
+  --ink-3: #6b6b6b;
+  --ink-4: #8f8f8f;
 
-  /* Accent - Hermes teal */
-  --accent: #2dd4bf;
-  --accent-hover: #5eead4;
-  --accent-muted: #14b8a6;
-  --accent-subtle: rgba(45, 212, 191, 0.14);
-  --accent-glow: rgba(45, 212, 191, 0.28);
+  /* Cobalt — human action */
+  --accent: #c0392b;
+  --accent-hover: #a93226;
+  --accent-ink: #ffffff;
+  --accent-subtle: rgba(192, 57, 43, 0.09);
+  --accent-line: rgba(192, 57, 43, 0.28);
 
-  /* Semantic colors */
-  --success: #34d399;
-  --success-subtle: rgba(52, 211, 153, 0.13);
-  --warning: #fbbf24;
-  --warning-subtle: rgba(251, 191, 36, 0.13);
-  --danger: #f87171;
-  --danger-subtle: rgba(248, 113, 113, 0.13);
-  --info: #38bdf8;
-  --info-subtle: rgba(56, 189, 248, 0.13);
+  /* Amber — the machine layer */
+  --machine: #b35c0e;
+  --machine-bright: #f39c12;
+  --machine-subtle: rgba(243, 156, 18, 0.12);
+  --machine-line: rgba(179, 92, 14, 0.3);
 
-  /* Shape - 0.5rem base radius */
-  --radius-xs: 5px;
-  --radius-sm: 7px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-full: 9999px;
+  /* Semantic */
+  --success: #0e7a4f;
+  --success-subtle: rgba(14, 122, 79, 0.1);
+  --warning: #c0630f;
+  --warning-subtle: rgba(192, 99, 15, 0.11);
+  --danger: #c0392b;
+  --danger-subtle: rgba(192, 57, 43, 0.09);
+  --info: #c0392b;
+  --info-subtle: rgba(192, 57, 43, 0.09);
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 12px 40px -8px rgba(0, 0, 0, 0.55);
-  --shadow-glow: 0 0 20px var(--accent-glow);
+  /* Shape */
+  --r-xs: 2px;
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 10px;
+  --r-pill: 999px;
+
+  /* Depth — hairlines do the work */
+  --shadow-pop: 0 1px 2px rgba(16, 21, 28, 0.06), 0 12px 32px -12px rgba(16, 21, 28, 0.24);
+  --edge-light: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 
   /* Motion */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --duration-fast: 120ms;
-  --duration-normal: 200ms;
-  --duration-slow: 350ms;
+  --dur-state: 120ms;
+  --dur-panel: 180ms;
 
-  color-scheme: dark;
-}
-
-.app-shell[data-theme="light"] {
-  --bg: #f2f4f1;
-  --bg-elevated: #ffffff;
-  --surface: #ffffff;
-  --surface-hover: #edf1ee;
-  --surface-active: #dfe7e1;
-  --border: #d9e2dc;
-  --border-subtle: #e8eeea;
-  --border-strong: #b9c8c0;
-
-  --text: #12201a;
-  --text-secondary: #45564d;
-  --text-muted: #687a71;
-  --text-faint: #687a71;
-
-  --accent: #0d9488;
-  --accent-hover: #0f766e;
-  --accent-muted: #14b8a6;
-  --accent-subtle: rgba(13, 148, 136, 0.1);
-  --accent-glow: rgba(13, 148, 136, 0.18);
-
-  --success: #059669;
-  --success-subtle: rgba(5, 150, 105, 0.09);
-  --warning: #d97706;
-  --warning-subtle: rgba(217, 119, 6, 0.09);
-  --danger: #dc2626;
-  --danger-subtle: rgba(220, 38, 38, 0.09);
-  --info: #0284c7;
-  --info-subtle: rgba(2, 132, 199, 0.09);
-
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 12px 40px -8px rgba(0, 0, 0, 0.12);
+  /* Blueprint grid — the console texture */
+  --grid-line: transparent;
+  --grid-size: 32px;
 
   color-scheme: light;
+
+  /* ---- legacy aliases: 67 components already consume these names ---- */
+  --bg: var(--canvas);
+  --bg-elevated: var(--panel);
+  --surface: var(--panel);
+  --surface-2: var(--panel-sunk);
+  --surface-hover: var(--panel-sunk);
+  --surface-active: #ededed;
+  --border: var(--line);
+  --border-subtle: var(--line-soft);
+  --border-strong: var(--line-strong);
+  --text: var(--ink);
+  --text-secondary: var(--ink-2);
+  --text-muted: var(--ink-3);
+  --text-faint: var(--ink-4);
+  --fg: var(--ink);
+  --muted: var(--ink-3);
+  --card-bg: var(--panel);
+  --accent-light: #e07f72;
+  --accent-dark: #a93226;
+  --accent-soft: var(--accent-subtle);
+  --accent-muted: #a93226;
+  --accent-glow: rgba(192, 57, 43, 0.22);
+  --warning-soft: var(--warning-subtle);
+  --radius-xs: var(--r-xs);
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-lg);
+  --radius-full: var(--r-pill);
+  --shadow-sm: 0 1px 2px rgba(16, 21, 28, 0.05);
+  --shadow-md: var(--shadow-pop);
+  --shadow-lg: var(--shadow-pop);
+  --shadow-glow: 0 0 0 3px var(--accent-subtle);
+  --duration-fast: var(--dur-state);
+  --duration-normal: var(--dur-panel);
+  --duration-slow: 240ms;
+  --gradient-2: linear-gradient(180deg, #ffffff 0%, #f2f2f2 100%);
+  --font-geist-sans: var(--font-sans);
 }
 
-.app-shell {
-  min-height: 100vh;
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-geist-sans, -apple-system), BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
+/* ------------------------------------------------------------------
+   Dark — "night bay"
+   ------------------------------------------------------------------ */
+.app-shell[data-theme="dark"],
+.public-shell[data-theme="dark"] {
+  --canvas: #0b0b0b;
+  --panel: #161616;
+  --panel-sunk: #1e1e1e;
+  --line: #262626;
+  --line-soft: #202020;
+  --line-strong: #3a3a3a;
+
+  --ink: #f5f5f5;
+  --ink-2: #cbcbcb;
+  --ink-3: #a3a3a3;
+  --ink-4: #8a8a8a;
+
+  --accent: #ff6a5f;
+  --accent-hover: #ff8578;
+  --accent-ink: #1a0b09;
+  --accent-subtle: rgba(255, 106, 95, 0.16);
+  --accent-line: rgba(255, 106, 95, 0.34);
+
+  --machine: #ffb25a;
+  --machine-bright: #ff7a00;
+  --machine-subtle: rgba(255, 122, 0, 0.16);
+  --machine-line: rgba(255, 178, 90, 0.34);
+
+  --success: #3ecf8e;
+  --success-subtle: rgba(62, 207, 142, 0.14);
+  --warning: #ffb25a;
+  --warning-subtle: rgba(255, 178, 90, 0.16);
+  --danger: #ff6a5f;
+  --danger-subtle: rgba(255, 106, 95, 0.16);
+  --info: #ff6a5f;
+  --info-subtle: rgba(255, 106, 95, 0.16);
+
+  --shadow-pop: 0 1px 2px rgba(0, 0, 0, 0.5), 0 16px 40px -16px rgba(0, 0, 0, 0.7);
+  --edge-light: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+  --grid-line: transparent;
+  --grid-size: 32px;
+
+  color-scheme: dark;
+
+  --bg: var(--canvas);
+  --bg-elevated: var(--panel);
+  --surface: var(--panel);
+  --surface-2: var(--panel-sunk);
+  --surface-hover: var(--panel-sunk);
+  --surface-active: #2a2a2a;
+  --border: var(--line);
+  --border-subtle: var(--line-soft);
+  --border-strong: var(--line-strong);
+  --text: var(--ink);
+  --text-secondary: var(--ink-2);
+  --text-muted: var(--ink-3);
+  --text-faint: var(--ink-4);
+  --card-bg: var(--panel);
+  --accent-light: #ff8578;
+  --accent-dark: #e0574d;
+  --accent-soft: var(--accent-subtle);
+  --accent-muted: #ff6a5f;
+  --accent-glow: rgba(255, 106, 95, 0.24);
+  --shadow-glow: 0 0 0 3px var(--accent-subtle);
+  --gradient-2: linear-gradient(180deg, #161616 0%, #0b0b0b 100%);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .app-shell * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+/* ------------------------------------------------------------------
+   OS dark preference. Public pages carry no data-theme, so they follow the
+   system. :not([data-theme="light"]) outranks the light rule, while an
+   explicit data-theme="dark" still wins on the dashboard — and an explicit
+   light choice is never overridden.
+   ------------------------------------------------------------------ */
+@media (prefers-color-scheme: dark) {
+  .app-shell:not([data-theme="light"]),
+  .public-shell:not([data-theme="light"]) {
+    --canvas: #0b0b0b;
+    --panel: #161616;
+    --panel-sunk: #1e1e1e;
+    --line: #262626;
+    --line-soft: #202020;
+    --line-strong: #3a3a3a;
+
+    --ink: #f5f5f5;
+    --ink-2: #cbcbcb;
+    --ink-3: #a3a3a3;
+    --ink-4: #8a8a8a;
+
+    --accent: #ff6a5f;
+    --accent-hover: #ff8578;
+    --accent-ink: #1a0b09;
+    --accent-subtle: rgba(255, 106, 95, 0.16);
+    --accent-line: rgba(255, 106, 95, 0.34);
+
+    --machine: #ffb25a;
+    --machine-bright: #ff7a00;
+    --machine-subtle: rgba(255, 122, 0, 0.16);
+    --machine-line: rgba(255, 178, 90, 0.34);
+
+    --success: #3ecf8e;
+    --success-subtle: rgba(62, 207, 142, 0.14);
+    --warning: #ffb25a;
+    --warning-subtle: rgba(245, 165, 36, 0.14);
+    --danger: #ff6a5f;
+    --danger-subtle: rgba(249, 112, 102, 0.14);
+    --info: #ff6a5f;
+    --info-subtle: rgba(107, 140, 255, 0.14);
+
+    --shadow-pop: 0 1px 2px rgba(0, 0, 0, 0.5), 0 16px 40px -16px rgba(0, 0, 0, 0.7);
+    --edge-light: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+    --grid-line: transparent;
+    --grid-size: 32px;
+
+    color-scheme: dark;
+
+    --bg: var(--canvas);
+    --bg-elevated: var(--panel);
+    --surface: var(--panel);
+    --surface-2: var(--panel-sunk);
+    --surface-hover: var(--panel-sunk);
+    --surface-active: #2a2a2a;
+    --border: var(--line);
+    --border-subtle: var(--line-soft);
+    --border-strong: var(--line-strong);
+    --text: var(--ink);
+    --text-secondary: var(--ink-2);
+    --text-muted: var(--ink-3);
+    --text-faint: var(--ink-4);
+    --card-bg: var(--panel);
+    --accent-light: #ff8578;
+    --accent-dark: #e0574d;
+    --accent-soft: var(--accent-subtle);
+    --accent-muted: #ff6a5f;
+    --accent-glow: rgba(255, 106, 95, 0.24);
+    --shadow-glow: 0 0 0 3px var(--accent-subtle);
+    --gradient-2: linear-gradient(180deg, #161616 0%, #0b0b0b 100%);
   }
 }
 
-/* Typography */
-.app-shell h1, .app-shell h2, .app-shell h3 {
-  color: var(--text);
+/* ------------------------------------------------------------------
+   Shell
+   ------------------------------------------------------------------ */
+.public-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--canvas);
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: var(--grid-size) var(--grid-size);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.public-shell .wrap {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 40px 24px 64px;
+}
+
+.public-shell h1,
+.public-shell h2,
+.public-shell h3 { color: var(--ink); font-weight: 600; letter-spacing: -0.028em; margin: 0; }
+.public-shell h1 { font-size: 28px; line-height: 1.15; }
+.public-shell h2 { font-size: 19px; line-height: 1.25; }
+.public-shell h3 { font-size: 15px; }
+.public-shell p { color: var(--ink-2); }
+
+.public-shell a { color: var(--accent); text-underline-offset: 2px; }
+
+.app-shell {
+  min-height: 100vh;
+  background-color: var(--canvas);
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: var(--grid-size) var(--grid-size);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.5;
+  font-feature-settings: "cv05" 1, "ss03" 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell *,
+  .page * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Typography
+   ------------------------------------------------------------------ */
+.app-shell h1,
+.app-shell h2,
+.app-shell h3,
+.app-shell h4 {
+  color: var(--ink);
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.028em;
+  margin: 0;
 }
 
-/* Nous brand display type - uppercase brand chrome only (wordmark,
-   nav section labels, page titles, badges). Not for body text. */
-.app-shell .text-display {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+.app-shell h1 { font-size: 22px; line-height: 1.2; }
+.app-shell h2 { font-size: 18px; line-height: 1.25; }
+.app-shell h3 { font-size: 15px; line-height: 1.3; }
+.app-shell h4 { font-size: 13.5px; line-height: 1.35; letter-spacing: -0.011em; }
+
+.app-shell p { color: var(--ink-2); }
+
+/* Instrument label — the replacement for all-caps eyebrows.
+   Sentence case, 11px, tracked a hair, quiet ink. */
+.app-shell .text-display,
+.app-shell .instrument-label {
+  text-transform: none;
+  letter-spacing: 0.06em;
+  font-size: 11px;
   font-weight: 600;
+  color: var(--ink-3);
 }
 
-.app-shell h1 { font-size: 24px; }
-.app-shell h2 { font-size: 18px; }
-.app-shell h3 { font-size: 14px; }
-
-.app-shell p {
-  color: var(--text-secondary);
+/* Every number in the console is an instrument reading. */
+.app-shell .data,
+.app-shell .num,
+.app-shell td.num,
+.app-shell th.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "zero" 1;
+  letter-spacing: -0.01em;
 }
 
-.app-shell code {
-  font-family: "SF Mono", "Fira Code", monospace;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xs);
-  padding: 2px 6px;
-  font-size: 12px;
-  color: var(--accent-hover);
+.app-shell .meta {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  letter-spacing: -0.005em;
 }
 
-/* Inputs */
+.app-shell code,
+.app-shell kbd {
+  font-family: var(--font-mono);
+  background: var(--panel-sunk);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xs);
+  padding: 1px 5px;
+  font-size: 11.5px;
+  color: var(--ink);
+}
+
+/* ------------------------------------------------------------------
+   Panels — instrument-label header, hairline body, no card soup
+   ------------------------------------------------------------------ */
+.app-shell .panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--edge-light);
+}
+
+.app-shell .panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.app-shell .panel-head .instrument-label { color: var(--ink-2); }
+
+.app-shell .panel-body { padding: 16px; }
+
+.app-shell .panel-sunk {
+  background: var(--panel-sunk);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+
+/* Toolbar — the row of controls above a panel or table */
+.app-shell .toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+/* ------------------------------------------------------------------
+   Bay lamp — the status signature. A lamp with a halo, then its label.
+   Replaces every pill badge in the product.
+   ------------------------------------------------------------------ */
+.app-shell .lamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.app-shell .lamp::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink-4);
+  box-shadow: 0 0 0 3px transparent;
+  flex-shrink: 0;
+  transition: box-shadow var(--dur-state) ease, background var(--dur-state) ease;
+}
+
+.app-shell .lamp-ok::before { background: var(--success); box-shadow: 0 0 0 3px var(--success-subtle); }
+.app-shell .lamp-warn::before { background: var(--warning); box-shadow: 0 0 0 3px var(--warning-subtle); }
+.app-shell .lamp-err::before { background: var(--danger); box-shadow: 0 0 0 3px var(--danger-subtle); }
+.app-shell .lamp-info::before { background: var(--info); box-shadow: 0 0 0 3px var(--info-subtle); }
+.app-shell .lamp-machine::before { background: var(--machine-bright); box-shadow: 0 0 0 3px var(--machine-subtle); }
+.app-shell .lamp-idle::before { background: var(--ink-4); }
+
+/* ------------------------------------------------------------------
+   Controls
+   ------------------------------------------------------------------ */
 .app-shell input:not([type="checkbox"]):not([type="radio"]),
 .app-shell select,
 .app-shell textarea {
   width: 100%;
-  padding: 10px 14px;
-  font-size: 14px;
+  padding: 8px 11px;
+  font-size: 13.5px;
   font-family: inherit;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--text);
-  border-radius: var(--radius-sm);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: var(--r-sm);
   outline: none;
-  transition: border-color var(--duration-fast) ease, box-shadow var(--duration-fast) ease;
+  transition: border-color var(--dur-state) ease, box-shadow var(--dur-state) ease;
 }
 
-.app-shell input:not([type="checkbox"]):not([type="radio"])::placeholder,
-.app-shell textarea::placeholder {
-  color: var(--text-muted);
-}
+.app-shell input:not([type="checkbox"]):not([type="radio"]):hover,
+.app-shell select:hover,
+.app-shell textarea:hover { border-color: var(--line-strong); }
 
 .app-shell input:not([type="checkbox"]):not([type="radio"]):focus,
 .app-shell select:focus,
@@ -209,419 +495,506 @@ a {
   box-shadow: 0 0 0 3px var(--accent-subtle);
 }
 
+.app-shell input::placeholder,
+.app-shell textarea::placeholder { color: var(--ink-3); opacity: 1; }
+
 .app-shell input[type="checkbox"],
 .app-shell input[type="radio"] {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   accent-color: var(--accent);
   cursor: pointer;
 }
 
-/* Buttons */
+.app-shell .field { display: flex; flex-direction: column; gap: 5px; }
+
+.app-shell .field-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+
+.app-shell .field-hint { font-size: 11.5px; color: var(--ink-3); }
+.app-shell .field-error { font-size: 11.5px; color: var(--danger); }
+
+/* Buttons — flat, hairline, one accent. Cobalt = do it. */
+.public-shell button,
+.public-shell .backLink {
+  min-height: 24px;
+}
+
+/* Form controls do not inherit font by default — force it everywhere, not just
+   inside .app-shell, so public pages and demos render in the same typeface. */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
 .app-shell button {
   font-family: inherit;
-  font-size: 14px;
+  min-height: 24px;
+  font-size: 13px;
   font-weight: 500;
-  padding: 10px 18px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
+  letter-spacing: -0.005em;
+  padding: 7px 13px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
   cursor: pointer;
-  transition: all var(--duration-fast) ease;
+  transition: background var(--dur-state) ease, border-color var(--dur-state) ease, color var(--dur-state) ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 7px;
+  box-shadow: var(--edge-light);
 }
 
 .app-shell button:hover:not(:disabled) {
-  background: var(--surface-hover);
-  border-color: var(--border-strong);
+  background: var(--panel-sunk);
+  border-color: var(--line-strong);
 }
 
-.app-shell button:active:not(:disabled) {
-  background: var(--surface-active);
-  transform: scale(0.98);
-}
+.app-shell button:active:not(:disabled) { background: var(--surface-active); }
 
-.app-shell button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.app-shell button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .app-shell button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-/* Primary button */
 .app-shell button.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: white;
+  color: var(--accent-ink);
+  font-weight: 600;
 }
 
 .app-shell button.primary:hover:not(:disabled) {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
-  box-shadow: var(--shadow-glow);
 }
 
-/* Ghost button */
-.app-shell button.ghost {
-  background: transparent;
-  border-color: transparent;
-  color: var(--text-secondary);
-}
-
-.app-shell button.ghost:hover:not(:disabled) {
-  background: var(--surface-hover);
-  color: var(--text);
-}
-
-/* Danger button */
 .app-shell button.danger {
   background: var(--danger);
   border-color: var(--danger);
-  color: white;
+  color: #fff;
 }
 
-.app-shell button.danger:hover:not(:disabled) {
-  background: #dc2626;
-  border-color: #dc2626;
+.app-shell button.danger:hover:not(:disabled) { filter: brightness(1.08); }
+
+/* Machine-layer action — anything the AI layer does */
+.app-shell button.machine {
+  background: var(--machine-subtle);
+  border-color: var(--machine-line);
+  color: var(--machine);
+  font-weight: 600;
 }
 
-/* Plain button reset */
+.app-shell button.machine:hover:not(:disabled) { background: var(--machine-subtle); border-color: var(--machine); }
+
+.app-shell button.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-2);
+  box-shadow: none;
+}
+
+.app-shell button.ghost:hover:not(:disabled) {
+  background: var(--panel-sunk);
+  border-color: transparent;
+  color: var(--ink);
+}
+
 .app-shell button.plain {
   background: transparent;
   border: none;
   padding: 0;
   font-weight: inherit;
+  box-shadow: none;
 }
+
+.app-shell button.sm { padding: 4px 9px; font-size: 12px; border-radius: var(--r-xs); }
 
 .app-shell aside button {
   background: transparent;
   border: none;
+  box-shadow: none;
 }
 
-/* Tables */
+/* ------------------------------------------------------------------
+   Navigation rail + command bar
+   ------------------------------------------------------------------ */
+.app-shell .rail {
+  width: 68px;
+  flex-shrink: 0;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.app-shell .rail-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink-3);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-state) ease, color var(--dur-state) ease;
+}
+
+.app-shell .rail-item:hover { background: var(--panel-sunk); color: var(--ink); }
+
+.app-shell .rail-item[aria-current="true"] {
+  color: var(--accent);
+  background: var(--accent-subtle);
+  font-weight: 600;
+}
+
+.app-shell .rail-item[aria-current="true"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--accent);
+}
+
+.app-shell .command-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 56px;
+  padding: 10px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+/* ------------------------------------------------------------------
+   Tables — instrument readout, not a zebra-striped card
+   ------------------------------------------------------------------ */
 .app-shell table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
 }
 
-.table-scroll {
+.app-shell .table-scroll {
   overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-
-.panel-scroll {
-  height: 100%;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
-}
-
-.panel-scroll::-webkit-scrollbar {
-  width: 6px;
-}
-
-.panel-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.panel-scroll::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
 }
 
 .app-shell th {
   text-align: left;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-  padding: 12px 16px;
-  background: var(--bg-elevated);
-  border-bottom: 1px solid var(--border);
+  letter-spacing: 0.07em;
+  color: var(--ink-3);
+  text-transform: none;
+  padding: 9px 14px;
+  background: var(--panel-sunk);
+  border-bottom: 1px solid var(--line);
   white-space: nowrap;
   position: sticky;
   top: 0;
   z-index: 1;
 }
 
-.app-shell th:first-child {
-  border-radius: var(--radius-md) 0 0 0;
-}
-
-.app-shell th:last-child {
-  border-radius: 0 var(--radius-md) 0 0;
-}
+.app-shell th:first-child { border-top-left-radius: var(--r-md); }
+.app-shell th:last-child { border-top-right-radius: var(--r-md); }
 
 .app-shell td {
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border-subtle);
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line-soft);
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--ink-2);
+  vertical-align: middle;
 }
 
-.app-shell tbody tr {
-  transition: background var(--duration-fast) ease;
+.app-shell tbody tr:last-child td { border-bottom: none; }
+
+.app-shell tbody tr { transition: background var(--dur-state) ease; }
+
+.app-shell tbody tr:hover { background: var(--panel-sunk); }
+.app-shell tbody tr:hover td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
+
+/* No zebra. Rows are separated by hairlines only. */
+.app-shell tbody tr:nth-child(even) { background: transparent; }
+.app-shell tbody tr:nth-child(even):hover { background: var(--panel-sunk); }
+
+/* ------------------------------------------------------------------
+   Scroll regions
+   ------------------------------------------------------------------ */
+.app-shell .panel-scroll {
+  height: 100%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
 }
 
-.app-shell tbody tr:hover {
-  background: var(--surface-hover);
+.app-shell .panel-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.app-shell .panel-scroll::-webkit-scrollbar-track { background: transparent; }
+.app-shell .panel-scroll::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: var(--r-pill);
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
+.app-shell .panel-scroll::-webkit-scrollbar-thumb:hover { background: var(--ink-4); background-clip: content-box; }
 
-.app-shell tbody tr:nth-child(even) {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.app-shell tbody tr:nth-child(even):hover {
-  background: var(--surface-hover);
-}
-
-.app-shell tbody tr:last-child td {
-  border-bottom: none;
-}
-
-/* Links */
+/* ------------------------------------------------------------------
+   Links
+   ------------------------------------------------------------------ */
 .app-shell a:not(.plain-link) {
   color: var(--accent);
-  transition: color var(--duration-fast) ease;
+  text-decoration: none;
+  transition: color var(--dur-state) ease;
 }
 
-.app-shell a:hover:not(.plain-link) {
-  color: var(--accent-hover);
-  text-decoration: underline;
+.app-shell a:not(.plain-link):hover { color: var(--accent-hover); text-decoration: underline; text-underline-offset: 2px; }
+
+/* ------------------------------------------------------------------
+   Empty states — an invitation to act, not a grey icon
+   ------------------------------------------------------------------ */
+.app-shell .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 28px 20px;
+  text-align: left;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel);
 }
 
-/* Scrollbar */
-.app-shell ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+.app-shell .empty-state-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--ink-4);
+  margin-bottom: 2px;
 }
 
-.app-shell ::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.app-shell ::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  border-radius: var(--radius-full);
-}
-
-.app-shell ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
-}
-
-/* Markdown */
-.markdown-message p {
-  margin: 0 0 12px;
-  color: inherit;
-}
-
-.markdown-message p:last-child {
-  margin-bottom: 0;
-}
-
-.markdown-message ul, .markdown-message ol {
-  margin: 8px 0 12px;
-  padding-left: 24px;
-}
-
-.markdown-message li {
-  margin: 4px 0;
-}
-
-.markdown-message strong {
+.app-shell .empty-state-title {
+  font-size: 13.5px;
   font-weight: 600;
-  color: var(--text);
+  color: var(--ink);
 }
 
-.markdown-message table {
+.app-shell .empty-state-description {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  max-width: 46ch;
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------------------
+   Loading — blueprint lines, not a generic pulse
+   ------------------------------------------------------------------ */
+@keyframes skeleton-sweep {
+  0% { background-position: -320px 0; }
+  100% { background-position: 320px 0; }
+}
+
+.app-shell .skeleton {
+  background-color: var(--panel-sunk);
+  background-image: linear-gradient(90deg, transparent 0, var(--line-soft) 50%, transparent 100%);
+  background-size: 320px 100%;
+  background-repeat: no-repeat;
+  border-radius: var(--r-sm);
+  animation: skeleton-sweep 1.4s linear infinite;
+}
+
+.app-shell .skeleton-text { height: 11px; margin-bottom: 8px; border-radius: var(--r-xs); }
+.app-shell .skeleton-text:last-child { width: 60%; }
+.app-shell .skeleton-circle { border-radius: 50%; }
+
+.app-shell .skeleton-card {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel);
+}
+
+/* ------------------------------------------------------------------
+   Markdown (chat + AI layer)
+   ------------------------------------------------------------------ */
+.markdown-message p { margin: 0 0 12px; color: inherit; }
+.markdown-message p:last-child { margin-bottom: 0; }
+.markdown-message ul,
+.markdown-message ol { margin: 8px 0 12px; padding-left: 22px; }
+.markdown-message li { margin: 4px 0; }
+.markdown-message strong { font-weight: 600; color: var(--ink); }
+.markdown-message a { color: var(--accent); }
+.markdown-message table { margin: 12px 0; font-size: 0.92em; }
+.markdown-message th,
+.markdown-message td { padding: 7px 11px; border: 1px solid var(--line); }
+.markdown-message th { background: var(--panel-sunk); font-weight: 600; }
+.markdown-message blockquote {
   margin: 12px 0;
-  font-size: 0.92em;
+  padding-left: 12px;
+  border-left: 2px solid var(--line-strong);
+  color: var(--ink-3);
 }
 
-.markdown-message th, .markdown-message td {
-  padding: 8px 12px;
-  border: 1px solid var(--border);
+/* Machine-layer message bubble — the AI is always visually distinct */
+.app-shell .machine-block {
+  background: var(--machine-subtle);
+  border: 1px solid var(--machine-line);
+  border-radius: var(--r-sm);
+  padding: 12px 14px;
 }
 
-.markdown-message th {
-  background: var(--bg-elevated);
-  font-weight: 600;
-}
-
-/* Recharts tooltip */
-.recharts-tooltip-wrapper {
-  outline: none !important;
-}
+/* ------------------------------------------------------------------
+   Recharts — match the instrument panel
+   ------------------------------------------------------------------ */
+.recharts-tooltip-wrapper { outline: none !important; }
 
 .recharts-default-tooltip {
-  background: var(--bg-elevated) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: var(--radius-sm) !important;
-  box-shadow: var(--shadow-lg) !important;
+  background: var(--panel) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: var(--r-sm) !important;
+  box-shadow: var(--shadow-pop) !important;
 }
 
 .recharts-tooltip-label {
-  color: var(--text) !important;
+  color: var(--ink) !important;
+  font-family: var(--font-mono) !important;
   font-weight: 600 !important;
   margin-bottom: 4px !important;
 }
 
-.recharts-tooltip-item {
-  color: var(--text-secondary) !important;
-  font-size: 12px !important;
-}
+.recharts-tooltip-item { color: var(--ink-2) !important; font-size: 12px !important; }
 
 .recharts-cartesian-axis-tick-value {
-  fill: var(--text-muted) !important;
-  font-size: 11px !important;
+  fill: var(--ink-3) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 10.5px !important;
 }
 
 .recharts-cartesian-grid-horizontal line,
-.recharts-cartesian-grid-vertical line {
-  stroke: var(--border-subtle) !important;
-}
+.recharts-cartesian-grid-vertical line { stroke: var(--line-soft) !important; }
 
-/* ===================================================================
-   Skeleton Loader
-   =================================================================== */
-@keyframes skeleton-pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.7; }
-}
-
-.skeleton {
-  background: var(--surface);
-  border-radius: var(--radius-sm);
-  animation: skeleton-pulse 1.5s ease-in-out infinite;
-}
-
-.skeleton-text {
-  height: 12px;
-  margin-bottom: 8px;
-  border-radius: var(--radius-xs);
-}
-
-.skeleton-text:last-child {
-  width: 60%;
-}
-
-.skeleton-circle {
-  border-radius: 50%;
-}
-
-.skeleton-card {
-  padding: 20px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-elevated);
-}
-
-/* ===================================================================
-   Focus Animations (Login & Forms)
-   =================================================================== */
-.login-input {
-  transition: all 0.2s ease;
-  border: 1px solid var(--border);
-}
-
-.login-input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-subtle);
-}
-
-.login-input:hover:not(:focus) {
-  border-color: var(--border-strong);
-}
-
-/* ===================================================================
-   Empty State Illustrations
-   =================================================================== */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 24px;
-  text-align: center;
-}
-
-.empty-state-icon {
-  width: 80px;
-  height: 80px;
-  margin-bottom: 20px;
-  color: var(--text-faint);
-  opacity: 0.5;
-}
-
-.empty-state-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text);
-  margin-bottom: 8px;
-}
-
-.empty-state-description {
-  font-size: 13px;
-  color: var(--text-muted);
-  max-width: 280px;
-  line-height: 1.5;
-}
-
-/* ===================================================================
-   Button Loading State
-   =================================================================== */
-@keyframes button-spin {
-  to { transform: rotate(360deg); }
-}
-
-button .spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid transparent;
-  border-top-color: currentColor;
-  border-radius: 50%;
-  animation: button-spin 0.6s linear infinite;
-}
-
-/* ===================================================================
-   Mobile Responsive (< 860px)
-   =================================================================== */
+/* ------------------------------------------------------------------
+   Responsive — the console is used on phones at the counter
+   ------------------------------------------------------------------ */
 @media (max-width: 860px) {
-  /* Prevent horizontal overflow */
-  html, body {
-    overflow-x: hidden;
-    max-width: 100vw;
-  }
+  html,
+  body { overflow-x: hidden; max-width: 100vw; }
 
-  /* Let inputs shrink on mobile */
-  input, select, textarea {
-    min-width: 0 !important;
-    max-width: 100% !important;
-  }
+  input,
+  select,
+  textarea { min-width: 0 !important; max-width: 100% !important; }
 
-  /* Smaller padding on cards */
-  .card {
-    padding-left: 12px !important;
-    padding-right: 12px !important;
-  }
+  .app-shell h1 { font-size: 19px; }
+  .app-shell h2 { font-size: 16px; }
 
-  /* Responsive headings */
-  h1 { font-size: 20px !important; }
-  h2 { font-size: 16px !important; }
+  .app-shell .panel-body { padding: 13px; }
+  .app-shell .panel-head { padding: 10px 13px; min-height: 40px; }
+  .app-shell .command-bar { padding: 9px 13px; min-height: 52px; }
 
-  /* Stack grids on mobile */
-  [style*="grid-template-columns: repeat(auto-fit"] {
-    grid-template-columns: 1fr !important;
-  }
+  .app-shell th { padding: 8px 11px; }
+  .app-shell td { padding: 10px 11px; }
+
+  [style*="grid-template-columns: repeat(auto-fit"] { grid-template-columns: 1fr !important; }
+}
+/* ===================================================================
+   NOTHING OS — visual pass
+   =================================================================== */
+.app-shell,
+.public-shell {
+  --grid-line: transparent;
+  background-image: none;
+}
+html, body { overscroll-behavior: none; }
+html[data-theme="dark"] { background: #0b0b0b; }
+html[data-theme="light"] { background: #f2f2f2; }
+html:not([data-theme]) { background: #f2f2f2; }
+@media (prefers-color-scheme: dark) { html:not([data-theme]) { background: #0b0b0b; } }
+
+
+.app-shell .instrument-label,
+.app-shell .text-display {
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+  letter-spacing: 0.14em;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+.app-shell .field-label {
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+  letter-spacing: 0.12em;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ink-3);
+}
+
+.app-shell th,
+.app-shell .th {
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  font-size: 10px;
+  color: var(--ink-3);
+}
+
+.app-shell .empty-state-title {
+  font-family: var(--font-mono);
+  letter-spacing: -0.01em;
+}
+
+.public-shell .markSub {
+  font-family: var(--font-mono);
+  letter-spacing: 0.18em;
+}
+
+/* Dynamic-island compaction for the command bar */
+.app-shell .command-bar {
+  width: 100%;
+  margin: 0;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  box-shadow: var(--shadow-pop);
+  flex-shrink: 0;
+  backdrop-filter: blur(10px);
+}
+
+/* Notch pop for the section jumper + notch hover */
+@keyframes notch-pop {
+  from { opacity: 0; transform: translateX(-50%) translateY(-12px) scale(0.95); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+.app-shell .command-bar {
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+.app-shell .command-bar:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-pop), 0 0 0 1px var(--accent-subtle);
 }

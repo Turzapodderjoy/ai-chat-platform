@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 
-import { cardStyle, subtleTextStyle, primaryButtonStyle, shortId } from "./dashboard-styles";
+import { shortId } from "./dashboard-styles";
+import { MasterDetail, PaneHeader, SegmentedControl } from "./MasterDetail";
 import { MessageTagControl } from "./MessageTagControl";
 import { MarkdownMessage } from "./MarkdownMessage";
+import { NavIcon } from "./nav-icons";
 import { ReasoningInfo } from "./ReasoningInfo";
 import { showConfirm } from "../lib/app-dialog";
 
@@ -114,12 +117,12 @@ const REPAIR_STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
-const CHANNEL_LABEL: Record<string, { color: string; label: string }> = {
-  website: { color: "var(--text-muted)", label: "Website" },
-  messenger: { color: "#0084ff", label: "Messenger" },
-  instagram: { color: "#e1306c", label: "Instagram" },
-  whatsapp: { color: "#25d366", label: "WhatsApp" },
-  "repair-tracking": { color: "#f0883e", label: "Repair Tracking" },
+const CHANNEL_LABEL: Record<string, { label: string; icon: string }> = {
+  website: { label: "Website", icon: "website" },
+  messenger: { label: "Messenger", icon: "messenger" },
+  instagram: { label: "Instagram", icon: "instagram" },
+  whatsapp: { label: "WhatsApp", icon: "whatsapp" },
+  "repair-tracking": { label: "Repair tracking", icon: "repairs" },
 };
 
 function displayName(c: { customerName: string | null; externalUserId: string | null }): string {
@@ -135,35 +138,143 @@ function initials(name: string): string {
   return name.trim().slice(0, 2).toUpperCase() || "C";
 }
 
-/** Solid colored circle per channel — Messenger blue, WhatsApp green,
- * website white (per the client's own spec), Instagram its brand pink
- * as the one channel that wasn't specified. A thin border keeps the
- * white website dot visible against the dark dashboard background. */
-function ChannelDot({ channel }: { channel: string }) {
-  const color = CHANNEL_LABEL[channel]?.color ?? "#8b96a8";
-  return (
-    <span
-      style={{
-        display: "inline-block",
-        width: 9,
-        height: 9,
-        borderRadius: "50%",
-        background: color,
-        border: "1px solid var(--border)",
-        flexShrink: 0,
-      }}
-    />
-  );
-}
-
 type SortOption = "newest" | "oldest";
 type StatusTab = "all" | "handoff" | "human";
 
-const STATUS_TABS: { id: StatusTab; label: string }[] = [
-  { id: "all", label: "All Chats" },
-  { id: "handoff", label: "Needs Handoff" },
-  { id: "human", label: "Human Handling" },
-];
+const NAV_ICON: Record<StatusTab, string> = {
+  all: "allchats",
+  handoff: "handoffs",
+  human: "clients",
+};
+
+const HANDOFF_LAMP: Record<string, string> = {
+  bot: "lamp lamp-machine",
+  pending: "lamp lamp-warn",
+  human: "lamp lamp-info",
+};
+
+const HANDOFF_LABEL: Record<string, string> = {
+  bot: "AI handling",
+  pending: "Needs handoff",
+  human: "Human handling",
+};
+
+const REPAIR_LAMP: Record<string, string> = {
+  booked: "lamp lamp-info",
+  received: "lamp lamp-idle",
+  in_repair: "lamp lamp-warn",
+  ready: "lamp lamp-ok",
+  completed: "lamp lamp-ok",
+  cancelled: "lamp lamp-err",
+};
+
+/* Chat is the product: three hairline-separated panes, one ink accent,
+ * lamps for status, monospace for every number. Layout constants keep
+ * the three panes speaking the same rhythm. */
+const NAV_ITEM: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 9,
+  width: "100%",
+  marginBottom: 2,
+  border: "none",
+  borderRadius: "var(--r-sm)",
+  fontSize: 13,
+  textAlign: "left",
+  transition: "background var(--dur-state) ease, color var(--dur-state) ease",
+};
+
+const PANE_HEAD: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 10,
+  padding: "10px 12px",
+  borderBottom: "1px solid var(--line-soft)",
+  background: "var(--panel)",
+};
+
+const SEARCH_FIELD: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "0 10px",
+  background: "var(--panel-sunk)",
+  border: "1px solid var(--line)",
+  borderRadius: "var(--r-sm)",
+};
+
+const ROW: CSSProperties = {
+  display: "flex",
+  gap: 10,
+  padding: "10px 12px",
+  borderBottom: "1px solid var(--line-soft)",
+  cursor: "pointer",
+  transition: "background var(--dur-state) ease",
+  outlineOffset: -2,
+};
+
+const AVATAR: CSSProperties = {
+  width: 34,
+  height: 34,
+  borderRadius: "50%",
+  flexShrink: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontWeight: 600,
+  fontSize: 12,
+};
+
+const CHAT_HEAD: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  padding: "10px 16px",
+  borderBottom: "1px solid var(--line-soft)",
+  background: "var(--panel)",
+};
+
+const BUBBLE: CSSProperties = {
+  padding: "9px 13px",
+  fontSize: 13,
+  lineHeight: 1.55,
+  textAlign: "left",
+  color: "var(--ink)",
+  borderRadius: "var(--r-md)",
+};
+
+const META_ROW: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  flexWrap: "wrap",
+  marginTop: 5,
+};
+
+const RAIL_SECTION: CSSProperties = { marginBottom: 18 };
+
+const RAIL_LABEL: CSSProperties = { display: "block", marginBottom: 7 };
+
+const RAIL_ROW: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 10,
+  fontSize: 12.5,
+  lineHeight: 1.65,
+};
+
+const RAIL_KEY: CSSProperties = { color: "var(--ink-3)", flexShrink: 0 };
+
+const RAIL_VALUE: CSSProperties = {
+  color: "var(--ink)",
+  textAlign: "right",
+  minWidth: 0,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
 
 /** Intercom-style unified inbox — every real conversation regardless of
  * channel or handoff status, in one place. Conversation list + a
@@ -172,7 +283,7 @@ const STATUS_TABS: { id: StatusTab; label: string }[] = [
  * handoffs, orders) rather than inventing new ones. */
 const MOBILE_BREAKPOINT = 860;
 
-export function AllChatsPanel({ businessId, active = true, businessType, accountRole }: { businessId?: string; active?: boolean; businessType?: string; accountRole?: string | null }) {
+export function AllChatsPanel({ businessId, active = true, businessType, accountRole, onBack }: { businessId?: string; active?: boolean; businessType?: string; accountRole?: string | null; onBack?: () => void }) {
   const canDelete = accountRole === "owner" || accountRole === "admin";
   const [conversations, setConversations] = useState<ConversationSummary[] | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -186,31 +297,11 @@ export function AllChatsPanel({ businessId, active = true, businessType, account
   //
   // This panel's OWN width, not window.innerWidth -- confirmed live: a
   // 1024px browser window still leaves this panel only ~716px once
-  // DashboardShell's own sidebar and padding are subtracted, which
-  // isn't enough for its own 220px rail + 340px list + 260px detail
-  // pane (820px) side by side. window.matchMedia said "desktop" (over
-  // the 860px breakpoint) while the panel's actual available space was
-  // narrower than mobile -- the message thread got squeezed to 0
-  // width, not hidden, so it silently vanished instead of falling back
-  // to the single-column mobile layout that exists for exactly this.
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const el = rootRef.current;
-    if (!el) return;
-    const check = (width: number) => setIsMobile(width <= MOBILE_BREAKPOINT);
-    check(el.getBoundingClientRect().width);
-    const ro = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect.width;
-      if (w !== undefined) check(w);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
   const [channelFilter, setChannelFilter] = useState("");
   const [statusTab, setStatusTab] = useState<StatusTab>("all");
   const [sort, setSort] = useState<SortOption>("newest");
+  const [listCollapsed, setListCollapsed] = useState(false);
+  const [contextOpen, setContextOpen] = useState(false);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[] | null>(null);
@@ -659,102 +750,48 @@ export function AllChatsPanel({ businessId, active = true, businessType, account
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  return (
-    <div ref={rootRef} style={{ display: "flex", flex: 1, minHeight: 0, background: "var(--bg)", overflow: "hidden" }}>
-      {/* ─── Left Sidebar (hidden on mobile) ─── */}
-      {!isMobile && (
-      <div style={{ width: sidebarCollapsed ? 56 : 220, flexShrink: 0, background: "var(--bg-elevated)", borderRight: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", transition: "width 0.2s ease" }}>
-        <div style={{ padding: sidebarCollapsed ? "12px 0" : "12px 16px", borderBottom: "1px solid var(--border-subtle)", display: "flex", alignItems: "center", justifyContent: sidebarCollapsed ? "center" : "space-between" }}>
-          {!sidebarCollapsed && (
-            <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8, color: "var(--text)" }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-              Inbox
-            </h2>
-          )}
-          <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "var(--text-muted)", display: "flex", alignItems: "center", justifyContent: "center" }}
-            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              {sidebarCollapsed ? <path d="m9 18 6-6-6-6" /> : <path d="m15 18-6-6 6-6" />}
-            </svg>
-          </button>
-        </div>
-
-        <nav style={{ padding: sidebarCollapsed ? "8px 0" : "8px 0", flex: 1, overflowY: "auto" }}>
-          {(businessType === "repair"
-            ? [{ id: "all" as StatusTab, label: "All Conversations", icon: "💬", count: tabCounts.all }]
-            : [
-                { id: "all" as StatusTab, label: "All Conversations", icon: "💬", count: tabCounts.all },
-                { id: "handoff" as StatusTab, label: "Needs Attention", icon: "🔔", count: tabCounts.handoff },
-                { id: "human" as StatusTab, label: "Human Handling", icon: "👤", count: tabCounts.human },
-              ]
-          ).map((item) => (
+return (
+    <MasterDetail
+      listLabel="Conversations"
+      contextLabel="Conversation details"
+      hasSelection={Boolean(selectedId)}
+      onBack={() => setSelectedId(null)}
+      listCollapsed={listCollapsed}
+      onListCollapsedChange={setListCollapsed}
+      contextOpen={contextOpen}
+      onContextOpenChange={setContextOpen}
+      list={
+        <>
+          {onBack && listCollapsed && (
             <button
-              key={item.id}
-              onClick={() => setStatusTab(item.id)}
-              title={sidebarCollapsed ? item.label : undefined}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                width: sidebarCollapsed ? "100%" : "calc(100% - 8px)",
-                margin: sidebarCollapsed ? 0 : "0 4px",
-                padding: sidebarCollapsed ? "10px 0" : "8px 12px",
-                justifyContent: sidebarCollapsed ? "center" : "flex-start",
-                fontSize: 13,
-                fontWeight: statusTab === item.id ? 600 : 400,
-                color: statusTab === item.id ? "var(--accent)" : "var(--text-secondary)",
-                background: statusTab === item.id ? "var(--accent-subtle)" : "transparent",
-                border: "none",
-                borderRadius: sidebarCollapsed ? 0 : "var(--radius-sm)",
-                cursor: "pointer",
-                textAlign: "left",
-                fontFamily: "inherit",
-                transition: "all 0.15s",
-                position: "relative",
-              }}
+              type="button"
+              onClick={onBack}
+              aria-label="Back to sections"
+              title="Back to dashboard"
+              style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 12px", border: "none", borderBottom: "1px solid var(--line-soft)", background: "var(--panel)", color: "var(--ink-2)", fontSize: 12.5, fontWeight: 500, cursor: "pointer", textAlign: "left", borderRadius: 0 }}
             >
-              <span style={{ fontSize: 16, width: 20, textAlign: "center" }}>{item.icon}</span>
-              {!sidebarCollapsed && (
-                <>
-                  {item.label}
-                  <span style={{ marginLeft: "auto", fontSize: 11, opacity: 0.6, fontVariantNumeric: "tabular-nums" }}>
-                    {item.count}
-                  </span>
-                </>
-              )}
-              {sidebarCollapsed && item.count > 0 && (
-                <span style={{ position: "absolute", top: 6, right: "calc(50% - 16px)", width: 8, height: 8, borderRadius: "50%", background: "var(--accent)" }} />
-              )}
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+              Back
             </button>
-          ))}
-
-          {!sidebarCollapsed && (
-            <>
-              <div style={{ height: 1, background: "var(--border-subtle)", margin: "8px 12px" }} />
-
-              <div style={{ padding: "0 12px", marginBottom: 8 }}>
-                <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>
-                  Channels
-                </div>
-                <select
-                  value={channelFilter}
-                  onChange={(e) => setChannelFilter(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "6px 8px",
-                    fontSize: 12,
-                    background: "var(--surface)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "var(--radius-sm)",
-                    color: "var(--text)",
-                    fontFamily: "inherit",
-                  }}
-                >
+          )}
+          <PaneHeader title="Conversations" count={filteredConversations.length} />
+          <div style={{ padding: "8px 10px", display: "flex", flexDirection: "column", gap: 8, borderBottom: "1px solid var(--line-soft)", background: "var(--panel)" }}>
+            <SegmentedControl
+              ariaLabel="Conversation views"
+              value={statusTab}
+              onChange={(v) => setStatusTab(v)}
+              options={(businessType === "repair"
+                ? [{ id: "all" as StatusTab, label: "All", count: tabCounts.all }]
+                : [
+                    { id: "all" as StatusTab, label: "All", count: tabCounts.all },
+                    { id: "handoff" as StatusTab, label: "Needs attention", count: tabCounts.handoff },
+                    { id: "human" as StatusTab, label: "Human handling", count: tabCounts.human },
+                  ])}
+            />
+            <div style={{ display: "flex", gap: 8 }}>
+              <div className="field" style={{ flex: 1, minWidth: 0 }}>
+                <label className="field-label" htmlFor="aiva-inbox-channel">Channel</label>
+                <select id="aiva-inbox-channel" value={channelFilter} onChange={(e) => setChannelFilter(e.target.value)} style={{ fontSize: 12.5 }}>
                   <option value="">All channels</option>
                   <option value="website">Website</option>
                   <option value="messenger">Messenger</option>
@@ -762,266 +799,413 @@ export function AllChatsPanel({ businessId, active = true, businessType, account
                   <option value="whatsapp">WhatsApp</option>
                 </select>
               </div>
-
-              <div style={{ padding: "0 12px" }}>
-                <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>
-                  Sort
-                </div>
-                <select
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value as SortOption)}
-                  style={{
-                    width: "100%",
-                    padding: "6px 8px",
-                    fontSize: 12,
-                    background: "var(--surface)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "var(--radius-sm)",
-                    color: "var(--text)",
-                    fontFamily: "inherit",
-                  }}
-                >
+              <div className="field" style={{ flex: 1, minWidth: 0 }}>
+                <label className="field-label" htmlFor="aiva-inbox-sort">Sort</label>
+                <select id="aiva-inbox-sort" value={sort} onChange={(e) => setSort(e.target.value as SortOption)} style={{ fontSize: 12.5 }}>
                   <option value="newest">Newest first</option>
                   <option value="oldest">Oldest first</option>
                 </select>
               </div>
-            </>
-          )}
-        </nav>
-      </div>
-      )}
-
-      {/* ─── Center: Conversation List ─── */}
-      <div style={{ width: isMobile ? "100%" : 340, flexShrink: 0, borderRight: isMobile ? "none" : "1px solid var(--border-subtle)", display: (isMobile && selectedId) ? "none" : "flex", flexDirection: "column", background: "var(--bg)" }}>
-        {/* Search bar */}
-        <div style={{ padding: "12px 12px 8px", borderBottom: "1px solid var(--border-subtle)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "7px 10px" }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              type="search"
-              name="aiva-search-conversations"
-              autoComplete="off"
-              placeholder="Search conversations..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ flex: 1, background: "none", border: "none", outline: "none", fontSize: 13, color: "var(--text)", fontFamily: "inherit" }}
-            />
+            </div>
           </div>
-        </div>
-
-        {/* Conversation list */}
-        <div style={{ flex: 1, overflowY: "auto" }}>
+          <div style={{ padding: "8px 10px", borderBottom: "1px solid var(--line-soft)", background: "var(--panel)" }}>
+            <div className="field">
+              <label className="field-label" htmlFor="aiva-search-conversations">Search</label>
+              <div style={SEARCH_FIELD}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-4)" strokeWidth="1.8" strokeLinecap="round">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  id="aiva-search-conversations"
+                  type="search"
+                  name="aiva-search-conversations"
+                  autoComplete="off"
+                  placeholder="Name or last message"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{ flex: 1, background: "none", border: "none", padding: "8px 0", fontSize: 13, color: "var(--ink)" }}
+                />
+              </div>
+            </div>
+          </div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
           {!conversations && (
-            <p style={{ padding: 20, fontSize: 13, color: "var(--text-muted)", textAlign: "center" }}>Loading...</p>
+            <div style={{ padding: 12 }}>
+              <div className="skeleton" style={{ height: 56, marginBottom: 8 }} />
+              <div className="skeleton" style={{ height: 56, marginBottom: 8 }} />
+              <div className="skeleton" style={{ height: 56 }} />
+            </div>
           )}
+
           {conversations && filteredConversations.length === 0 && (
-            <p style={{ padding: 20, fontSize: 13, color: "var(--text-muted)", textAlign: "center" }}>No conversations yet.</p>
+            <div className="empty-state" style={{ margin: 12 }}>
+              <div className="empty-state-title">No conversations</div>
+              <div className="empty-state-description">
+                {searchQuery.trim()
+                  ? "No thread matches this search. Clear it to see the whole inbox."
+                  : "Threads land here as customers message the business."}
+              </div>
+            </div>
           )}
+
           {filteredConversations.map((c) => {
-            const ch = CHANNEL_LABEL[c.channel] ?? { color: "#8b96a8", label: c.channel };
-            const unread = selectedId !== c.id && c.messageCount > (seenCounts[c.id] ?? 0);
             const name = displayName(c);
             const isActive = selectedId === c.id;
+            const unreadCount = Math.max(0, c.messageCount - (seenCounts[c.id] ?? 0));
+            const unread = !isActive && unreadCount > 0;
+            const channel = CHANNEL_LABEL[c.channel] ?? { label: c.channel, icon: "channels" };
+            const assigned = agentName(c.assignedAgentId);
             return (
               <div
                 key={c.id}
+                role="button"
+                tabIndex={0}
+                aria-current={isActive ? "true" : undefined}
                 onClick={() => openConversation(c)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openConversation(c);
+                  }
+                }}
                 style={{
-                  padding: "12px 12px",
-                  margin: "0 4px 2px",
-                  borderRadius: "var(--radius-sm)",
-                  cursor: "pointer",
-                  display: "flex",
-                  gap: 10,
+                  ...ROW,
                   background: isActive ? "var(--accent-subtle)" : "transparent",
-                  transition: "all 0.15s",
-                  borderLeft: isActive ? "3px solid var(--accent)" : "3px solid transparent",
+                  boxShadow: isActive ? "inset 3px 0 0 var(--accent)" : "inset 3px 0 0 transparent",
                 }}
               >
-                {/* Avatar */}
                 <div
                   style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: "50%",
-                    background: isActive ? "var(--accent)" : unread ? "var(--accent-subtle)" : "var(--surface)",
-                    color: isActive ? "white" : unread ? "var(--accent)" : "var(--text-muted)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontWeight: 600,
-                    fontSize: 13,
-                    flexShrink: 0,
-                    position: "relative",
+                    ...AVATAR,
+                    background: isActive ? "var(--accent)" : "var(--panel-sunk)",
+                    color: isActive ? "var(--accent-ink)" : "var(--ink-2)",
+                    border: isActive ? "1px solid var(--accent)" : "1px solid var(--line)",
                   }}
                 >
                   {initials(name)}
-                  {unread && (
-                    <span
-                      style={{
-                        position: "absolute",
-                        top: -1,
-                        right: -1,
-                        width: 10,
-                        height: 10,
-                        borderRadius: "50%",
-                        background: "var(--accent)",
-                        border: "2px solid var(--bg)",
-                      }}
-                    />
-                  )}
                 </div>
 
-                {/* Content */}
-                <div style={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 13, fontWeight: unread ? 700 : 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text)" }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+                    <span
+                      style={{
+                        fontSize: 13,
+                        fontWeight: unread ? 700 : 500,
+                        color: "var(--ink)",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
                       {name}
                     </span>
-                    <span style={{ fontSize: 10, color: "var(--text-faint)", flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
+                    <span className="data" style={{ fontSize: 11, color: "var(--ink-4)", flexShrink: 0 }}>
                       {new Date(c.updatedAt).toLocaleDateString()}
                     </span>
                   </div>
-                  {c.lastMessage && (
-                    <div style={{ fontSize: 12, color: unread ? "var(--text-secondary)" : "var(--text-muted)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: unread ? 500 : 400, lineHeight: 1.4 }}>
-                      {c.lastMessage}
-                    </div>
-                  )}
-                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 5, alignItems: "center" }}>
-                    <span style={{
-                      fontSize: 10,
-                      padding: "1px 6px",
-                      borderRadius: "var(--radius-full)",
-                      background: isActive ? "var(--accent-subtle)" : "var(--surface)",
-                      border: "1px solid var(--border)",
-                      color: "var(--text-muted)",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}>
-                      <ChannelDot channel={c.channel} />
-                      {ch.label}
+
+                  <div
+                    style={{
+                      fontSize: 12.5,
+                      lineHeight: 1.45,
+                      marginTop: 2,
+                      color: unread ? "var(--ink-2)" : "var(--ink-3)",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {c.lastMessage ?? "No messages yet"}
+                  </div>
+
+                  <div style={META_ROW}>
+                    <span className="data" style={{ fontSize: 11, color: "var(--ink-3)", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      <NavIcon id={channel.icon} style={{ color: "var(--ink-4)" }} />
+                      {channel.label}
                     </span>
-                    {agentName(c.assignedAgentId) && (
-                      <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: "var(--radius-full)", background: "var(--accent-subtle)", color: "var(--accent)" }}>
-                        → {agentName(c.assignedAgentId)}
-                      </span>
+                    {c.handoffStatus === "pending" && <span className="lamp lamp-warn">Needs handoff</span>}
+                    {assigned && (
+                      <span className="data" style={{ fontSize: 11, color: "var(--accent)" }}>{assigned}</span>
                     )}
                     {(conversationTags[c.id] ?? []).slice(0, 1).map((t) => (
                       <span
                         key={t.tagId}
-                        style={{ fontSize: 10, padding: "1px 6px", borderRadius: "var(--radius-full)", background: "var(--surface)", border: "1px solid var(--border)" }}
+                        className="data"
+                        style={{
+                          fontSize: 11,
+                          padding: "0 6px",
+                          borderRadius: "var(--r-pill)",
+                          border: "1px solid var(--line)",
+                          color: "var(--ink-2)",
+                        }}
                       >
                         {t.label}
                       </span>
                     ))}
+                    <span
+                      className="data"
+                      style={{
+                        marginLeft: "auto",
+                        fontSize: 11,
+                        fontWeight: unread ? 700 : 500,
+                        color: unread ? "var(--accent)" : "var(--ink-4)",
+                      }}
+                    >
+                      {unreadCount > 0 ? `${unreadCount} new` : `${c.messageCount} msg`}
+                    </span>
                   </div>
                 </div>
+
                 {canDelete && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); deleteConversation(c); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteConversation(c);
+                    }}
+                    className="plain"
+                    aria-label={`Delete conversation with ${name}`}
                     title="Delete conversation"
-                    style={{ alignSelf: "center", width: 26, height: 26, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--bg)", cursor: "pointer", color: "var(--text-faint)", fontFamily: "inherit", opacity: 0.6 }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--danger, #e5484d)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-faint)")}
+                    style={{
+                      alignSelf: "center",
+                      width: 26,
+                      height: 26,
+                      flexShrink: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderRadius: "var(--r-xs)",
+                      color: "var(--ink-4)",
+                    }}
                   >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <path d="M18 6 6 18" />
+                      <path d="m6 6 12 12" />
+                    </svg>
                   </button>
                 )}
               </div>
             );
           })}
+
           {nextCursor && (
             <div style={{ padding: 12 }}>
-              <button onClick={loadMore} disabled={loadingMore} className="ghost" style={{ width: "100%", fontSize: 12 }}>
-                {loadingMore ? "Loading..." : "Load more"}
+              <button onClick={loadMore} disabled={loadingMore} className="ghost" style={{ width: "100%", fontSize: 12.5 }}>
+                {loadingMore ? "Loading" : "Load more"}
               </button>
             </div>
           )}
-        </div>
-      </div>
-
-      {/* ─── Right: Chat + Detail ─── */}
-      <div style={{ flex: 1, minWidth: 0, display: (isMobile && !selectedId) ? "none" : "flex", flexDirection: "column", background: "var(--bg)" }}>
-        {!selected ? (
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ textAlign: "center" }}>
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" strokeWidth="1.5" style={{ margin: "0 auto 12px", opacity: 0.5 }}>
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-              <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0 }}>Select a conversation</p>
-              <p style={{ fontSize: 11, color: "var(--text-faint)", margin: "4px 0 0" }}>Choose from the list on the left</p>
+          </div>
+        </>
+      }
+      detail={
+        <>
+          {!selected ? (
+          <div className="empty-state" style={{ margin: "auto", maxWidth: 380, borderStyle: "solid" }}>
+            <NavIcon id="allchats" className="empty-state-icon" />
+            <div className="empty-state-title">Select a conversation</div>
+            <div className="empty-state-description">
+              Customer messages, AI replies and the order or repair context for one thread all live here.
             </div>
           </div>
         ) : (
           <>
-            {/* Chat Header */}
-            <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-elevated)" }}>
+            <div style={CHAT_HEAD}>
               <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                {isMobile && (
-                  <button onClick={() => setSelectedId(null)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "var(--text-muted)", display: "flex", alignItems: "center", flexShrink: 0 }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m15 18-6-6 6-6" /></svg>
-                  </button>
-                )}
-                <div style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--accent)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 12 }}>
+                <div
+                  style={{
+                    ...AVATAR,
+                    width: 32,
+                    height: 32,
+                    background: "var(--panel-sunk)",
+                    border: "1px solid var(--line)",
+                    color: "var(--ink-2)",
+                  }}
+                >
                   {initials(displayName(selected))}
                 </div>
-                <div>
-                  <strong style={{ fontSize: 13 }}>{displayName(selected)}</strong>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 1 }}>
-                    <span style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 4, padding: "1px 6px", borderRadius: "var(--radius-full)", background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
-                      <ChannelDot channel={selected.channel} />
+                <span style={{ minWidth: 0 }}>
+                  <strong
+                    style={{
+                      display: "block",
+                      fontSize: 13.5,
+                      color: "var(--ink)",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {displayName(selected)}
+                  </strong>
+                  <span style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2, flexWrap: "wrap" }}>
+                    <span className="data" style={{ fontSize: 11, color: "var(--ink-3)", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      <NavIcon id={CHANNEL_LABEL[selected.channel]?.icon ?? "channels"} style={{ color: "var(--ink-4)" }} />
                       {CHANNEL_LABEL[selected.channel]?.label ?? selected.channel}
                     </span>
-                    <span style={{ fontSize: 10, color: "var(--text-faint)" }}>·</span>
-                    <span style={{ fontSize: 10, color: "var(--text-faint)" }}>{new Date(selected.updatedAt).toLocaleString()}</span>
-                  </div>
-                </div>
+                    <span className="data" style={{ fontSize: 11, color: "var(--ink-4)" }}>
+                      {new Date(selected.updatedAt).toLocaleString()}
+                    </span>
+                  </span>
+                </span>
               </span>
-              <span style={{ fontSize: 10, fontWeight: 600, padding: "3px 10px", borderRadius: "var(--radius-full)", background: selected.handoffStatus === "bot" ? "var(--success-subtle)" : selected.handoffStatus === "pending" ? "var(--warning-subtle)" : "var(--accent-subtle)", color: selected.handoffStatus === "bot" ? "var(--success)" : selected.handoffStatus === "pending" ? "var(--warning)" : "var(--accent)" }}>
-                {selected.handoffStatus === "bot" ? "AI Handling" : selected.handoffStatus === "pending" ? "Needs Handoff" : "Human Handling"}
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span className={HANDOFF_LAMP[selected.handoffStatus] ?? "lamp lamp-idle"}>
+                  {HANDOFF_LABEL[selected.handoffStatus] ?? selected.handoffStatus}
+                </span>
+                <button
+                  type="button"
+                  className="plain"
+                  onClick={() => setListCollapsed(!listCollapsed)}
+                  aria-pressed={listCollapsed}
+                  aria-label={listCollapsed ? "Show conversation list" : "Hide conversation list"}
+                  title={listCollapsed ? "Show list  [" : "Hide list  ["}
+                  style={{ padding: 4, color: "var(--ink-3)", display: "flex" }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2" /><line x1="9" y1="4" x2="9" y2="20" /></svg>
+                </button>
+                <button
+                  type="button"
+                  className="plain"
+                  onClick={() => setContextOpen(!contextOpen)}
+                  aria-pressed={contextOpen}
+                  aria-label={contextOpen ? "Hide details panel" : "Show details panel"}
+                  title={contextOpen ? "Hide details  ]" : "Show details  ]"}
+                  style={{ padding: 4, color: "var(--ink-3)", display: "flex" }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2" /><line x1="15" y1="4" x2="15" y2="20" /></svg>
+                </button>
               </span>
             </div>
 
-            <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-              {/* Messages Column */}
-              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
-                  {!messages && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Loading messages...</p>}
-                  {messages?.length === 0 && selected.channel === "repair-tracking" && repairForSelected && (
-                    <div style={{ alignSelf: "center", fontSize: 10, color: "var(--text-faint)", textAlign: "center", padding: "3px 10px", background: "var(--surface)", borderRadius: "var(--radius-full)" }}>
-                      Appointment booked · {REPAIR_STATUS_LABEL[repairForSelected.status] ?? repairForSelected.status} · {new Date(repairForSelected.appointmentDate).toLocaleString()}
+                <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+                  {!messages && (
+                    <div className="empty-state">
+                      <div className="empty-state-title">Loading messages</div>
+                      <div className="empty-state-description">Fetching the thread for this conversation.</div>
                     </div>
                   )}
+
+                  {messages?.length === 0 && selected.channel === "repair-tracking" && repairForSelected && (
+                    <div
+                      className="machine-block"
+                      style={{ alignSelf: "center", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "8px 12px" }}
+                    >
+                      <span className="lamp lamp-machine">Appointment booked</span>
+                      <span className="data" style={{ fontSize: 11.5, color: "var(--ink-2)" }}>
+                        {REPAIR_STATUS_LABEL[repairForSelected.status] ?? repairForSelected.status}
+                      </span>
+                      <span className="data" style={{ fontSize: 11.5, color: "var(--ink-3)" }}>
+                        {new Date(repairForSelected.appointmentDate).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+
                   {messages?.map((m) => {
                     if (m.role === "system") {
                       return (
-                        <div key={m.id} style={{ alignSelf: "center", fontSize: 10, color: "var(--text-faint)", textAlign: "center", padding: "3px 10px", background: "var(--surface)", borderRadius: "var(--radius-full)" }}>
-                          {m.content} · {new Date(m.createdAt).toLocaleString()}
+                        <div
+                          key={m.id}
+                          className="machine-block"
+                          style={{
+                            alignSelf: "center",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            flexWrap: "wrap",
+                            maxWidth: "82%",
+                            padding: "7px 12px",
+                          }}
+                        >
+                          <span className="lamp lamp-idle">{m.content}</span>
+                          <span className="data" style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                            {new Date(m.createdAt).toLocaleString()}
+                          </span>
                         </div>
                       );
                     }
+
                     const isCustomer = m.role === "user";
+                    const isMachine = !isCustomer && !!m.provider;
+                    const fromRight = !isCustomer;
                     return (
-                      <div key={m.id} style={{ display: "flex", gap: 8, flexDirection: isCustomer ? "row" : "row-reverse", maxWidth: "80%", alignSelf: isCustomer ? "flex-start" : "flex-end" }}>
-                        <div style={{ width: 26, height: 26, borderRadius: "50%", flexShrink: 0, background: isCustomer ? "var(--surface)" : "var(--accent)", color: isCustomer ? "var(--text-muted)" : "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 10, border: isCustomer ? "1px solid var(--border)" : "none" }}>
-                          {isCustomer ? initials(displayName(selected)) : "AI"}
+                      <div
+                        key={m.id}
+                        style={{
+                          display: "flex",
+                          gap: 8,
+                          flexDirection: fromRight ? "row-reverse" : "row",
+                          maxWidth: "82%",
+                          alignSelf: fromRight ? "flex-end" : "flex-start",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 26,
+                            height: 26,
+                            borderRadius: "50%",
+                            flexShrink: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontWeight: 600,
+                            fontSize: 10,
+                            background: isMachine
+                              ? "var(--machine-subtle)"
+                              : isCustomer
+                                ? "var(--panel-sunk)"
+                                : "var(--accent-subtle)",
+                            border: "1px solid " + (isMachine
+                              ? "var(--machine-line)"
+                              : isCustomer
+                                ? "var(--line)"
+                                : "var(--accent-line)"),
+                            color: isMachine ? "var(--machine)" : isCustomer ? "var(--ink-2)" : "var(--accent)",
+                          }}
+                        >
+                          {isCustomer ? initials(displayName(selected)) : <NavIcon id={isMachine ? "brain" : "staff"} style={{ color: "inherit" }} />}
                         </div>
-                        <div style={{ textAlign: isCustomer ? "left" : "right" }}>
-                          <div style={{ background: isCustomer ? "var(--surface)" : "var(--accent)", color: isCustomer ? "var(--text)" : "white", border: isCustomer ? "1px solid var(--border)" : "none", borderRadius: isCustomer ? "10px 10px 10px 4px" : "10px 10px 4px 10px", padding: "8px 12px", fontSize: 13, textAlign: "left", display: "inline-block", lineHeight: 1.5 }}>
-                            {isCustomer ? m.content : <MarkdownMessage text={m.content} />}
-                          </div>
-                          {!isCustomer && m.provider && (
-                            <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 3, display: "flex", alignItems: "center", gap: 4, justifyContent: "flex-end" }}>
-                              via {m.provider}
-                              <ReasoningInfo provider={m.provider} confidence={m.confidence} sources={m.sources} />
+
+                        <div style={{ minWidth: 0, textAlign: fromRight ? "right" : "left" }}>
+                          {isMachine ? (
+                            <div className="machine-block" style={{ ...BUBBLE, display: "inline-block", textAlign: "left" }}>
+                              <MarkdownMessage text={m.content} />
+                            </div>
+                          ) : (
+                            <div
+                              style={{
+                                ...BUBBLE,
+                                display: "inline-block",
+                                background: isCustomer ? "var(--panel-sunk)" : "var(--panel)",
+                                border: "1px solid " + (isCustomer ? "var(--line)" : "var(--accent-line)"),
+                                boxShadow: isCustomer ? "none" : "inset 3px 0 0 var(--accent)",
+                              }}
+                            >
+                              {isCustomer ? m.content : <MarkdownMessage text={m.content} />}
                             </div>
                           )}
-                          <div style={{ marginTop: 4 }}>
-                            <MessageTagControl catalog={tagCatalog} applied={messageTags[m.id] ?? []} onAssign={(tagId) => assignMessageTag(m.id, tagId)} onRemove={(tagId) => removeMessageTag(m.id, tagId)} />
+
+                          <div style={{ ...META_ROW, justifyContent: fromRight ? "flex-end" : "flex-start" }}>
+                            <span className="data" style={{ fontSize: 11, color: "var(--ink-4)" }}>
+                              {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                            {isMachine && m.provider && (
+                              <span className="data" style={{ fontSize: 11, color: "var(--machine)", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                via {m.provider}
+                                <ReasoningInfo provider={m.provider} confidence={m.confidence} sources={m.sources} />
+                              </span>
+                            )}
+                            {!isCustomer && !isMachine && (
+                              <span className="data" style={{ fontSize: 11, color: "var(--accent)" }}>Staff</span>
+                            )}
+                          </div>
+
+                          <div style={{ marginTop: 5 }}>
+                            <MessageTagControl
+                              catalog={tagCatalog}
+                              applied={messageTags[m.id] ?? []}
+                              onAssign={(tagId) => assignMessageTag(m.id, tagId)}
+                              onRemove={(tagId) => removeMessageTag(m.id, tagId)}
+                            />
                           </div>
                         </div>
                       </div>
@@ -1029,193 +1213,388 @@ export function AllChatsPanel({ businessId, active = true, businessType, account
                   })}
                 </div>
 
-                {/* Reply Input */}
-                <div style={{ padding: "10px 12px", borderTop: "1px solid var(--border-subtle)", display: "flex", gap: 8, background: "var(--bg-elevated)" }}>
-                  <input style={{ flex: 1, padding: "8px 12px", fontSize: 13, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)", fontFamily: "inherit" }} value={reply} onChange={(e) => setReply(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") sendReply(); }} placeholder="Type your reply..." />
-                  <button onClick={sendReply} disabled={sending} className="primary" style={{ padding: "8px 16px", fontSize: 13 }}>
-                    {sending ? "Sending..." : "Send"}
+                {/* Reply */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-end",
+                    gap: 8,
+                    padding: "10px 12px",
+                    borderTop: "1px solid var(--line-soft)",
+                    background: "var(--panel)",
+                  }}
+                >
+                  <div className="field" style={{ flex: 1 }}>
+                    <label className="field-label" htmlFor="aiva-reply-input">Reply</label>
+                    <input
+                      id="aiva-reply-input"
+                      value={reply}
+                      onChange={(e) => setReply(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") sendReply(); }}
+                      placeholder="Type your reply"
+                      style={{ fontSize: 13 }}
+                    />
+                  </div>
+                  <button onClick={sendReply} disabled={sending} className="primary">
+                    {sending ? "Sending" : "Send reply"}
                   </button>
                 </div>
-              </div>
 
-              {/* Detail Panel (right side) - hidden on mobile */}
-              {!isMobile && (
-              <div style={{ width: 260, flexShrink: 0, borderLeft: "1px solid var(--border-subtle)", overflowY: "auto", background: "var(--bg-elevated)", padding: "12px" }}>
-                {/* AI Controls -- hidden entirely once this client's AI
+        </>
+        )}
+        </>
+      }
+      context={
+        selected ? (
+          <div style={{ padding: 14, overflowY: "auto", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 14 }}>
+                {/* AI controls -- hidden entirely once this client's AI
                     Replies toggle (Client Access panel) is off. Defaults
                     to shown (true) until the lookup resolves, matching
                     Business.aiEnabled's own default-true. */}
                 {businessAiEnabled[selected.businessId] !== false ? (
-                  <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-                    <button onClick={() => setAiStatus("human")} disabled={settingStatus || selected.handoffStatus === "human"} style={{ flex: 1, fontSize: 11, padding: "6px 8px", background: selected.handoffStatus === "human" ? "var(--danger-subtle)" : "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: selected.handoffStatus === "human" ? "var(--danger)" : "var(--text-secondary)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer" }}>
-                      Stop AI
-                    </button>
-                    <button onClick={() => setAiStatus("bot")} disabled={settingStatus || selected.handoffStatus === "bot"} style={{ flex: 1, fontSize: 11, padding: "6px 8px", background: selected.handoffStatus === "bot" ? "var(--success-subtle)" : "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: selected.handoffStatus === "bot" ? "var(--success)" : "var(--text-secondary)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer" }}>
-                      Resume AI
-                    </button>
+                  <div style={RAIL_SECTION}>
+                    <span className="instrument-label" style={RAIL_LABEL}>AI replies</span>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button
+                        onClick={() => setAiStatus("human")}
+                        disabled={settingStatus || selected.handoffStatus === "human"}
+                        className={selected.handoffStatus === "human" ? "danger sm" : "ghost sm"}
+                        aria-pressed={selected.handoffStatus === "human"}
+                        style={{ flex: 1 }}
+                      >
+                        Stop AI
+                      </button>
+                      <button
+                        onClick={() => setAiStatus("bot")}
+                        disabled={settingStatus || selected.handoffStatus === "bot"}
+                        className={selected.handoffStatus === "bot" ? "machine sm" : "ghost sm"}
+                        aria-pressed={selected.handoffStatus === "bot"}
+                        style={{ flex: 1 }}
+                      >
+                        Resume AI
+                      </button>
+                    </div>
                   </div>
                 ) : (
-                  <div style={{ marginBottom: 16, fontSize: 11, color: "var(--text-faint)", padding: "6px 8px", background: "var(--surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
-                    AI replies are off for this client (Client Access panel).
+                  <div className="machine-block" style={{ ...RAIL_SECTION, padding: "10px 12px" }}>
+                    <span className="lamp lamp-warn">AI replies are off</span>
+                    <div style={{ fontSize: 11.5, color: "var(--ink-2)", marginTop: 4, lineHeight: 1.5 }}>
+                      Turn them back on in Client Access to let the AI answer this thread.
+                    </div>
                   </div>
                 )}
 
-                {/* Agent Assignment */}
                 {businessId && (
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>Assigned Agent</div>
-                    <select value={selected.assignedAgentId ?? ""} onChange={(e) => reassignSelected(e.target.value || null)} disabled={reassigning} style={{ width: "100%", padding: "6px 8px", fontSize: 12, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)", fontFamily: "inherit" }}>
-                      <option value="">Unassigned</option>
-                      {agentsForBusiness.map((a) => (
-                        <option key={a.id} value={a.id}>{a.username} {a.online ? "(online)" : "(offline)"}</option>
-                      ))}
-                    </select>
+                  <div style={RAIL_SECTION}>
+                    <span className="instrument-label" style={RAIL_LABEL}>Assigned agent</span>
+                    <div className="field">
+                      <label className="field-label" htmlFor="aiva-assigned-agent">Agent</label>
+                      <select
+                        id="aiva-assigned-agent"
+                        value={selected.assignedAgentId ?? ""}
+                        onChange={(e) => reassignSelected(e.target.value || null)}
+                        disabled={reassigning}
+                        style={{ fontSize: 12.5 }}
+                      >
+                        <option value="">Unassigned</option>
+                        {agentsForBusiness.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.username} {a.online ? "(online)" : "(offline)"}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 )}
 
-                {/* Contact Details */}
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>Contact Details</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ color: "var(--text-muted)" }}>Name</span>
-                      <span style={{ color: "var(--text)" }}>{displayName(selected)}</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ color: "var(--text-muted)" }}>Channel ID</span>
-                      <span style={{ maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text)" }}>{selected.externalUserId ?? "—"}</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ color: "var(--text-muted)" }}>Channel</span>
-                      <span style={{ color: "var(--text)" }}>{CHANNEL_LABEL[selected.channel]?.label ?? selected.channel}</span>
-                    </div>
+                <div style={RAIL_SECTION}>
+                  <span className="instrument-label" style={RAIL_LABEL}>Contact details</span>
+                  <div style={RAIL_ROW}>
+                    <span style={RAIL_KEY}>Name</span>
+                    <span style={RAIL_VALUE}>{displayName(selected)}</span>
+                  </div>
+                  <div style={RAIL_ROW}>
+                    <span style={RAIL_KEY}>Channel ID</span>
+                    <span className="data" style={RAIL_VALUE} title={selected.externalUserId ?? ""}>
+                      {selected.externalUserId ?? "—"}
+                    </span>
+                  </div>
+                  <div style={RAIL_ROW}>
+                    <span style={RAIL_KEY}>Channel</span>
+                    <span style={RAIL_VALUE}>{CHANNEL_LABEL[selected.channel]?.label ?? selected.channel}</span>
                   </div>
                 </div>
 
                 {contactForSelected !== undefined && (
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>CRM Contact</div>
+                  <div style={RAIL_SECTION}>
+                    <span className="instrument-label" style={RAIL_LABEL}>CRM contact</span>
                     {contactForSelected ? (
-                      <div style={{ fontSize: 12 }}>
-                        <div style={{ color: "var(--text)" }}>{contactForSelected.name}</div>
-                        {contactForSelected.email && <div style={{ color: "var(--text-muted)", marginTop: 2 }}>{contactForSelected.email}</div>}
-                        <div style={{ color: "var(--text-faint)", marginTop: 4, fontSize: 10 }}>{shortId(contactForSelected.id)}</div>
+                      <div>
+                        <div style={{ fontSize: 12.5, color: "var(--ink)" }}>{contactForSelected.name}</div>
+                        {contactForSelected.email && (
+                          <div className="data" style={{ fontSize: 11.5, color: "var(--ink-2)", marginTop: 2, overflowWrap: "anywhere" }}>
+                            {contactForSelected.email}
+                          </div>
+                        )}
+                        <div className="data" style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 4 }}>{shortId(contactForSelected.id)}</div>
                       </div>
                     ) : (
-                      <span style={{ fontSize: 12, color: "var(--text-faint)" }}>No linked contact record</span>
+                      <div style={{ fontSize: 12, color: "var(--ink-3)" }}>No linked contact record</div>
                     )}
                   </div>
                 )}
 
-                {/* Notes */}
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>Notes</div>
-                  <p style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 0, marginBottom: 6 }}>Private to your team</p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 6 }}>
-                    {notes === null && <span style={{ fontSize: 12, color: "var(--text-faint)" }}>Loading...</span>}
-                    {notes !== null && notes.length === 0 && <span style={{ fontSize: 12, color: "var(--text-faint)" }}>No notes yet</span>}
+                <div style={RAIL_SECTION}>
+                  <span className="instrument-label" style={RAIL_LABEL}>Notes</span>
+                  <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginBottom: 8 }}>Private to your team</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
+                    {notes === null && <div className="skeleton" style={{ height: 48 }} />}
+                    {notes !== null && notes.length === 0 && (
+                      <div className="empty-state" style={{ padding: "14px 12px" }}>
+                        <div className="empty-state-title">No notes yet</div>
+                        <div className="empty-state-description">Notes stay inside your team, never in the thread.</div>
+                      </div>
+                    )}
                     {notes?.map((n) => (
-                      <div key={n.id} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: 10, fontSize: 12 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                          <span style={{ fontWeight: 600, color: "var(--text)" }}>{n.author}</span>
-                          <button onClick={() => deleteNote(n.id)} className="ghost" style={{ color: "var(--text-faint)", fontSize: 10, padding: 0, background: "none", border: "none", cursor: "pointer" }}>×</button>
+                      <div
+                        key={n.id}
+                        style={{
+                          padding: "9px 10px",
+                          fontSize: 12.5,
+                          background: "var(--panel-sunk)",
+                          border: "1px solid var(--line)",
+                          borderRadius: "var(--r-sm)",
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                          <span style={{ fontWeight: 600, color: "var(--ink)" }}>{n.author}</span>
+                          <button
+                            onClick={() => deleteNote(n.id)}
+                            className="plain"
+                            aria-label={`Delete note by ${n.author}`}
+                            title="Delete note"
+                            style={{ padding: 2, color: "var(--ink-4)", display: "flex" }}
+                          >
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                              <path d="M18 6 6 18" />
+                              <path d="m6 6 12 12" />
+                            </svg>
+                          </button>
                         </div>
-                        <div style={{ whiteSpace: "pre-wrap", color: "var(--text-secondary)" }}>{n.body}</div>
-                        <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 4 }}>{new Date(n.createdAt).toLocaleString()}</div>
+                        <div style={{ whiteSpace: "pre-wrap", color: "var(--ink-2)", lineHeight: 1.5 }}>{n.body}</div>
+                        <div className="data" style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 5 }}>
+                          {new Date(n.createdAt).toLocaleString()}
+                        </div>
                       </div>
                     ))}
                   </div>
-                  <textarea value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder="Leave a note..." style={{ width: "100%", padding: "8px 10px", fontSize: 12, boxSizing: "border-box", minHeight: 50, resize: "vertical", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)", fontFamily: "inherit" }} />
-                  <button onClick={addNote} disabled={savingNote || !newNote.trim()} className="ghost" style={{ fontSize: 11, padding: "6px 10px", marginTop: 6 }}>
-                    {savingNote ? "Saving..." : "+ Add note"}
+                  <div className="field">
+                    <label className="field-label" htmlFor="aiva-new-note">Add a note</label>
+                    <textarea
+                      id="aiva-new-note"
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
+                      placeholder="Leave a note"
+                      style={{ minHeight: 54, resize: "vertical", fontSize: 12.5 }}
+                    />
+                  </div>
+                  <button onClick={addNote} disabled={savingNote || !newNote.trim()} className="ghost sm" style={{ marginTop: 6 }}>
+                    {savingNote ? "Saving" : "Add note"}
                   </button>
                 </div>
 
-                {/* Tags */}
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>Tags</div>
-                  <MessageTagControl catalog={tagCatalog} applied={conversationTags[selected.id] ?? []} onAssign={(tagId) => assignConversationTag(selected.id, tagId)} onRemove={(tagId) => removeConversationTag(selected.id, tagId)} />
+                <div style={RAIL_SECTION}>
+                  <span className="instrument-label" style={RAIL_LABEL}>Tags</span>
+                  <MessageTagControl
+                    catalog={tagCatalog}
+                    applied={conversationTags[selected.id] ?? []}
+                    onAssign={(tagId) => assignConversationTag(selected.id, tagId)}
+                    onRemove={(tagId) => removeConversationTag(selected.id, tagId)}
+                  />
                 </div>
 
-                {/* Repair Details */}
                 {selected.channel === "repair-tracking" && repairForSelected !== undefined && (
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>Repair Details</div>
+                  <div style={RAIL_SECTION}>
+                    <span className="instrument-label" style={RAIL_LABEL}>Repair details</span>
                     {repairForSelected ? (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Order ID</span><span style={{ color: "var(--text)" }}>{shortId(repairForSelected.id)}</span></div>
-                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Customer</span><span style={{ color: "var(--text)" }}>{repairForSelected.customerName}</span></div>
-                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Phone</span><span style={{ color: "var(--text)" }}>{repairForSelected.phone}</span></div>
+                      <>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+                          <span className={REPAIR_LAMP[repairForSelected.status] ?? "lamp lamp-idle"}>
+                            {REPAIR_STATUS_LABEL[repairForSelected.status] ?? repairForSelected.status}
+                          </span>
+                          <span className="data" style={{ fontSize: 11, color: "var(--ink-4)" }}>{shortId(repairForSelected.id)}</span>
+                        </div>
+                        <div style={RAIL_ROW}>
+                          <span style={RAIL_KEY}>Order ID</span>
+                          <span className="data" style={RAIL_VALUE}>{shortId(repairForSelected.id)}</span>
+                        </div>
+                        <div style={RAIL_ROW}>
+                          <span style={RAIL_KEY}>Customer</span>
+                          <span style={RAIL_VALUE}>{repairForSelected.customerName}</span>
+                        </div>
+                        <div style={RAIL_ROW}>
+                          <span style={RAIL_KEY}>Phone</span>
+                          <span className="data" style={RAIL_VALUE}>{repairForSelected.phone}</span>
+                        </div>
                         {repairForSelected.email && (
-                          <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Email</span><span style={{ color: "var(--text)" }}>{repairForSelected.email}</span></div>
+                          <div style={RAIL_ROW}>
+                            <span style={RAIL_KEY}>Email</span>
+                            <span className="data" style={RAIL_VALUE} title={repairForSelected.email}>
+                              {repairForSelected.email}
+                            </span>
+                          </div>
                         )}
-                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Device</span><span style={{ color: "var(--text)" }}>{repairForSelected.deviceType}{repairForSelected.deviceModel ? ` — ${repairForSelected.deviceModel}` : ""}</span></div>
-                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Source</span><span style={{ color: "var(--text)" }}>{repairForSelected.source === "website" ? "🌐 Website" : repairForSelected.source?.startsWith("walk-in") ? `🚶 ${repairForSelected.source}` : repairForSelected.source ? `👤 ${repairForSelected.source}` : repairForSelected.isWalkIn ? "🚶 Walk-in" : new Date(repairForSelected.appointmentDate).toLocaleString()}</span></div>
-                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Tracking code</span><button onClick={() => navigator.clipboard.writeText(repairForSelected.trackingToken)} title="Click to copy" style={{ background: "none", border: "none", padding: 0, color: "var(--accent)", fontFamily: "inherit", fontSize: 12, cursor: "pointer" }}>{repairForSelected.trackingToken}</button></div>
-                        <div style={{ color: "var(--text-secondary)", marginTop: 4 }}>{repairForSelected.issueDescription}</div>
-                        <select value={repairForSelected.status} onChange={(e) => updateRepairStatus(e.target.value)} disabled={savingRepairStatus} style={{ padding: "7px 10px", fontSize: 12, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)", fontFamily: "inherit" }}>
-                          {REPAIR_STATUS_OPTIONS.map((s) => (<option key={s} value={s}>{REPAIR_STATUS_LABEL[s]}</option>))}
-                        </select>
-                      </div>
+                        <div style={RAIL_ROW}>
+                          <span style={RAIL_KEY}>Device</span>
+                          <span style={RAIL_VALUE}>
+                            {repairForSelected.deviceType}
+                            {repairForSelected.deviceModel ? ` — ${repairForSelected.deviceModel}` : ""}
+                          </span>
+                        </div>
+                        <div style={RAIL_ROW}>
+                          <span style={RAIL_KEY}>Source</span>
+                          <span className="data" style={RAIL_VALUE}>
+                            {repairForSelected.source === "website"
+                              ? "Website"
+                              : repairForSelected.source?.startsWith("walk-in")
+                                ? repairForSelected.source
+                                : repairForSelected.source
+                                  ? repairForSelected.source
+                                  : repairForSelected.isWalkIn
+                                    ? "Walk-in"
+                                    : new Date(repairForSelected.appointmentDate).toLocaleString()}
+                          </span>
+                        </div>
+                        <div style={RAIL_ROW}>
+                          <span style={RAIL_KEY}>Tracking code</span>
+                          <button
+                            onClick={() => navigator.clipboard.writeText(repairForSelected.trackingToken)}
+                            className="plain data"
+                            title="Copy tracking code"
+                            style={{ color: "var(--accent)", fontSize: 11.5 }}
+                          >
+                            {repairForSelected.trackingToken}
+                          </button>
+                        </div>
+                        <div style={{ fontSize: 12.5, lineHeight: 1.55, color: "var(--ink-2)", marginTop: 8 }}>
+                          {repairForSelected.issueDescription}
+                        </div>
+                        <div className="field" style={{ marginTop: 10 }}>
+                          <label className="field-label" htmlFor="aiva-repair-status">Repair status</label>
+                          <select
+                            id="aiva-repair-status"
+                            value={repairForSelected.status}
+                            onChange={(e) => updateRepairStatus(e.target.value)}
+                            disabled={savingRepairStatus}
+                            style={{ fontSize: 12.5 }}
+                          >
+                            {REPAIR_STATUS_OPTIONS.map((s) => (
+                              <option key={s} value={s}>{REPAIR_STATUS_LABEL[s]}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </>
                     ) : (
-                      <p style={{ fontSize: 12, color: "var(--text-faint)" }}>No appointment found.</p>
+                      <div className="empty-state" style={{ padding: "14px 12px" }}>
+                        <div className="empty-state-title">No appointment</div>
+                        <div className="empty-state-description">This repair thread has no linked appointment record.</div>
+                      </div>
                     )}
                   </div>
                 )}
 
-                {/* Order */}
                 {selected.channel !== "repair-tracking" && orderForSelected !== undefined && (
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>Order</div>
+                  <div style={RAIL_SECTION}>
+                    <span className="instrument-label" style={RAIL_LABEL}>Order</span>
                     {orderForSelected ? (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Order ID</span><span style={{ color: "var(--text)" }}>{shortId(orderForSelected.id)}</span></div>
-                        <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--text-muted)" }}>Customer</span><span style={{ color: "var(--text)" }}>{orderForSelected.customerName}</span></div>
-                        <div style={{ color: "var(--text-secondary)" }}>{orderForSelected.products}</div>
-                        <div style={{ color: "var(--text-muted)" }}>{orderForSelected.deliveryAddress}</div>
-                        <div style={{ color: "var(--text-muted)" }}>{orderForSelected.paymentMethod} · {orderForSelected.phone}</div>
-                      </div>
+                      <>
+                        <div style={RAIL_ROW}>
+                          <span style={RAIL_KEY}>Order ID</span>
+                          <span className="data" style={RAIL_VALUE}>{shortId(orderForSelected.id)}</span>
+                        </div>
+                        <div style={RAIL_ROW}>
+                          <span style={RAIL_KEY}>Customer</span>
+                          <span style={RAIL_VALUE}>{orderForSelected.customerName}</span>
+                        </div>
+                        <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginTop: 6 }}>{orderForSelected.products}</div>
+                        <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 4 }}>{orderForSelected.deliveryAddress}</div>
+                        <div className="data" style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 }}>
+                          {orderForSelected.paymentMethod}
+                        </div>
+                        <div className="data" style={{ fontSize: 11.5, color: "var(--ink-3)" }}>
+                          {orderForSelected.phone}
+                        </div>
+                      </>
                     ) : (
-                      <p style={{ fontSize: 12, color: "var(--text-faint)" }}>No order for this conversation.</p>
+                      <div style={{ fontSize: 12, color: "var(--ink-3)" }}>No order for this conversation.</div>
                     )}
                   </div>
                 )}
 
-                {/* Order Management */}
                 {selected.channel !== "repair-tracking" && repairForSelected !== undefined && (
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>Order Management</div>
+                  <div style={RAIL_SECTION}>
+                    <span className="instrument-label" style={RAIL_LABEL}>Order management</span>
                     {repairForSelected ? (
-                      <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>Order {repairForSelected.serialNumber ?? shortId(repairForSelected.id)} already created.</p>
+                      <p style={{ fontSize: 12.5, color: "var(--ink-2)", margin: 0 }}>
+                        Order {repairForSelected.serialNumber ?? shortId(repairForSelected.id)} already created.
+                      </p>
                     ) : creatingOrder ? (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                        <input placeholder="Phone *" value={newOrderForm.phone} onChange={(e) => setNewOrderForm({ ...newOrderForm, phone: e.target.value })} style={{ padding: 6, fontSize: 12, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)", fontFamily: "inherit" }} />
-                        <input placeholder="Device type *" value={newOrderForm.deviceType} onChange={(e) => setNewOrderForm({ ...newOrderForm, deviceType: e.target.value })} style={{ padding: 6, fontSize: 12, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)", fontFamily: "inherit" }} />
-                        <input placeholder="Issue *" value={newOrderForm.issueDescription} onChange={(e) => setNewOrderForm({ ...newOrderForm, issueDescription: e.target.value })} style={{ padding: 6, fontSize: 12, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text)", fontFamily: "inherit" }} />
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        <div className="field">
+                          <label className="field-label" htmlFor="aiva-order-phone">Phone</label>
+                          <input
+                            id="aiva-order-phone"
+                            value={newOrderForm.phone}
+                            onChange={(e) => setNewOrderForm({ ...newOrderForm, phone: e.target.value })}
+                            style={{ fontSize: 12.5 }}
+                          />
+                        </div>
+                        <div className="field">
+                          <label className="field-label" htmlFor="aiva-order-device">Device type</label>
+                          <input
+                            id="aiva-order-device"
+                            value={newOrderForm.deviceType}
+                            onChange={(e) => setNewOrderForm({ ...newOrderForm, deviceType: e.target.value })}
+                            style={{ fontSize: 12.5 }}
+                          />
+                        </div>
+                        <div className="field">
+                          <label className="field-label" htmlFor="aiva-order-issue">Issue</label>
+                          <textarea
+                            id="aiva-order-issue"
+                            value={newOrderForm.issueDescription}
+                            onChange={(e) => setNewOrderForm({ ...newOrderForm, issueDescription: e.target.value })}
+                            style={{ minHeight: 60, resize: "vertical", fontSize: 12.5 }}
+                          />
+                        </div>
                         <div style={{ display: "flex", gap: 6 }}>
-                          <button onClick={createOrderFromChat} disabled={savingNewOrder} className="primary" style={{ fontSize: 12, padding: "6px 10px" }}>{savingNewOrder ? "Creating..." : "Create"}</button>
-                          <button onClick={() => setCreatingOrder(false)} style={{ fontSize: 12, padding: "6px 10px" }}>Cancel</button>
+                          <button onClick={createOrderFromChat} disabled={savingNewOrder} className="primary sm">
+                            {savingNewOrder ? "Creating" : "Create order"}
+                          </button>
+                          <button onClick={() => setCreatingOrder(false)} className="ghost sm">
+                            Cancel
+                          </button>
                         </div>
                       </div>
                     ) : (
-                      <button onClick={() => setCreatingOrder(true)} style={{ fontSize: 12, padding: "6px 10px" }}>+ Create Order</button>
+                      <button onClick={() => setCreatingOrder(true)} className="ghost sm">
+                        Create order
+                      </button>
                     )}
                   </div>
                 )}
 
-                {/* Summary */}
                 {summaryBySession[selected.id] && (
                   <div>
-                    <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-faint)", marginBottom: 6 }}>Summary</div>
-                    <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, margin: 0 }}>{summaryBySession[selected.id]}</p>
+                    <span className="instrument-label" style={RAIL_LABEL}>Summary</span>
+                    <div style={{ maxWidth: "68ch" }}>
+                      <MarkdownMessage text={summaryBySession[selected.id] ?? ""} />
+                    </div>
                   </div>
                 )}
-              </div>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-    </div>
+        </div>
+        ) : null
+      }
+    />
   );
 }

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import { cardStyle, cellStyle, subtleTextStyle, primaryButtonStyle } from "./dashboard-styles";
 
 interface Credential {
   channel: string;
@@ -66,79 +65,112 @@ export function PlatformChannelAppsPanel() {
   }
 
   return (
-    <section style={cardStyle}>
-      <h2 style={{ marginTop: 0 }}>Integrations</h2>
-      <p style={subtleTextStyle}>
-        Platform-wide Meta App setup — a one-time step per channel, done
-        here once, that unlocks the &quot;Connect&quot; button on every client&apos;s
-        own dashboard. The App Secret is never sent back to this page once
-        saved, only whether one is set. Webhook URL to enter in Meta&apos;s app
-        dashboard: <code>{`{your deployed domain}`}/api/webhooks/{"{channel}"}</code>
-      </p>
+    <section className="panel">
+      <div className="panel-head">
+        <span className="instrument-label">Platform integrations</span>
+      </div>
+      <div className="panel-body">
+        <p className="meta" style={{ marginTop: 0 }}>
+          Platform-wide Meta App setup — a one-time step per channel, done here once, that
+          unlocks the &quot;Connect&quot; button on every client&apos;s own dashboard. The App Secret
+          is never sent back to this page once saved, only whether one is set. Webhook URL to enter
+          in Meta&apos;s app dashboard:{" "}
+          <code>{`{your deployed domain}`}/api/webhooks/{"{channel}"}</code>
+        </p>
 
-      {!credentials && <p>Loading…</p>}
-
-      {credentials && (
-        <>
-          <div className="table-scroll">
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={cellStyle}>Channel</th>
-                <th style={cellStyle}>App ID</th>
-                <th style={{ ...cellStyle, whiteSpace: "nowrap" }}>App Secret</th>
-                <th style={cellStyle}>Webhook verify token</th>
-              </tr>
-            </thead>
-            <tbody>
-              {credentials.map((c) => (
-                <tr key={c.channel}>
-                  <td style={cellStyle}>{c.label}</td>
-                  <td style={cellStyle}>{c.appId || "—"}</td>
-                  <td style={cellStyle}>{c.hasSecret ? "✅ set" : "—"}</td>
-                  <td style={cellStyle}>{c.webhookVerifyToken || "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {!credentials && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="skeleton" style={{ height: 28 }} />
+            <div className="skeleton" style={{ height: 28 }} />
           </div>
+        )}
 
-          <h3 style={{ marginTop: 24 }}>Edit</h3>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <select value={selected} onChange={(e) => setSelected(e.target.value)} style={{ padding: 8 }}>
-              {credentials.map((c) => (
-                <option key={c.channel} value={c.channel}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-            <input
-              placeholder="App ID"
-              value={appId}
-              onChange={(e) => setAppId(e.target.value)}
-              style={{ padding: 8, flex: 1, minWidth: 140 }}
-            />
-            <input
-              placeholder="App Secret (leave blank to keep current)"
-              type="password"
-              value={appSecret}
-              onChange={(e) => setAppSecret(e.target.value)}
-              style={{ padding: 8, flex: 1, minWidth: 200 }}
-            />
-            <input
-              placeholder="Webhook verify token"
-              value={verifyToken}
-              onChange={(e) => setVerifyToken(e.target.value)}
-              style={{ padding: 8, flex: 1, minWidth: 160 }}
-            />
-            <button onClick={save} disabled={saving} style={primaryButtonStyle}>
-              {saving ? "Saving…" : "Save"}
-            </button>
-          </div>
+        {credentials && (
+          <>
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">Channel</th>
+                    <th scope="col">App ID</th>
+                    <th scope="col">App secret</th>
+                    <th scope="col">Webhook verify token</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {credentials.map((c) => (
+                    <tr key={c.channel}>
+                      <td>
+                        <span className="data" style={{ color: "var(--ink)" }}>{c.label}</span>
+                      </td>
+                      <td><span className="data">{c.appId || "—"}</span></td>
+                      <td>
+                        {c.hasSecret ? (
+                          <span className="lamp lamp-ok">set</span>
+                        ) : (
+                          <span className="data">—</span>
+                        )}
+                      </td>
+                      <td><span className="data">{c.webhookVerifyToken || "—"}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-          {message && <p style={{ fontSize: 13, opacity: 0.8, marginTop: 8 }}>{message}</p>}
-        </>
-      )}
+            <div className="toolbar" style={{ marginTop: 18, marginBottom: 0, alignItems: "flex-end" }}>
+              <label className="field" style={{ flex: "0 0 auto" }}>
+                <span className="instrument-label">Channel</span>
+                <select value={selected} onChange={(e) => setSelected(e.target.value)}>
+                  {credentials.map((c) => (
+                    <option key={c.channel} value={c.channel}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field" style={{ flex: 1, minWidth: 140 }}>
+                <span className="instrument-label">App ID</span>
+                <input
+                  placeholder="App ID"
+                  value={appId}
+                  onChange={(e) => setAppId(e.target.value)}
+                />
+              </label>
+              <label className="field" style={{ flex: 1, minWidth: 200 }}>
+                <span className="instrument-label">App secret</span>
+                <input
+                  placeholder="Leave blank to keep current"
+                  type="password"
+                  value={appSecret}
+                  onChange={(e) => setAppSecret(e.target.value)}
+                />
+              </label>
+              <label className="field" style={{ flex: 1, minWidth: 160 }}>
+                <span className="instrument-label">Webhook verify token</span>
+                <input
+                  placeholder="Verify token"
+                  value={verifyToken}
+                  onChange={(e) => setVerifyToken(e.target.value)}
+                />
+              </label>
+              <button onClick={save} disabled={saving} className="primary">
+                {saving ? "Saving…" : "Save credentials"}
+              </button>
+            </div>
+
+            {message && (
+              <div style={{ marginTop: 12 }}>
+                {message.startsWith("Error") ? (
+                  <span className="lamp lamp-err">{message}</span>
+                ) : (
+                  <span className="lamp lamp-ok">{message}</span>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </section>
   );
 }

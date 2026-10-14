@@ -2,7 +2,6 @@
 
 import { Fragment, useEffect, useState } from "react";
 
-import { cardStyle, cellStyle, subtleTextStyle, badgeStyle, primaryButtonStyle } from "./dashboard-styles";
 import { generatePassword } from "./ClientAccessPanel";
 import { showConfirm } from "../lib/app-dialog";
 
@@ -151,129 +150,213 @@ export function AdminUsersPanel() {
   }
 
   return (
-    <section style={cardStyle}>
-      <h2 style={{ marginTop: 0 }}>Admin Users</h2>
-      <p style={subtleTextStyle}>
-        Full-platform logins, same access as the fixed admin identity you sign in with today — that one keeps
-        working as-is (it&apos;s checked first at sign-in); these are additional, self-service admin logins you
-        can create, rotate, or revoke instantly, no deploy needed.
-      </p>
-
-      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 16 }}>
-        <input
-          style={{ padding: 8, minWidth: 160 }}
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
-        <input
-          style={{ padding: 8, minWidth: 180 }}
-          placeholder="Password (min 8 chars)"
-          type={showPassword ? "text" : "password"}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <button type="button" onClick={() => setPassword(generatePassword())}>
-          Generate
-        </button>
-        <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
-          <input type="checkbox" checked={showPassword} onChange={(e) => setShowPassword(e.target.checked)} />
-          Show
-        </label>
-        <button onClick={createAccount} disabled={creating || !username.trim() || password.length < 8} style={primaryButtonStyle}>
-          {creating ? "Creating…" : "+ Create admin login"}
-        </button>
+    <section className="panel">
+      <div className="panel-head">
+        <span className="instrument-label">Admin users</span>
+        {accounts && accounts.length > 0 && (
+          <span className="data" style={{ fontSize: 11 }}>{accounts.length} total</span>
+        )}
       </div>
 
-      {message && <p style={{ fontSize: 13, opacity: 0.85, marginTop: 8 }}>{message}</p>}
+      <div className="panel-body">
+        <p className="meta" style={{ marginTop: 0 }}>
+          Full-platform logins, same access as the fixed admin identity you sign in with today —
+          that one keeps working as-is (it&apos;s checked first at sign-in); these are additional,
+          self-service admin logins you can create, rotate, or revoke instantly, no deploy needed.
+        </p>
 
-      {!accounts && <p style={subtleTextStyle}>Loading…</p>}
-      {accounts?.length === 0 && <p style={subtleTextStyle}>No additional admin logins yet — create one above.</p>}
+        <div className="toolbar" style={{ alignItems: "flex-end" }}>
+          <label className="field" style={{ flex: 1, minWidth: 160 }}>
+            <span className="instrument-label">Username</span>
+            <input
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </label>
+          <label className="field" style={{ flex: 1, minWidth: 190 }}>
+            <span className="instrument-label">Password</span>
+            <div style={{ display: "flex", gap: 6 }}>
+              <input
+                placeholder="Min 8 characters"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button type="button" className="ghost sm" onClick={() => setPassword(generatePassword())}>
+                Generate
+              </button>
+            </div>
+          </label>
+          <label className="field" style={{ flex: "0 0 auto" }}>
+            <span className="instrument-label">Reveal</span>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, height: 34 }}>
+              <input
+                type="checkbox"
+                aria-label="Show password while typing"
+                checked={showPassword}
+                onChange={(e) => setShowPassword(e.target.checked)}
+              />
+              Show as I type
+            </label>
+          </label>
+          <button onClick={createAccount} disabled={creating || !username.trim() || password.length < 8} className="primary">
+            {creating ? "Creating…" : "Create admin login"}
+          </button>
+        </div>
 
-      {accounts && accounts.length > 0 && (
-        <div className="table-scroll">
-          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
-            <thead>
-              <tr>
-                <th style={cellStyle}>Username</th>
-                <th style={cellStyle}>Status</th>
-                <th style={cellStyle}>Password</th>
-                <th style={cellStyle}>Last login</th>
-                <th style={cellStyle}>Created</th>
-                <th style={cellStyle}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {accounts.map((a) => (
-                <Fragment key={a.id}>
-                  <tr>
-                    <td style={cellStyle}>{a.username}</td>
-                    <td style={cellStyle}>
-                      <span style={badgeStyle(a.disabled ? "error" : "ok")}>{a.disabled ? "Disabled" : "Active"}</span>
-                    </td>
-                    <td style={cellStyle}>
-                      <button onClick={() => togglePasswordBox(a)} className="plain" style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                        Change / reveal
-                      </button>
-                    </td>
-                    <td style={cellStyle}>{a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString() : "Never"}</td>
-                    <td style={cellStyle}>{new Date(a.createdAt).toLocaleDateString()}</td>
-                    <td style={cellStyle}>
-                      <button onClick={() => setDisabled(a, !a.disabled)} disabled={busyId === a.id}>
-                        {busyId === a.id ? "…" : a.disabled ? "Re-enable" : "Disable"}
-                      </button>{" "}
-                      <button onClick={() => deleteAccount(a)} disabled={busyId === a.id}>
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                  {pwExpandedId === a.id && (
+        {message && (
+          <div style={{ marginTop: 12 }}>
+            {message.startsWith("Error") ? (
+              <span className="lamp lamp-err">{message}</span>
+            ) : (
+              <span className="lamp lamp-ok">{message}</span>
+            )}
+          </div>
+        )}
+
+        {!accounts && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
+            <div className="skeleton" style={{ height: 28 }} />
+            <div className="skeleton" style={{ height: 28 }} />
+          </div>
+        )}
+
+        {accounts?.length === 0 && (
+          <div className="empty-state">
+            <div className="empty-state-title">No additional admin logins</div>
+            <div className="empty-state-description">
+              Create one above with the form above — it works like a client login, instantly and without a deploy.
+            </div>
+          </div>
+        )}
+
+        {accounts && accounts.length > 0 && (
+          <div className="table-scroll" style={{ marginTop: 16 }}>
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Username</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Password</th>
+                  <th scope="col">Last login</th>
+                  <th scope="col">Created</th>
+                  <th scope="col"><span style={{ display: "inline-block", width: 132 }}>Manage</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {accounts.map((a) => (
+                  <Fragment key={a.id}>
                     <tr>
-                      <td style={{ ...cellStyle, background: "var(--surface)" }} colSpan={6}>
-                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
-                          <button type="button" onClick={() => revealPassword(a)} disabled={revealing === a.id}>
-                            {revealing === a.id ? "Revealing…" : a.id in revealed ? "Hide password" : "Show current password"}
+                      <td><span style={{ color: "var(--ink)", fontWeight: 500 }}>{a.username}</span></td>
+                      <td>
+                        <span className={a.disabled ? "lamp lamp-err" : "lamp lamp-ok"}>
+                          {a.disabled ? "Disabled" : "Active"}
+                        </span>
+                      </td>
+                      <td>
+                        <button onClick={() => togglePasswordBox(a)} className="plain sm">
+                          Change / reveal
+                        </button>
+                      </td>
+                      <td><span className="data">{a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString() : "Never"}</span></td>
+                      <td><span className="data">{new Date(a.createdAt).toLocaleDateString()}</span></td>
+                      <td>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button
+                            className="ghost sm"
+                            onClick={() => setDisabled(a, !a.disabled)}
+                            disabled={busyId === a.id}
+                          >
+                            {busyId === a.id ? "Working…" : a.disabled ? "Re-enable" : "Disable"}
                           </button>
-                          {a.id in revealed && (
-                            <code style={{ padding: "6px 10px", background: "var(--bg)", borderRadius: 6, fontSize: 13 }}>
-                              {revealed[a.id] ?? "(unavailable — set a new one below)"}
-                            </code>
-                          )}
+                          <button
+                            className="danger sm"
+                            onClick={() => deleteAccount(a)}
+                            disabled={busyId === a.id}
+                          >
+                            Delete
+                          </button>
                         </div>
-                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                          <input
-                            style={{ padding: 8, minWidth: 180 }}
-                            placeholder="New password (min 8 chars)"
-                            type={pwShow[a.id] ? "text" : "password"}
-                            value={pwDraft[a.id] ?? ""}
-                            onChange={(e) => setPwDraft((prev) => ({ ...prev, [a.id]: e.target.value }))}
-                          />
-                          <button type="button" onClick={() => setPwDraft((prev) => ({ ...prev, [a.id]: generatePassword() }))}>
-                            Generate
-                          </button>
-                          <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
-                            <input
-                              type="checkbox"
-                              checked={!!pwShow[a.id]}
-                              onChange={(e) => setPwShow((prev) => ({ ...prev, [a.id]: e.target.checked }))}
-                            />
-                            Show
-                          </label>
-                          <button onClick={() => savePassword(a)} disabled={busyId === a.id} style={primaryButtonStyle}>
-                            {busyId === a.id ? "Saving…" : "Set new password"}
-                          </button>
-                          <button onClick={() => setPwExpandedId(null)}>Close</button>
-                        </div>
-                        {pwMessage && <p style={{ fontSize: 12.5, marginTop: 8 }}>{pwMessage}</p>}
                       </td>
                     </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                    {pwExpandedId === a.id && (
+                      <tr>
+                        <td style={{ background: "var(--panel-sunk)" }} colSpan={6}>
+                          <div className="toolbar" style={{ marginBottom: 10, alignItems: "flex-end" }}>
+                            <button
+                              type="button"
+                              className="ghost sm"
+                              onClick={() => revealPassword(a)}
+                              disabled={revealing === a.id}
+                            >
+                              {revealing === a.id
+                                ? "Revealing…"
+                                : a.id in revealed
+                                  ? "Hide password"
+                                  : "Show current password"}
+                            </button>
+                            {a.id in revealed && (
+                              <code className="data" style={{ padding: "5px 9px", background: "var(--panel-sunk)", borderRadius: 6, fontSize: 12.5 }}>
+                                {revealed[a.id] ?? "(unavailable — set a new one below)"}
+                              </code>
+                            )}
+                          </div>
+                          <div className="toolbar" style={{ marginBottom: 0, alignItems: "flex-end" }}>
+                            <label className="field" style={{ flex: 1, minWidth: 190 }}>
+                              <span className="instrument-label">New password</span>
+                              <input
+                                placeholder="Min 8 characters"
+                                type={pwShow[a.id] ? "text" : "password"}
+                                value={pwDraft[a.id] ?? ""}
+                                onChange={(e) => setPwDraft((prev) => ({ ...prev, [a.id]: e.target.value }))}
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              className="ghost sm"
+                              onClick={() => setPwDraft((prev) => ({ ...prev, [a.id]: generatePassword() }))}
+                            >
+                              Generate
+                            </button>
+                            <label className="field" style={{ flex: "0 0 auto" }}>
+                              <span className="instrument-label">Reveal</span>
+                              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, height: 34 }}>
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Show new password for ${a.username}`}
+                                  checked={!!pwShow[a.id]}
+                                  onChange={(e) => setPwShow((prev) => ({ ...prev, [a.id]: e.target.checked }))}
+                                />
+                                Show
+                              </label>
+                            </label>
+                            <button onClick={() => savePassword(a)} disabled={busyId === a.id} className="primary">
+                              {busyId === a.id ? "Saving…" : "Set new password"}
+                            </button>
+                            <button className="ghost sm" onClick={() => setPwExpandedId(null)}>Close</button>
+                          </div>
+                          {pwMessage && (
+                            <div style={{ marginTop: 10 }}>
+                              {pwMessage.startsWith("Error") ? (
+                                <span className="lamp lamp-err">{pwMessage}</span>
+                              ) : pwMessage.startsWith("Password changed") ? (
+                                <span className="lamp lamp-ok">{pwMessage}</span>
+                              ) : (
+                                <span className="lamp lamp-warn">{pwMessage}</span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

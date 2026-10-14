@@ -3,20 +3,36 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { NavIcon } from "./nav-icons";
 import { AppDialogHost } from "../lib/app-dialog";
+import { MasterProfileSelector } from "./MasterProfileSelector";
 
 type ThemeMode = "dark" | "light";
 
 export interface NavItem<T extends string> {
   id: T;
   label: string;
-  // New-activity count (new messages/conversations, new appointments,
-  // etc.) shown as a highlighted badge on this nav row -- capped at
-  // 100 for display so it never grows into an unreadable number.
   badge?: number;
 }
 
 function formatBadgeCount(n: number): string {
   return n > 100 ? "100+" : String(n);
+}
+
+function ShellClock() {
+  const [now, setNow] = useState<null | Date>(null);
+  useEffect(() => {
+    const update = () => setNow(new Date());
+    update();
+    const t = window.setInterval(update, 1000);
+    return () => window.clearInterval(t);
+  }, []);
+  return (
+    <span
+      suppressHydrationWarning
+      style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 500, letterSpacing: "0.02em", color: "var(--ink-3)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}
+    >
+      {now ? now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--:--"}
+    </span>
+  );
 }
 
 export interface NavGroup<T extends string> {
@@ -38,6 +54,7 @@ export function DashboardShell<T extends string>({
   fillHeight,
   children,
   businessId,
+  hideRail,
 }: {
   sidebarLabel: ReactNode;
   groups: NavGroup<T>[];
@@ -46,24 +63,13 @@ export function DashboardShell<T extends string>({
   username?: string | null;
   onLogout?: () => void;
   backHref?: string;
-  /** Rendered in the topbar, right before the theme toggle -- e.g. a
-   * business-scoped notification bell. Omit where there's no single
-   * business in scope (the mother dashboard). */
   topbarExtra?: ReactNode;
-  /** For a panel that manages its own internal scroll regions (an
-   * email-client-style 3-pane inbox with a message list and a reply box
-   * pinned to the bottom) -- default (.panel-scroll: height 100% +
-   * overflow-y auto) lets <main> itself grow and scroll past the
-   * viewport, which fights the panel's own flex/minHeight:0 children
-   * and stranded the reply box below the fold (confirmed live). true
-   * makes <main> a hard-clipped box instead, so the panel's own
-   * overflow:auto regions are what actually scrolls.
-   */
   fillHeight?: boolean;
   children: ReactNode;
   businessId?: string;
+  hideRail?: boolean;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState<boolean>(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<number, boolean>>({});
   const [isMobile, setIsMobile] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -73,8 +79,19 @@ export function DashboardShell<T extends string>({
   const [globalResults, setGlobalResults] = useState<any[]>([]);
   const [globalLoading, setGlobalLoading] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const searchBoxRef = useRef<HTMLDivElement>(null);
   const profileBoxRef = useRef<HTMLDivElement>(null);
+  const [theme, setTheme] = useState<ThemeMode>("light");
+
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
+    setIsMobile(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => {
+      setIsMobile(e.matches);
+      setMobileOpen(false);
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -94,14 +111,12 @@ export function DashboardShell<T extends string>({
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
-      if (searchBoxRef.current && !searchBoxRef.current.contains(e.target as Node)) setSearchOpen(false);
       if (profileBoxRef.current && !profileBoxRef.current.contains(e.target as Node)) setProfileOpen(false);
     }
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  // Local nav search
   const localResults = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return [];
@@ -109,10 +124,9 @@ export function DashboardShell<T extends string>({
     return flat.filter((f) => f.item.label.toLowerCase().includes(q)).slice(0, 8);
   }, [groups, search]);
 
-  // Global API search
   useEffect(() => {
     const q = search.trim();
-    if (q.length < 3) {
+    if (q.length < 3 || !businessId) {
       setGlobalResults([]);
       return;
     }
@@ -126,528 +140,290 @@ export function DashboardShell<T extends string>({
     return () => { cancelled = true; };
   }, [search, businessId]);
 
-  function jumpTo(id: T) {
-    onSelect(id);
-    setSearch("");
-    setSearchOpen(false);
-  }
-
-  useEffect(() => {
-    const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
-    setIsMobile(mq.matches);
-    const onChange = (e: MediaQueryListEvent) => {
-      setIsMobile(e.matches);
-      setMobileOpen(false);
-    };
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
-
-  const [theme, setTheme] = useState<ThemeMode>("dark");
-
   useEffect(() => {
     fetch("/api/dashboard-theme")
       .then((r) => r.json())
-      .then((d) => setTheme(d.mode === "light" ? "light" : "dark"));
+      .then((d) => setTheme(d.mode === "dark" ? "dark" : "light"));
   }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
 
   function toggleTheme() {
     const next: ThemeMode = theme === "dark" ? "light" : "dark";
     setTheme(next);
-    fetch("/api/dashboard-theme", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: next }),
-    });
+    fetch("/api/dashboard-theme", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: next }) });
   }
+
+  function jumpTo(id: string) {
+    onSelect(id as T);
+    setSearch("");
+    setSearchOpen(false);
+    if (isMobile) setMobileOpen(false);
+  }
+
+  function toggleGroup(i: number) {
+    setCollapsedGroups((prev) => ({ ...prev, i: !prev[i] }));
+  }
+
+  const railWidth = collapsed ? 72 : 236;
+  const searchActive = searchOpen || search.trim().length > 0;
 
   const activeGroup = groups.find((g) => g.items.some((i) => i.id === activeTab));
   const activeLabel = activeGroup?.items.find((i) => i.id === activeTab)?.label ?? "";
 
-  function toggleGroup(i: number) {
-    setCollapsedGroups((prev) => ({ ...prev, [i]: !prev[i] }));
+  function collapseToggle() {
+    if (!isMobile) setCollapsed((p) => !p);
+    else setMobileOpen(false);
   }
 
-  const sidebarOpen = isMobile ? mobileOpen : true;
-
-  return (
-    <div className="app-shell" data-theme={theme} style={{ display: "flex", height: "100vh", overflow: "hidden", overflowX: "hidden" }}>
-      {/* Mobile overlay */}
-      {isMobile && mobileOpen && (
-        <div
-          onClick={() => setMobileOpen(false)}
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 40, backdropFilter: "blur(4px)" }}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside
-        style={{
-          width: isMobile ? (sidebarOpen ? 260 : 0) : collapsed ? 72 : 260,
-          flexShrink: isMobile ? 0 : 0,
-          background: "var(--bg-elevated)",
-          borderRight: isMobile ? "none" : "1px solid var(--border-subtle)",
-          display: "flex",
-          flexDirection: "column",
-          height: "100%",
-          overflowY: "auto",
-          overflowX: "hidden",
-          zIndex: 50,
-          ...(isMobile
-            ? {
-                position: "fixed" as const,
-                top: 0,
-                left: 0,
-                boxShadow: sidebarOpen ? "4px 0 24px rgba(0,0,0,0.5)" : "none",
-                transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
-              }
-            : {
-                transform: collapsed ? "translateX(0)" : "translateX(0)",
-              }),
-          transition: isMobile
-            ? "transform 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out)"
-            : "width 0.2s var(--ease-out)",
-        }}
-      >
-        {/* Logo */}
-        <div
-          style={{
-            padding: isMobile ? "20px 20px" : collapsed ? "20px 0" : "20px 20px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: isMobile ? "space-between" : collapsed ? "center" : "space-between",
-            borderBottom: "1px solid var(--border-subtle)",
-          }}
+  const sidebar = (
+    <aside
+      style={{
+        width: isMobile ? 244 : railWidth,
+        minWidth: 0,
+        height: isMobile ? "100vh" : "100%",
+        background: "var(--panel)",
+        borderRight: "1px solid var(--line)",
+        display: "flex",
+        flexDirection: "column",
+        transition: "width 180ms var(--ease-out)",
+        overflow: "hidden",
+        flexShrink: 0,
+        zIndex: isMobile ? 50 : 10,
+      }}
+    >
+      {/* Brand */}
+      <div style={{ padding: collapsed ? "14px 16px" : "14px 18px", display: "flex", alignItems: "center", gap: 11, borderBottom: "1px solid var(--line)", minHeight: 48 }}>
+        <button
+          type="button"
+          aria-label="Toggle sidebar"
+          onClick={() => (isMobile ? setMobileOpen(false) : setCollapsed((p) => !p))}
+          style={{ display: "grid", placeItems: "center", width: 26, height: 26, borderRadius: "var(--r-sm)", border: "1px solid var(--line)", background: "var(--panel)", color: "var(--ink-3)", cursor: "pointer", flexShrink: 0 }}
         >
-          {(!collapsed || isMobile) && (
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: "var(--radius-sm)",
-                  background: "linear-gradient(135deg, #0d9488, #2dd4bf)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" fill="white" fillOpacity="0.2"/>
-                  <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/>
-                  <path d="M8 12L11 15L16 9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.02em" }}>
-                  {sidebarLabel}
-                </div>
-              </div>
-            </div>
-          )}
-          {collapsed && !isMobile && (
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: "var(--radius-sm)",
-                background: "linear-gradient(135deg, #0d9488, #2dd4bf)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" fill="white" fillOpacity="0.2"/>
-                <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/>
-                <path d="M8 12L11 15L16 9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-          )}
-          {!collapsed && !isMobile && (
-            <button
-              onClick={() => setCollapsed(true)}
-              className="ghost"
-              title="Collapse sidebar"
-              style={{ width: 32, height: 32, padding: 0, borderRadius: "var(--radius-xs)" }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="m15 18-6-6 6-6" />
-              </svg>
-            </button>
-          )}
-          {collapsed && !isMobile && (
-            <div style={{ padding: "0 8px 12px", borderTop: "1px solid var(--border-subtle)", marginTop: "auto" }}>
-              <button
-                onClick={() => setCollapsed(false)}
-                className="ghost"
-                title="Expand sidebar"
-                style={{
-                  width: "100%",
-                  height: 36,
-                  padding: 0,
-                  borderRadius: "var(--radius-sm)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <path d="m9 18 6-6-6-6" />
-                </svg>
-              </button>
-            </div>
-          )}
-        </div>
+          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+        {!collapsed ? (
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", letterSpacing: "-0.01em", lineHeight: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sidebarLabel}</div>
+            {activeLabel ? <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeLabel}</div> : null}
+          </div>
+        ) : null}
+      </div>
 
-        {/* Navigation */}
-        <nav style={{ flex: 1, padding: "12px 8px", overflowY: "auto" }}>
-          {groups.map((group, i) => {
-            const groupCollapsed = collapsedGroups[i];
+      {/* Search */}
+      <div style={{ padding: collapsed ? 12 : "12px 16px", borderBottom: "1px solid var(--line)" }}>
+        <div style={{ position: "relative" }}>
+          <svg style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--ink-3)" }} width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx={11} cy={11} r={7} />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            ref={searchInputRef}
+            type="search"
+            placeholder={collapsed ? "" : "Search"}
+            value={search}
+            onFocus={() => setSearchOpen(true)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setSearchOpen(true);
+            }}
+            style={{ width: "100%", height: 32, paddingLeft: 30, paddingRight: 10, borderRadius: "var(--r-sm)", border: "1px solid var(--line)", background: "var(--panel-sunk)", color: "var(--ink)", fontSize: 12.5, outline: "none" }}
+          />
+        </div>
+      </div>
+
+      {/* Nav */}
+      <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: collapsed ? "8px 6px" : "10px 10px" }}>
+        <nav aria-label="Primary">
+          {groups.map((group, gi) => {
+            const isCollapsed = collapsedGroups[gi] ?? group.label === undefined;
             return (
-              <div key={i} style={{ marginBottom: 8 }}>
-                {group.label && !collapsed && (
+              <div key={gi} style={{ marginBottom: 6 }}>
+                {group.label && !collapsed ? (
                   <button
-                    onClick={() => toggleGroup(i)}
-                    className="ghost"
-                    style={{
-                      width: "100%",
-                      justifyContent: "space-between",
-                      fontSize: 11,
-                      fontWeight: 600,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                      color: "var(--text-muted)",
-                      padding: "8px 12px",
-                      marginBottom: 2,
-                    }}
+                    type="button"
+                    onClick={() => toggleGroup(gi)}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "6px 6px 3px", border: 0, background: "transparent", color: "var(--ink-4)", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer" }}
                   >
                     <span>{group.label}</span>
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      style={{ transform: groupCollapsed ? "rotate(-90deg)" : "none", transition: "transform 0.2s" }}
-                    >
-                      <path d="m6 9 6 6 6-6" />
-                    </svg>
+                    <span style={{ fontSize: 11, color: "var(--ink-4)", transform: isCollapsed ? "rotate(-90deg)" : "rotate(0)", transition: "transform 120ms var(--ease-out)" }}>▾</span>
                   </button>
-                )}
-                {!groupCollapsed &&
-                  group.items.map((item) => {
-                    const active = activeTab === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => {
-                          onSelect(item.id);
-                          if (isMobile) setMobileOpen(false);
-                        }}
-                        title={collapsed ? item.label : undefined}
-                        className="ghost"
-                        style={{
-                          position: "relative",
-                          width: "100%",
-                          justifyContent: collapsed ? "center" : "flex-start",
-                          textAlign: "left",
-                          padding: collapsed ? "10px" : "10px 12px",
-                          borderRadius: "var(--radius-sm)",
-                          marginBottom: 2,
-                          background: active ? "var(--accent-subtle)" : "transparent",
-                          color: active ? "var(--accent)" : "var(--text-secondary)",
-                          fontWeight: active ? 500 : 400,
-                        }}
-                      >
-                        <span style={{ display: "flex", flexShrink: 0, position: "relative" }}>
-                          <NavIcon id={item.id} />
-                          {collapsed && !!item.badge && (
-                            <span style={{ position: "absolute", top: -6, right: -8, minWidth: 15, height: 15, padding: "0 3px", borderRadius: 999, background: "var(--danger)", color: "white", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>
-                              {formatBadgeCount(item.badge)}
-                            </span>
-                          )}
-                        </span>
-                        {!collapsed && (
-                          <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {item.label}
-                          </span>
-                        )}
-                        {!collapsed && !!item.badge && (
-                          <span style={{ marginLeft: "auto", minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, background: "var(--danger)", color: "white", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>
-                            {formatBadgeCount(item.badge)}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
+                ) : null}
+                {!isCollapsed ? group.items.map((item) => {
+                  const active = item.id === activeTab;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => jumpTo(item.id)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 9,
+                        width: "100%",
+                        padding: collapsed ? "8px" : "8px 10px 8px 8px",
+                        margin: "2px 0",
+                        justifyContent: collapsed ? "center" : "flex-start",
+                        border: 0,
+                        borderRadius: "var(--r-sm)",
+                        background: active ? "var(--accent-subtle)" : "transparent",
+                        color: active ? "var(--accent)" : "var(--ink-2)",
+                        fontSize: 13,
+                        fontWeight: active ? 600 : 500,
+                        textAlign: "left",
+                        cursor: "pointer",
+                        position: "relative",
+                        transition: "background 120ms var(--ease-out), color 120ms var(--ease-out)",
+                      }}
+                      aria-current={active ? "page" : undefined}
+                    >
+                      {active ? <span style={{ position: "absolute", left: 3, top: 8, bottom: 8, width: 2, background: "var(--accent)" }} /> : null}
+                      <NavIcon id={String(item.id)} />
+                      {!collapsed ? <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span> : null}
+                      {item.badge && !collapsed ? <span style={{ fontSize: 10.5, fontWeight: 700, color: "var(--danger)", fontVariantNumeric: "tabular-nums", background: "var(--danger-subtle)", padding: "1px 6px", borderRadius: 3 }}>{formatBadgeCount(item.badge)}</span> : null}
+                    </button>
+                  );
+                }) : null}
               </div>
             );
           })}
         </nav>
-      </aside>
+      </div>
 
-      {/* Main content */}
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        {/* Header */}
-        <header
-          style={{
-            padding: isMobile ? "12px 16px" : "12px 24px",
-            borderBottom: "1px solid var(--border-subtle)",
-            background: "var(--bg-elevated)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 16,
-            flexShrink: 0,
-          }}
+      {/* Search results popover */}
+      {searchActive ? (
+        <div
+          style={{ position: "absolute", left: isMobile ? 12 : collapsed ? 10 : 12, right: isMobile ? 12 : "auto", top: collapsed ? 96 : 96, width: collapsed ? 240 : 320, zIndex: 60, background: "var(--panel)", border: "1px solid var(--line)", borderRadius: "var(--r-md)", boxShadow: "var(--shadow-pop)", maxHeight: 320, overflow: "auto", padding: 6 }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
-            {isMobile && (
-              <button
-                onClick={() => setMobileOpen(true)}
-                className="ghost"
-                title="Open menu"
-                style={{ width: 36, height: 36, padding: 0, flexShrink: 0 }}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <line x1="4" x2="20" y1="6" y2="6" />
-                  <line x1="4" x2="20" y1="12" y2="12" />
-                  <line x1="4" x2="20" y1="18" y2="18" />
-                </svg>
-              </button>
-            )}
-            <div style={{ minWidth: 0, overflow: "hidden" }}>
-              {activeGroup?.label && (
-                <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)", marginBottom: 2 }}>
-                  {activeGroup.label}
-                </div>
-              )}
-              <h1 style={{ fontSize: isMobile ? 16 : 18, fontWeight: 600, letterSpacing: "-0.02em", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {activeLabel}
-              </h1>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            {/* Search */}
-            {!isMobile && (
-              <div ref={searchBoxRef} style={{ position: "relative" }}>
-                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" style={{ position: "absolute", left: 12, pointerEvents: "none" }}>
-                    <circle cx="11" cy="11" r="8" />
-                    <path d="m21 21-4.3-4.3" />
-                  </svg>
-                  <input
-                    ref={searchInputRef}
-                    value={search}
-                    onChange={(e) => { setSearch(e.target.value); setSearchOpen(true); }}
-                    onFocus={() => setSearchOpen(true)}
-                    placeholder="Search..."
-                    // Confirmed live: Chrome ignores autoComplete="off" on a
-                    // plain text input and offers to fill it with the
-                    // username just saved from the login form on this same
-                    // origin -- type="search" opts out of that heuristic
-                    // entirely (Chrome doesn't treat search inputs as
-                    // login-autofill candidates), which "off" alone doesn't.
-                    type="search"
-                    name="aiva-topbar-search"
-                    autoComplete="off"
-                    autoCorrect="off"
-                    autoCapitalize="off"
-                    spellCheck={false}
-                    style={{
-                      width: 200,
-                      padding: "8px 12px 8px 36px",
-                      borderRadius: "var(--radius-sm)",
-                      border: "1px solid var(--border)",
-                      background: "var(--surface)",
-                      color: "var(--text)",
-                      fontSize: 13,
-                    }}
-                  />
-                  <kbd style={{
-                    position: "absolute",
-                    right: 8,
-                    fontSize: 10,
-                    color: "var(--text-muted)",
-                    background: "var(--bg)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 4,
-                    padding: "2px 6px",
-                    pointerEvents: "none",
-                  }}>
-                    ⌘K
-                  </kbd>
-                </div>
-{searchOpen && search.trim() && (
-                    <div style={{
-                      position: "absolute",
-                      top: "calc(100% + 8px)",
-                      left: 0,
-                      right: 0,
-                      background: "var(--bg-elevated)",
-                      border: "1px solid var(--border)",
-                      borderRadius: "var(--radius-md)",
-                      boxShadow: "var(--shadow-lg)",
-                      overflow: "hidden",
-                      zIndex: 60,
-                      minWidth: 320,
-                      maxHeight: 480,
-                    }}>
-                      {localResults.length === 0 && globalResults.length === 0 && !globalLoading && (
-                        <div style={{ padding: "12px 16px", fontSize: 13, color: "var(--text-muted)" }}>No results found</div>
-                      )}
-                      {globalLoading && <div style={{ padding: "12px 16px", fontSize: 13, color: "var(--text-muted)", textAlign: "center" }}>Searching…</div>}
-                      {localResults.length > 0 && (
-                        <>
-                          <div style={{ padding: "6px 14px", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", borderBottom: "1px solid var(--border-subtle)" }}>
-                            Navigation
-                          </div>
-                          {localResults.map(({ item, groupLabel }) => (
-                            <button
-                              key={item.id}
-                              onClick={() => jumpTo(item.id)}
-                              className="ghost"
-                              style={{
-                                width: "100%",
-                                justifyContent: "flex-start",
-                                padding: "10px 14px",
-                                borderRadius: 0,
-                                borderBottom: "1px solid var(--border-subtle)",
-                              }}
-                            >
-                              <span style={{ display: "flex", flexShrink: 0, color: "var(--text-muted)" }}>
-                                <NavIcon id={item.id} />
-                              </span>
-                              <span style={{ flex: 1, textAlign: "left" }}>{item.label}</span>
-                              {groupLabel && <span style={{ fontSize: 11, color: "var(--text-faint)" }}>{groupLabel}</span>}
-                            </button>
-                          ))}
-                        </>
-                      )}
-                      {globalResults.length > 0 && (
-                        <>
-                          <div style={{ padding: "6px 14px", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)", borderBottom: "1px solid var(--border-subtle)", marginTop: localResults.length ? 0 : undefined }}>
-                            Global Search
-                          </div>
-                          {globalResults.map((r) => (
-                            <a key={`${r.type}-${r.id}`} href={r.url} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border-subtle)", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.stopPropagation(); setSearchOpen(false); setSearch(""); }}>
-                              <span style={{ fontSize: 14 }}>{r.type === "conversation" ? "💬" : r.type === "repair" ? "🔧" : r.type === "order" ? "📦" : r.type === "contact" ? "👤" : r.type === "product" ? "📦" : r.type === "invoice" ? "🧾" : "👨‍🔧"}</span>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.title}</div>
-                                <div style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.subtitle}</div>
-                              </div>
-                              <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>{r.type}</span>
-                            </a>
-                          ))}
-                        </>
-                      )}
-                    </div>
-                  )}
-              </div>
-            )}
-
-            {topbarExtra}
-
-            {/* Theme toggle */}
-            <button
-              onClick={toggleTheme}
-              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-              className="ghost"
-              style={{ width: 36, height: 36, padding: 0, borderRadius: "var(--radius-sm)" }}
-            >
-              {theme === "dark" ? (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="4" />
-                  <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-                </svg>
-              ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                </svg>
-              )}
-            </button>
-
-            {/* Profile */}
-            {(username || onLogout) && (
-              <div ref={profileBoxRef} style={{ position: "relative" }}>
-                <button
-                  onClick={() => setProfileOpen((o) => !o)}
-                  className="ghost"
-                  title={username ?? "Account"}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    height: 36,
-                    borderRadius: "var(--radius-sm)",
-                    padding: "0 10px 0 0",
-                  }}
-                >
-                  <span style={{
-                    width: 36,
-                    height: 36,
-                    flexShrink: 0,
-                    borderRadius: "var(--radius-sm)",
-                    background: "var(--accent)",
-                    color: "white",
-                    fontSize: 14,
-                    fontWeight: 600,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}>
-                    {(username ?? "?").slice(0, 1).toUpperCase()}
-                  </span>
-                  {username && <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>{username}</span>}
+          {localResults.length > 0 ? (
+            <>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: "var(--ink-4)", padding: "6px 10px 4px", letterSpacing: "0.12em", textTransform: "uppercase" }}>Sections</div>
+              {localResults.map(({ item }) => (
+                <button key={item.id} type="button" onClick={() => jumpTo(item.id)} style={{ display: "flex", width: "100%", gap: 10, padding: "8px 10px", border: 0, borderRadius: "var(--r-sm)", background: "transparent", textAlign: "left", cursor: "pointer" }}>
+                  <NavIcon id={String(item.id)} width={15} height={15} />
+                  <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>{item.label}</span>
                 </button>
-                {profileOpen && (
-                  <div style={{
-                    position: "absolute",
-                    top: "calc(100% + 8px)",
-                    right: 0,
-                    minWidth: 200,
-                    background: "var(--bg-elevated)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "var(--radius-md)",
-                    boxShadow: "var(--shadow-lg)",
-                    overflow: "hidden",
-                    zIndex: 60,
-                  }}>
-                    {username && (
-                      <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border-subtle)" }}>
-                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>{username}</div>
-                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>Admin</div>
-                      </div>
-                    )}
-                    {backHref && (
-                      <a
-                        href={backHref}
-                        style={{ display: "block", padding: "10px 16px", fontSize: 13, color: "var(--text-secondary)", borderBottom: "1px solid var(--border-subtle)" }}
-                      >
-                        Back to Command Center
-                      </a>
-                    )}
-                    {onLogout && (
-                      <button
-                        onClick={onLogout}
-                        className="ghost"
-                        style={{ width: "100%", justifyContent: "flex-start", padding: "10px 16px", borderRadius: 0, color: "var(--danger)" }}
-                      >
-                        Sign out
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </header>
+              ))}
+            </>
+          ) : (
+            <div style={{ padding: "12px 14px", fontSize: 13, color: "var(--ink-3)" }}>No matching section.</div>
+          )}
+          {globalLoading || globalResults.length > 0 ? (
+            <>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: "var(--ink-4)", padding: "10px 10px 4px", letterSpacing: "0.12em", textTransform: "uppercase" }}>Records</div>
+              {globalLoading ? <div style={{ padding: "6px 14px 10px", fontSize: 12.5, color: "var(--ink-3)" }}>Searching…</div> : null}
+              {!globalLoading && globalResults.length === 0 ? <div style={{ padding: "6px 14px 10px", fontSize: 12.5, color: "var(--ink-3)" }}>No matching records.</div> : null}
+              {globalResults.map((r) => (
+                <button key={r.id} type="button" onClick={() => { setSearch(""); setSearchOpen(false); }} style={{ display: "flex", width: "100%", gap: 10, padding: "8px 10px", border: 0, borderRadius: "var(--r-sm)", background: "transparent", textAlign: "left", cursor: "pointer" }}>
+                  <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>{r.title}</span>
+                </button>
+              ))}
+            </>
+          ) : null}
+        </div>
+      ) : null}
 
-        {/* Content */}
+      {/* Footer */}
+      <div style={{ padding: collapsed ? 8 : "10px 14px", borderTop: "1px solid var(--line)", display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", justifyContent: collapsed ? "center" : "flex-start", alignItems: "center", padding: "2px 0" }}>
+          <MasterProfileSelector />
+        </div>
+        {topbarExtra ? <div style={{ display: "flex", justifyContent: collapsed ? "center" : "flex-start", alignItems: "center", padding: "2px 0" }}>{topbarExtra}</div> : null}
+        <div ref={profileBoxRef} style={{ position: "relative", display: "flex", alignItems: "center", gap: 8, width: "100%", minWidth: 0 }}>
+          <button
+            type="button"
+            onClick={() => setProfileOpen((p) => !p)}
+            style={{ display: "flex", alignItems: "center", gap: 9, flex: 1, minWidth: 0, border: 0, background: "transparent", cursor: "pointer", padding: collapsed ? 4 : 6, borderRadius: "var(--r-sm)", textAlign: "left" }}
+          >
+            <span style={{ width: 26, height: 26, borderRadius: "50%", background: "var(--accent-subtle)", color: "var(--accent)", display: "grid", placeItems: "center", fontSize: 11.5, fontWeight: 700, flexShrink: 0 }}>
+              {(username ?? "—").charAt(0).toUpperCase()}
+            </span>
+            {!collapsed ? (
+              <span style={{ fontSize: 12.5, fontWeight: 500, color: "var(--ink-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>{username ?? "Guest"}</span>
+            ) : null}
+          </button>
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label="Toggle theme"
+            style={{ display: "grid", placeItems: "center", width: 28, height: 28, borderRadius: "var(--r-sm)", border: 0, background: "transparent", color: "var(--ink-3)", cursor: "pointer", flexShrink: 0 }}
+          >
+            <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              {theme === "light" ? (
+                <path d="M12 3v1.4M12 19.6V21M4.6 4.6l1 1M18.4 18.4l1 1M3 12h1.4M19.6 12H21M4.6 19.4l1-1M18.4 5.6l1-1M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+              ) : (
+                <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />
+              )}
+            </svg>
+          </button>
+          {profileOpen ? (
+            <div ref={profileBoxRef} style={{ position: "absolute", bottom: "calc(100% + 8px)", left: 0, right: 0, background: "var(--panel)", border: "1px solid var(--line)", borderRadius: "var(--r-md)", boxShadow: "var(--shadow-pop)", padding: 6, zIndex: 70 }}>
+              {backHref ? (
+                <a
+                  href={backHref}
+                  style={{ display: "flex", width: "100%", padding: "8px 10px", border: 0, borderRadius: "var(--r-sm)", background: "transparent", fontSize: 13, fontWeight: 500, color: "var(--ink)", textDecoration: "none" }}
+                >
+                  Back to fleet
+                </a>
+              ) : null}
+              {onLogout ? (
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  style={{ display: "flex", width: "100%", padding: "8px 10px", border: 0, borderRadius: "var(--r-sm)", background: "transparent", fontSize: 13, fontWeight: 500, color: "var(--danger)", cursor: "pointer", textAlign: "left" }}
+                >
+                  Sign out
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+        {!collapsed ? <div style={{ fontSize: 11.5, color: "var(--ink-4)", textAlign: "left", padding: "2px 6px 0" }}><ShellClock /></div> : null}
+      </div>
+    </aside>
+  );
+
+  return (
+    <div className="app-shell" data-theme={theme} style={{ display: "flex", height: "100vh", overflow: "hidden", overflowX: "hidden" }}>
+      {/* Mobile top bar */}
+      {isMobile ? (
+        <div
+          style={{ position: "fixed", top: 0, left: 0, right: 0, height: 56, background: "var(--panel)", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 14px", zIndex: 45, gap: 12 }}
+        >
+          <button type="button" onClick={() => setMobileOpen(true)} style={{ display: "grid", placeItems: "center", width: 36, height: 36, borderRadius: "var(--r-sm)", border: "1px solid var(--line)", background: "var(--panel)", color: "var(--ink)" }}>
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0, justifyContent: "flex-start" }}>
+            <MasterProfileSelector />
+            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeLabel}</div>
+          </div>
+          {topbarExtra ? <div>{topbarExtra}</div> : null}
+          <button type="button" onClick={toggleTheme} style={{ display: "grid", placeItems: "center", width: 36, height: 36, borderRadius: "var(--r-sm)", border: "1px solid var(--line)", background: "var(--panel)", color: "var(--ink)" }}>
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              {theme === "light" ? <path d="M12 3v1.4M12 19.6V21M4.6 4.6l1 1M18.4 18.4l1 1M3 12h1.4M19.6 12H21M4.6 19.4l1-1M18.4 5.6l1-1M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /> : <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />}
+            </svg>
+          </button>
+        </div>
+      ) : null}
+
+      {/* Scrim */}
+      {isMobile && mobileOpen ? <div onClick={() => setMobileOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(16,21,28,0.45)", zIndex: 40, backdropFilter: "blur(2px)" }} /> : null}
+
+      {/* Sidebar (desktop / drawer) */}
+      {(!isMobile || mobileOpen) ? (
+        <div style={{ position: isMobile ? "fixed" : "relative", top: isMobile ? 0 : 0, left: isMobile ? 0 : 0, zIndex: isMobile ? 50 : 10, height: isMobile ? "100vh" : "auto" }}>
+          {sidebar}
+        </div>
+      ) : null}
+
+      {/* Work area */}
+      <div style={{ position: "relative", flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <main
           className={fillHeight ? undefined : "panel-scroll"}
           style={{
@@ -655,11 +431,13 @@ export function DashboardShell<T extends string>({
             display: "flex",
             flexDirection: "column",
             minHeight: 0,
-            padding: isMobile ? "16px" : "24px",
-            maxWidth: 1400,
+            // top padding leaves room for... none now; use 0
+            padding: 0,
+            maxWidth: "none",
             width: "100%",
-            margin: "0 auto",
-            ...(fillHeight ? { overflow: "hidden" } : {}),
+            margin: 0,
+            overflow: "hidden",
+            ...(fillHeight ? {} : { overflowY: "auto" }),
           }}
         >
           {children}

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { MarkdownMessage } from "./MarkdownMessage";
+import s from "./chat-widget.module.css";
 
 interface Message {
   role: "user" | "assistant" | "agent";
@@ -271,72 +272,64 @@ export function ChatWidget({
   }
 
   return (
-    <div>
-      <p style={{ opacity: 0.5, fontSize: 12 }}>
-        Chat ID: {sessionId}
-        {waitingForAgent && " · connected to a human agent"}
-        {" · "}
-        <button
-          onClick={newChat}
-          style={{ fontSize: 12, padding: "1px 6px", cursor: "pointer" }}
-        >
-          New chat
-        </button>{" "}
-        <button
-          onClick={exportChat}
-          disabled={messages.length === 0}
-          style={{ fontSize: 12, padding: "1px 6px", cursor: "pointer" }}
-        >
-          Export chat
-        </button>
-      </p>
+    <div className={s.cw}>
+      <div className={s["cw-bar"]}>
+        <span className={`lamp ${waitingForAgent ? "lamp-live" : "lamp-idle"}`} aria-hidden="true" />
+        <span className={`data ${s["cw-id"]}`}>{sessionId}</span>
+        <span className="meta">
+          {waitingForAgent ? "connected to a human agent" : "assistant online"}
+        </span>
+        <span className={s["cw-actions"]}>
+          <button className="ghost sm" type="button" onClick={newChat}>
+            New chat
+          </button>
+          <button className="ghost sm" type="button" onClick={exportChat} disabled={messages.length === 0}>
+            Export chat
+          </button>
+        </span>
+      </div>
 
-      <div
-        style={{
-          border: "1px solid #333",
-          borderRadius: 8,
-          minHeight: 280,
-          padding: 16,
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-        }}
-      >
-{messages.length === 0 && (
-          <p style={{ opacity: 0.6 }}>
-            Upload an image, then chat with the assistant about it here.
+      <div className={`${s["cw-thread"]} panel-scroll`}>
+        {messages.length === 0 && (
+          <p className={s["cw-empty"]}>
+            Attach a photo, then ask the assistant about it.
           </p>
         )}
 
         {messages.map((m, i) => {
+          const who = m.role === "user" ? "You" : m.role === "agent" ? "Agent" : "Assistant";
           return (
-            <div key={i}>
-              <div>
-                <strong>
-                  {m.role === "user" ? "You" : m.role === "agent" ? "Agent" : "Assistant"}:
-                </strong>
-                {m.role === "user" ? ` ${m.content}` : <MarkdownMessage text={m.content} />}
+            <div key={i} className={`${s["cw-msg"]} ${s[`cw-${m.role}`]}`}>
+              <div className={s["cw-msg-head"]}>
+                <span className="instrument-label">{who}</span>
+                {m.role === "assistant" && <span className={`lamp ${m.provider === "hermes" ? "lamp-machine" : "lamp-human"}`} aria-hidden="true" />}
+              </div>
+              <div className={s["cw-msg-body"]}>
+                {m.role === "user" ? m.content : <MarkdownMessage text={m.content} />}
               </div>
               {m.role === "assistant" && m.provider && (
-                <div style={{ fontSize: 11, opacity: 0.5 }}>
+                <div className={`meta data ${s["cw-msg-meta"]}`}>
                   {m.provider}
-                  {m.cached && " (cached, 0 tokens)"} ·{" "}
-                  {Math.round((m.confidence ?? 0) * 100)}% confidence ·{" "}
-                  {m.tokens} tokens
+                  {m.cached ? " · cached · 0 tokens" : ` · ${Math.round((m.confidence ?? 0) * 100)}% confidence · ${m.tokens} tokens`}
                 </div>
               )}
             </div>
           );
         })}
 
-        {loading && <div style={{ opacity: 0.6 }}>Thinking…</div>}
+        {loading && (
+          <div className={s["cw-empty"]}>
+            <span className="lamp lamp-idle" aria-hidden="true" /> Thinking…
+          </div>
+        )}
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+      <div className={s["cw-compose"]}>
         <input
           ref={fileInputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp,image/gif"
+          aria-label="Attach a photo"
           hidden
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -344,11 +337,15 @@ export function ChatWidget({
             e.target.value = "";
           }}
         />
-        <button onClick={() => fileInputRef.current?.click()} disabled={loading || attaching}>
-          {attaching ? "Uploading…" : "Photo"}
+        <button className="ghost" type="button" onClick={() => fileInputRef.current?.click()} disabled={loading || attaching}>
+          {attaching ? "Uploading…" : "Attach photo"}
         </button>
+        <label className={s["sr-only"]} htmlFor="cw-input">
+          Message
+        </label>
         <input
-          style={{ flex: 1, padding: 8 }}
+          id="cw-input"
+          className={s["cw-input"]}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
@@ -356,7 +353,7 @@ export function ChatWidget({
           }}
           placeholder="Ask something…"
         />
-        <button onClick={() => send()} disabled={loading}>
+        <button className="primary" type="button" onClick={() => send()} disabled={loading}>
           Send
         </button>
       </div>

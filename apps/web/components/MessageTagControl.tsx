@@ -48,78 +48,102 @@ export function MessageTagControl({
       {applied.map((a) => (
         <span
           key={a.tagId}
+          className="panel-sunk"
           style={{
             display: "inline-flex",
             alignItems: "center",
-            gap: 4,
-            padding: "1px 8px",
+            gap: 5,
+            padding: "2px 4px 2px 8px",
             borderRadius: 999,
             fontSize: 11,
-            background: "rgba(255,255,255,0.08)",
           }}
         >
-          <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: a.color ?? "#8b949e" }} />
+          <span
+            style={{
+              display: "inline-block",
+              width: 7,
+              height: 7,
+              borderRadius: 999,
+              background: a.color ?? "var(--ink-4)",
+            }}
+          />
           {a.label}
-          {a.source === "ai" && <span style={{ opacity: 0.6, fontSize: 9 }}>AI</span>}
+          {a.source === "ai" && <span className="data" style={{ fontSize: 9 }}>AI</span>}
           <button
             onClick={() => onRemove(a.tagId)}
-            style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.5, padding: 0, fontSize: 10 }}
+            className="plain sm"
+            style={{ padding: "0 4px", fontSize: 10, opacity: 0.6 }}
+            aria-label={`Remove tag ${a.label}`}
           >
-            ✕
+            Remove
           </button>
         </span>
       ))}
 
       {(hovered || open) && (
-        <button
-          onClick={() => setOpen((o) => !o)}
-          title="Add tag"
-          style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.6, fontSize: 13, padding: 0 }}
-        >
-          🏷️
+        <button onClick={() => setOpen((o) => !o)} className="plain sm" aria-label="Add tag" aria-expanded={open}>
+          Add tag
         </button>
       )}
 
       {open && (
         <div
+          className="panel"
           style={{
             position: "absolute",
             top: "100%",
             left: 0,
             zIndex: 10,
-            background: "#161b22",
-            border: "1px solid #30363d",
-            borderRadius: 8,
-            padding: 8,
-            width: 200,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+            marginTop: 6,
+            padding: 10,
+            width: 220,
+            boxShadow: "var(--shadow-pop)",
           }}
         >
           <input
             type="search"
             name="aiva-search-tags"
+            aria-label="Search tags"
             autoComplete="off"
             autoFocus
             placeholder="Search tags…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ width: "100%", padding: 6, marginBottom: 6, boxSizing: "border-box" }}
+            style={{ width: "100%", boxSizing: "border-box", marginBottom: 8 }}
           />
           <div style={{ maxHeight: 160, overflowY: "auto" }}>
             {filtered.map((t) => (
-              <label key={t.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, padding: "3px 2px", cursor: "pointer" }}>
+              <label
+                key={t.id}
+                style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, padding: "4px 2px", cursor: "pointer" }}
+              >
                 <input
                   type="checkbox"
                   checked={appliedIds.has(t.id)}
                   onChange={(e) => (e.target.checked ? onAssign(t.id) : onRemove(t.id))}
                 />
-                <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 999, background: t.color ?? "#8b949e" }} />
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: 8,
+                    height: 8,
+                    borderRadius: 999,
+                    background: t.color ?? "var(--ink-4)",
+                  }}
+                />
                 {t.label}
               </label>
             ))}
-            {filtered.length === 0 && <div style={{ fontSize: 12, opacity: 0.6, padding: 4 }}>No matching tags.</div>}
+            {filtered.length === 0 && (
+              <div className="empty-state" style={{ padding: "10px 8px" }}>
+                <div className="empty-state-title">No matching tags</div>
+                <div className="empty-state-description">
+                  Create tags in the Tag Dashboard, then pick them here.
+                </div>
+              </div>
+            )}
           </div>
-          <button onClick={() => setOpen(false)} style={{ marginTop: 6, width: "100%", fontSize: 12 }}>
+          <button onClick={() => setOpen(false)} className="ghost sm" style={{ marginTop: 8, width: "100%" }}>
             Done
           </button>
         </div>

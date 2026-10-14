@@ -2,7 +2,6 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 
-import { cardStyle, cellStyle, subtleTextStyle } from "./dashboard-styles";
 
 interface DeletedRecord {
   id: string;
@@ -152,67 +151,85 @@ export function DeletedDataPanel({ businessId, active = true }: { businessId: st
   const typeLabel = (id: string) => TYPES.find((t) => t.id === id)?.label ?? id;
 
   return (
-    <section style={cardStyle}>
-      <h2 style={{ marginTop: 0 }}>Deleted Data</h2>
-      <p style={subtleTextStyle}>
+    <section className="panel">
+      <div className="panel-head">
+        <span className="instrument-label">Deleted data</span>
+        {records && (
+          <span className="data" style={{ fontSize: 11 }}>{searched.length} shown</span>
+        )}
+      </div>
+
+      <div className="panel-body">
+      <p className="meta" style={{ marginTop: 0 }}>
         Everything deleted from this client&apos;s dashboard, in one place: records deleted since tracking began (with who and when), plus older ones
         recovered from database backups, marked &quot;unknown (recovered …)&quot; with the last date a backup still had them. Only platform admins can see this.
       </p>
 
-      <input
-        type="search"
-        name="aiva-search-deleted"
-        autoComplete="off"
-        placeholder="Search everything deleted — any word, any field…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        style={{ padding: 8, fontSize: 12, width: "100%", maxWidth: 420, boxSizing: "border-box", marginTop: 8 }}
-      />
+      <label className="field" style={{ maxWidth: 420, marginTop: 12 }}>
+        <span className="instrument-label">Search deleted records</span>
+        <input
+          type="search"
+          name="aiva-search-deleted"
+          aria-label="Search everything deleted"
+          autoComplete="off"
+          placeholder="Any word, any field…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ fontSize: 12 }}
+        />
+      </label>
 
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "12px 0" }}>
+      <div className="toolbar" style={{ justifyContent: "flex-start", margin: "14px 0" }}>
         {tabs.map((t) => {
           const on = t.id === type;
           return (
             <button
               key={t.id}
+              className={on ? "sm primary" : "sm ghost"}
               onClick={() => { setType(t.id); setOpenId(null); }}
-              style={{
-                padding: "6px 12px",
-                fontSize: 12,
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius-sm)",
-                background: on ? "var(--accent-subtle)" : "var(--surface)",
-                color: on ? "var(--accent)" : "var(--text-muted)",
-                fontWeight: on ? 600 : 400,
-                cursor: "pointer",
-              }}
             >
-              {t.label} ({countFor(t.id)})
+              {t.label} <span className="data" style={{ marginLeft: 4 }}>{countFor(t.id)}</span>
             </button>
           );
         })}
       </div>
 
-      {error && <p style={{ ...subtleTextStyle, color: "var(--danger, #e5484d)" }}>{error}</p>}
-      {!records && !error && <p style={subtleTextStyle}>Loading…</p>}
-      {records && rows.length === 0 && <p style={subtleTextStyle}>{words.length ? "Nothing deleted matches that search." : "Nothing deleted here yet."}</p>}
+      {error && <span className="lamp lamp-err">{error}</span>}
+      {!records && !error && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div className="skeleton" style={{ height: 28 }} />
+          <div className="skeleton" style={{ height: 28 }} />
+        </div>
+      )}
+      {records && rows.length === 0 && (
+        <div className="empty-state">
+          <div className="empty-state-title">
+            {words.length ? "Nothing deleted matches that search" : "Nothing deleted here yet"}
+          </div>
+          <div className="empty-state-description">
+            {words.length
+              ? "Try fewer words, or switch the type filter back to All."
+              : "Deleted repairs, invoices, contacts and inventory show up here with who removed them and when."}
+          </div>
+        </div>
+      )}
 
       {rows.length > 0 && (
         <div className="table-scroll">
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <table>
             <thead>
               <tr>
                 {type === ALL || !current || !known.has(type) ? (
                   <>
-                    <th style={cellStyle}>Type</th>
-                    <th style={cellStyle}>Record</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Record</th>
                   </>
                 ) : (
-                  current.columns.map((c) => <th key={c.head} style={cellStyle}>{c.head}</th>)
+                  current.columns.map((c) => <th key={c.head} scope="col">{c.head}</th>)
                 )}
-                <th style={cellStyle}>Deleted by</th>
-                <th style={cellStyle}>Deleted / last seen</th>
-                <th style={cellStyle}></th>
+                <th scope="col">Deleted by</th>
+                <th scope="col">Deleted / last seen</th>
+                <th scope="col"><span style={{ display: "inline-block", width: 78 }}>Record</span></th>
               </tr>
             </thead>
             <tbody>
@@ -222,27 +239,29 @@ export function DeletedDataPanel({ businessId, active = true }: { businessId: st
                   <Fragment key={r.id}>
                     <tr>
                       {cols ? (
-                        cols.map((c) => <td key={c.head} style={cellStyle}>{c.get(r.data)}</td>)
+                        cols.map((c) => <td key={c.head}><span className="data">{c.get(r.data)}</span></td>)
                       ) : (
                         <>
-                          <td style={cellStyle}>{typeLabel(r.entityType)}</td>
-                          <td style={cellStyle}>{r.label}</td>
+                          <td><span style={{ color: "var(--ink)", fontWeight: 500 }}>{typeLabel(r.entityType)}</span></td>
+                          <td><span style={{ color: "var(--ink)" }}>{r.label}</span></td>
                         </>
                       )}
-                      <td style={cellStyle}>{r.deletedBy}</td>
-                      <td style={cellStyle}>{fmt(r.deletedAt)}</td>
-                      <td style={cellStyle}>
-                        <button onClick={() => setOpenId(openId === r.id ? null : r.id)} style={{ fontSize: 12 }}>
-                          {openId === r.id ? "Hide" : "Full record"}
+                      <td><span className="data">{r.deletedBy}</span></td>
+                      <td><span className="data">{fmt(r.deletedAt)}</span></td>
+                      <td>
+                        <button className="plain sm" onClick={() => setOpenId(openId === r.id ? null : r.id)}>
+                          {openId === r.id ? "Hide record" : "Full record"}
                         </button>
                       </td>
                     </tr>
                     {openId === r.id && (
                       <tr>
-                        <td colSpan={(cols ? cols.length : 2) + 3} style={cellStyle}>
-                          <pre style={{ margin: 0, fontSize: 11, whiteSpace: "pre-wrap", maxHeight: 320, overflow: "auto" }}>
-                            {JSON.stringify(r.data, null, 2)}
-                          </pre>
+                        <td colSpan={(cols ? cols.length : 2) + 3} style={{ background: "var(--panel-sunk)" }}>
+                          <div className="machine-block">
+                            <pre style={{ margin: 0, fontSize: 11, whiteSpace: "pre-wrap", maxHeight: 320, overflow: "auto" }}>
+                              {JSON.stringify(r.data, null, 2)}
+                            </pre>
+                          </div>
                         </td>
                       </tr>
                     )}
@@ -253,6 +272,7 @@ export function DeletedDataPanel({ businessId, active = true }: { businessId: st
           </table>
         </div>
       )}
+      </div>
     </section>
   );
 }

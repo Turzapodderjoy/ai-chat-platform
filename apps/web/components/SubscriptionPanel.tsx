@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { cardStyle, primaryButtonStyle, subtleTextStyle, inputStyle, labelTextStyle } from "./dashboard-styles";
 import { SUBSCRIPTION_CURRENCIES, currencySymbol } from "../lib/currency";
 import { showConfirm } from "../lib/app-dialog";
 
@@ -85,165 +84,183 @@ export function SubscriptionPanel() {
   }
 
   function getStatus(client: Client) {
-    if (!client.subscriptionActive) return { label: "Disabled", color: "#6b7280" };
-    if (!client.subscriptionEndDate) return { label: "Active", color: "#10b981" };
+    if (!client.subscriptionActive) return { label: "Disabled", lamp: "lamp lamp-idle" };
+    if (!client.subscriptionEndDate) return { label: "Active", lamp: "lamp lamp-ok" };
     const end = new Date(client.subscriptionEndDate);
     const now = new Date();
     const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
-    if (end.getTime() < now.getTime() - twoDaysMs) return { label: "Expired", color: "#ef4444" };
-    if (end.getTime() < now.getTime()) return { label: "Grace Period", color: "#f59e0b" };
+    if (end.getTime() < now.getTime() - twoDaysMs) return { label: "Expired", lamp: "lamp lamp-err" };
+    if (end.getTime() < now.getTime()) return { label: "Grace period", lamp: "lamp lamp-warn" };
     const daysLeft = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    if (daysLeft <= 7) return { label: `Expiring in ${daysLeft}d`, color: "#f59e0b" };
-    return { label: "Active", color: "#10b981" };
+    if (daysLeft <= 7) return { label: `Expiring in ${daysLeft}d`, lamp: "lamp lamp-warn" };
+    return { label: "Active", lamp: "lamp lamp-ok" };
   }
 
-  if (!clients) return <div style={{ padding: 24 }}>Loading...</div>;
+  if (!clients) {
+    return (
+      <section className="panel">
+        <div className="panel-head">
+          <span className="instrument-label">Subscriptions</span>
+        </div>
+        <div className="panel-body">
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="skeleton" style={{ height: 44 }} />
+            <div className="skeleton" style={{ height: 44 }} />
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
-    <div style={{ padding: 24 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 16 }}>Subscription Management</h2>
+    <section className="panel">
+      <div className="panel-head">
+        <span className="instrument-label">Subscriptions</span>
+        <span className="data" style={{ fontSize: 11 }}>{clients.length} clients</span>
+      </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {clients.map((client) => {
-          const status = getStatus(client);
-          const isEditing = editingId === client.id;
+      <div className="panel-body">
+        <p className="meta" style={{ marginTop: 0 }}>
+          Plan, fee and term per client. Renewing extends the end date by one month without touching
+          the rest of the subscription.
+        </p>
 
-          return (
-            <div key={client.id} style={{ ...cardStyle, padding: 16 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <div>
-                  <strong>{client.name}</strong>
-                  <span style={{ marginLeft: 8, padding: "2px 8px", borderRadius: 4, fontSize: 12, backgroundColor: status.color + "20", color: status.color }}>
-                    {status.label}
-                  </span>
-                </div>
-                <div style={{ display: "flex", gap: 8 }}>
+        {clients.length === 0 && (
+          <div className="empty-state">
+            <div className="empty-state-title">No clients yet</div>
+            <div className="empty-state-description">
+              Subscriptions are attached to a client, so create a client first.
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {clients.map((client) => {
+            const status = getStatus(client);
+            const isEditing = editingId === client.id;
+
+            return (
+              <div key={client.id} className="panel-sunk" style={{ padding: 14 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 12,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ color: "var(--ink)", fontWeight: 600 }}>{client.name}</span>
+                    <span className={status.lamp}>{status.label}</span>
+                  </div>
                   {!isEditing && (
-                    <>
-                      <button onClick={() => startEdit(client)} style={{ ...primaryButtonStyle, fontSize: 12, padding: "4px 12px" }}>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button className="ghost sm" onClick={() => startEdit(client)}>
                         Edit
                       </button>
-                      <button onClick={() => renew(client)} style={{ ...primaryButtonStyle, fontSize: 12, padding: "4px 12px", backgroundColor: "#10b981" }}>
-                        Renew +1 Month
+                      <button className="primary sm" onClick={() => renew(client)}>
+                        Renew +1 month
                       </button>
-                    </>
+                    </div>
                   )}
                 </div>
-              </div>
 
-              {isEditing ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border-subtle)" }}>
-                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={labelTextStyle}>Plan Name</label>
-                      <input
-                        type="text"
-                        value={form.planName}
-                        onChange={(e) => setForm({ ...form, planName: e.target.value })}
-                        placeholder="e.g., Pro, Enterprise"
-                        style={inputStyle}
-                      />
+                {isEditing ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 14 }}>
+                    <div className="toolbar" style={{ marginBottom: 0, alignItems: "flex-end" }}>
+                      <label className="field" style={{ flex: 1, minWidth: 160 }}>
+                        <span className="instrument-label">Plan name</span>
+                        <input
+                          type="text"
+                          value={form.planName}
+                          onChange={(e) => setForm({ ...form, planName: e.target.value })}
+                          placeholder="e.g. Pro, Enterprise"
+                        />
+                      </label>
+                      <label className="field" style={{ flex: 1, minWidth: 120 }}>
+                        <span className="instrument-label">Fee per 30 days</span>
+                        <input
+                          type="number"
+                          value={form.fee}
+                          onChange={(e) => setForm({ ...form, fee: e.target.value })}
+                          placeholder="5000"
+                        />
+                      </label>
+                      <label className="field" style={{ flex: "0 0 110px" }}>
+                        <span className="instrument-label">Currency</span>
+                        <select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
+                          {SUBSCRIPTION_CURRENCIES.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </label>
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={labelTextStyle}>Monthly Fee</label>
-                      <input
-                        type="number"
-                        value={form.fee}
-                        onChange={(e) => setForm({ ...form, fee: e.target.value })}
-                        placeholder="5000"
-                        style={inputStyle}
-                      />
+                    <div className="toolbar" style={{ marginBottom: 0, alignItems: "flex-end" }}>
+                      <label className="field" style={{ flex: 1, minWidth: 150 }}>
+                        <span className="instrument-label">Start date</span>
+                        <input
+                          type="date"
+                          value={form.startDate}
+                          onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                        />
+                      </label>
+                      <label className="field" style={{ flex: 1, minWidth: 150 }}>
+                        <span className="instrument-label">End date</span>
+                        <input
+                          type="date"
+                          value={form.endDate}
+                          onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                        />
+                      </label>
+                      <label className="field" style={{ flex: "0 0 auto" }}>
+                        <span className="instrument-label">State</span>
+                        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, height: 34 }}>
+                          <input
+                            type="checkbox"
+                            checked={form.active}
+                            onChange={() => setForm({ ...form, active: !form.active })}
+                          />
+                          <span className={form.active ? "lamp lamp-ok" : "lamp lamp-idle"}>
+                            {form.active ? "Enabled" : "Disabled"}
+                          </span>
+                        </label>
+                      </label>
                     </div>
-                    <div style={{ flex: "0 0 100px" }}>
-                      <label style={labelTextStyle}>Currency</label>
-                      <select
-                        value={form.currency}
-                        onChange={(e) => setForm({ ...form, currency: e.target.value })}
-                        style={inputStyle}
-                      >
-                        {SUBSCRIPTION_CURRENCIES.map((c) => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                      </select>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={save} disabled={saving} className="primary">
+                        {saving ? "Saving…" : "Save subscription"}
+                      </button>
+                      <button onClick={() => setEditingId(null)} className="ghost">
+                        Cancel
+                      </button>
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={labelTextStyle}>Start Date</label>
-                      <input
-                        type="date"
-                        value={form.startDate}
-                        onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                        style={inputStyle}
-                      />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={labelTextStyle}>End Date</label>
-                      <input
-                        type="date"
-                        value={form.endDate}
-                        onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                        style={inputStyle}
-                      />
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Active</label>
-                    <button
-                      onClick={() => setForm({ ...form, active: !form.active })}
-                      style={{
-                        width: 44,
-                        height: 24,
-                        borderRadius: 12,
-                        border: "none",
-                        backgroundColor: form.active ? "var(--success)" : "var(--surface-hover)",
-                        position: "relative",
-                        cursor: "pointer",
-                        transition: "background-color 0.2s",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 20,
-                          height: 20,
-                          borderRadius: "50%",
-                          backgroundColor: "white",
-                          position: "absolute",
-                          top: 2,
-                          left: form.active ? 22 : 2,
-                          transition: "left 0.2s",
-                        }}
-                      />
-                    </button>
-                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{form.active ? "Enabled" : "Disabled"}</span>
-                  </div>
-                  <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                    <button onClick={save} disabled={saving} className="primary" style={{ fontSize: 13, padding: "8px 16px" }}>
-                      {saving ? "Saving..." : "Save"}
-                    </button>
-                    <button onClick={() => setEditingId(null)} className="ghost" style={{ fontSize: 13, padding: "8px 16px" }}>
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>
-                  {client.subscriptionPlanName && <span>Plan: <strong>{client.subscriptionPlanName}</strong></span>}
-                  {client.subscriptionFee && <span style={{ marginLeft: 12 }}>Fee: {currencySymbol(client.subscriptionCurrency)}{client.subscriptionFee.toLocaleString()}/30 days</span>}
-                  {client.subscriptionStartDate && client.subscriptionEndDate && (
-                    <span style={{ marginLeft: 12 }}>
-                      {new Date(client.subscriptionStartDate).toLocaleDateString()} — {new Date(client.subscriptionEndDate).toLocaleDateString()}
+                ) : (
+                  <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 8 }}>
+                    <span className="instrument-label">Plan</span>
+                    <span className="data" style={{ color: "var(--ink)" }}>
+                      {client.subscriptionPlanName || "Not set"}
                     </span>
-                  )}
-                  {!client.subscriptionPlanName && !client.subscriptionFee && !client.subscriptionStartDate && (
-                    <span style={{ fontStyle: "italic" }}>No subscription configured</span>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
+                    <span className="instrument-label">Fee</span>
+                    <span className="data">
+                      {client.subscriptionFee != null
+                        ? `${currencySymbol(client.subscriptionCurrency)}${client.subscriptionFee.toLocaleString()} per 30 days`
+                        : "Not set"}
+                    </span>
+                    <span className="instrument-label">Term</span>
+                    <span className="data">
+                      {client.subscriptionStartDate && client.subscriptionEndDate
+                        ? `${new Date(client.subscriptionStartDate).toLocaleDateString()} to ${new Date(client.subscriptionEndDate).toLocaleDateString()}`
+                        : "No term"}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
-    </div>
+    </section>
   );
 }

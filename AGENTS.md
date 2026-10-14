@@ -1,97 +1,86 @@
-# gstack Auto-Trigger Rules
+# Skill Auto-Trigger Rules (AIVA AI Chat Platform)
 
-This file tells the agent when to automatically load gstack skills. The agent will follow these rules without being asked.
+Every skill installed in `.opencode/skills/` is live for this repo. The agent loads the
+right ones automatically, without being asked.
 
 ## Core Principle
 
-**Every development task triggers the appropriate gstack skill automatically.** You don't need to ask for them.
+**Superpowers first, then domain skills, then design skills.** If a skill applies, use it —
+there is no "too small" task.
 
 ---
 
-## Auto-Trigger Table
+## Tier 0 — Superpowers (always first)
 
-| Task Type | Skills Auto-Loaded (in order) |
-|-----------|-------------------------------|
-| **New feature request** | `/gstack-office-hours` → `/gstack-plan-ceo-review` → `/gstack-autoplan` → implement → `/gstack-review` → `/gstack-qa` → `/gstack-ship` |
-| **Bug report / regression** | `/gstack-investigate` → `/gstack-qa` → `/gstack-review` → `/gstack-ship` |
-| **Security concern / audit** | `/gstack-cso` → `/gstack-review` |
-| **Design task (UI/UX)** | `/gstack-design-shotgun` → `/gstack-design-html` → `/gstack-design-review` |
-| **Code review needed** | `/gstack-review` |
-| **Pre-merge / PR ready** | `/gstack-ship` |
-| **Post-deploy verification** | `/gstack-canary` → `/gstack-benchmark` |
-| **Documentation update** | `/gstack-document-release` |
-| **Retrospective / learning** | `/gstack-retro` → `/gstack-learn` |
-| **Browser testing needed** | `/gstack-browse` |
-| **Architecture / tech design** | `/gstack-plan-eng-review` |
-| **Developer experience** | `/gstack-plan-devex-review` |
-| **Spec writing** | `/gstack-spec` |
+The Superpowers plugin lives at `.opencode/plugins/superpowers/superpowers.js` and injects
+`using-superpowers` into every session automatically. Its skills sit in
+`.opencode/skills/<plain-name>/`.
 
----
+| Situation | Load first |
+|-----------|-----------|
+| Any conversation start | `using-superpowers` (auto-injected — do not reload) |
+| "Let's build X" / new feature / UI work | `brainstorming` → `writing-plans` → `executing-plans` |
+| Bug, test failure, unexpected behavior | `systematic-debugging` (project version) or `test-driven-development` |
+| Work that splits into independent chunks | `dispatching-parallel-agents` |
+| Delegated implementation per plan step | `subagent-driven-development` |
+| About to claim done / ship | `verification-before-completion` |
+| Parallel work in an isolated tree | `using-git-worktrees` |
+| Review pass (own or others') | `requesting-code-review` / `receiving-code-review` |
+| Landing a branch | `finishing-a-development-branch` |
+| Authoring a new skill | `writing-skills` (`skill-creator` also available) |
+| Superpowers misbehaving | `diagnosing-superpowers` |
 
-## Skill Name Mapping
+## Tier 1 — Domain skills (routing table)
 
-All gstack skills are prefixed with `gstack-` in OpenCode:
+| Task type | Load, in order |
+|-----------|----------------|
+| **Backend / API / DB work** | `backend` → `api-development` → `database` |
+| **Frontend / React / Next.js** | `frontend` → `nextjs16` → `vercel-react-best-practices` |
+| **UI redesign, styling, components** | `design` → `design-system` → `ui-styling` (see Tier 2) |
+| **Performance / slowness** | `performance` |
+| **Security review or auth change** | `security` |
+| **Docker / deploy / infra** | `devops` → `docker` → `ci-cd` → `monitoring` |
+| **Incident / outage** | `incident-response` → `systematic-debugging` |
+| **Refactor / cleanup** | `refactoring` → `technical-debt` |
+| **Tests / coverage** | `testing` → `tdd-workflow` |
+| **Architecture decision** | `architecture-decisions` |
+| **Docs / ADRs** | `documentation` |
+| **Git / branch / release** | `git-workflow` → `finishing-a-development-branch` |
+| **Resilience / quotas / retries** | `production-resilience` |
+| **Code review** | `code-review` → `code-review-excellence` |
+| **Long-context / session hygiene** | `context-engineering` |
 
-| Slash Command | OpenCode Skill Name |
-|---------------|---------------------|
-| `/office-hours` | `gstack-office-hours` |
-| `/plan-ceo-review` | `gstack-plan-ceo-review` |
-| `/plan-eng-review` | `gstack-plan-eng-review` |
-| `/plan-design-review` | `gstack-plan-design-review` |
-| `/plan-devex-review` | `gstack-plan-devex-review` |
-| `/autoplan` | `gstack-autoplan` |
-| `/design-consultation` | `gstack-design-consultation` |
-| `/design-shotgun` | `gstack-design-shotgun` |
-| `/design-html` | `gstack-design-html` |
-| `/design-review` | `gstack-design-review` |
-| `/review` | `gstack-review` |
-| `/investigate` | `gstack-investigate` |
-| `/qa` | `gstack-qa` |
-| `/qa-only` | `gstack-qa-only` |
-| `/ship` | `gstack-ship` |
-| `/land-and-deploy` | `gstack-land-and-deploy` |
-| `/canary` | `gstack-canary` |
-| `/benchmark` | `gstack-benchmark` |
-| `/cso` | `gstack-cso` |
-| `/browse` | `gstack-browse` |
-| `/document-release` | `gstack-document-release` |
-| `/document-generate` | `gstack-document-generate` |
-| `/retro` | `gstack-retro` |
-| `/learn` | `gstack-learn` |
-| `/spec` | `gstack-spec` |
+## Tier 2 — Design skills (site furnishing)
 
----
+Use these for anything visual. `design` is the router; it dispatches to the others.
 
-## Implementation Details
+| Need | Skill |
+|------|-------|
+| Anything visual (entry point) | `design` |
+| Design tokens, CSS vars, component specs | `design-system` |
+| shadcn/ui + Tailwind implementation | `ui-styling` |
+| Distinctive art direction, avoid templated defaults | `frontend-design` |
+| UX research data, palettes, font pairings, icon/chart picks | `ui-ux-pro-max` |
+| Brand voice, identity, consistency | `brand` |
+| Social / ad / hero banners | `banner-design` |
+| Slide decks and HTML presentations | `slides` |
 
-### For New Features
-1. Load `gstack-office-hours` to scope and challenge the idea
-2. Load `gstack-plan-ceo-review` to find the 10-star product
-3. Load `gstack-autoplan` to run full review pipeline (CEO → design → DX → eng)
-4. Implement the plan
-5. Load `gstack-review` for staff-level code review
-6. Load `gstack-qa` to test in real browser
-7. Load `gstack-ship` to run tests, push, open PR
-
-### For Bugs
-1. Load `gstack-investigate` for systematic root-cause analysis
-2. Fix the root cause
-3. Load `gstack-qa` to verify fix in browser + generate regression test
-4. Load `gstack-ship`
-
-### For Security
-1. Load `gstack-cso` for OWASP + STRIDE audit
-2. Load `gstack-review` for code-level security review
-
----
+Furnishing workflow for this repo: `brainstorming` (lock intent) → `design` (route) →
+`ui-ux-pro-max` or `design-system` (decide tokens/palette/type) → `ui-styling` or
+`frontend-design` (implement) → browser screenshot check → `verification-before-completion`.
 
 ## Tool Usage
 
-The gstack skills have been patched for OpenCode tool names:
-- `question` instead of `AskUserQuestion`
-- `websearch` instead of `WebSearch`
-- `read` / `write` / `edit` / `grep` / `glob` / `bash` / `task` / `webfetch`
-- MCP references to `mcp__*__AskUserQuestion` preserved
+Skills are OpenCode-native. Use the `skill` tool to list/load, `todowrite` for checklists,
+`task`/`subagent` for delegation, `bash` for commands, `read`/`write`/`edit`/`grep`/`glob`
+for files, `webfetch`/`websearch` for research.
+
+## Notes
+
+- gstack slash commands (`/gstack-review`, `/gstack-ship`, …) are **not installed** in this
+  environment. Do not attempt to load them; use the routing tables above instead.
+- `systematic-debugging` in this repo is the project's evidence-first version and
+  intentionally supersedes the Superpowers copy of the same name.
 
 ---
 

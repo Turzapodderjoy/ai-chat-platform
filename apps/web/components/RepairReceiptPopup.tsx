@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import { subtleTextStyle, primaryButtonStyle, badgeStyle } from "./dashboard-styles";
 import { OrderItemsEditor, orderTotal, type RepairOrder } from "./OrderManagementPanel";
 import { useCurrencySymbol } from "../lib/currency";
 
@@ -42,7 +41,8 @@ export interface ReceiptEdits {
 /** Popup shown when a repair moves to "received": a live-edit print
  * preview (device sticker on top, customer receipt below) with an
  * embedded order editor. "Print" fires window.print() then confirms the
- * status change; "No need Print" confirms without printing; ✕ cancels. */
+ * status change; confirming without printing skips the print; the close
+ * button cancels. */
 export function RepairReceiptPopup({
   appointment,
   products,
@@ -106,67 +106,108 @@ export function RepairReceiptPopup({
     totalOverride: totalOverride.trim() ? Number(totalOverride) : null,
   };
 
-  const editableRow = (label: string, value: string, onChange: (v: string) => void) => (
-    <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--text-muted)", flex: 1, minWidth: 140 }}>
-      {label}
-      <input value={value} onChange={(e) => onChange(e.target.value)} style={{ padding: "6px 8px", fontSize: 13, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--surface)", color: "var(--text)", fontFamily: "inherit" }} />
-    </label>
+  const editableField = (id: string, label: string, value: string, onChange: (v: string) => void, numeric = false) => (
+    <div className="field" style={{ flex: "1 1 160px", minWidth: 0 }}>
+      <label className="field-label" htmlFor={id}>{label}</label>
+      <input
+        id={id}
+        className={numeric ? "data" : undefined}
+        type={numeric ? "number" : undefined}
+        inputMode={numeric ? "decimal" : undefined}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
   );
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius-md, 12px)", boxShadow: "var(--shadow-lg)", width: "min(1080px, 100%)", maxHeight: "92vh", display: "flex", flexDirection: "column" }}>
-        {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>
-            Mark Received — Print Receipt &amp; Sticker
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "color-mix(in srgb, var(--ink) 55%, transparent)",
+        backdropFilter: "blur(2px)",
+        zIndex: 300,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div className="panel" style={{ width: "min(1080px, 100%)", maxHeight: "92vh", display: "flex", flexDirection: "column", boxShadow: "var(--shadow-pop)" }}>
+        <div className="panel-head" style={{ flexWrap: "wrap" }}>
+          <div style={{ minWidth: 0 }}>
+            <span className="instrument-label">Mark received</span>
+            <div className="meta">
+              Print the device sticker and customer receipt, then mark this repair received. Edits below override the stored details.
+            </div>
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <select value={width} onChange={(e) => setWidth(e.target.value as "80mm" | "58mm")} style={{ padding: "6px 10px", fontSize: 12, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontFamily: "inherit" }}>
-              {PRINTER_WIDTHS.map((w) => <option key={w} value={w}>{w} printer</option>)}
-            </select>
-<button onClick={() => onPrint(edits)} style={{ ...primaryButtonStyle, fontSize: 12, padding: "7px 14px", borderRadius: "var(--radius-sm)", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
-  Print
-</button>
-<button onClick={() => onNoNeedPrint(edits)} style={{ fontSize: 12, padding: "7px 14px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", cursor: "pointer", fontFamily: "inherit" }}>
-  No need Print
-</button>
-            <button onClick={onClose} title="Cancel" style={{ fontSize: 14, padding: "6px 10px", borderRadius: "var(--radius-sm)", border: "none", background: "transparent", color: "var(--text-muted)", cursor: "pointer", fontFamily: "inherit" }}>✕</button>
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <div className="field" style={{ width: 140 }}>
+              <label className="field-label" htmlFor="receipt-width">Printer width</label>
+              <select id="receipt-width" value={width} onChange={(e) => setWidth(e.target.value as "80mm" | "58mm")}>
+                {PRINTER_WIDTHS.map((w) => <option key={w} value={w}>{w} printer</option>)}
+              </select>
+            </div>
+            <button type="button" className="primary sm" onClick={() => onPrint(edits)}>
+              Print and mark received
+            </button>
+            <button type="button" className="sm" onClick={() => onNoNeedPrint(edits)}>
+              Mark received without printing
+            </button>
+            <button type="button" className="ghost sm" onClick={onClose} aria-label="Close without marking received" title="Cancel">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+            </button>
           </div>
         </div>
 
-        {/* Body */}
-        <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", gap: 20, alignItems: "flex-start" }}>
+        <div className="panel-body panel-scroll" style={{ flex: 1, overflowY: "auto", display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
           {/* Left: editable fields + order items */}
-          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* Editable details */}
-          <div>
-            <div style={subtleTextStyle}>{`Edits override this repair's details when you print or confirm.`}</div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
-              {editableRow("Customer name", customerName, setCustomerName)}
-              {editableRow("Phone", phone, setPhone)}
-              {editableRow("Email", email, setEmail)}
-              {editableRow("Device type", deviceType, setDeviceType)}
-              {editableRow("Device model", deviceModel, setDeviceModel)}
-              {editableRow("Issue", issueDescription, setIssueDescription)}
-              {editableRow("Override total", totalOverride, setTotalOverride)}
+          <div style={{ flex: "1 1 380px", minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
+            <div>
+              <div className="meta">Edits override this repair&apos;s details when you print or confirm.</div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
+                {editableField("receipt-customer", "Customer name", customerName, setCustomerName)}
+                {editableField("receipt-phone", "Phone", phone, setPhone)}
+                {editableField("receipt-email", "Email", email, setEmail)}
+                {editableField("receipt-device-type", "Device type", deviceType, setDeviceType)}
+                {editableField("receipt-device-model", "Device model", deviceModel, setDeviceModel)}
+                {editableField("receipt-issue", "Issue", issueDescription, setIssueDescription)}
+                {editableField("receipt-override-total", "Override total", totalOverride, setTotalOverride, true)}
+              </div>
+            </div>
+
+            {/* Order items (reuses the shared order editor) */}
+            <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14 }}>
+              <div className="instrument-label" style={{ marginBottom: 2 }}>Order items</div>
+              <div className="meta" style={{ marginBottom: 8 }}>
+                Add parts and services with pricing. They appear on the receipt.
+              </div>
+              <OrderItemsEditor order={order} products={products} onChanged={onItemsChanged} />
             </div>
           </div>
 
-          {/* Order items (reuses the shared order editor) */}
-          <div style={{ borderTop: "1px solid var(--border)", paddingTop: 4 }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
-              <span style={badgeStyle("info")}>Order</span>
-              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Add parts/services with pricing — they appear on the receipt.</span>
-            </div>
-            <OrderItemsEditor order={order} products={products} onChanged={onItemsChanged} />
-          </div>
-          </div>
-
-          {/* Right: live print preview, pinned while the left scrolls */}
-          <div style={{ flex: "0 0 auto", background: "var(--surface-hover)", border: "1px dashed var(--border)", borderRadius: "var(--radius-sm)", padding: 16, display: "flex", justifyContent: "center", overflowX: "auto", position: "sticky", top: 0, maxHeight: "80vh", overflowY: "auto" }}>
+          {/* Right: live print preview, pinned while the left scrolls. The
+              sheet itself stays paper-white with monospace type: it is a
+              preview of the printed artefact, not app chrome. */}
+          <div
+            style={{
+              flex: "0 0 auto",
+              background: "var(--panel-sunk)",
+              border: "1px dashed var(--line-strong)",
+              borderRadius: "var(--r-sm)",
+              padding: 16,
+              display: "flex",
+              justifyContent: "center",
+              overflowX: "auto",
+              position: "sticky",
+              top: 0,
+              maxHeight: "80vh",
+              overflowY: "auto",
+            }}
+          >
             <div className="no-print chrome" style={{ display: "none" }} />
-            <div className="print-sheet" style={{ width, background: "#fff", color: "#111", fontFamily: "'Courier New', monospace", fontSize: 12, lineHeight: 1.45, padding: width === "58mm" ? "6mm" : "8mm", boxSizing: "border-box", boxShadow: "0 1px 4px rgba(0,0,0,0.2)" }}>
+            <div className="print-sheet" style={{ width, background: "#fff", color: "#111", fontFamily: "'Courier New', monospace", fontSize: 12, lineHeight: 1.45, padding: width === "58mm" ? "6mm" : "8mm", boxSizing: "border-box", boxShadow: "var(--shadow-pop)" }}>
               {/* Sticker (top, short) */}
               <div style={{ borderBottom: width === "58mm" ? "1px dashed #888" : "2px solid #111", paddingBottom: 6, marginBottom: 8 }}>
                 <div style={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>{businessName || "REPAIR SHOP"}</div>
@@ -195,7 +236,7 @@ export function RepairReceiptPopup({
 
                 <div style={{ marginTop: 8, borderTop: "1px solid #555", borderBottom: "1px solid #555", padding: "4px 0" }}>
                   {appointment.items.length === 0 ? (
-                    <div style={{ color: "#555" }}>No parts/services listed yet</div>
+                    <div style={{ color: "#555" }}>No parts or services listed yet</div>
                   ) : (
                     appointment.items.map((it) => (
                       <div key={it.id} style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>

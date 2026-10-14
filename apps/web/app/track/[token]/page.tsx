@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
+import styles from "./page.module.css";
+
 interface Appointment {
   id: string;
   customerName: string;
@@ -31,8 +33,8 @@ interface Message {
 const STATUS_LABEL: Record<string, string> = {
   booked: "Booked",
   received: "Received",
-  in_repair: "In Repair",
-  ready: "Ready for Pickup",
+  in_repair: "In repair",
+  ready: "Ready for pickup",
   completed: "Completed",
   cancelled: "Cancelled",
 };
@@ -46,7 +48,26 @@ const STATUS_STEP: Record<string, number> = {
   cancelled: -1,
 };
 
-const STEPS = ["Booked", "Received", "In Repair", "Ready for Pickup", "Completed"];
+const STEPS = ["Booked", "Received", "In repair", "Ready for pickup", "Completed"];
+
+function getStatusLamp(status: string): string {
+  switch (status) {
+    case "ready":
+      return "lamp lampOk";
+    case "completed":
+      return "lamp lampOk";
+    case "cancelled":
+      return "lamp lampErr";
+    case "in_repair":
+      return "lamp lampInfo";
+    case "received":
+      return "lamp lampInfo";
+    case "booked":
+      return "lamp lampWarn";
+    default:
+      return "lamp";
+  }
+}
 
 export default function TrackRepairPage() {
   const params = useParams();
@@ -80,7 +101,8 @@ export default function TrackRepairPage() {
       });
   }, [token]);
 
-  async function sendReply() {
+  async function sendReply(e?: React.FormEvent) {
+    e?.preventDefault();
     if (!reply.trim()) return;
     setSending(true);
     try {
@@ -115,11 +137,12 @@ export default function TrackRepairPage() {
         body: JSON.stringify({ newDate: new Date(rescheduleDate).toISOString() }),
       });
       if (res.ok) {
-        setRescheduleMsg("Reschedule request sent!");
+        setRescheduleMsg("Reschedule request sent.");
         setRescheduleDate("");
-        // Refetch
         const data = await fetch(`/api/repairs/track?token=${encodeURIComponent(token)}`).then((r) => r.json());
         setAppointment(data.appointment);
+      } else {
+        setRescheduleMsg("Failed to send request.");
       }
     } catch {
       setRescheduleMsg("Failed to send request.");
@@ -135,10 +158,12 @@ export default function TrackRepairPage() {
         body: JSON.stringify({ reason: cancelReason || undefined }),
       });
       if (res.ok) {
-        setCancelMsg("Cancellation request sent!");
+        setCancelMsg("Cancellation request sent.");
         setCancelReason("");
         const data = await fetch(`/api/repairs/track?token=${encodeURIComponent(token)}`).then((r) => r.json());
         setAppointment(data.appointment);
+      } else {
+        setCancelMsg("Failed to send request.");
       }
     } catch {
       setCancelMsg("Failed to send request.");
@@ -147,210 +172,323 @@ export default function TrackRepairPage() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100dvh", background: "var(--bg)", padding: "24px 16px" }}>
-        <div style={{ maxWidth: 600, margin: "0 auto" }}>
-          <div style={{ height: 16, width: 120, background: "var(--surface)", borderRadius: 6, marginBottom: 12 }} />
-          <div style={{ height: 24, width: 200, background: "var(--surface)", borderRadius: 6, marginBottom: 8 }} />
-          <div style={{ height: 14, width: 160, background: "var(--surface)", borderRadius: 6, marginBottom: 20 }} />
-          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 20, marginBottom: 16 }}>
-            <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-              {[0, 1, 2, 3, 4].map((i) => (
-                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                  <div style={{ width: 24, height: 24, borderRadius: "50%", background: "var(--surface-hover)" }} />
-                  <div style={{ width: 40, height: 8, background: "var(--surface-hover)", borderRadius: 4 }} />
+      <main className="public-shell">
+        <div className={styles.page}>
+          <div className={styles.wrap}>
+            <div className={`${styles.skeleton} ${styles.skeletonText}`} style={{ width: 120, height: 14 }} />
+            <div className={`${styles.skeleton} ${styles.skeletonText}`} style={{ width: 200, height: 18 }} />
+            <div className={styles.panel}>
+              <div className={styles.panelHead}>
+                <span className="instrument-label">Repair status</span>
+              </div>
+              <div className={styles.panelBody}>
+                <div className={styles.progress}>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className={styles.progressStep}>
+                      <div className={`${styles.skeleton} ${styles.skeletonCircle}`} />
+                      <div className={`${styles.skeleton} ${styles.skeletonText}`} style={{ width: 40, height: 8 }} />
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
           </div>
-          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 20 }}>
-            <div style={{ height: 14, width: 80, background: "var(--surface-hover)", borderRadius: 4, marginBottom: 12 }} />
-            {[0, 1, 2].map((i) => (
-              <div key={i} style={{ height: 12, width: `${80 - i * 15}%`, background: "var(--surface-hover)", borderRadius: 4, marginBottom: 8 }} />
-            ))}
-          </div>
         </div>
-      </div>
+      </main>
     );
   }
 
   if (error || !appointment) {
     return (
-      <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)", padding: 24 }}>
-        <div style={{ textAlign: "center" }}>
-          <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 8, color: "var(--text)" }}>Repair Not Found</h1>
-          <p style={{ color: "var(--text-muted)", marginBottom: 16 }}>{error}</p>
-          <a href="/track" style={{ color: "var(--accent)", fontWeight: 500 }}>Try another code</a>
+      <main className="public-shell">
+        <div className={styles.page}>
+          <div className={styles.wrap} style={{ alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+            <div className={styles.card} style={{ textAlign: "center", padding: 32 }}>
+              <h1 className={styles.title}>Repair not found</h1>
+              <p className={styles.sub} role="alert">
+                {error || "We couldn’t find a repair for this tracking code."}
+              </p>
+              <a href="/track" className={styles.button} style={{ alignSelf: "center" }}>
+                Try another code
+              </a>
+            </div>
+          </div>
         </div>
-      </div>
+      </main>
     );
   }
 
   const currentStep = STATUS_STEP[appointment.status] ?? -1;
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg)", padding: "24px 16px" }}>
-      <div style={{ maxWidth: 600, margin: "0 auto" }}>
-        {/* Header */}
-        <div style={{ marginBottom: 24 }}>
-          <a href="/track" style={{ fontSize: 13, color: "var(--accent)", textDecoration: "none" }}>&larr; Track another repair</a>
-          <h1 style={{ fontSize: 22, fontWeight: 700, marginTop: 8, color: "var(--text)" }}>Repair Status</h1>
-          <p style={{ fontSize: 14, color: "var(--text-muted)" }}>
-            {appointment.deviceType}{appointment.deviceModel ? ` ${appointment.deviceModel}` : ""}
-          </p>
-        </div>
+    <main className="public-shell">
+      <div className={styles.page}>
+        <div className={styles.wrap}>
+          <a href="/track" className={styles.backLink}>
+            Back to tracking
+          </a>
+          <div className={styles.header}>
+            <h1 className={styles.title}>Repair status</h1>
+            <p className={styles.sub}>
+              {appointment.deviceType}
+              {appointment.deviceModel ? ` ${appointment.deviceModel}` : ""}
+            </p>
+          </div>
 
-        {/* Status Timeline */}
-        {appointment.status !== "cancelled" && (
-          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 20, marginBottom: 16 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", position: "relative", overflowX: "auto" }}>
-              {/* Progress line */}
-              <div style={{ position: "absolute", top: 12, left: 0, right: 0, height: 2, background: "var(--border)" }} />
-              <div style={{ position: "absolute", top: 12, left: 0, height: 2, background: "var(--accent)", width: `${Math.min(100, (currentStep / (STEPS.length - 1)) * 100)}%`, transition: "width 0.3s" }} />
-              {STEPS.map((step, i) => (
-                <div key={step} style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative", zIndex: 1, flex: "1 1 0", minWidth: 0 }}>
-                  <div style={{
-                    width: 24, height: 24, borderRadius: "50%",
-                    background: i <= currentStep ? "var(--accent)" : "var(--surface)",
-                    border: `2px solid ${i <= currentStep ? "var(--accent)" : "var(--border)"}`,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 11, color: i <= currentStep ? "white" : "var(--text-muted)",
-                    fontWeight: 600, marginBottom: 6, flexShrink: 0,
-                  }}>
-                    {i < currentStep ? "\u2713" : i + 1}
-                  </div>
-                  <span style={{ fontSize: 9, color: i <= currentStep ? "var(--text)" : "var(--text-muted)", textAlign: "center", maxWidth: 56, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {step}
+          {appointment.status !== "cancelled" && (
+            <section className={styles.panel}>
+              <div className={styles.panelHead}>
+                <span className="instrument-label">Progress</span>
+              </div>
+              <div className={styles.panelBody}>
+                <div className={styles.progress}>
+                  <div className={styles.progressLine} />
+                  <div
+                    className={styles.progressLineFill}
+                    style={{ width: `${Math.min(100, currentStep >= 0 ? (currentStep / (STEPS.length - 1)) * 100 : 0)}%` }}
+                  />
+                  {STEPS.map((step, i) => {
+                    const done = i < currentStep;
+                    const active = i === currentStep;
+                    return (
+                      <div key={step} className={styles.progressStep}>
+                        <div
+                          className={`${styles.progressDot} ${done ? styles.progressDotDone : ""} ${
+                            active ? styles.progressDotActive : ""
+                          }`}
+                          aria-hidden="true"
+                        >
+                          {done ? "✓" : i + 1}
+                        </div>
+                        <span
+                          className={`${styles.progressLabel} ${active || done ? styles.progressLabelActive : ""}`}
+                        >
+                          {step}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className={styles.statusRow}>
+                  <span className={getStatusLamp(appointment.status)}>
+                    {STATUS_LABEL[appointment.status]}
                   </span>
                 </div>
-              ))}
-            </div>
-            <div style={{ textAlign: "center", marginTop: 16, fontSize: 14, fontWeight: 600, color: "var(--accent)" }}>
-              Current status: {STATUS_LABEL[appointment.status]}
-            </div>
-          </div>
-        )}
-
-        {appointment.status === "cancelled" && (
-          <div style={{ background: "var(--danger-subtle)", border: "1px solid var(--danger)", borderRadius: "var(--radius-md)", padding: 16, marginBottom: 16, textAlign: "center" }}>
-            <span style={{ color: "var(--danger)", fontWeight: 600, fontSize: 14 }}>This repair has been cancelled</span>
-          </div>
-        )}
-
-        {/* Appointment Details */}
-        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 20, marginBottom: 16 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: "var(--text)" }}>Details</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))", gap: 12, fontSize: 13 }}>
-            <div><span style={{ color: "var(--text-muted)" }}>Customer</span><br />{appointment.customerName}</div>
-            <div><span style={{ color: "var(--text-muted)" }}>Phone</span><br />{appointment.phone}</div>
-            <div><span style={{ color: "var(--text-muted)" }}>Device</span><br />{appointment.deviceType}{appointment.deviceModel ? ` ${appointment.deviceModel}` : ""}</div>
-            <div><span style={{ color: "var(--text-muted)" }}>Appointment</span><br />{new Date(appointment.appointmentDate).toLocaleDateString()}</div>
-            <div style={{ gridColumn: "1 / -1" }}><span style={{ color: "var(--text-muted)" }}>Issue</span><br />{appointment.issueDescription}</div>
-          </div>
-
-          {/* Device Photos */}
-          {appointment.deviceImages && appointment.deviceImages.length > 0 && (
-            <div style={{ marginTop: 12 }}>
-              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Device Photos</span>
-              <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
-                {appointment.deviceImages.map((url, i) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img key={i} src={url} alt={`Device photo ${i + 1}`} style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)" }} />
-                ))}
               </div>
+            </section>
+          )}
+
+          {appointment.status === "cancelled" && (
+            <div className={`${styles.msgBox} ${styles.msgError}`} role="status">
+              <span className={styles.msgTitle}>This repair has been cancelled</span>
+              {appointment.cancelReason && (
+                <span className={styles.data}>{appointment.cancelReason}</span>
+              )}
             </div>
           )}
-        </div>
 
-        {/* Reschedule Request */}
-        {appointment.status !== "cancelled" && appointment.status !== "completed" && !appointment.rescheduleRequested && !appointment.cancelRequested && (
-          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 20, marginBottom: 16 }}>
-            <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: "var(--text)" }}>Request Changes</h3>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <label htmlFor="reschedule-date" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0,0,0,0)" }}>New date and time</label>
-              <input
-                id="reschedule-date"
-                type="datetime-local"
-                value={rescheduleDate}
-                onChange={(e) => setRescheduleDate(e.target.value)}
-                style={{ padding: 8, fontSize: 13, flex: 1, minWidth: 200 }}
-              />
-              <button onClick={requestReschedule} disabled={!rescheduleDate} style={{ padding: "8px 16px", fontSize: 13, background: rescheduleDate ? "var(--accent)" : "var(--surface-hover)", color: rescheduleDate ? "white" : "var(--text-muted)", border: "none", borderRadius: "var(--radius-sm)", cursor: rescheduleDate ? "pointer" : "not-allowed" }}>
-                Request Reschedule
-              </button>
+          <section className={styles.panel}>
+            <div className={styles.panelHead}>
+              <span className="instrument-label">Repair details</span>
             </div>
-            {rescheduleMsg && <p style={{ fontSize: 12, color: "var(--success)", marginTop: 8 }}>{rescheduleMsg}</p>}
-
-            <div style={{ marginTop: 12, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
-              <input
-                type="text"
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                placeholder="Reason for cancellation (optional)"
-                style={{ padding: 8, fontSize: 13, width: "100%", marginBottom: 8 }}
-              />
-              <button onClick={requestCancel} style={{ padding: "8px 16px", fontSize: 13, background: "transparent", color: "var(--danger)", border: "1px solid var(--danger)", borderRadius: "var(--radius-sm)", cursor: "pointer" }}>
-                Request Cancellation
-              </button>
-              {cancelMsg && <p style={{ fontSize: 12, color: "var(--success)", marginTop: 8 }}>{cancelMsg}</p>}
-            </div>
-          </div>
-        )}
-
-        {appointment.rescheduleRequested && (
-          <div style={{ background: "var(--warning-subtle)", border: "1px solid var(--warning)", borderRadius: "var(--radius-md)", padding: 16, marginBottom: 16, fontSize: 13 }}>
-            <strong>Reschedule pending</strong> — Your request for {appointment.rescheduleNewDate ? new Date(appointment.rescheduleNewDate).toLocaleString() : "a new date"} is being reviewed.
-          </div>
-        )}
-
-        {appointment.cancelRequested && (
-          <div style={{ background: "var(--danger-subtle)", border: "1px solid var(--danger)", borderRadius: "var(--radius-md)", padding: 16, marginBottom: 16, fontSize: 13 }}>
-            <strong>Cancellation pending</strong> — Your request is being reviewed.
-          </div>
-        )}
-
-        {/* Message Thread */}
-        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 20, marginBottom: 16 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: "var(--text)" }}>Messages</h3>
-          <div style={{ minHeight: 100, maxHeight: 300, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
-            {messages.length === 0 && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>No messages yet.</p>}
-            {messages.map((m) => {
-              if (m.role === "system") {
-                return (
-                  <div key={m.id} style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center", padding: "4px 0" }}>
-                    {m.content}
+            <div className={styles.panelBody}>
+              <div className={styles.grid}>
+                <div className={styles.gridItem}>
+                  <span className={styles.meta}>Customer</span>
+                  <span className={styles.data}>{appointment.customerName}</span>
+                </div>
+                <div className={styles.gridItem}>
+                  <span className={styles.meta}>Phone</span>
+                  <span className={styles.data}>{appointment.phone}</span>
+                </div>
+                {appointment.email && (
+                  <div className={styles.gridItem}>
+                    <span className={styles.meta}>Email</span>
+                    <span className={styles.data}>{appointment.email}</span>
                   </div>
-                );
-              }
-              const isCustomer = m.role === "user";
-              return (
-                <div key={m.id} style={{ maxWidth: "80%", alignSelf: isCustomer ? "flex-end" : "flex-start" }}>
-                  <div style={{
-                    background: isCustomer ? "var(--accent)" : "var(--surface-hover)",
-                    color: isCustomer ? "white" : "var(--text)",
-                    borderRadius: isCustomer ? "12px 12px 3px 12px" : "12px 12px 12px 3px",
-                    padding: "8px 12px",
-                    fontSize: 13,
-                  }}>
-                    {m.content}
+                )}
+                <div className={styles.gridItem}>
+                  <span className={styles.meta}>Device</span>
+                  <span className={styles.data}>
+                    {appointment.deviceType}
+                    {appointment.deviceModel ? ` ${appointment.deviceModel}` : ""}
+                  </span>
+                </div>
+                <div className={styles.gridItem}>
+                  <span className={styles.meta}>Appointment date</span>
+                  <span className={styles.data}>
+                    {new Date(appointment.appointmentDate).toLocaleString()}
+                  </span>
+                </div>
+                <div className={`${styles.gridItem} ${styles.issue}`}>
+                  <span className={styles.meta}>Issue</span>
+                  <span className={styles.data}>{appointment.issueDescription}</span>
+                </div>
+              </div>
+
+              {appointment.deviceImages && appointment.deviceImages.length > 0 && (
+                <div className={styles.photos}>
+                  <span className={styles.meta}>Device photos</span>
+                  <div className={styles.photoGrid}>
+                    {appointment.deviceImages.map((url, i) => (
+                      <img key={i} src={url} alt={`Device photo ${i + 1}`} className={styles.photo} />
+                    ))}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input
-              value={reply}
-              onChange={(e) => setReply(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") sendReply(); }}
-              placeholder="Type a message..."
-              style={{ flex: 1, padding: 10, fontSize: 13, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--bg)", color: "var(--text)" }}
-            />
-            <button onClick={sendReply} disabled={sending || !reply.trim()} style={{ padding: "10px 16px", fontSize: 13, background: reply.trim() ? "var(--accent)" : "var(--surface-hover)", color: reply.trim() ? "white" : "var(--text-muted)", border: "none", borderRadius: "var(--radius-sm)", cursor: reply.trim() ? "pointer" : "not-allowed" }}>
-              {sending ? "Sending..." : "Send"}
-            </button>
-          </div>
+              )}
+            </div>
+          </section>
+
+          {appointment.status !== "cancelled" && appointment.status !== "completed" && !appointment.rescheduleRequested && !appointment.cancelRequested && (
+            <section className={styles.panel}>
+              <div className={styles.panelHead}>
+                <span className="instrument-label">Request changes</span>
+              </div>
+              <div className={styles.panelBody}>
+                <div className={styles.actions}>
+                  <div className={styles.actionsRow}>
+                    <div className={styles.field}>
+                      <label className={styles.label} htmlFor="reschedule-date">
+                        New date and time
+                      </label>
+                      <input
+                        id="reschedule-date"
+                        className={styles.input}
+                        type="datetime-local"
+                        value={rescheduleDate}
+                        onChange={(e) => setRescheduleDate(e.target.value)}
+                      />
+                    </div>
+                    <button
+                      className={`${styles.button} ${styles.buttonPrimary}`}
+                      onClick={requestReschedule}
+                      disabled={!rescheduleDate}
+                    >
+                      Request a new date
+                    </button>
+                  </div>
+                  {rescheduleMsg && (
+                    <div className={`${styles.msgBox} ${styles.msgSuccess}`}>
+                      <span>{rescheduleMsg}</span>
+                    </div>
+                  )}
+
+                  <div className={styles.divider} />
+
+                  <div className={styles.field}>
+                    <label className={styles.label} htmlFor="cancel-reason">
+                      Reason for cancellation (optional)
+                    </label>
+                    <input
+                      id="cancel-reason"
+                      className={styles.input}
+                      type="text"
+                      value={cancelReason}
+                      onChange={(e) => setCancelReason(e.target.value)}
+                      placeholder="e.g. can no longer drop off"
+                    />
+                  </div>
+                  <div className={styles.actionsRow}>
+                    <button
+                      className={`${styles.button} ${styles.buttonDanger}`}
+                      onClick={requestCancel}
+                    >
+                      Cancel this repair
+                    </button>
+                  </div>
+                  {cancelMsg && (
+                    <div className={`${styles.msgBox} ${styles.msgSuccess}`}>
+                      <span>{cancelMsg}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {appointment.rescheduleRequested && (
+            <div className={`${styles.msgBox} ${styles.msgWarn}`}>
+              <span className={styles.msgTitle}>Reschedule pending</span>
+              <span className={styles.data}>
+                Request for
+                {appointment.rescheduleNewDate
+                  ? ` ${new Date(appointment.rescheduleNewDate).toLocaleString()}`
+                  : " a new date"} is being reviewed.
+              </span>
+            </div>
+          )}
+
+          {appointment.cancelRequested && (
+            <div className={`${styles.msgBox} ${styles.msgWarn}`}>
+              <span className={styles.msgTitle}>Cancellation pending</span>
+              <span className={styles.data}>Your request is being reviewed.</span>
+            </div>
+          )}
+
+          <section className={styles.panel}>
+            <div className={styles.panelHead}>
+              <span className="instrument-label">Messages</span>
+            </div>
+            <div className={styles.panelBody}>
+              <div className={styles.thread}>
+                {messages.length === 0 && (
+                  <div className={styles.threadEmpty}>No messages yet.</div>
+                )}
+                {messages.map((m) => {
+                  if (m.role === "system") {
+                    return (
+                      <div key={m.id} className={`${styles.bubble} ${styles.bubbleSystem}`}>
+                        <div className={styles.bubbleContent}>
+                          {m.content}
+                        </div>
+                      </div>
+                    );
+                  }
+                  const isCustomer = m.role === "user";
+                  return (
+                    <div
+                      key={m.id}
+                      className={`${styles.bubble} ${isCustomer ? styles.bubbleCustomer : styles.bubbleStaff}`}
+                    >
+                      <div className={styles.bubbleContent}>
+                        {m.content}
+                      </div>
+                      <span className={`${styles.meta} ${styles.dataSmall} ${isCustomer ? styles.bubbleCustomer : styles.bubbleStaff}`}>
+                        {new Date(m.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <form className={styles.replyRow} onSubmit={sendReply}>
+                <div className={`${styles.field} ${styles.replyInput}`}>
+                  <label className={styles.label} htmlFor="reply">
+                    Message
+                  </label>
+                  <input
+                    id="reply"
+                    className={styles.input}
+                    type="text"
+                    value={reply}
+                    onChange={(e) => setReply(e.target.value)}
+                    placeholder="Type a message..."
+                    disabled={sending}
+                    autoComplete="off"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className={`${styles.button} ${styles.buttonPrimary}`}
+                  disabled={sending || !reply.trim()}
+                >
+                  {sending ? "Sending" : "Send message"}
+                </button>
+              </form>
+            </div>
+          </section>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

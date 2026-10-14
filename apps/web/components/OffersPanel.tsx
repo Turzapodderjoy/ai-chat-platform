@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { cardStyle, badgeStyle } from "./dashboard-styles";
 
 interface Offer {
   id: string;
@@ -82,157 +81,170 @@ export default function OffersPanel({ businessId }: Props) {
     fetchOffers();
   };
 
+  const discountLabel = form.discountType === "percentage" ? "Discount percent" : "Discount amount";
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, height: "100%" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: "var(--text)" }}>Offers & Promos</h2>
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-secondary)" }}>
-            Create promotional offers and promo codes for your customers.
-          </p>
+    <section className="panel">
+      <div className="panel-head" style={{ flexWrap: "wrap" }}>
+        <div style={{ minWidth: 0 }}>
+          <span className="instrument-label">Offers</span>
+          <div className="meta">
+            Discounts and promo codes customers can apply at checkout. A paused offer keeps its code but stops applying.
+          </div>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          style={{
-            padding: "8px 16px",
-            background: "var(--accent, #2dd4bf)",
-            color: "#fff",
-            border: "none",
-            borderRadius: "var(--radius-sm, 6px)",
-            cursor: "pointer",
-            fontSize: 13,
-            fontWeight: 500,
-          }}
-        >
-          {showForm ? "Cancel" : "+ New Offer"}
+        <button type="button" className="primary" onClick={() => setShowForm(!showForm)}>
+          {showForm ? "Close new offer" : "New offer"}
         </button>
       </div>
 
-      {showForm && (
-        <div style={cardStyle}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 12 }}>
-            <input
-              placeholder="Offer title (e.g. 20% Off Screen Repair)"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              style={{ gridColumn: "1 / -1", padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm, 6px)", background: "var(--bg)", color: "var(--text)", fontSize: 13 }}
-            />
-            <input
-              placeholder="Description (optional)"
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              style={{ gridColumn: "1 / -1", padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm, 6px)", background: "var(--bg)", color: "var(--text)", fontSize: 13 }}
-            />
-            <select
-              value={form.discountType}
-              onChange={(e) => setForm({ ...form, discountType: e.target.value })}
-              style={{ padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm, 6px)", background: "var(--bg)", color: "var(--text)", fontSize: 13 }}
-            >
-              <option value="percentage">Percentage (%)</option>
-              <option value="fixed">Fixed Amount ($)</option>
-            </select>
-            <input
-              type="number"
-              placeholder="Discount value"
-              value={form.discountValue}
-              onChange={(e) => setForm({ ...form, discountValue: e.target.value })}
-              style={{ padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm, 6px)", background: "var(--bg)", color: "var(--text)", fontSize: 13 }}
-            />
-            <input
-              placeholder="Promo code (optional)"
-              value={form.promoCode}
-              onChange={(e) => setForm({ ...form, promoCode: e.target.value.toUpperCase() })}
-              style={{ padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm, 6px)", background: "var(--bg)", color: "var(--text)", fontSize: 13, textTransform: "uppercase" }}
-            />
-            <input
-              type="datetime-local"
-              placeholder="Expires"
-              value={form.validUntil}
-              onChange={(e) => setForm({ ...form, validUntil: e.target.value })}
-              style={{ padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm, 6px)", background: "var(--bg)", color: "var(--text)", fontSize: 13 }}
-            />
-            <input
-              type="number"
-              placeholder="Max uses (optional)"
-              value={form.maxUses}
-              onChange={(e) => setForm({ ...form, maxUses: e.target.value })}
-              style={{ padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm, 6px)", background: "var(--bg)", color: "var(--text)", fontSize: 13 }}
-            />
-          </div>
-          <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
-            <button
-              onClick={handleCreate}
-              disabled={!form.title || !form.discountValue}
-              style={{
-                padding: "8px 20px",
-                background: "var(--accent, #2dd4bf)",
-                color: "#fff",
-                border: "none",
-                borderRadius: "var(--radius-sm, 6px)",
-                cursor: "pointer",
-                fontSize: 13,
-                fontWeight: 500,
-                opacity: !form.title || !form.discountValue ? 0.5 : 1,
-              }}
-            >
-              Create Offer
-            </button>
-          </div>
-        </div>
-      )}
-
-      {loading ? (
-        <p style={{ color: "var(--text-secondary)", fontSize: 13 }}>Loading offers...</p>
-      ) : offers.length === 0 ? (
-        <div style={{ ...cardStyle, textAlign: "center", padding: 40 }}>
-          <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: 14 }}>No offers yet. Create your first offer to get started.</p>
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {offers.map((offer) => (
-            <div key={offer.id} style={{ ...cardStyle, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontWeight: 600, color: "var(--text)", fontSize: 14 }}>{offer.title}</span>
-                  <span style={{
-                    ...badgeStyle,
-                    background: offer.isActive ? "var(--success-subtle, rgba(16,185,129,0.15))" : "var(--danger-subtle, rgba(239,68,68,0.15))",
-                    color: offer.isActive ? "var(--success)" : "var(--danger)",
-                  }}>
-                    {offer.isActive ? "Active" : "Inactive"}
-                  </span>
-                  {offer.promoCode && (
-                    <span style={{ ...badgeStyle, background: "var(--accent-subtle, rgba(99,102,241,0.15))", color: "var(--accent)", fontFamily: "monospace" }}>
-                      {offer.promoCode}
-                    </span>
-                  )}
-                </div>
-                <div style={{ marginTop: 4, fontSize: 12, color: "var(--text-secondary)" }}>
-                  {offer.discountType === "percentage"
-                    ? `${offer.discountValue}% off`
-                    : `$${offer.discountValue} off`}
-                  {offer.maxUses && ` · ${offer.currentUses}/${offer.maxUses} uses`}
-                  {offer.validUntil && ` · Expires ${new Date(offer.validUntil).toLocaleDateString()}`}
-                </div>
+      <div className="panel-body">
+        {showForm && (
+          <div className="panel-sunk" style={{ padding: 14, marginBottom: 16 }}>
+            <div className="instrument-label" style={{ marginBottom: 10 }}>New offer</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 190px), 1fr))", gap: 10 }}>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label className="field-label" htmlFor="off-title">Offer title</label>
+                <input
+                  id="off-title"
+                  placeholder="20 percent off screen repair"
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                />
               </div>
-              <div style={{ display: "flex", gap: 6 }}>
-                <button
-                  onClick={() => toggleActive(offer)}
-                  style={{ padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm, 6px)", background: "var(--bg)", color: "var(--text)", fontSize: 12, cursor: "pointer" }}
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label className="field-label" htmlFor="off-description">Description</label>
+                <input
+                  id="off-description"
+                  placeholder="Optional, shown to customers"
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label className="field-label" htmlFor="off-type">Discount type</label>
+                <select
+                  id="off-type"
+                  value={form.discountType}
+                  onChange={(e) => setForm({ ...form, discountType: e.target.value })}
                 >
-                  {offer.isActive ? "Deactivate" : "Activate"}
-                </button>
-                <button
-                  onClick={() => deleteOffer(offer.id)}
-                  style={{ padding: "6px 12px", border: "1px solid var(--danger-subtle, rgba(239,68,68,0.3))", borderRadius: "var(--radius-sm, 6px)", background: "var(--danger-subtle, rgba(239,68,68,0.1))", color: "var(--danger)", fontSize: 12, cursor: "pointer" }}
-                >
-                  Delete
-                </button>
+                  <option value="percentage">Percentage</option>
+                  <option value="fixed">Fixed amount</option>
+                </select>
+              </div>
+              <div className="field">
+                <label className="field-label" htmlFor="off-value">{discountLabel}</label>
+                <input
+                  id="off-value"
+                  className="data"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder={form.discountType === "percentage" ? "20" : "500"}
+                  value={form.discountValue}
+                  onChange={(e) => setForm({ ...form, discountValue: e.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label className="field-label" htmlFor="off-code">Promo code</label>
+                <input
+                  id="off-code"
+                  className="data"
+                  placeholder="Optional, stored uppercase"
+                  value={form.promoCode}
+                  onChange={(e) => setForm({ ...form, promoCode: e.target.value.toUpperCase() })}
+                  style={{ textTransform: "uppercase" }}
+                />
+              </div>
+              <div className="field">
+                <label className="field-label" htmlFor="off-expires">Expires</label>
+                <input
+                  id="off-expires"
+                  type="datetime-local"
+                  value={form.validUntil}
+                  onChange={(e) => setForm({ ...form, validUntil: e.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label className="field-label" htmlFor="off-max">Max uses</label>
+                <input
+                  id="off-max"
+                  className="data"
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="Unlimited"
+                  value={form.maxUses}
+                  onChange={(e) => setForm({ ...form, maxUses: e.target.value })}
+                />
+                <div className="field-hint">Leave empty for no limit</div>
               </div>
             </div>
-          ))}
-        </div>
-      )}
-    </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+              <button type="button" className="primary" onClick={handleCreate} disabled={!form.title || !form.discountValue}>
+                Create offer
+              </button>
+            </div>
+          </div>
+        )}
+
+        {loading ? (
+          <p className="meta">Loading offers</p>
+        ) : offers.length === 0 ? (
+          <div className="empty-state">
+            <span className="empty-state-title">No offers yet</span>
+            <span className="empty-state-description">
+              Create an offer above to give customers a discount or a promo code.
+            </span>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {offers.map((offer) => (
+              <div
+                key={offer.id}
+                className="panel-sunk"
+                style={{ padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}
+              >
+                <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <span style={{ fontWeight: 600, color: "var(--ink)" }}>{offer.title}</span>
+                    <span className={`lamp ${offer.isActive ? "lamp-ok" : "lamp-idle"}`}>
+                      {offer.isActive ? "Active" : "Paused"}
+                    </span>
+                    {offer.promoCode && <span className="data" style={{ fontSize: 12 }}>{offer.promoCode}</span>}
+                  </div>
+                  <div style={{ marginTop: 4, display: "flex", gap: 14, flexWrap: "wrap" }} className="meta">
+                    <span>
+                      <span className="data">{offer.discountType === "percentage" ? `${offer.discountValue}%` : `$${offer.discountValue}`}</span> off
+                    </span>
+                    <span>
+                      <span className="data">{offer.currentUses}</span>
+                      {offer.maxUses ? <> of <span className="data">{offer.maxUses}</span> uses</> : " uses so far"}
+                    </span>
+                    {offer.validUntil && (
+                      <span>
+                        Expires <span className="data">{new Date(offer.validUntil).toLocaleDateString()}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button type="button" className="sm" onClick={() => toggleActive(offer)}>
+                    {offer.isActive ? "Pause offer" : "Activate offer"}
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost sm"
+                    onClick={() => deleteOffer(offer.id)}
+                    aria-label={`Delete offer ${offer.title}`}
+                    title={`Delete offer ${offer.title}`}
+                    style={{ color: "var(--danger)" }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }

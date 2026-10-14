@@ -8,7 +8,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { cardStyle, inputStyle, primaryButtonStyle } from "./dashboard-styles";
+import { NavIcon } from "./nav-icons";
 
 interface CheckResult {
   component: string;
@@ -44,11 +44,13 @@ interface Turn {
   actions?: string[];
 }
 
+// The operator is a human, so their turn is cobalt. Everything the agent
+// says back is machine output and stays in the amber machine layer.
 const bubbleUser: React.CSSProperties = {
   alignSelf: "flex-end",
-  background: "var(--accent, #2a6df4)",
-  color: "#fff",
-  borderRadius: "14px 14px 4px 14px",
+  background: "var(--accent)",
+  color: "var(--accent-ink)",
+  borderRadius: "var(--r-md) var(--r-md) var(--r-xs) var(--r-md)",
   padding: "10px 14px",
   maxWidth: "78%",
   whiteSpace: "pre-wrap",
@@ -56,8 +58,10 @@ const bubbleUser: React.CSSProperties = {
 };
 const bubbleAgent: React.CSSProperties = {
   alignSelf: "flex-start",
-  background: "rgba(127,127,127,0.12)",
-  borderRadius: "14px 14px 14px 4px",
+  background: "var(--machine-subtle)",
+  border: "1px solid var(--machine-line)",
+  color: "var(--ink)",
+  borderRadius: "var(--r-md) var(--r-md) var(--r-md) var(--r-xs)",
   padding: "10px 14px",
   maxWidth: "100%",
   whiteSpace: "pre-wrap",
@@ -65,10 +69,16 @@ const bubbleAgent: React.CSSProperties = {
   lineHeight: 1.55,
 };
 
-const STATUS_COLOR: Record<string, string> = {
-  ok: "#22c55e",
-  warning: "#f59e0b",
-  down: "#ef4444",
+const STATUS_LAMP: Record<string, string> = {
+  ok: "lamp-ok",
+  warning: "lamp-warn",
+  down: "lamp-err",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  ok: "Ok",
+  warning: "Warning",
+  down: "Down",
 };
 
 export function ItGuyPanel() {
@@ -172,134 +182,273 @@ export function ItGuyPanel() {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.2fr) minmax(0,1fr)", gap: 14, alignItems: "start" }}>
       {/* Left — the IT guy chat */}
-      <div style={{ ...cardStyle, padding: 16, display: "flex", flexDirection: "column", maxHeight: 680 }}>
-        <h2 style={{ margin: "0 0 10px", fontSize: 16 }}>
-          <span style={{ marginRight: 8 }}>🧑‍🔧</span>IT Guy <span style={{ ...primaryButtonStyle, padding: "2px 8px", fontSize: 11, verticalAlign: "middle" }}>made by opencode</span>
-          <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: "var(--muted,#8b93a7)" }}>AI as your sysadmin — monitors, fixes safe issues, asks permission for dangerous ones.</span>
-        </h2>
+      <section className="panel" style={{ display: "flex", flexDirection: "column" }}>
+        <div className="panel-head">
+          <span className="instrument-label" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <NavIcon id="itguy" style={{ color: "var(--machine-bright)" }} />
+            IT guy
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span className="lamp lamp-machine">Sysadmin</span>
+            <span className="meta">Built by opencode</span>
+          </span>
+        </div>
+        <div className="panel-body" style={{ display: "flex", flexDirection: "column" }}>
+          <p className="meta" style={{ marginTop: 0, marginBottom: 10 }}>
+            AI sysadmin — monitors checks, fixes safe issues on its own, and asks for a password
+            before anything dangerous.
+          </p>
 
-        <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, minHeight: 320, maxHeight: 480, paddingRight: 4 }}>
-          {turns.length === 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {suggestions.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => send(s)}
-                  style={{
-                    ...primaryButtonStyle,
-                    padding: "5px 10px",
-                    fontSize: 12,
-                    background: "rgba(127,127,127,0.15)",
-                    color: "var(--fg,#e8eaf0)",
-                    border: "1px solid rgba(127,127,127,0.3)",
-                  }}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          )}
-          {turns.map((t, i) => (
-            <div key={i} style={t.role === "user" ? bubbleUser : bubbleAgent}>
-              {t.text}
-              {t.actions && t.actions.length > 0 && (
-                <div style={{ fontSize: 11.5, marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(127,127,127,0.25)", color: "var(--muted,#9aa2b5)" }}>
-                  {t.actions.map((a, j) => (
-                    <div key={j}>→ {a}</div>
+          <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, minHeight: 320, maxHeight: 480, paddingRight: 4 }}>
+            {turns.length === 0 && (
+              <div className="machine-block" style={{ padding: 12 }}>
+                <div className="field-label" style={{ display: "block", marginBottom: 8 }}>
+                  Start with one of these
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {suggestions.map((s) => (
+                    <button key={s} type="button" className="machine sm" onClick={() => send(s)}>
+                      {s}
+                    </button>
                   ))}
                 </div>
-              )}
-            </div>
-          ))}
-          {busy && <div style={bubbleAgent}>working…</div>}
+              </div>
+            )}
+            {turns.map((t, i) => (
+              <div key={i} style={t.role === "user" ? bubbleUser : bubbleAgent}>
+                {t.text}
+                {t.actions && t.actions.length > 0 && (
+                  <div style={{ marginTop: 9, paddingTop: 8, borderTop: "1px solid var(--machine-line)" }}>
+                    <span className="lamp lamp-machine">Actions run</span>
+                    {t.actions.map((a, j) => (
+                      <div key={j} className="data" style={{ fontSize: 11, marginTop: 4 }}>
+                        {a}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+            {busy && (
+              <div style={bubbleAgent}>
+                <span className="lamp lamp-machine">Working</span>
+              </div>
+            )}
+          </div>
+
+          {chatError && <div className="field-error" style={{ margin: "8px 0" }}>{chatError}</div>}
+
+          <form
+            style={{ display: "flex", gap: 8, marginTop: 10 }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              void send();
+            }}
+          >
+            <input
+              className="ops-chat-input"
+              aria-label="Instruction for the IT guy"
+              style={{ flex: 1 }}
+              placeholder="Check the gateway, grow the plan, find the bug"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+            />
+            <button type="submit" className="primary" disabled={busy}>
+              Send
+            </button>
+          </form>
         </div>
-
-        {chatError && <div style={{ fontSize: 12.5, color: "#ef4444", margin: "6px 0" }}>{chatError}</div>}
-
-        <form
-          style={{ display: "flex", gap: 8, marginTop: 10 }}
-          onSubmit={(e) => {
-            e.preventDefault();
-            void send();
-          }}
-        >
-          <input
-            className="ops-chat-input"
-            style={{ ...inputStyle, flex: 1 }}
-            placeholder="Tell the IT guy: check the gateway, grow the plan, find the bug…"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-          />
-          <button type="submit" disabled={busy} style={{ ...primaryButtonStyle, padding: "8px 14px" }}>
-            Send
-          </button>
-        </form>
-      </div>
+      </section>
 
       {/* Right — live status + approvals */}
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <div style={{ ...cardStyle, padding: 16 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <h3 style={{ margin: 0, fontSize: 14 }}>🩺 Live checks</h3>
-            <span style={{ fontSize: 11.5, color: "var(--muted,#8b93a7)" }}>{ops ? new Date(ops.now).toLocaleTimeString() : ""}</span>
+        <section className="panel">
+          <div className="panel-head">
+            <span className="instrument-label" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <NavIcon id="health" style={{ color: "var(--ink-3)" }} />
+              Live checks
+            </span>
+            {ops && <span className="data meta">{new Date(ops.now).toLocaleTimeString()}</span>}
           </div>
-          {opsError && <div style={{ fontSize: 12.5, color: "#ef4444", marginBottom: 6 }}>{opsError}</div>}
-          {ops?.checks.map((c) => (
-            <div key={c.component} style={{ display: "flex", gap: 8, alignItems: "center", padding: "5px 0", borderBottom: "1px solid rgba(127,127,127,0.12)", fontSize: 12.5 }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: STATUS_COLOR[c.status] ?? "#9ca3af", flexShrink: 0 }} />
-              <b style={{ minWidth: 118 }}>{c.label}</b>
-              <span style={{ color: "var(--muted,#8b93a7)", flex: 1 }}>{c.message}</span>
-              {c.autoFixed && <span style={{ fontSize: 11, color: "#f59e0b" }}>auto-fix sent</span>}
-            </div>
-          ))}
-          {ops && ops.checks.length === 0 && <div style={{ fontSize: 12.5, color: "var(--muted,#8b93a7)" }}>no checks yet</div>}
-        </div>
-
-        <div style={{ ...cardStyle, padding: 16 }}>
-          <h3 style={{ margin: "0 0 8px", fontSize: 14 }}>⏳ Approval queue</h3>
-          <div style={{ fontSize: 11, color: "var(--muted,#8b93a7)", marginBottom: 8 }}>
-            Dangerous changes need your password (sudo). Safe restarts happen automatically and never appear here.
-          </div>
-          {ops?.pending.map((p) => (
-            <div key={p.id} style={{ padding: "10px", border: "1px solid rgba(127,127,127,0.2)", borderRadius: 10, marginBottom: 8 }}>
-              <div style={{ fontSize: 12.5 }}>
-                <b>{p.component}</b> <span style={{ color: "var(--muted,#8b93a7)" }}>{p.kind}</span>
+          <div className="panel-body">
+            {opsError && (
+              <div className="field-error" role="alert" style={{ marginBottom: 8 }}>
+                {opsError}
               </div>
-              <div style={{ fontSize: 12.5, color: "var(--muted,#9aa2b5)", margin: "4px 0" }}>{p.message}</div>
-              <div style={{ fontSize: 11, color: "var(--muted,#8b93a7)" }}>request {p.id} · {p.source} · {p.ts ? new Date(p.ts).toLocaleTimeString() : ""}</div>
-              {approvingId === p.id ? (
-                <div style={{ fontSize: 12, color: "var(--muted,#8b93a7)", marginTop: 6 }}>working…</div>
-              ) : (
-                <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                  <input id="ops-username" placeholder="username" autoComplete="username" style={{ ...inputStyle, flex: 1, minWidth: 0, fontSize: 12, padding: "5px 8px" }} />
-                  <input id="ops-password" type="password" placeholder="password" autoComplete="current-password" style={{ ...inputStyle, flex: 1, minWidth: 0, fontSize: 12, padding: "5px 8px" }} />
-                </div>
-              )}
-              {approvingId !== p.id && (
-                <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                  <button onClick={() => void decide(p.id, true)} style={{ ...primaryButtonStyle, padding: "5px 12px", fontSize: 12, background: "#22c55e", color: "#08120b" }}>
-                    Execute
-                  </button>
-                  <button onClick={() => void decide(p.id, false)} style={{ ...primaryButtonStyle, padding: "5px 12px", fontSize: 12, background: "rgba(127,127,127,0.25)", color: "var(--fg,#e8eaf0)" }}>
-                    Deny
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
-          {ops && ops.pending.length === 0 && <div style={{ fontSize: 12.5, color: "var(--muted,#8b93a7)" }}>nothing waiting</div>}
-        </div>
+            )}
+            {ops && ops.checks.length > 0 && (
+              <div className="table-scroll">
+                <table style={{ minWidth: 420 }}>
+                  <thead>
+                    <tr>
+                      <th>Check</th>
+                      <th>Status</th>
+                      <th>Detail</th>
+                      <th className="num" style={{ textAlign: "right" }}>Latency</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ops.checks.map((c) => (
+                      <tr key={c.component}>
+                        <td style={{ color: "var(--ink)" }}>{c.label}</td>
+                        <td>
+                          <span style={{ display: "inline-flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                            <span className={`lamp ${STATUS_LAMP[c.status] ?? "lamp-idle"}`}>
+                              {STATUS_LABEL[c.status] ?? c.status}
+                            </span>
+                            {c.autoFixed && <span className="lamp lamp-machine">Auto-fix</span>}
+                          </span>
+                        </td>
+                        <td className="meta">{c.message}</td>
+                        <td className="data" style={{ textAlign: "right" }}>
+                          {typeof c.latency === "number" ? `${c.latency}ms` : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {ops && ops.checks.length === 0 && (
+              <div className="empty-state">
+                <span className="empty-state-title">No checks reported yet</span>
+                <span className="empty-state-description">
+                  Ask the IT guy to run the health sweep and the results land here.
+                </span>
+              </div>
+            )}
+            {!ops && !opsError && <span className="meta">Loading checks…</span>}
+          </div>
+        </section>
 
-        <div style={{ ...cardStyle, padding: 16 }}>
-          <h3 style={{ margin: "0 0 8px", fontSize: 14 }}>📋 Recent ops</h3>
-          {ops?.activities.slice(0, 12).map((a) => (
-            <div key={`${a.id}-${a.ts}`} style={{ fontSize: 12, padding: "3px 0", borderBottom: "1px solid rgba(127,127,127,0.1)", color: "var(--muted,#9aa2b5)" }}>
-              <span style={{ color: "var(--fg,#e8eaf0)" }}>[{a.ts.slice(11, 19)}]</span> {a.type} · {a.component}: {a.message}
-              {a.status === "approved" || a.status === "canceled" ? <b style={{ color: a.approved ? "#22c55e" : "#ef4444" }}> · {a.status}</b> : null}
-            </div>
-          ))}
-          {ops && ops.activities.length === 0 && <div style={{ fontSize: 12.5, color: "var(--muted,#8b93a7)" }}>nothing logged yet</div>}
-        </div>
+        <section className="panel">
+          <div className="panel-head">
+            <span className="instrument-label" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <NavIcon id="adminUsers" style={{ color: "var(--ink-3)" }} />
+              Approval queue
+            </span>
+            {ops && <span className="meta"><span className="data">{ops.pending.length}</span> waiting</span>}
+          </div>
+          <div className="panel-body">
+            <p className="meta" style={{ marginTop: 0, marginBottom: 10 }}>
+              Dangerous changes need your password (sudo). Safe restarts happen automatically and
+              never appear here.
+            </p>
+            {ops?.pending.map((p) => (
+              <div key={p.id} className="panel-sunk" style={{ padding: 11, marginBottom: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+                  <span className="instrument-label">{p.component}</span>
+                  <span className="data" style={{ fontSize: 11 }}>{p.kind}</span>
+                </div>
+                <div style={{ fontSize: 12.5, color: "var(--ink-2)", margin: "5px 0" }}>{p.message}</div>
+                <div className="meta" style={{ fontSize: 10.5 }}>
+                  request <span className="data">{p.id}</span>
+                  {p.source ? <> · source <span className="data">{p.source}</span></> : null}
+                  {p.ts ? <> · <span className="data">{new Date(p.ts).toLocaleTimeString()}</span></> : null}
+                </div>
+                {approvingId === p.id ? (
+                  <div style={{ marginTop: 8 }}>
+                    <span className="lamp lamp-machine">Applying change</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="field" style={{ marginTop: 8 }}>
+                      <span className="field-label">Sudo gate</span>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <input
+                          id="ops-username"
+                          aria-label={`Admin username to approve request ${p.id}`}
+                          placeholder="username"
+                          autoComplete="username"
+                          style={{ flex: 1, fontSize: 12 }}
+                        />
+                        <input
+                          id="ops-password"
+                          aria-label={`Admin password to approve request ${p.id}`}
+                          type="password"
+                          placeholder="password"
+                          autoComplete="current-password"
+                          style={{ flex: 1, fontSize: 12 }}
+                        />
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                      <button type="button" className="primary sm" onClick={() => void decide(p.id, true)}>
+                        Execute
+                      </button>
+                      <button type="button" className="ghost sm" onClick={() => void decide(p.id, false)}>
+                        Deny
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+            {ops && ops.pending.length === 0 && (
+              <div className="empty-state">
+                <span className="empty-state-title">Nothing waiting on you</span>
+                <span className="empty-state-description">
+                  Dangerous changes the agent proposes will queue here for your password.
+                </span>
+              </div>
+            )}
+            {!ops && !opsError && <span className="meta">Loading the queue…</span>}
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="panel-head">
+            <span className="instrument-label" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <NavIcon id="notifications" style={{ color: "var(--ink-3)" }} />
+              Recent ops
+            </span>
+          </div>
+          <div className="panel-body">
+            {ops && ops.activities.length > 0 && (
+              <div className="table-scroll">
+                <table style={{ minWidth: 440 }}>
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>Event</th>
+                      <th>Result</th>
+                      <th>Detail</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ops.activities.slice(0, 12).map((a) => (
+                      <tr key={`${a.id}-${a.ts}`}>
+                        <td className="data" style={{ whiteSpace: "nowrap" }}>{a.ts.slice(11, 19)}</td>
+                        <td className="data" style={{ color: "var(--ink)", whiteSpace: "nowrap" }}>
+                          {a.type} · {a.component}
+                        </td>
+                        <td>
+                          {a.status === "approved" ? (
+                            <span className="lamp lamp-ok">Approved</span>
+                          ) : a.status === "canceled" ? (
+                            <span className="lamp lamp-err">Canceled</span>
+                          ) : (
+                            <span className="meta">Ran</span>
+                          )}
+                        </td>
+                        <td className="meta">{a.message}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {ops && ops.activities.length === 0 && (
+              <div className="empty-state">
+                <span className="empty-state-title">Nothing logged yet</span>
+                <span className="empty-state-description">
+                  Every safe fix and approved change is written to this ledger.
+                </span>
+              </div>
+            )}
+            {!ops && !opsError && <span className="meta">Loading the ledger…</span>}
+          </div>
+        </section>
       </div>
     </div>
   );

@@ -32,22 +32,45 @@ export function ReasoningInfo({
   return (
     <span style={{ position: "relative", display: "inline-block", marginLeft: 4 }}>
       <button
+        type="button"
         onClick={() => setOpen((o) => !o)}
+        aria-label="Why did it answer this way?"
+        aria-expanded={open}
         title="Why did it answer this way?"
         style={{
-          border: "none",
-          background: "none",
-          cursor: "pointer",
+          width: 20,
+          height: 20,
           padding: 0,
-          fontSize: 12,
-          color: "var(--text-faint)",
+          borderRadius: "var(--r-xs)",
+          border: `1px solid ${open ? "var(--accent)" : "var(--line)"}`,
+          background: open ? "var(--accent-subtle)" : "transparent",
+          color: open ? "var(--accent)" : "var(--ink-4)",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
           verticalAlign: "middle",
+          boxShadow: "none",
         }}
       >
-        ⓘ
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 11v5" />
+          <path d="M12 8h.01" />
+        </svg>
       </button>
       {open && (
         <div
+          role="dialog"
+          aria-label="Why did it answer this way"
           style={{
             position: "absolute",
             zIndex: 10,
@@ -55,36 +78,52 @@ export function ReasoningInfo({
             left: 0,
             minWidth: 260,
             maxWidth: 380,
-            background: "var(--card-bg, #111)",
-            border: "1px solid var(--border)",
-            borderRadius: 6,
-            padding: 10,
-            fontSize: 11,
-            color: "var(--text-muted)",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+            background: "var(--panel)",
+            border: "1px solid var(--line)",
+            borderRadius: "var(--r-md)",
+            padding: 12,
+            fontSize: 11.5,
+            color: "var(--ink-2)",
+            boxShadow: "var(--shadow-pop)",
           }}
         >
           {provider && (
-            <div style={{ marginBottom: 4 }}>
-              <strong>AI provider:</strong> {provider}
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
+              <span className="field-label">AI provider</span>
+              <span className="data">{provider}</span>
             </div>
           )}
           {confidence != null && (
-            <div style={{ marginBottom: 4 }}>
-              <strong>Retrieval confidence:</strong> {Math.round(confidence * 100)}%
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
+              <span className="field-label">Retrieval confidence</span>
+              <span className="data">{Math.round(confidence * 100)}%</span>
             </div>
           )}
           {sources && sources.length > 0 && (
-            <div>
-              <strong>Sources (embedder — score):</strong>
-              <ul style={{ margin: "4px 0 0", paddingLeft: 16 }}>
-                {sources.map((s, i) => (
-                  <li key={i} style={{ marginBottom: 2, wordBreak: "break-all" }}>
-                    {s.label}
-                    {s.embeddingProvider ? ` — ${s.embeddingProvider}` : ""} ({Math.round(s.score * 100)}%)
-                  </li>
-                ))}
-              </ul>
+            <div style={{ marginTop: 8 }}>
+              <div className="field-label" style={{ marginBottom: 6 }}>
+                Sources
+              </div>
+              <div className="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Source</th>
+                      <th>Embedder</th>
+                      <th className="num" style={{ textAlign: "right" }}>Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sources.map((s, i) => (
+                      <tr key={i}>
+                        <td style={{ wordBreak: "break-word" }}>{s.label}</td>
+                        <td className="data" style={{ fontSize: 11 }}>{s.embeddingProvider ?? "—"}</td>
+                        <td className="data" style={{ textAlign: "right" }}>{Math.round(s.score * 100)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>

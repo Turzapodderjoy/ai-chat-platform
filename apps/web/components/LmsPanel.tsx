@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { cardStyle, subtleTextStyle, primaryButtonStyle, secondaryButtonStyle, dangerButtonStyle, labelTextStyle } from "./dashboard-styles";
 import { showAlert, showConfirm } from "../lib/app-dialog";
 
 // Wave B #31 / Wave C #30 - LMS onboarding scaffold panel. Lean LmsLite items
@@ -232,146 +231,272 @@ export function LmsPanel({ businessId, active = true }: { businessId: string; ac
   const availableStaff = staff.filter((m) => !enrolledStaffIds.has(m.id));
 
   return (
-    <div style={cardStyle}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <div>
-          <h3 style={{ margin: 0 }}>Training & Onboarding</h3>
-          <p style={subtleTextStyle}>Guides, modules, and courses for staff onboarding.</p>
-        </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <span style={{ ...labelTextStyle, color: "#6b7280" }}>
-            {activeCount} active · {items.length} total
+    <section className="panel">
+      <div className="panel-head">
+        <span className="instrument-label">Training and onboarding</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span className="data" style={{ fontSize: 11, color: "var(--ink-3)" }}>
+            {activeCount} active of {items.length}
           </span>
-          <button style={primaryButtonStyle} onClick={startCreate}>
-            + Add Item
-          </button>
+          <button onClick={startCreate} className="primary sm">Add item</button>
         </div>
       </div>
 
-      {editing && (
-        <div style={{ ...cardStyle, marginBottom: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-          <input placeholder="Title *" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} style={{ padding: 8 }} />
-          <select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value })} style={{ padding: 8, width: 160 }}>
-            {Object.entries(TYPE_LABELS).map(([v, l]) => (
-              <option key={v} value={v}>{l}</option>
-            ))}
-          </select>
-          <input placeholder="Short description (optional)" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} style={{ padding: 8 }} />
-          <textarea placeholder="Content / link / notes (optional)" value={draft.content} onChange={(e) => setDraft({ ...draft, content: e.target.value })} style={{ padding: 8, minHeight: 70 }} />
-          <div style={{ display: "flex", gap: 8 }}>
-            <button style={primaryButtonStyle} onClick={handleSave}>
-              {editing.id === "__new__" ? "Create" : "Save"}
-            </button>
-            <button style={secondaryButtonStyle} onClick={() => setEditing(null)}>
-              Cancel
-            </button>
+      <div className="panel-body">
+        <p className="meta" style={{ marginTop: 0, marginBottom: 14, maxWidth: "68ch" }}>
+          Guides, modules and courses your staff work through when they join.
+        </p>
+
+        {editing && (
+          <div
+            className="panel-sunk"
+            style={{ padding: 14, marginBottom: 16, display: "flex", flexDirection: "column", gap: 12 }}
+          >
+            <span className="instrument-label">
+              {editing.id === "__new__" ? "New training item" : "Edit training item"}
+            </span>
+            <div className="field">
+              <label className="field-label" htmlFor="aiva-lms-title">Title</label>
+              <input id="aiva-lms-title" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
+            </div>
+            <div className="field" style={{ maxWidth: 200 }}>
+              <label className="field-label" htmlFor="aiva-lms-type">Type</label>
+              <select id="aiva-lms-type" value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value })}>
+                {Object.entries(TYPE_LABELS).map(([v, l]) => (
+                  <option key={v} value={v}>{l}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="aiva-lms-description">Short description (optional)</label>
+              <input
+                id="aiva-lms-description"
+                value={draft.description}
+                onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="aiva-lms-content">Content, link or notes (optional)</label>
+              <textarea
+                id="aiva-lms-content"
+                value={draft.content}
+                onChange={(e) => setDraft({ ...draft, content: e.target.value })}
+                style={{ minHeight: 70 }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={handleSave} className="primary sm">
+                {editing.id === "__new__" ? "Create" : "Save"}
+              </button>
+              <button onClick={() => setEditing(null)} className="ghost sm">Cancel</button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {loading ? (
-        <p style={subtleTextStyle}>Loading…</p>
-      ) : items.length === 0 ? (
-        <p style={subtleTextStyle}>No training items yet. Add your first onboarding guide.</p>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {items.map((item) => (
-            <div key={item.id} style={{ border: expanded === item.id ? "1px solid #e5e7eb" : "none", borderRadius: 8 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: item.isActive ? "#f9fafb" : "#f3f4f6", borderRadius: 8 }}>
-                <div>
-                  <div style={{ fontWeight: 600 }}>
-                    {item.title}
-                    {!item.isActive && <span style={{ ...subtleTextStyle, marginLeft: 8 }}>(inactive)</span>}
-                  </div>
-                  <p style={{ ...subtleTextStyle, margin: "2px 0 0" }}>
-                    {TYPE_LABELS[item.type] ?? item.type}
-                    {item.description ? ` — ${item.description}` : ""}
-                  </p>
-                </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {item.type === "course" && (
-                    <button style={secondaryButtonStyle} onClick={() => toggleExpand(item.id)}>
-                      {expanded === item.id ? "Close" : "Lessons & Staff"}
-                    </button>
-                  )}
-                  <button style={secondaryButtonStyle} onClick={() => handleToggle(item)}>
-                    {item.isActive ? "Deactivate" : "Activate"}
-                  </button>
-                  <button style={secondaryButtonStyle} onClick={() => startEdit(item)}>
-                    Edit
-                  </button>
-                  <button style={dangerButtonStyle} onClick={() => handleDelete(item)}>
-                    Delete
-                  </button>
-                </div>
-              </div>
-
-              {expanded === item.id && (
-                <div style={{ padding: "12px 12px", display: "flex", flexDirection: "column", gap: 12 }}>
-                  <div>
-                    <p style={{ ...labelTextStyle, marginBottom: 6 }}>Lessons ({lessons.length})</p>
-                    {lessons.length === 0 && <p style={subtleTextStyle}>No lessons yet.</p>}
-                    {lessons.map((lesson, idx) => (
-                      <div key={lesson.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 8px", borderBottom: "1px solid #f3f4f6" }}>
-                        <div>
-                          <div style={{ fontWeight: 500 }}>{idx + 1}. {lesson.title}</div>
-                          {lesson.content && <p style={{ ...subtleTextStyle, margin: "2px 0 0" }}>{lesson.content}</p>}
-                        </div>
-                        <button style={dangerButtonStyle} onClick={() => handleDeleteLesson(lesson)}>
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                    <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                      <input placeholder="Lesson title *" value={lessonDraft.title} onChange={(e) => setLessonDraft({ ...lessonDraft, title: e.target.value })} style={{ padding: 6, flex: 1 }} />
-                      <input placeholder="Content (optional)" value={lessonDraft.content} onChange={(e) => setLessonDraft({ ...lessonDraft, content: e.target.value })} style={{ padding: 6, flex: 1 }} />
-                      <button style={primaryButtonStyle} onClick={handleAddLesson}>
-                        + Add
-                      </button>
+        {loading ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="skeleton" style={{ height: 44 }} />
+            <div className="skeleton" style={{ height: 44 }} />
+          </div>
+        ) : items.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state-title">No training items yet</div>
+            <div className="empty-state-description">
+              Add your first onboarding guide, module or course to get new staff up to speed.
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {items.map((item) => (
+              <div key={item.id} className="panel-sunk" style={{ padding: 12 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 12,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        color: "var(--ink)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      {item.title}
+                      <span className={item.isActive ? "lamp lamp-ok" : "lamp lamp-idle"}>
+                        {item.isActive ? "Active" : "Inactive"}
+                      </span>
                     </div>
+                    <div className="data" style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 3 }}>
+                      {TYPE_LABELS[item.type] ?? item.type}
+                    </div>
+                    {item.description && <p className="meta" style={{ margin: "4px 0 0" }}>{item.description}</p>}
                   </div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {item.type === "course" && (
+                      <button onClick={() => toggleExpand(item.id)} className="ghost sm">
+                        {expanded === item.id ? "Close" : "Lessons and staff"}
+                      </button>
+                    )}
+                    <button onClick={() => handleToggle(item)} className="ghost sm">
+                      {item.isActive ? "Deactivate" : "Activate"}
+                    </button>
+                    <button onClick={() => startEdit(item)} className="ghost sm">Edit</button>
+                    <button onClick={() => handleDelete(item)} className="danger sm">Delete</button>
+                  </div>
+                </div>
 
-                  <div>
-                    <p style={{ ...labelTextStyle, marginBottom: 6 }}>Enrolled staff ({enrollments.length})</p>
-                    {enrollments.length === 0 && <p style={subtleTextStyle}>No staff assigned yet.</p>}
-                    {enrollments.map((enrollment) => (
-                      <div key={enrollment.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 8px", borderBottom: "1px solid #f3f4f6" }}>
-                        <div>
-                          <div style={{ fontWeight: 500 }}>{enrollment.staff?.name ?? "Unknown staff"}</div>
-                          <p style={{ ...subtleTextStyle, margin: "2px 0 0" }}>
-                            {STATUS_LABELS[enrollment.status] ?? enrollment.status}
-                            {enrollment.progress > 0 ? ` · ${enrollment.progress}%` : ""}
-                          </p>
+                {expanded === item.id && (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 16,
+                      marginTop: 14,
+                      paddingTop: 14,
+                      borderTop: "1px solid var(--line-soft)",
+                    }}
+                  >
+                    <div>
+                      <span className="instrument-label">Lessons ({lessons.length})</span>
+                      {lessons.length === 0 && (
+                        <div className="empty-state">
+                          <div className="empty-state-title">No lessons yet</div>
+                          <div className="empty-state-description">
+                            Add the steps staff should work through in order.
+                          </div>
                         </div>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <select value={enrollment.status} onChange={(e) => handleEnrollmentStatus(enrollment, e.target.value)} style={{ padding: 6 }}>
-                            {Object.entries(STATUS_LABELS).map(([v, l]) => (
-                              <option key={v} value={v}>{l}</option>
+                      )}
+                      {lessons.map((lesson, idx) => (
+                        <div
+                          key={lesson.id}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            gap: 12,
+                            padding: "7px 0",
+                            borderBottom: "1px solid var(--line-soft)",
+                          }}
+                        >
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 500, color: "var(--ink)" }}>
+                              <span className="data" style={{ color: "var(--ink-4)", marginRight: 6 }}>{idx + 1}</span>
+                              {lesson.title}
+                            </div>
+                            {lesson.content && <p className="meta" style={{ margin: "3px 0 0" }}>{lesson.content}</p>}
+                          </div>
+                          <button onClick={() => handleDeleteLesson(lesson)} className="danger sm">Remove</button>
+                        </div>
+                      ))}
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 10,
+                          marginTop: 10,
+                          alignItems: "flex-end",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <div className="field" style={{ flex: "1 1 180px", minWidth: 0 }}>
+                          <label className="field-label" htmlFor="aiva-lms-lesson-title">Lesson title</label>
+                          <input
+                            id="aiva-lms-lesson-title"
+                            value={lessonDraft.title}
+                            onChange={(e) => setLessonDraft({ ...lessonDraft, title: e.target.value })}
+                          />
+                        </div>
+                        <div className="field" style={{ flex: "1 1 220px", minWidth: 0 }}>
+                          <label className="field-label" htmlFor="aiva-lms-lesson-content">Lesson content (optional)</label>
+                          <input
+                            id="aiva-lms-lesson-content"
+                            value={lessonDraft.content}
+                            onChange={(e) => setLessonDraft({ ...lessonDraft, content: e.target.value })}
+                          />
+                        </div>
+                        <button onClick={handleAddLesson} className="primary sm">Add lesson</button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="instrument-label">Enrolled staff ({enrollments.length})</span>
+                      {enrollments.length === 0 && (
+                        <div className="empty-state">
+                          <div className="empty-state-title">No staff assigned</div>
+                          <div className="empty-state-description">
+                            Assign this course to a staff member to start tracking their progress.
+                          </div>
+                        </div>
+                      )}
+                      {enrollments.map((enrollment) => (
+                        <div
+                          key={enrollment.id}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            gap: 12,
+                            padding: "7px 0",
+                            borderBottom: "1px solid var(--line-soft)",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 500, color: "var(--ink)" }}>
+                              {enrollment.staff?.name ?? "Unknown staff"}
+                            </div>
+                            <div className="data" style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 3 }}>
+                              {STATUS_LABELS[enrollment.status] ?? enrollment.status}
+                              {enrollment.progress > 0 && (
+                                <span style={{ marginLeft: 8 }}>{enrollment.progress}%</span>
+                              )}
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+                            <div className="field" style={{ width: 150 }}>
+                              <label className="field-label" htmlFor={`aiva-lms-enroll-status-${enrollment.id}`}>
+                                Status
+                              </label>
+                              <select
+                                id={`aiva-lms-enroll-status-${enrollment.id}`}
+                                value={enrollment.status}
+                                onChange={(e) => handleEnrollmentStatus(enrollment, e.target.value)}
+                              >
+                                {Object.entries(STATUS_LABELS).map(([v, l]) => (
+                                  <option key={v} value={v}>{l}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <button onClick={() => handleUnenroll(enrollment)} className="danger sm">Remove</button>
+                          </div>
+                        </div>
+                      ))}
+                      {availableStaff.length > 0 && (
+                        <div className="field" style={{ maxWidth: 260, marginTop: 10 }}>
+                          <label className="field-label" htmlFor="aiva-lms-assign">Assign course to staff</label>
+                          <select id="aiva-lms-assign" defaultValue="" onChange={(e) => handleEnroll(e.target.value)}>
+                            <option value="" disabled>Choose a staff member</option>
+                            {availableStaff.map((m) => (
+                              <option key={m.id} value={m.id}>{m.name}</option>
                             ))}
                           </select>
-                          <button style={dangerButtonStyle} onClick={() => handleUnenroll(enrollment)}>
-                            Remove
-                          </button>
                         </div>
-                      </div>
-                    ))}
-                    {availableStaff.length > 0 && (
-                      <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                        <select defaultValue="" onChange={(e) => handleEnroll(e.target.value)} style={{ padding: 6, flex: 1 }}>
-                          <option value="" disabled>Assign course to staff…</option>
-                          {availableStaff.map((m) => (
-                            <option key={m.id} value={m.id}>{m.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }

@@ -5,8 +5,8 @@ import { createPortal } from "react-dom";
 
 import { formatEntry, type AuditEntry } from "../lib/audit-log";
 
-const POPOVER_WIDTH = 280;
-const POPOVER_MAX_HEIGHT = 260;
+const POPOVER_WIDTH = 320;
+const POPOVER_MAX_HEIGHT = 300;
 const GAP = 6;
 
 /** Click-to-open activity history, replacing the old hover tooltip --
@@ -94,6 +94,14 @@ export function AuditHistoryButton({ entityType, entityId }: { entityType: strin
 
   if (!entityId) return null;
 
+  // The popover is portaled to document.body, which sits outside the
+  // .app-shell wrapper where the design tokens are declared -- so the
+  // portal root re-declares the shell class and copies its theme.
+  const theme =
+    typeof document !== "undefined"
+      ? document.querySelector(".app-shell")?.getAttribute("data-theme") ?? undefined
+      : undefined;
+
   return (
     <>
       <button
@@ -101,15 +109,15 @@ export function AuditHistoryButton({ entityType, entityId }: { entityType: strin
         type="button"
         onClick={toggle}
         aria-label="View activity history"
+        aria-expanded={open}
         title="Activity history"
         style={{
-          width: 20,
-          height: 20,
-          borderRadius: "50%",
-          border: "1px solid var(--border)",
-          background: open ? "var(--accent, #635bff)" : "var(--surface, transparent)",
-          color: open ? "#fff" : "var(--text-faint)",
-          fontSize: 11,
+          width: 22,
+          height: 22,
+          borderRadius: "var(--r-sm)",
+          border: `1px solid ${open ? "var(--accent)" : "var(--line)"}`,
+          background: open ? "var(--accent-subtle)" : "transparent",
+          color: open ? "var(--accent)" : "var(--ink-4)",
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
@@ -117,15 +125,32 @@ export function AuditHistoryButton({ entityType, entityId }: { entityType: strin
           padding: 0,
           lineHeight: 1,
           flexShrink: 0,
+          boxShadow: "none",
         }}
       >
-        🕘
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+          <path d="M3 3v5h5" />
+          <path d="M12 7v5l3 2" />
+        </svg>
       </button>
       {open && coords && typeof document !== "undefined" &&
         createPortal(
           <div
             ref={popoverRef}
             role="dialog"
+            aria-label="Activity history"
+            className="app-shell"
+            data-theme={theme}
             style={{
               position: "fixed",
               top: coords.top,
@@ -134,23 +159,45 @@ export function AuditHistoryButton({ entityType, entityId }: { entityType: strin
               width: POPOVER_WIDTH,
               maxHeight: POPOVER_MAX_HEIGHT,
               overflowY: "auto",
-              background: "var(--surface, #1a1a1f)",
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              padding: 10,
-              boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+              background: "var(--panel)",
+              border: "1px solid var(--line)",
+              borderRadius: "var(--r-md)",
+              padding: 12,
+              boxShadow: "var(--shadow-pop)",
               fontSize: 12,
             }}
           >
-            <div style={{ fontWeight: 650, marginBottom: 6, color: "var(--text-faint)", textTransform: "uppercase", fontSize: 10, letterSpacing: "0.05em" }}>
+            <div className="field-label" style={{ marginBottom: 8 }}>
               Activity
             </div>
-            {loading && <div style={{ color: "var(--text-faint)" }}>Loading…</div>}
-            {!loading && entries && entries.length === 0 && <div style={{ color: "var(--text-faint)" }}>No activity recorded yet.</div>}
+            {loading && <div className="meta">Loading history…</div>}
+            {!loading && entries && entries.length === 0 && (
+              <div className="meta">No activity recorded on this record yet.</div>
+            )}
             {!loading && entries && entries.length > 0 && (
-              <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 6 }}>
+              <ul
+                style={{
+                  margin: 0,
+                  padding: 0,
+                  listStyle: "none",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
                 {entries.map((e, i) => (
-                  <li key={i}>{formatEntry(e)}</li>
+                  <li
+                    key={i}
+                    style={{
+                      borderLeft: "2px solid var(--line)",
+                      paddingLeft: 9,
+                      fontSize: 12,
+                      lineHeight: 1.45,
+                      color: "var(--ink-2)",
+                    }}
+                  >
+                    {formatEntry(e)}
+                  </li>
                 ))}
               </ul>
             )}

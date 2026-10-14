@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import { primaryButtonStyle, subtleTextStyle } from "./dashboard-styles";
-
 interface StaffOption {
   id: string;
   name: string;
@@ -16,8 +14,17 @@ interface CreatedAppointment {
   serialNumber?: string;
 }
 
-const fieldStyle = { padding: 8, fontSize: 13, width: "100%", boxSizing: "border-box" } as const;
-const labelStyle = { display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--text-muted)" } as const;
+const overlayStyle: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 1000,
+  background: "color-mix(in srgb, var(--ink) 45%, transparent)",
+  backdropFilter: "blur(2px)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 16,
+};
 
 /** Dashboard popup (not a browser dialog) for a customer who walks in
  * without booking: the same details the website appointment form
@@ -82,74 +89,142 @@ export function WalkInDialog({
   return (
     <div
       onMouseDown={(e) => { if (e.target === e.currentTarget && !saving) onClose(); }}
-      style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+      style={overlayStyle}
     >
-      <div
+      <section
         role="dialog"
+        aria-modal="true"
         aria-label="New walk-in"
-        style={{ width: "100%", maxWidth: 520, maxHeight: "100%", overflowY: "auto", background: "var(--surface, #1a1a1f)", border: "1px solid var(--border)", borderRadius: 12, padding: 20, boxShadow: "0 16px 48px rgba(0,0,0,0.5)" }}
+        className="panel"
+        style={{ width: "100%", maxWidth: 520, maxHeight: "100%", overflowY: "auto", boxShadow: "var(--shadow-pop)" }}
       >
-        <h3 style={{ margin: "0 0 4px" }}>🚶 New walk-in</h3>
-        <p style={{ ...subtleTextStyle, marginTop: 0 }}>
-          Same details as the website appointment form. It&apos;s created in the <strong>New</strong> column, booked for right now.
-        </p>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <label style={labelStyle}>
-            Customer name *
-            <input style={fieldStyle} value={customerName} onChange={(e) => setCustomerName(e.target.value)} autoFocus />
-          </label>
-          <label style={labelStyle}>
-            Phone *
-            <input style={fieldStyle} value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" />
-          </label>
-          <label style={{ ...labelStyle, gridColumn: "1 / -1" }}>
-            Email (optional — a booking confirmation is sent if given)
-            <input style={fieldStyle} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </label>
-          <label style={labelStyle}>
-            Device *
-            <input style={fieldStyle} value={deviceType} onChange={(e) => setDeviceType(e.target.value)} placeholder="e.g. Apple iPhone" />
-          </label>
-          <label style={labelStyle}>
-            Model
-            <input style={fieldStyle} value={deviceModel} onChange={(e) => setDeviceModel(e.target.value)} placeholder="e.g. 14 Pro" />
-          </label>
-          <label style={{ ...labelStyle, gridColumn: "1 / -1" }}>
-            Issue *
-            <textarea style={{ ...fieldStyle, minHeight: 72, resize: "vertical", fontFamily: "inherit" }} value={issueDescription} onChange={(e) => setIssueDescription(e.target.value)} />
-          </label>
-          <label style={{ ...labelStyle, gridColumn: "1 / -1", flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <input type="checkbox" checked={wantsFreeDiagnosis} onChange={(e) => setWantsFreeDiagnosis(e.target.checked)} />
-            Wants a free diagnosis
-          </label>
-          <label style={labelStyle}>
-            Technician (optional)
-            <select style={fieldStyle} value={technicianId} onChange={(e) => setTechnicianId(e.target.value)}>
-              <option value="">Unassigned</option>
-              {staff.filter((s) => s.active).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </label>
-          <label style={labelStyle}>
-            Priority (optional)
-            <select style={fieldStyle} value={priority} onChange={(e) => setPriority(e.target.value)}>
-              <option value="">Normal</option>
-              <option value="low">Low</option>
-              <option value="high">High</option>
-              <option value="urgent">Urgent</option>
-            </select>
-          </label>
+        <div className="panel-head">
+          <span className="instrument-label">New walk-in</span>
+          <span className="lamp lamp-ok">Booked now</span>
         </div>
+        <div className="panel-body">
+          <p className="meta" style={{ marginTop: 0 }}>
+            Same details as the website appointment form. It&apos;s created in the New column, booked
+            for right now.
+          </p>
 
-        {error && <p style={{ color: "var(--danger, #e5484d)", fontSize: 12, margin: "12px 0 0" }}>{error}</p>}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+            <div className="field">
+              <label className="field-label" htmlFor="walk-in-customer">
+                Customer name *
+              </label>
+              <input
+                id="walk-in-customer"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="walk-in-phone">
+                Phone *
+              </label>
+              <input
+                id="walk-in-phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                inputMode="tel"
+              />
+            </div>
+            <div className="field" style={{ gridColumn: "1 / -1" }}>
+              <label className="field-label" htmlFor="walk-in-email">
+                Email (optional — a booking confirmation is sent if given)
+              </label>
+              <input
+                id="walk-in-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="walk-in-device">
+                Device *
+              </label>
+              <input
+                id="walk-in-device"
+                value={deviceType}
+                onChange={(e) => setDeviceType(e.target.value)}
+                placeholder="e.g. Apple iPhone"
+              />
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="walk-in-model">
+                Model
+              </label>
+              <input
+                id="walk-in-model"
+                value={deviceModel}
+                onChange={(e) => setDeviceModel(e.target.value)}
+                placeholder="e.g. 14 Pro"
+              />
+            </div>
+            <div className="field" style={{ gridColumn: "1 / -1" }}>
+              <label className="field-label" htmlFor="walk-in-issue">
+                Issue *
+              </label>
+              <textarea
+                id="walk-in-issue"
+                style={{ minHeight: 72, resize: "vertical" }}
+                value={issueDescription}
+                onChange={(e) => setIssueDescription(e.target.value)}
+              />
+            </div>
+            <div className="field" style={{ gridColumn: "1 / -1" }}>
+              <label
+                htmlFor="walk-in-free-diagnosis"
+                style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--ink-2)" }}
+              >
+                <input
+                  id="walk-in-free-diagnosis"
+                  type="checkbox"
+                  checked={wantsFreeDiagnosis}
+                  onChange={(e) => setWantsFreeDiagnosis(e.target.checked)}
+                />
+                Wants a free diagnosis
+              </label>
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="walk-in-technician">
+                Technician (optional)
+              </label>
+              <select
+                id="walk-in-technician"
+                value={technicianId}
+                onChange={(e) => setTechnicianId(e.target.value)}
+              >
+                <option value="">Unassigned</option>
+                {staff.filter((s) => s.active).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="walk-in-priority">
+                Priority (optional)
+              </label>
+              <select id="walk-in-priority" value={priority} onChange={(e) => setPriority(e.target.value)}>
+                <option value="">Normal</option>
+                <option value="low">Low</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </div>
+          </div>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-          <button onClick={onClose} disabled={saving} style={{ padding: "8px 14px", fontSize: 13 }}>Cancel</button>
-          <button onClick={submit} disabled={!canSave || saving} style={{ ...primaryButtonStyle, fontSize: 13 }}>
-            {saving ? "Creating…" : "Create walk-in"}
-          </button>
+          {error && <p className="field-error" style={{ margin: "12px 0 0" }}>{error}</p>}
+
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+            <button type="button" onClick={onClose} disabled={saving}>Cancel</button>
+            <button type="button" className="primary" onClick={submit} disabled={!canSave || saving}>
+              {saving ? "Creating…" : "Create walk-in"}
+            </button>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

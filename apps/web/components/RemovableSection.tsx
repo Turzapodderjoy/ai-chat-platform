@@ -30,6 +30,9 @@ export function RemovableSection({
    * or its reply box ends up stranded below the fold. */
   style?: CSSProperties;
 }) {
+  // The remove control is hover-only for admins, which has no touch
+  // equivalent -- so it also stays put whenever the section is hidden
+  // (where it is the only way back). Rest is unchanged.
   const [hover, setHover] = useState(false);
 
   if (hidden && !editable) return null;
@@ -42,49 +45,46 @@ export function RemovableSection({
     >
       {children}
       {editable && hidden && (
-        <div
-          style={{
-            position: "absolute",
-            top: 10,
-            left: 10,
-            fontSize: 10.5,
-            fontWeight: 600,
-            background: "var(--bg-elevated)",
-            border: "1px solid var(--border)",
-            borderRadius: 999,
-            padding: "2px 8px",
-            color: "var(--text-faint)",
-            zIndex: 15,
-          }}
-        >
-          Hidden from client
+        <div style={{ position: "absolute", top: 10, left: 10, zIndex: 15 }}>
+          <span className="lamp lamp-idle">Hidden from client</span>
         </div>
       )}
       {editable && (hover || hidden) && (
         <button
+          type="button"
           onClick={() => onToggle(id, !hidden)}
           title={hidden ? "Show this for the client" : "Remove this for the client"}
-          className="plain"
+          aria-label={hidden ? `Show ${id} for the client` : `Remove ${id} for the client`}
+          className="sm"
           style={{
             position: "absolute",
             top: 10,
             right: 10,
             width: 24,
             height: 24,
-            borderRadius: "50%",
+            padding: 0,
+            borderRadius: "var(--r-sm)",
+            background: hidden ? "var(--success-subtle)" : "var(--danger-subtle)",
+            borderColor: hidden ? "var(--success)" : "var(--danger)",
+            color: hidden ? "var(--success)" : "var(--danger)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            background: hidden ? "var(--success)" : "var(--danger)",
-            color: "#fff",
-            fontSize: 15,
-            fontWeight: 700,
-            lineHeight: 1,
             zIndex: 15,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+            boxShadow: "none",
           }}
         >
-          {hidden ? "+" : "−"}
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          >
+            {hidden ? <path d="M12 5v14M5 12h14" /> : <path d="M5 12h14" />}
+          </svg>
         </button>
       )}
     </div>
