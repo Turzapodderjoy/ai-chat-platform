@@ -175,15 +175,26 @@ const specGridStyle: CSSProperties = {
 const specCellStyle: CSSProperties = { padding: "9px 12px", background: "var(--panel)", minWidth: 0 };
 
 function timeAgo(iso: string): string {
-  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(Math.abs(diff) / 60000);
+  const span = mins < 60 ? `${mins}m` : mins < 1440 ? `${Math.floor(mins / 60)}h` : `${Math.floor(mins / 1440)}d`;
+  // A drop-off can be scheduled for the future, so "ago" isn't always true.
+  return diff < 0 ? `in ${span}` : `${span} ago`;
 }
 
 function costOf(a: Appointment): number {
   return a.totalOverride ?? a.items.reduce((sum, i) => sum + i.finalPrice, 0);
+}
+
+// Byte-for-byte the same rule as the server's products.countLowStock — the
+// number the "Low stock" stat and the sidebar badge both show — so the stat
+// and the rail list can never disagree. Blank stock and explicit "out of
+// stock" rows are excluded there too.
+function isLowStock(p: Product): boolean {
+  if (!p.stock || !p.stock.trim() || /out/i.test(p.stock)) return false;
+  if (!p.minStock || p.minStock <= 0) return false;
+  const qty = parseInt(p.stock, 10);
+  return !isNaN(qty) && qty <= p.minStock;
 }
 
 /** The repair shop's Home surface: one screen that reads the whole shop at
@@ -196,13 +207,11 @@ function costOf(a: Appointment): number {
 export function RepairConsolePanel({
   businessId,
   clientName,
-  username,
   active = true,
   onNavigate,
 }: {
   businessId: string;
   clientName?: string;
-  username?: string | null;
   active?: boolean;
   onNavigate?: (tab: string) => void;
 }) {
@@ -284,10 +293,7 @@ export function RepairConsolePanel({
     () => new Set(invoices.map((i) => i.repairAppointmentId).filter(Boolean) as string[]),
     [invoices],
   );
-  const lowParts = useMemo(
-    () => products.filter((p) => p.stock !== null && p.minStock > 0 && (Number(p.stock) <= p.minStock || /out/i.test(p.stock ?? ""))),
-    [products],
-  );
+  const lowParts = useMemo(() => products.filter(isLowStock), [products]);
 
   const visible = useMemo(() => {
     let list = (appointments ?? []).filter((a) => a.status !== "cancelled");
@@ -372,6 +378,10 @@ export function RepairConsolePanel({
         aria-pressed={isSelected}
         onClick={() => setSelectedId(a.id)}
         onKeyDown={(e) => {
+          // The card's own quick-action is a real button inside this
+          // role="button"; without this guard Enter on it would bubble up,
+          // advance the status AND open the drawer at once.
+          if (e.target !== e.currentTarget) return;
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
             setSelectedId(a.id);
@@ -531,8 +541,8 @@ export function RepairConsolePanel({
                 </div>
                 <div className="panel-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {products.length === 0 && <p className="meta">No parts tracked yet.</p>}
-                  {products.length > 0 && lowParts.length === 0 && (
-                    <p className="meta">{products.length} parts in stock — nothing at or under its minimum.</p>
+                  {products.length > 0 && lowStock === 0 && (
+                    <p className="meta">{products.length} parts tracked — nothing at or under its minimum.</p>
                   )}
                   {lowParts.slice(0, 6).map((p) => (
                     <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
@@ -541,7 +551,7 @@ export function RepairConsolePanel({
                           {p.name}
                         </span>
                         <span className="data meta" style={{ fontSize: 11 }}>
-                          {/out/i.test(p.stock ?? "") ? "Out" : p.stock ?? "—"} left · min {p.minStock}
+                          {p.stock} left · min {p.minStock}
                         </span>
                       </span>
                       <button className="sm" onClick={() => setRefillFor(p)}>Refill</button>
@@ -601,10 +611,15 @@ export function RepairConsolePanel({
       )}
 
       {selected && (
-        <div className="panel" style={{ ...drawerStyle, ...(isMobile ? { width: "100%", minWidth: 0, maxWidth: "none", borderLeft: "none" } : null) }}>
+        <div
+          className="panel"
+          role="dialog"
+          aria-label={`Work order for ${selected.customerName}`}
+          style={{ ...drawerStyle, ...(isMobile ? { width: "100%", minWidth: 0, maxWidth: "none", borderLeft: "none" } : null) }}
+        >
           <div className="panel-head" style={{ alignItems: "flex-start", flexWrap: "wrap", rowGap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-              <button className="ghost sm" style={{ width: 32, height: 32, padding: 0 }} onClick={() => setSelectedId(null)} aria-label="Close work order">
+              <button className="ghost sm" autoFocus style={{ width: 32, height: 32, padding: 0 }} onClick={() => setSelectedId(null)} aria-label="Close work order">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M18 6 6 18" /><path d="m6 6 12 12" />
                 </svg>

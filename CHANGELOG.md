@@ -4,10 +4,37 @@
 
 ## Timeline
 
-- Latest: Fixed hidden sidebar tabs — the Clients / Client Access / Admin Users / Subscription group (and Overview, and the tenant Integrations/Notifications/Settings entries) had collapsed to nothing with no way to reopen.
+- Latest: Repair shops land on a single‑surface **Repair console** — live work queue, inventory glance, and billing on one screen with no tab switching; repair‑client Home no longer flashes the regular snapshot while the client's type loads.
+- Also: Deploy pipeline hardened — the per‑worktree submodule clone that was timing out (and orphaning a `git clone` on every retry) now runs in seconds.
+- Recently: Fixed hidden sidebar tabs — the Clients / Client Access / Admin Users / Subscription group (and Overview, and the tenant Integrations/Notifications/Settings entries) had collapsed to nothing with no way to reopen.
 - Recently: Profiles tab (home for master profiles + undecided roadmap), focus-mode nav rail (Inbox and repair work bench take the full screen), populated master-profile metadata.
 - Recent: SWR caching, lazy-mounting, sidebar restoration, inbox UX, master profile selector, stability fixes.
 - Prior: Hermes agent integration, provider error handling, fallback chains, replies defaults, repair vertical refinements.
+
+---
+
+## Repair Console (repair shops' Home)
+
+### `apps/web/components/RepairConsolePanel.tsx` (NEW — the master repair console)
+- One surface, no tab switching: a **stat strip** (In intake / In repair / Finishing / Needs billing / Low stock), a **searchable 5‑column work queue** (Booked → Received → In repair → Ready → Completed), a **right rail** (inventory glance that expands in place to the full `InventoryPanel`, a Needs‑billing list, and Jump‑to links), and a **detail drawer** (facts grid, status/priority/technician selects, issue notes, `OrderItemsEditor` for parts/services, and in‑place invoice **generate + print**).
+- Self‑contained `"use client"` component that reuses existing exported sub‑components and APIs — `OrderItemsEditor`, `WalkInDialog`, `RefillDialog`, `InventoryPanel`, `StatCard` — leaving `RepairsPanel.tsx` untouched. Polls every 5s **while Home is on screen** (stops when you leave the tab). "Needs billing" = completed repairs that have line items but no invoice yet (`repairAppointmentId` match).
+- Responsive: stat grid and the board/rail grid collapse to a single column at ≤900px (measured 390px: single column, no horizontal overflow, drawer full‑width).
+- Audit pass: the low‑stock rail now uses the exact server predicate (`countLowStock`) so the stat and the list can't disagree; future‑dated appointments read "in 2h" instead of a negative "ago"; Enter on a card's quick‑action no longer also opens the drawer; the drawer is a labelled `role="dialog"` and moves focus to its close button.
+
+### `apps/web/app/dashboard/[businessId]/client-dashboard-client.tsx`
+- Home now renders `RepairConsolePanel` when the client's type is `repair`; every other business type keeps the existing `ClientHomePanel` snapshot.
+- Added a `clientLoaded` guard so a repair shop's Home no longer briefly painted the regular snapshot before the type resolved — it shows a lightweight placeholder until the client fetch lands.
+
+### Demo tenant
+- Created the **Repair Demo** client (`repair` type) and seeded it: 8 parts (4 low‑stock), 6 contacts, repairs across every stage, one issued invoice, and one completed‑but‑unbilled repair.
+
+---
+
+## Deploy Pipeline Fix
+
+### `scripts/deploy.mjs`
+- Root cause: in a **linked worktree**, `git submodule update --init` clones `vendor/hermes-agent` (~1.3 GB) fresh into its own per‑worktree store (`.git/worktrees/<sha>/modules/`) instead of reusing the shared `.git/modules/` copy. That download brushed the script's 5‑minute subprocess timeout; when it tipped over, the killed `execSync` **orphaned a `git clone` that kept running for hours**, and every retry stacked another — so successive deploys all failed at the same step.
+- Fix: pass `--reference <shared module dir>` to the release‑worktree submodule update when that dir exists, turning the fresh download into a local object copy (seconds instead of minutes); the no‑reference fallback path now gets a 20‑minute timeout. Verified live: `current` advanced to the new release and no clone processes remained.
 
 ---
 
@@ -125,5 +152,6 @@
 
 ## Deployment Notes
 - Push includes: master profile system, SWR cache helper, shell integration, lazy-mount fixes, inbox UX, API route perf patches, styling/docs, and all other staged modifications (93 files total staged).
+- Newest push adds the Repair console, the repair‑client Home wiring, the console audit fixes, the deploy submodule fix, and this changelog entry; deployed to the VPS.
 - Changes are backward compatible; localStorage key `aiva:master-profile` is new (safe default).
 - No DB schema changes in this push (schema unchanged vs prior).
