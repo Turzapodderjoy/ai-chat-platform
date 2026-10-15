@@ -4,9 +4,16 @@
 
 ## Timeline
 
-- Latest: Profiles tab (home for master profiles + undecided roadmap), focus-mode nav rail (Inbox and repair work bench take the full screen), populated master-profile metadata.
+- Latest: Fixed hidden sidebar tabs — the Clients / Client Access / Admin Users / Subscription group (and Overview, and the tenant Integrations/Notifications/Settings entries) had collapsed to nothing with no way to reopen.
+- Recently: Profiles tab (home for master profiles + undecided roadmap), focus-mode nav rail (Inbox and repair work bench take the full screen), populated master-profile metadata.
 - Recent: SWR caching, lazy-mounting, sidebar restoration, inbox UX, master profile selector, stability fixes.
 - Prior: Hermes agent integration, provider error handling, fallback chains, replies defaults, repair vertical refinements.
+
+---
+
+## Fix: missing sidebar tabs
+
+- **`apps/web/components/DashboardShell.tsx`**: Nav groups defaulted to collapsed when they had no `label` (`collapsedGroups[gi] ?? group.label === undefined`). An unlabeled group renders no collapse toggle, so its items were unreachable forever. Groups now default to **expanded** (`?? false`). This restored the platform admin's **Clients / Client Access / Admin Users / Subscription** group and **Overview**, and the tenant sidebar's **Integrations / Notifications / Settings** entries that the workspace rebuild had hidden.
 
 ---
 

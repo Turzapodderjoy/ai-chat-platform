@@ -253,7 +253,10 @@ export function DashboardShell<T extends string>({
       <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: collapsed ? "8px 6px" : "10px 10px" }}>
         <nav aria-label="Primary">
           {groups.map((group, gi) => {
-            const isCollapsed = collapsedGroups[gi] ?? group.label === undefined;
+            // Groups start expanded. An unlabeled group can never be
+            // re-opened (no toggle renders), so it must never default
+            // collapsed -- that hid the Clients/Access/Subscription tabs.
+            const isCollapsed = collapsedGroups[gi] ?? false;
             return (
               <div key={gi} style={{ marginBottom: 6 }}>
                 {group.label && !collapsed ? (
