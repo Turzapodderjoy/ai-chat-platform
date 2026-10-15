@@ -371,8 +371,21 @@ async function deploy() {
   mkdirSync(RELEASES_DIR, { recursive: true });
   run(`git worktree add "${releaseDir}" ${remoteSha}`, REPO_SOURCE);
 
-  // Initialize submodules in the new worktree (they don't come along automatically)
-  run("git submodule update --init --recursive", releaseDir);
+  // Initialize submodules in the new worktree (they don't come along automatically).
+  //
+  // Confirmed live (2026-10-15): for a LINKED worktree, git 2.43 clones each
+  // submodule fresh into its own per-worktree store
+  // (.git/worktrees/<sha>/modules/<name>) rather than reusing the shared
+  // .git/modules/<name> the REPO_SOURCE sync above just populated. At
+  // vendor/hermes-agent's ~1.3 GB that clone brushes the 5-min subprocess
+  // timeout; when it tips over, the killed execSync leaves an orphaned git
+  // clone running until it's reaped by hand, and every retry stacks another.
+  // Pointing the clone at the shared module dir as an alternate makes it a
+  // local object copy (no re-download), and the longer timeout keeps the
+  // fallback path (no shared module yet, e.g. the very first deploy) alive.
+  const submoduleRef = join(REPO_SOURCE, ".git", "modules", "vendor", "hermes-agent");
+  const submoduleRefFlag = existsSync(submoduleRef) ? ` --reference "${submoduleRef}"` : "";
+  run(`git submodule update --init --recursive${submoduleRefFlag}`, releaseDir, 20 * 60 * 1000);
 
   // Gitignored secrets don't come along with a worktree checkout -- copy
   // the stable, out-of-repo copies in every release.
