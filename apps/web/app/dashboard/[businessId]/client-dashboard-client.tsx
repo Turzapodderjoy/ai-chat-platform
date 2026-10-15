@@ -39,6 +39,7 @@ import { AgentConsole } from "../../../components/AgentConsole";
 import { UserSettingsPanel } from "../../../components/UserSettingsPanel";
 import { DeletedDataPanel } from "../../../components/DeletedDataPanel";
 import { ClientHomePanel } from "../../../components/ClientHomePanel";
+import { RepairConsolePanel } from "../../../components/RepairConsolePanel";
 import { AppointmentNotificationBell } from "../../../components/AppointmentNotificationBell";
 
 type Tab = "home" | "overview" | "tagdashboard" | "products" | "inventory" | "orders" | "purchaseorders" | "locations" | "shifts" | "teamchat" | "delivery" | "repairs" | "offers" | "staff" | "metrics" | "kpi" | "checklist" | "whatsapp" | "replysettings" | "lms" | "multiloc" | "allchats" | "channels" | "contacts" | "invoices" | "reports" | "partsusage" | "notifications" | "settings" | "deleted";
@@ -151,6 +152,11 @@ export default function ClientDashboardClient() {
   useEffect(() => { setMounted((prev) => (prev.has(tab) ? prev : new Set<Tab>([...prev, tab]))); }, [tab]);
   const [client, setClient] = useState<Client | null>(null);
   const [clientType, setClientType] = useState<string>("regular");
+  // Distinguishes "haven't fetched this client yet" (clientType still its
+  // "regular" default) from "fetched, and it really is a regular client" --
+  // without this a repair shop's Home briefly rendered the regular snapshot
+  // before swapping to the Repair console.
+  const [clientLoaded, setClientLoaded] = useState(false);
   // Tabs that own the whole screen: customer-support Inbox everywhere, and
   // a repair shop's work bench (Repairs). When one is active the desktop
   // nav rail tucks away so the work surface is the focus.
@@ -455,6 +461,7 @@ export default function ClientDashboardClient() {
         const match = (data.clients as Client[]).find((c) => c.id === businessId);
         setClient(match ?? null);
         setClientType(match?.type ?? "regular");
+        setClientLoaded(true);
       });
   }, [businessId]);
 
@@ -510,7 +517,14 @@ export default function ClientDashboardClient() {
         </div>
       )}
       {([
-        ["home", <ClientHomePanel key="home" businessId={businessId} businessType={clientType} clientName={client?.name ?? businessId} username={username} onNavigate={(t) => selectTab(t as Tab)} />],
+        // A repair shop lands on the single-surface Repair console -- intake,
+        // the live work queue, an inventory glance, and billing, all without
+        // leaving the page. Every other business type keeps the snapshot home.
+        ["home", !clientLoaded
+          ? <div key="home" className="empty-state">Loading…</div>
+          : clientType === "repair"
+            ? <RepairConsolePanel key="home" businessId={businessId} clientName={client?.name ?? businessId} username={username} onNavigate={(t) => selectTab(t as Tab)} />
+            : <ClientHomePanel key="home" businessId={businessId} businessType={clientType} clientName={client?.name ?? businessId} username={username} onNavigate={(t) => selectTab(t as Tab)} />],
         ["overview", (
           <div key="overview">
             <SubscriptionStatus businessId={businessId} />
