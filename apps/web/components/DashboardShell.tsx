@@ -70,6 +70,8 @@ export function DashboardShell<T extends string>({
   hideRail?: boolean;
 }) {
   const [collapsed, setCollapsed] = useState<boolean>(false);
+  const [railOverride, setRailOverride] = useState(false);
+  const railHidden = Boolean(hideRail) && !railOverride;
   const [collapsedGroups, setCollapsedGroups] = useState<Record<number, boolean>>({});
   const [isMobile, setIsMobile] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -92,6 +94,13 @@ export function DashboardShell<T extends string>({
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
   }, []);
+
+  // When the parent turns focus-rail mode (e.g. Inbox, a repair shop's
+  // work panel) on or off, drop any manual override so the rail returns
+  // to its automatic show/hide state.
+  useEffect(() => {
+    setRailOverride(false);
+  }, [hideRail]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -199,7 +208,11 @@ export function DashboardShell<T extends string>({
         <button
           type="button"
           aria-label="Toggle sidebar"
-          onClick={() => (isMobile ? setMobileOpen(false) : setCollapsed((p) => !p))}
+          onClick={() => {
+            if (isMobile) setMobileOpen(false);
+            else if (hideRail) setRailOverride(false);
+            else setCollapsed((p) => !p);
+          }}
           style={{ display: "grid", placeItems: "center", width: 26, height: 26, borderRadius: "var(--r-sm)", border: "1px solid var(--line)", background: "var(--panel)", color: "var(--ink-3)", cursor: "pointer", flexShrink: 0 }}
         >
           <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -415,11 +428,35 @@ export function DashboardShell<T extends string>({
       {/* Scrim */}
       {isMobile && mobileOpen ? <div onClick={() => setMobileOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(16,21,28,0.45)", zIndex: 40, backdropFilter: "blur(2px)" }} /> : null}
 
-      {/* Sidebar (desktop / drawer) */}
-      {(!isMobile || mobileOpen) ? (
-        <div style={{ position: isMobile ? "fixed" : "relative", top: isMobile ? 0 : 0, left: isMobile ? 0 : 0, zIndex: isMobile ? 50 : 10, height: isMobile ? "100vh" : "auto" }}>
+      {/* Sidebar (desktop / drawer). In focus mode (hideRail) the desktop
+          rail is hidden so the focused work surface gets the full width;
+          a floating handle brings it back on demand. Mobile keeps the
+          drawer so navigation is never more than one tap away. */}
+      {isMobile ? (mobileOpen ? (
+        <div style={{ position: "fixed", top: 0, left: 0, zIndex: 50, height: "100vh" }}>
           {sidebar}
         </div>
+      ) : null) : (!railHidden ? (
+        <div style={{ position: "relative", top: 0, left: 0, zIndex: 10, height: "auto" }}>
+          {sidebar}
+        </div>
+      ) : null)}
+
+      {/* Floating rail handle: shown only when the desktop rail is
+          auto-hidden, so a focus surface stays full-width but the
+          operator can summon navigation without leaving the tab. */}
+      {!isMobile && railHidden ? (
+        <button
+          type="button"
+          aria-label="Show navigation"
+          title="Show navigation"
+          onClick={() => setRailOverride(true)}
+          style={{ position: "fixed", top: 14, left: 14, zIndex: 46, display: "grid", placeItems: "center", width: 34, height: 34, borderRadius: "var(--r-sm)", border: "1px solid var(--line)", background: "var(--panel)", color: "var(--ink-2)", cursor: "pointer", boxShadow: "var(--shadow-pop)" }}
+        >
+          <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
       ) : null}
 
       {/* Work area */}

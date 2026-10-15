@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { cardStyle, subtleTextStyle } from "../../../components/dashboard-styles";
@@ -151,6 +151,13 @@ export default function ClientDashboardClient() {
   useEffect(() => { setMounted((prev) => (prev.has(tab) ? prev : new Set<Tab>([...prev, tab]))); }, [tab]);
   const [client, setClient] = useState<Client | null>(null);
   const [clientType, setClientType] = useState<string>("regular");
+  // Tabs that own the whole screen: customer-support Inbox everywhere, and
+  // a repair shop's work bench (Repairs). When one is active the desktop
+  // nav rail tucks away so the work surface is the focus.
+  const focusTabs = useMemo(
+    () => new Set<Tab>(["allchats", ...(clientType === "repair" ? (["repairs"] as Tab[]) : [])]),
+    [clientType]
+  );
   const [isAdmin, setIsAdmin] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
   // null = unrestricted (admin, or a client account with no restriction
@@ -477,9 +484,9 @@ export default function ClientDashboardClient() {
       onLogout={logout}
       backHref={isAdmin ? "/dashboard" : undefined}
       topbarExtra={<AppointmentNotificationBell businessId={businessId} />}
-      fillHeight={tab === "allchats"}
+      fillHeight={tab === "allchats" || (clientType === "repair" && tab === "repairs")}
       businessId={businessId}
-      hideRail={tab === "allchats"}
+      hideRail={focusTabs.has(tab)}
     >
       {previewAsClient && isAdmin && (
         <div

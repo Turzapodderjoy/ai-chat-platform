@@ -4,8 +4,22 @@
 
 ## Timeline
 
-- Recent focus (this session): SWR caching, lazy-mounting, sidebar restoration, inbox UX, master profile selector, stability fixes.
-- Prior work: Hermes agent integration, provider error handling, fallback chains, replies defaults, repair vertical refinements.
+- Latest: Profiles tab (home for master profiles + undecided roadmap), focus-mode nav rail (Inbox and repair work bench take the full screen), populated master-profile metadata.
+- Recent: SWR caching, lazy-mounting, sidebar restoration, inbox UX, master profile selector, stability fixes.
+- Prior: Hermes agent integration, provider error handling, fallback chains, replies defaults, repair vertical refinements.
+
+---
+
+## Profiles & Focus Mode
+
+### Profiles tab (new)
+- **`apps/web/components/ProfilesPanel.tsx`**: Central home for master profiles — a card per available profile (Standard, Repair Gen) showing description, features, focus tabs and a **Set active** action, plus a "Not decided yet" section listing planned shapes (Salon, Clinic, Restaurant, E-commerce, Agency).
+- **`apps/web/app/dashboard/dashboard-client.tsx`**: Added a **Profiles** entry to the admin nav and mounted `ProfilesPanel`; platform dashboard now derives `hideRail` from the active master profile's `focusTabs`.
+- **`apps/web/lib/master-profile.ts`**: Master profiles now carry `status`, `landingTab`, `focusTabs` and `features`; added `PLANNED_PROFILES` for undecided shapes.
+
+### Focus-mode nav rail
+- **`apps/web/components/DashboardShell.tsx`**: Implemented the previously inert `hideRail` prop. When a focus tab is active the desktop rail auto-hides and a floating handle (top-left) reveals it on demand; the sidebar's own toggle re-hides it. Mobile keeps the drawer so navigation is always one tap away.
+- **`apps/web/app/dashboard/[businessId]/client-dashboard-client.tsx`**: `focusTabs` = Inbox for every business, plus **Repairs** for repair shops — so a phone-repair shop's work bench owns the screen exactly like a support team's Inbox does. Repair work bench also renders full-height.
 
 ---
 

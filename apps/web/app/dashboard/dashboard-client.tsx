@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 
 import { AllChatsPanel } from "../../components/AllChatsPanel";
 import { PlatformChannelAppsPanel } from "../../components/PlatformChannelAppsPanel";
@@ -14,6 +14,8 @@ import { ContactsPanel } from "../../components/ContactsPanel";
 import { InvoicesPanel } from "../../components/InvoicesPanel";
 import { SubscriptionPanel } from "../../components/SubscriptionPanel";
 import { StatusBadge } from "../../components/StatusBadge";
+import { ProfilesPanel } from "../../components/ProfilesPanel";
+import { useMasterProfile } from "../../lib/master-profile";
 import { DashboardShell, type NavGroup } from "../../components/DashboardShell";
 import { cardStyle, cellStyle, subtleTextStyle, primaryButtonStyle, inputStyle } from "../../components/dashboard-styles";
 import { showAlert, showConfirm } from "../../lib/app-dialog";
@@ -67,7 +69,7 @@ const TIMEZONE_LABELS: [string, string][] = (() => {
     .map(([minutes, tz]): [string, string] => [tz, gmtOffsetLabel(minutes)]);
 })();
 
-type Tab = "overview" | "vpsHealth" | "channels" | "usage" | "clients" | "access" | "adminUsers" | "allchats" | "database" | "tags" | "contacts" | "invoices" | "subscription" | "hermesAgents" | "hermesControl" | "replysettings" | "systemMap" | "itguy" | "reports" | "changelog";
+type Tab = "overview" | "vpsHealth" | "channels" | "usage" | "clients" | "access" | "adminUsers" | "allchats" | "database" | "tags" | "contacts" | "invoices" | "subscription" | "hermesAgents" | "hermesControl" | "replysettings" | "systemMap" | "itguy" | "reports" | "profiles" | "changelog";
 
 const NAV_GROUPS: NavGroup<Tab>[] = [
   { items: [{ id: "overview", label: "Overview" }] },
@@ -102,7 +104,9 @@ const NAV_GROUPS: NavGroup<Tab>[] = [
       { id: "hermesAgents", label: "AI Agents" },
       { id: "hermesControl", label: "Agent Control" },
       { id: "systemMap", label: "System Map" },
-      { id: "itguy", label: "IT Guy" }, { id: "changelog", label: "Changelog" },
+      { id: "itguy", label: "IT Guy" },
+      { id: "profiles", label: "Profiles" },
+      { id: "changelog", label: "Changelog" },
       { id: "vpsHealth", label: "VPS Health" },
     ],
   },
@@ -226,6 +230,8 @@ export default function DashboardClient() {
   const [mounted, setMounted] = useState<Set<Tab>>(new Set<Tab>(["overview"]));
   useEffect(() => { setMounted((prev) => (prev.has(tab) ? prev : new Set<Tab>([...prev, tab]))); }, [tab]);
   const [username, setUsername] = useState<string | null>(null);
+  const { profile } = useMasterProfile();
+  const focusTabs = useMemo(() => new Set<Tab>((profile?.focusTabs ?? []) as Tab[]), [profile]);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -273,7 +279,7 @@ export default function DashboardClient() {
       username={username}
       onLogout={logout}
       fillHeight={tab === "allchats"}
-      hideRail={tab === "allchats"}
+      hideRail={focusTabs.has(tab)}
     >
       <ItGuyAlertBanner onGoto={() => selectTab("itguy")} />
       {/* Every panel stays mounted (hidden via CSS, not unmounted) so
@@ -334,6 +340,9 @@ export default function DashboardClient() {
       </div> : null}
       {tab === "itguy" ? <div style={{ display: tab === "itguy" ? "block" : "none" }}>
         <ItGuyPanel />
+      </div> : null}
+      {tab === "profiles" ? <div style={{ display: tab === "profiles" ? "block" : "none" }}>
+        <ProfilesPanel />
       </div> : null}
       {tab === "changelog" ? <div style={{ display: tab === "changelog" ? "block" : "none" }}>
         <ChangelogPanel />
