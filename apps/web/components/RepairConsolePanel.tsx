@@ -7,6 +7,11 @@ import { OrderItemsEditor, type RepairOrder } from "./OrderManagementPanel";
 import { WalkInDialog } from "./WalkInDialog";
 import { RefillDialog } from "./RefillDialog";
 import { InventoryPanel } from "./InventoryPanel";
+import { RepairsPanel } from "./RepairsPanel";
+import { OrdersPanel } from "./OrdersPanel";
+import { InvoicesPanel } from "./InvoicesPanel";
+import { ContactsPanel } from "./ContactsPanel";
+import { MarkdownMessage } from "./MarkdownMessage";
 import { useCurrencySymbol } from "../lib/currency";
 
 interface Appointment {
@@ -67,6 +72,26 @@ interface StaffMember {
   role: string;
   active: boolean;
 }
+
+interface Message {
+  id: string;
+  role: "system" | "user" | "assistant" | "agent";
+  content: string;
+  createdAt: string;
+}
+
+// The five surfaces a repair desk actually lives in, each opened in place as a
+// slide-over instead of bouncing to its own tab. Everything else still routes
+// through "Jump to".
+type Workspace = "repairs" | "orders" | "invoices" | "inventory" | "contacts";
+
+const WORKSPACE_TITLE: Record<Workspace, string> = {
+  repairs: "Repairs board",
+  orders: "Orders",
+  invoices: "Invoices",
+  inventory: "Inventory",
+  contacts: "Customers",
+};
 
 // The work queue is the same five live stages the board uses everywhere
 // else — "cancelled" is a dead end, so it never earns a column.
@@ -174,6 +199,71 @@ const specGridStyle: CSSProperties = {
 
 const specCellStyle: CSSProperties = { padding: "9px 12px", background: "var(--panel)", minWidth: 0 };
 
+// A wider sibling of the work-order drawer — a workspace tab set down over the
+// console. Rendered without the .panel class so the tab it hosts keeps its own
+// border instead of boxing a box.
+const workspaceStyle: CSSProperties = {
+  position: "fixed",
+  top: 0,
+  right: 0,
+  bottom: 0,
+  width: "min(1100px, 94vw)",
+  zIndex: 100,
+  background: "var(--canvas)",
+  borderLeft: "1px solid var(--line)",
+  display: "flex",
+  flexDirection: "column",
+  boxShadow: "var(--shadow-pop)",
+};
+
+const threadStyle: CSSProperties = {
+  border: "1px solid var(--line)",
+  borderRadius: "var(--r-sm)",
+  overflow: "hidden",
+};
+
+const threadScrollStyle: CSSProperties = {
+  minHeight: 200,
+  maxHeight: 400,
+  overflowY: "auto",
+  padding: 12,
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+  background: "var(--canvas)",
+};
+
+const bubbleShellStyle: CSSProperties = { maxWidth: "80%", display: "flex", flexDirection: "column", gap: 4 };
+
+// Same three signatures as the Repairs board: customer = sunk well, staff =
+// raised panel with a cobalt edge, AI/agent = the amber machine block.
+const bubbleCustomerStyle: CSSProperties = {
+  background: "var(--panel-sunk)",
+  border: "1px solid var(--line)",
+  borderRadius: "var(--r-sm)",
+  padding: "8px 11px",
+  fontSize: 13,
+  color: "var(--ink)",
+};
+
+const bubbleStaffStyle: CSSProperties = {
+  background: "var(--panel)",
+  border: "1px solid var(--accent-line)",
+  borderRadius: "var(--r-sm)",
+  padding: "8px 11px",
+  fontSize: 13,
+  color: "var(--ink)",
+};
+
+const bubbleMachineStyle: CSSProperties = {
+  ...bubbleStaffStyle,
+  background: "var(--machine-subtle)",
+  borderColor: "var(--machine-line)",
+  color: "var(--ink)",
+};
+
+const bubbleMetaStyle: CSSProperties = { fontSize: 11, color: "var(--ink-4)" };
+
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(Math.abs(diff) / 60000);
@@ -208,11 +298,13 @@ export function RepairConsolePanel({
   businessId,
   clientName,
   active = true,
+  accountRole,
   onNavigate,
 }: {
   businessId: string;
   clientName?: string;
   active?: boolean;
+  accountRole?: string | null;
   onNavigate?: (tab: string) => void;
 }) {
   const currency = useCurrencySymbol(businessId);
@@ -224,11 +316,15 @@ export function RepairConsolePanel({
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [slideOver, setSlideOver] = useState<Workspace | null>(null);
   const [walkInOpen, setWalkInOpen] = useState(false);
   const [refillFor, setRefillFor] = useState<Product | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+
+  const [messages, setMessages] = useState<Message[] | null>(null);
+  const [reply, setReply] = useState("");
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 900px)");
@@ -282,11 +378,25 @@ export function RepairConsolePanel({
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && selectedId) setSelectedId(null);
+      if (e.key !== "Escape") return;
+      if (slideOver) setSlideOver(null);
+      else if (selectedId) setSelectedId(null);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedId]);
+  }, [selectedId, slideOver]);
+
+  // The work-order conversation lives on the repair's own tracking thread
+  // (Conversation.id === RepairAppointment.trackingToken), so this reads and
+  // writes exactly the messages the customer sees on their tracking page.
+  useEffect(() => {
+    if (!active || !selected) return;
+    setMessages(null);
+    fetchMessages(selected.trackingToken);
+    const interval = setInterval(() => fetchMessages(selected.trackingToken), 5000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.trackingToken, active]);
 
   const staffMap = useMemo(() => new Map(staff.map((s) => [s.id, s])), [staff]);
   const billedRepairIds = useMemo(
@@ -336,6 +446,8 @@ export function RepairConsolePanel({
         body: JSON.stringify({ id, status }),
       });
       refresh();
+      // A status change writes its own system message onto the thread.
+      if (selected) fetchMessages(selected.trackingToken);
     } finally {
       setBusyId(null);
     }
@@ -348,6 +460,32 @@ export function RepairConsolePanel({
       body: JSON.stringify({ id, ...patch }),
     });
     refresh();
+    if (selected) fetchMessages(selected.trackingToken);
+  }
+
+  function fetchMessages(token: string) {
+    fetch(`/api/chat/messages?sessionId=${encodeURIComponent(token)}`)
+      .then((r) => r.json())
+      .then((d: { messages: Message[] }) => setMessages(d.messages ?? []))
+      .catch(() => {});
+  }
+
+  async function sendReply() {
+    if (!selected || !reply.trim()) return;
+    setSending(true);
+    try {
+      const res = await fetch("/api/admin/handoffs/reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: selected.trackingToken, message: reply }),
+      });
+      if (res.ok) {
+        setReply("");
+        fetchMessages(selected.trackingToken);
+      }
+    } finally {
+      setSending(false);
+    }
   }
 
   async function generateInvoice(a: Appointment) {
@@ -451,8 +589,8 @@ export function RepairConsolePanel({
             </span>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <button className="sm" onClick={() => setInventoryOpen((o) => !o)} aria-pressed={inventoryOpen}>
-              {inventoryOpen ? "Back to work queue" : `Inventory${lowStock > 0 ? ` · ${lowStock} low` : ""}`}
+            <button className="sm" onClick={() => setSlideOver("inventory")}>
+              {`Inventory${lowStock > 0 ? ` · ${lowStock} low` : ""}`}
             </button>
             <button className="primary sm" onClick={() => setWalkInOpen(true)}>
               New walk-in
@@ -461,18 +599,7 @@ export function RepairConsolePanel({
         </div>
       </div>
 
-      {inventoryOpen ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <span className="meta">Full stock record — add, edit, import, restock, and review every lot.</span>
-            <button className="sm" onClick={() => setInventoryOpen(false)}>
-              Back to work queue
-            </button>
-          </div>
-          <InventoryPanel businessId={businessId} active={inventoryOpen} />
-        </div>
-      ) : (
-        <>
+      <>
           <StatCardRow>
             <StatCard label="In intake" value={stats.intakeCount} tone="info" hint={stats.intakeCount ? "Waiting to be received" : undefined} />
             <StatCard label="In repair" value={stats.inRepairCount} tone="accent" hint={stats.inRepairCount ? "On the bench" : undefined} />
@@ -557,7 +684,7 @@ export function RepairConsolePanel({
                       <button className="sm" onClick={() => setRefillFor(p)}>Refill</button>
                     </div>
                   ))}
-                  <button className="sm" onClick={() => setInventoryOpen(true)}>Open full inventory</button>
+                  <button className="sm" onClick={() => setSlideOver("inventory")}>Open full inventory</button>
                 </div>
               </div>
 
@@ -592,13 +719,24 @@ export function RepairConsolePanel({
 
               <div className="panel">
                 <div className="panel-head">
+                  <span className="instrument-label">Workspaces</span>
+                </div>
+                <div className="panel-body" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {(Object.keys(WORKSPACE_TITLE) as Workspace[]).map((w) => (
+                    <button key={w} className="sm" onClick={() => setSlideOver(w)}>
+                      {WORKSPACE_TITLE[w]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="panel">
+                <div className="panel-head">
                   <span className="instrument-label">Jump to</span>
                 </div>
                 <div className="panel-body" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   {onNavigate && (
                     <>
-                      <button className="sm" onClick={() => onNavigate("invoices")}>All invoices</button>
-                      <button className="sm" onClick={() => onNavigate("contacts")}>Customers</button>
                       <button className="sm" onClick={() => onNavigate("reports")}>Reports</button>
                       <button className="sm" onClick={() => onNavigate("allchats")}>Inbox</button>
                     </>
@@ -607,8 +745,7 @@ export function RepairConsolePanel({
               </div>
             </div>
           </div>
-        </>
-      )}
+      </>
 
       {selected && (
         <div
@@ -685,6 +822,64 @@ export function RepairConsolePanel({
 
             <div style={{ marginBottom: 20 }}>
               <div className="panel-head" style={{ minHeight: 0, padding: "0 0 8px", borderBottom: "1px solid var(--line-soft)", marginBottom: 12 }}>
+                <span className="instrument-label">Conversation</span>
+                <span className="data meta" style={{ marginLeft: "auto" }}>{messages?.length ?? 0}</span>
+              </div>
+              <div style={threadStyle}>
+                <div className="panel-scroll" style={threadScrollStyle}>
+                  {!messages && (
+                    <div>
+                      <div className="skeleton skeleton-text" style={{ width: "40%" }} />
+                      <div className="skeleton skeleton-text" style={{ width: "65%" }} />
+                    </div>
+                  )}
+                  {messages?.length === 0 && (
+                    <div className="empty-state" style={{ padding: "18px 16px" }}>
+                      <span className="empty-state-title">No messages yet</span>
+                      <span className="empty-state-description">Write the first reply to confirm the intake details with the customer.</span>
+                    </div>
+                  )}
+                  {messages?.map((m) => {
+                    if (m.role === "system") {
+                      return (
+                        <div key={m.id} className="data meta" style={{ alignSelf: "center", textAlign: "center", maxWidth: "80%" }}>
+                          {m.content} <span style={{ opacity: 0.7 }}>{new Date(m.createdAt).toLocaleString()}</span>
+                        </div>
+                      );
+                    }
+                    const isCustomer = m.role === "user";
+                    const isMachine = m.role === "assistant" || m.role === "agent";
+                    return (
+                      <div key={m.id} style={{ ...bubbleShellStyle, alignSelf: isCustomer ? "flex-start" : "flex-end" }}>
+                        <div style={isCustomer ? bubbleCustomerStyle : isMachine ? bubbleMachineStyle : bubbleStaffStyle}>
+                          {isCustomer ? m.content : <MarkdownMessage text={m.content} />}
+                        </div>
+                        <span className="data" style={bubbleMetaStyle}>
+                          {isCustomer ? "Customer" : isMachine ? "Assistant" : "Staff"}{" "}
+                          {new Date(m.createdAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ display: "flex", gap: 8, padding: 12, borderTop: "1px solid var(--line)", background: "var(--panel)" }}>
+                  <input
+                    aria-label="Reply to the customer"
+                    style={{ flex: 1, minWidth: 0 }}
+                    placeholder="Write a reply to the customer"
+                    value={reply}
+                    onChange={(e) => setReply(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") sendReply(); }}
+                  />
+                  <button className="primary" onClick={sendReply} disabled={sending || !reply.trim()}>
+                    {sending ? "Sending" : "Send reply"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div className="panel-head" style={{ minHeight: 0, padding: "0 0 8px", borderBottom: "1px solid var(--line-soft)", marginBottom: 12 }}>
                 <span className="instrument-label">Parts &amp; services</span>
                 <span className="data" style={{ marginLeft: "auto", fontWeight: 600 }}>{currency}{costOf(selected).toFixed(2)}</span>
               </div>
@@ -721,6 +916,45 @@ export function RepairConsolePanel({
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {slideOver && (
+        <div
+          role="dialog"
+          aria-label={WORKSPACE_TITLE[slideOver]}
+          style={{ ...workspaceStyle, ...(isMobile ? { width: "100%", maxWidth: "none", borderLeft: "none" } : null) }}
+        >
+          <div className="panel-head" style={{ alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+              <button className="ghost sm" autoFocus style={{ width: 32, height: 32, padding: 0 }} onClick={() => setSlideOver(null)} aria-label="Close workspace">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                </svg>
+              </button>
+              <span className="instrument-label">{WORKSPACE_TITLE[slideOver]}</span>
+            </div>
+            {onNavigate && (
+              <button
+                className="sm"
+                style={{ marginLeft: "auto" }}
+                onClick={() => {
+                  const t = slideOver;
+                  setSlideOver(null);
+                  onNavigate(t);
+                }}
+              >
+                Open full tab
+              </button>
+            )}
+          </div>
+          <div className="panel-scroll" style={{ flex: 1, overflowY: "auto", padding: 16 }}>
+            {slideOver === "repairs" && <RepairsPanel businessId={businessId} active accountRole={accountRole ?? null} />}
+            {slideOver === "orders" && <OrdersPanel businessId={businessId} accountRole={accountRole ?? null} />}
+            {slideOver === "invoices" && <InvoicesPanel businessId={businessId} active />}
+            {slideOver === "inventory" && <InventoryPanel businessId={businessId} active />}
+            {slideOver === "contacts" && <ContactsPanel businessId={businessId} active />}
           </div>
         </div>
       )}

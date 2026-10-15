@@ -523,7 +523,7 @@ export default function ClientDashboardClient() {
         ["home", !clientLoaded
           ? <div key="home" className="empty-state">Loading…</div>
           : clientType === "repair"
-            ? <RepairConsolePanel key="home" businessId={businessId} clientName={client?.name ?? businessId} active={tab === "home"} onNavigate={(t) => selectTab(t as Tab)} />
+            ? <RepairConsolePanel key="home" businessId={businessId} clientName={client?.name ?? businessId} active={tab === "home"} accountRole={isAdmin ? "admin" : accountRole} onNavigate={(t) => selectTab(t as Tab)} />
             : <ClientHomePanel key="home" businessId={businessId} businessType={clientType} clientName={client?.name ?? businessId} username={username} onNavigate={(t) => selectTab(t as Tab)} />],
         ["overview", (
           <div key="overview">
